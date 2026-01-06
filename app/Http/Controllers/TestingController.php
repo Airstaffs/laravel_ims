@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ItemCondition;
 use App\Traits\TracksHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;  
-use App\Models\ItemCondition;
+use Illuminate\Support\Facades\Validator;
 
 class TestingController extends BasetablesController
 {
@@ -17,17 +17,23 @@ class TestingController extends BasetablesController
     public function index(Request $request)
     {
         try {
+            $productTable = 'tblproduct';
+            $capturedImagesTable = 'captured_images';
+            $company = 'Airstaffs';
+
             $perPage = $request->input('per_page', 10);
             $search = $request->input('search', '');
             $location = $request->input('location', 'Testing');
+            $includeImages = $request->boolean('include_images', false);
 
             Log::info('Testing API called', [
                 'search' => $search,
                 'location' => $location,
-                'perPage' => $perPage
+                'perPage' => $perPage,
+                'includeImages' => $includeImages,
             ]);
 
-            $query = DB::table($this->productTable)
+            $query = DB::table($productTable)
                 ->where('ProductModuleLoc', $location);
 
             if ($search) {
@@ -42,6 +48,84 @@ class TestingController extends BasetablesController
 
             $products = $query->paginate($perPage);
 
+            Log::info('Products fetched successfully', ['count' => $products->count()]);
+
+            // Transform products to add company field
+            $products->getCollection()->transform(function ($product) use ($company) {
+                $product->company = $company;
+
+                return $product;
+            });
+
+            // If images are requested, check for captured image files
+            if ($includeImages) {
+                try {
+                    $publicPath = public_path('images/product_images/'.$company);
+
+                    Log::info('Checking for captured images in path', ['path' => $publicPath]);
+
+                    // Add captured images data to each product
+                    $products->getCollection()->transform(function ($product) use ($publicPath) {
+                        $capturedImages = (object) [];
+
+                        // Check for up to 12 captured images
+                        for ($i = 1; $i <= 12; $i++) {
+                            $filename = $product->ProductID.'_img'.$i.'.jpg';
+                            $filePath = $publicPath.'/'.$filename;
+
+                            if (file_exists($filePath)) {
+                                $capturedImages->{"capturedimg{$i}"} = $filename;
+                            }
+                        }
+
+                        // Check for serial images
+                        $serialImg1 = $product->ProductID.'_serialimg1.jpg';
+                        $serialImg2 = $product->ProductID.'_serialimg2.jpg';
+
+                        if (file_exists($publicPath.'/'.$serialImg1)) {
+                            $capturedImages->serialimg1 = $serialImg1;
+                        }
+                        if (file_exists($publicPath.'/'.$serialImg2)) {
+                            $capturedImages->serialimg2 = $serialImg2;
+                        }
+
+                        $product->capturedImages = $capturedImages;
+
+                        // Set img1 directly for the main thumbnail display if capturedimg1 exists
+                        if (! empty($capturedImages->capturedimg1)) {
+                            $product->img1 = $capturedImages->capturedimg1;
+                        }
+
+                        Log::info('Added captured images to product', [
+                            'ProductID' => $product->ProductID,
+                            'capturedImagesCount' => count((array) $capturedImages),
+                            'hasImg1' => ! empty($product->img1),
+                        ]);
+
+                        return $product;
+                    });
+                } catch (\Exception $e) {
+                    Log::error('Error checking for image files', [
+                        'message' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+
+                    // Continue without images but add empty capturedImages object
+                    $products->getCollection()->transform(function ($product) {
+                        $product->capturedImages = (object) [];
+
+                        return $product;
+                    });
+                }
+            } else {
+                // Even if images are not requested, initialize empty capturedImages
+                $products->getCollection()->transform(function ($product) {
+                    $product->capturedImages = (object) [];
+
+                    return $product;
+                });
+            }
+
             return response()->json([
                 'data' => $products->items(),
                 'total' => $products->total(),
@@ -53,7 +137,7 @@ class TestingController extends BasetablesController
         } catch (\Exception $e) {
             Log::error('Testing API error', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
@@ -71,6 +155,7 @@ class TestingController extends BasetablesController
     private function getCurrentUserName()
     {
         $user = Auth::user();
+
         return $user ? ($user->username ?? $user->name ?? 'Unknown') : 'Unknown';
     }
 
@@ -78,7 +163,7 @@ class TestingController extends BasetablesController
     {
         try {
             $conditionType = $request->input('type', 'receive');
-            
+
             // Get the LATEST condition of this type for this item
             $condition = ItemCondition::where('item_number', $itemNumber)
                 ->where('condition_type', $conditionType)
@@ -101,7 +186,7 @@ class TestingController extends BasetablesController
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch condition data',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -136,7 +221,7 @@ class TestingController extends BasetablesController
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -151,8 +236,8 @@ class TestingController extends BasetablesController
                     ->where('product_id', $data['product_id'])
                     ->where('condition_type', 'receive')
                     ->exists();
-                    
-                if (!$hasReceive) {
+
+                if (! $hasReceive) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Cannot add release condition without a receive condition first',
@@ -165,32 +250,32 @@ class TestingController extends BasetablesController
                 [
                     'item_number' => $data['item_number'],
                     'product_id' => $data['product_id'],
-                    'condition_type' => $data['condition_type']
+                    'condition_type' => $data['condition_type'],
                 ],
                 $data
             );
 
             $wasRecentlyCreated = $condition->wasRecentlyCreated;
-            
+
             return response()->json([
                 'success' => true,
-                'message' => $wasRecentlyCreated 
-                    ? 'Condition checklist created successfully' 
+                'message' => $wasRecentlyCreated
+                    ? 'Condition checklist created successfully'
                     : 'Condition checklist updated successfully',
                 'condition' => $condition,
-                'score' => $condition->condition_score
+                'score' => $condition->condition_score,
             ]);
         } catch (\Exception $e) {
             Log::error('Save condition error', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'data' => $request->all()
+                'data' => $request->all(),
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to save condition data',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -210,7 +295,7 @@ class TestingController extends BasetablesController
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -224,17 +309,17 @@ class TestingController extends BasetablesController
                 ->where('ProductID', $productId)
                 ->first();
 
-            if (!$item) {
+            if (! $item) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Item not found'
+                    'message' => 'Item not found',
                 ], 404);
             }
 
             if ($item->ProductModuleLoc !== 'Testing') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Item is not in Testing module'
+                    'message' => 'Item is not in Testing module',
                 ], 422);
             }
 
@@ -244,10 +329,10 @@ class TestingController extends BasetablesController
                 ->where('condition_type', 'receive')
                 ->exists();
 
-            if (!$hasReceiveCondition) {
+            if (! $hasReceiveCondition) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Cannot move item without completing receive condition checklist'
+                    'message' => 'Cannot move item without completing receive condition checklist',
                 ], 422);
             }
 
@@ -257,7 +342,7 @@ class TestingController extends BasetablesController
                 ->where('ProductID', $productId)
                 ->update([
                     'ProductModuleLoc' => 'Cleaning',
-                    'lastDateUpdate' => now()
+                    'lastDateUpdate' => now(),
                 ]);
 
             // Log the movement in history if TracksHistory trait is available
@@ -275,7 +360,7 @@ class TestingController extends BasetablesController
                 'item_number' => $itemNumber,
                 'product_id' => $productId,
                 'moved_by' => $this->getCurrentUserName(),
-                'timestamp' => now()
+                'timestamp' => now(),
             ]);
 
             return response()->json([
@@ -285,21 +370,21 @@ class TestingController extends BasetablesController
                     'item_number' => $itemNumber,
                     'product_id' => $productId,
                     'new_location' => 'Cleaning',
-                    'moved_at' => now()->toDateTimeString()
-                ]
+                    'moved_at' => now()->toDateTimeString(),
+                ],
             ]);
 
         } catch (\Exception $e) {
             Log::error('Move to Cleaning error', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
+                'request' => $request->all(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to move item to Cleaning module',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -327,7 +412,7 @@ class TestingController extends BasetablesController
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch condition history',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -340,7 +425,7 @@ class TestingController extends BasetablesController
         try {
             $comparison = ItemCondition::compareConditions($itemNumber);
 
-            if (!$comparison) {
+            if (! $comparison) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Item does not have both receive and release conditions',
@@ -355,7 +440,7 @@ class TestingController extends BasetablesController
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to compare conditions',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -372,7 +457,7 @@ class TestingController extends BasetablesController
                 ->map(function ($item) {
                     $receive = ItemCondition::latestReceive($item->item_number)->first();
                     $release = ItemCondition::latestRelease($item->item_number)->first();
-                    
+
                     return [
                         'item_number' => $item->item_number,
                         'product_id' => $item->product_id,
@@ -392,7 +477,7 @@ class TestingController extends BasetablesController
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch testing overview',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -408,13 +493,13 @@ class TestingController extends BasetablesController
 
             return response()->json([
                 'success' => true,
-                'message' => 'Condition record deleted successfully'
+                'message' => 'Condition record deleted successfully',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete condition record',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

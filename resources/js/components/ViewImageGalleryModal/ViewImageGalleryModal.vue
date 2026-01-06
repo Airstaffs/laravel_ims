@@ -1,22 +1,43 @@
 <template>
-    <Dialog :visible="showImageModal" :header="ProductTitle" modal closable :draggable="false"
-        :style="{ width: '90vw', maxWidth: '1200px' }" :contentStyle="{ padding: '0' }"
-        @update:visible="handleVisibilityChange" :pt="{
-            root: { class: 'mobile-fullscreen-dialog' }
-        }">
+    <Dialog
+        :visible="showImageModal"
+        :header="ProductTitle"
+        modal
+        closable
+        :draggable="false"
+        :style="{ width: '90vw', maxWidth: '1200px' }"
+        :contentStyle="{ padding: '0' }"
+        @update:visible="handleVisibilityChange"
+        :pt="{
+            root: { class: 'mobile-fullscreen-dialog' },
+        }"
+    >
         <div class="image-gallery-content">
-
             <!-- TABS -->
             <div class="tabs-container">
-                <button v-for="tab in tabs" :key="tab.key" :class="['tab-btn', { 'active-tab': activeTab === tab.key }]"
-                    :disabled="tab.images.length === 0" @click="switchTab(tab.key)">
+                <button
+                    v-for="tab in tabs"
+                    :key="tab.key"
+                    :class="[
+                        'tab-btn',
+                        { 'active-tab': activeTab === tab.key },
+                    ]"
+                    :disabled="tab.images.length === 0"
+                    @click="switchTab(tab.key)"
+                >
                     {{ tab.label }} ({{ tab.images.length }})
                 </button>
             </div>
 
             <!-- RENDER BOTH TABS (hidden via CSS) -->
-            <div v-for="tab in tabs" :key="tab.key" :class="['tab-content', { 'tab-active': activeTab === tab.key }]">
-
+            <div
+                v-for="tab in tabs"
+                :key="tab.key"
+                :class="[
+                    'tab-content',
+                    { 'tab-active': activeTab === tab.key },
+                ]"
+            >
                 <!-- EMPTY STATE -->
                 <div v-if="tab.images.length === 0" class="no-images">
                     <i class="pi pi-image" style="font-size: 3rem"></i>
@@ -25,41 +46,70 @@
 
                 <!-- GALLERY -->
                 <div v-else class="gallery-container">
-
                     <!-- MAIN IMAGE + NAV -->
                     <div class="main-image-wrapper">
-                        <Button v-if="tab.images.length > 1" icon="pi pi-chevron-left" class="nav-btn nav-btn-prev"
-                            rounded text @click="changeImage(tab.key, -1)" />
+                        <Button
+                            v-if="tab.images.length > 1"
+                            icon="pi pi-chevron-left"
+                            class="nav-btn nav-btn-prev"
+                            rounded
+                            text
+                            @click="changeImage(tab.key, -1)"
+                        />
 
-                        <img :src="tab.images[tabIndices[tab.key]]" alt="Image" class="main-image"
-                            @error="handleImageError" />
+                        <img
+                            :src="tab.images[tabIndices[tab.key]]"
+                            alt="Image"
+                            class="main-image"
+                            @error="handleImageError"
+                        />
 
-                        <Button v-if="tab.images.length > 1" icon="pi pi-chevron-right" class="nav-btn nav-btn-next"
-                            rounded text @click="changeImage(tab.key, 1)" />
+                        <Button
+                            v-if="tab.images.length > 1"
+                            icon="pi pi-chevron-right"
+                            class="nav-btn nav-btn-next"
+                            rounded
+                            text
+                            @click="changeImage(tab.key, 1)"
+                        />
                     </div>
 
                     <!-- COUNTER -->
                     <div class="image-counter">
-                        <Tag :value="`${tabIndices[tab.key] + 1} / ${tab.images.length}`" />
+                        <Tag
+                            :value="`${tabIndices[tab.key] + 1} / ${
+                                tab.images.length
+                            }`"
+                        />
                     </div>
 
                     <!-- THUMBNAILS -->
                     <div v-if="tab.images.length > 1" class="thumbnails">
-                        <div v-for="(img, i) in tab.images" :key="i" v-show="img"
-                            :class="['thumbnail', { 'thumbnail-active': i === tabIndices[tab.key] }]"
-                            @click="tabIndices[tab.key] = i">
-                            <img :src="img" @error="handleImageError" loading="lazy" />
+                        <div
+                            v-for="(img, i) in tab.images"
+                            :key="i"
+                            v-show="img"
+                            :class="[
+                                'thumbnail',
+                                {
+                                    'thumbnail-active':
+                                        i === tabIndices[tab.key],
+                                },
+                            ]"
+                            @click="tabIndices[tab.key] = i"
+                        >
+                            <img
+                                :src="img"
+                                @error="handleImageError"
+                                loading="lazy"
+                            />
                         </div>
                     </div>
-
                 </div>
             </div>
-
         </div>
-
     </Dialog>
 </template>
-
 
 <script setup>
 import { ref, computed, watch, reactive } from "vue";
@@ -73,34 +123,37 @@ const props = defineProps({
     regularImages: { type: Array, default: () => [] },
     capturedImages: { type: Array, default: () => [] },
     handleImageError: Function,
-    closeImageModal: Function
+    closeImageModal: Function,
 });
 
 const activeTab = ref("regular");
 const tabIndices = reactive({
     regular: 0,
-    captured: 0
+    captured: 0,
 });
 
-console.log(props.capturedImages, "capturedImages", props.regularImages)
+console.log(props.capturedImages, "capturedImages", props.regularImages);
 
 const tabs = computed(() => [
     {
         key: "regular",
         label: "Product Images",
-        images: (props.regularImages || []).filter(img => img != null && img !== "")
+        images: (props.regularImages || []).filter(
+            (img) => img != null && img !== ""
+        ),
     },
     {
         key: "captured",
         label: "Captured Images",
-        images: (props.capturedImages || []).filter(img => img != null && img !== "")
-    }
+        images: (props.capturedImages || []).filter(
+            (img) => img != null && img !== ""
+        ),
+    },
 ]);
-
 
 // Preload adjacent images for smoother navigation
 const preloadImages = (tabKey) => {
-    const tab = tabs.value.find(t => t.key === tabKey);
+    const tab = tabs.value.find((t) => t.key === tabKey);
     if (!tab || tab.images.length <= 1) return;
 
     const currentIndex = tabIndices[tabKey];
@@ -110,7 +163,7 @@ const preloadImages = (tabKey) => {
     const prevIndex = (currentIndex - 1 + images.length) % images.length;
     const nextIndex = (currentIndex + 1) % images.length;
 
-    [images[prevIndex], images[nextIndex]].forEach(src => {
+    [images[prevIndex], images[nextIndex]].forEach((src) => {
         if (src) {
             const img = new Image();
             img.src = src;
@@ -124,7 +177,7 @@ const switchTab = (tab) => {
 };
 
 const changeImage = (tabKey, dir) => {
-    const images = tabs.value.find(t => t.key === tabKey)?.images || [];
+    const images = tabs.value.find((t) => t.key === tabKey)?.images || [];
     const total = images.length;
     tabIndices[tabKey] = (tabIndices[tabKey] + dir + total) % total;
     preloadImages(tabKey);
@@ -145,7 +198,10 @@ watch(
             // Preload first images when modal opens
             setTimeout(() => {
                 preloadImages("regular");
-                if (tabs.value.find(t => t.key === "captured")?.images.length > 0) {
+                if (
+                    tabs.value.find((t) => t.key === "captured")?.images
+                        .length > 0
+                ) {
                     preloadImages("captured");
                 }
             }, 100);
@@ -154,7 +210,6 @@ watch(
 );
 </script>
 
-
 <style scoped>
 /* ===== GENERAL LAYOUT ===== */
 .image-gallery-content {
@@ -162,7 +217,7 @@ watch(
     flex-direction: column;
     align-items: center;
     gap: 1.5rem;
-    padding: .5rem;
+    padding: 0.5rem;
     width: 100%;
     box-sizing: border-box;
 }
@@ -230,7 +285,7 @@ watch(
     align-items: center;
     width: 100%;
     max-width: 900px;
-    gap: .5rem;
+    gap: 0.5rem;
 }
 
 .main-image-wrapper {
