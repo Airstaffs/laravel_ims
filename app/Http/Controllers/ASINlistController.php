@@ -17,7 +17,7 @@ class ASINlistController extends BasetablesController
     /**
      * Display a listing of ASINs with their FNSKU data
      */
-    public function index(Request $request)
+     public function index(Request $request)
     {
         try {
             $perPage = min($request->input('per_page', 15), 100);
@@ -30,6 +30,7 @@ class ASINlistController extends BasetablesController
                 ->select([
                     'asin.ASIN',
                     'asin.internal as AStitle',
+                    'asin.system_title', // Added system_title
                     'asin.metakeyword',
                     'asin.EAN',
                     'asin.UPC',
@@ -39,7 +40,7 @@ class ASINlistController extends BasetablesController
                     'asin.GrandASIN',
                     'asin.instructioncard',
                     'asin.instructioncard2',
-                    'asin.instructioncard3', // Added instruction card 3
+                    'asin.instructioncard3',
                     'asin.instructionlink',
                     'asin.usermanuallink',
                     'asin.asinimg',
@@ -69,6 +70,7 @@ class ASINlistController extends BasetablesController
                 $asinQuery->where(function ($query) use ($search) {
                     $query->where('asin.ASIN', 'like', "%{$search}%")
                         ->orWhere('asin.internal', 'like', "%{$search}%")
+                        ->orWhere('asin.system_title', 'like', "%{$search}%") // Added system_title to search
                         ->orWhere('fnsku.FNSKU', 'like', "%{$search}%");
                 });
             }
@@ -78,10 +80,11 @@ class ASINlistController extends BasetablesController
                 $asinQuery->where('fnsku.storename', $store);
             }
 
-            // Group by ASIN - Updated to include instructioncard3
+            // Group by ASIN - Added system_title
             $asinQuery->groupBy(
                 'asin.ASIN',
                 'asin.internal',
+                'asin.system_title',
                 'asin.metakeyword',
                 'asin.EAN',
                 'asin.UPC',
@@ -152,11 +155,11 @@ class ASINlistController extends BasetablesController
                     ? $fnskuDetails[$item->ASIN]->toArray()
                     : [];
 
-                // Add instruction card URLs from database - Updated to include card 3
+                // Add instruction card URLs from database
                 $item->instruction_card_urls = [
                     'card1' => $item->instructioncard ? url($item->instructioncard) : null,
                     'card2' => $item->instructioncard2 ? url($item->instructioncard2) : null,
-                    'card3' => $item->instructioncard3 ? url($item->instructioncard3) : null // Added card 3
+                    'card3' => $item->instructioncard3 ? url($item->instructioncard3) : null
                 ];
 
                 // Add user manual URL if exists
@@ -170,6 +173,9 @@ class ASINlistController extends BasetablesController
 
                 // Ensure numeric values are properly typed
                 $item->fnsku_count = (int) $item->fnsku_count;
+
+                // Add display_title property for frontend - prioritize system_title over internal
+                $item->display_title = !empty($item->system_title) ? $item->system_title : $item->AStitle;
 
                 return $item;
             })->filter(); // Remove null items
@@ -194,6 +200,8 @@ class ASINlistController extends BasetablesController
             ], 500);
         }
     }
+
+
     /**
      * Get list of store names for the dropdown
      */
@@ -721,7 +729,8 @@ class ASINlistController extends BasetablesController
                 'instruction_link' => 'nullable|string|max:1000',
                 'metakeyword' => 'nullable|string|max:500',
                 'transparency_qr_status' => 'nullable|string|max:1000',
-                'quantity_inside' => 'nullable|integer|min:1|max:4'
+                'quantity_inside' => 'nullable|integer|min:1|max:4',
+                'system_title' => 'nullable|string|max:500' 
             ]);
 
             // Check if ASIN exists
@@ -743,7 +752,8 @@ class ASINlistController extends BasetablesController
                 'instructionlink' => $validated['instruction_link'],
                 'metakeyword' => $validated['metakeyword'],
                 'TRANSPARENCY_QR_STATUS' => $validated['transparency_qr_status'],
-                'QuantityInside' => $validated['quantity_inside']
+                'QuantityInside' => $validated['quantity_inside'],
+                'system_title' => $validated['system_title'] // Added system_title
             ];
 
             // Update ASIN details

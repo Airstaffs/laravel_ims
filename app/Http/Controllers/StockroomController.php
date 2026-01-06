@@ -296,6 +296,7 @@ class StockroomController extends BasetablesController
             ->select([
                 'asin.ASIN',
                 'asin.internal as AStitle',
+                'asin.system_title',
                 'asin.asinStatus',
                 'asin.QuantityInside'  // NEW: Include QuantityInside column
             ])
@@ -310,6 +311,7 @@ class StockroomController extends BasetablesController
 
                 if (strlen($search) > 3) {
                     $query->orWhere('asin.internal', 'like', "%{$search}%")
+                        ->orWhere('asin.system_title', 'like', "%{$search}%")   
                         ->orWhere('asin.metakeyword', 'like', "%{$search}%");
                 }
 
@@ -422,6 +424,7 @@ class StockroomController extends BasetablesController
             $item = new \stdClass();
             $item->ASIN = $asin->ASIN;
             $item->AStitle = $asin->AStitle;
+            $item->system_title = $asin->system_title;
             $item->asinStatus = $asin->asinStatus;
             $item->storename = $asinFnskus->first()->storename ?? '';
             

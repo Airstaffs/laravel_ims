@@ -158,7 +158,7 @@
                         </div>
                         <div style="word-break: break-word; white-space: normal; overflow-wrap: break-word; flex: 1;">
                             <p class="fw-bold">
-                                {{ data.AStitle }}
+                                 {{ data.display_title || data.system_title || data.AStitle }}
                             </p>
                         </div>
                     </div>
@@ -224,7 +224,7 @@
                         </div>
                         <div class="mobile-product-info">
                             <h6 class="mobile-product-name clickable" @click="viewProductDetails(item)">
-                                {{ item.AStitle }}
+                               {{ item.display_title || item.system_title || item.AStitle }}
                             </h6>
                         </div>
                     </div>
@@ -474,7 +474,7 @@
                     </div>
                     <div class="product-details-info">
                         <h3 class="product-details-title">
-                            {{ selectedProduct.AStitle }}
+                            {{ selectedProduct.display_title || selectedProduct.system_title || selectedProduct.AStitle }}
                         </h3>
                     </div>
                     <div :style="{ fontSize: '14px' }">
