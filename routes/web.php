@@ -628,7 +628,6 @@ Route::middleware(['auth'])->prefix('api/testing')->group(function () {
 // Cleaning module routes
 Route::middleware(['auth'])->prefix('api/cleaning')->group(function () {
     Route::get('products', [CleaningController::class, 'index']);
-
 });
 
 // Printer API routes

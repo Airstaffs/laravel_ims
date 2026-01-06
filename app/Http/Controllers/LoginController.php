@@ -224,9 +224,11 @@ class LoginController extends Controller
                 // Get the authenticated user
                 $user = Auth::user();
 
+                /*
                 if ($resp = $this->enforceScheduleGateOrBypass($user, $request)) {
                     return $resp; // blocked (too early / no schedule / outside window)
                 }
+                    */
 
                 // Store user data in session
                 $this->storeUserSession($user, $request);
@@ -586,9 +588,11 @@ class LoginController extends Controller
             Auth::login($user);
             request()->session()->regenerate();
 
+            /*
             if ($resp = $this->enforceScheduleGateOrBypass($user, request())) {
                 return $resp;
             }
+                */
 
             // Store session and permissions
             $this->storeUserSession($user, request());
