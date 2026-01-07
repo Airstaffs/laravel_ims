@@ -226,9 +226,40 @@ export default {
         },
         // for shipment-label modal
         //________________________________________________________________________________
-        openShipmentLabelModal() {
-            this.showShipmentLabelModal = true;
-        },
+openShipmentLabelModal() {
+    this.showShipmentLabelModal = true;
+
+    // Ensure containers exist
+    if (!this.forms) this.forms = {};
+    if (!this.selectedCarriers) this.selectedCarriers = {};
+    if (!this.rateResults) this.rateResults = [];
+
+    // selectedShipmentData is expected to be an array of orders
+    (this.selectedShipmentData || []).forEach(order => {
+        const id = order.platform_order_id;
+        if (!id) return;
+
+        // Create a default form ONLY if missing
+        if (!this.forms[id]) {
+            this.forms[id] = {
+                deliveryExperience: "DeliveryConfirmationWithoutSignature",
+                length: "",
+                width: "",
+                height: "",
+                dimensionUnit: "inches",
+                weight: "",
+                weightUnit: "ounces",
+                currency: "USD",
+                shipBy: "",
+                deliverBy: "",
+            };
+        }
+    });
+
+    // Force Vue to re-render form immediately (helps sometimes)
+    this.$nextTick(() => this.$forceUpdate());
+},
+
         closeShipmentLabelModal() {
             this.showShipmentLabelModal = false;
         },
