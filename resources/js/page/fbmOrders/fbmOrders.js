@@ -6,7 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 import ScrollFab from "../../components/ScrollFab.vue";
 import PrintInvoiceModal from "./modals/printinvoice.vue";
 import ManualShipmentLabelModal from "./modals/manualshipmentlabel.vue";
-import ManualDispenseModal from './modals/manualdispense.vue';
+import ManualDispenseModal from "./modals/manualdispense.vue";
 import Swal from "sweetalert2";
 
 export default {
@@ -17,7 +17,6 @@ export default {
         ScrollFab,
         ManualShipmentLabelModal,
         ManualDispenseModal,
-     
     },
     data() {
         return {
@@ -65,7 +64,6 @@ export default {
                 notes: "",
             },
             isProcessing: false,
-            selectedCarriers: {},
 
             // For auto dispense (standalone and in process modal)
             showAutoDispenseModal: false,
@@ -75,7 +73,7 @@ export default {
             loadingDispenseProducts: false,
             processingAutoDispense: false,
 
-             // Manual Dispense State
+            // Manual Dispense State
             showManualDispenseModal: false,
             currentManualDispenseItem: null,
 
@@ -124,6 +122,11 @@ export default {
 
             // for manualshipmentlabel
             manualShipmentLabelVisible: false,
+
+            // for get rates
+            forms: {}, // holds forms[orderId]
+            rateResults: [], // results of getRates
+            selectedCarriers: {}, // selectedCarriers[orderId]
         };
     },
     computed: {
@@ -216,7 +219,7 @@ export default {
         },
     },
     methods: {
-                // Check if an order can be selected (has dispensed items)
+        // Check if an order can be selected (has dispensed items)
         canSelectOrder(order) {
             return this.hasDispensedItems(order);
         },
@@ -228,7 +231,39 @@ export default {
         //________________________________________________________________________________
         openShipmentLabelModal() {
             this.showShipmentLabelModal = true;
+
+            // Ensure containers exist
+            if (!this.forms) this.forms = {};
+            if (!this.selectedCarriers) this.selectedCarriers = {};
+            if (!this.rateResults) this.rateResults = [];
+
+            // selectedShipmentData is expected to be an array of orders
+            (this.selectedShipmentData || []).forEach((order) => {
+                const id = order.platform_order_id;
+                if (!id) return;
+
+                // Create a default form ONLY if missing
+                if (!this.forms[id]) {
+                    this.forms[id] = {
+                        deliveryExperience:
+                            "DeliveryConfirmationWithoutSignature",
+                        length: "",
+                        width: "",
+                        height: "",
+                        dimensionUnit: "inches",
+                        weight: "",
+                        weightUnit: "ounces",
+                        currency: "USD",
+                        shipBy: "",
+                        deliverBy: "",
+                    };
+                }
+            });
+
+            // Force Vue to re-render form immediately (helps sometimes)
+            this.$nextTick(() => this.$forceUpdate());
         },
+
         closeShipmentLabelModal() {
             this.showShipmentLabelModal = false;
         },
@@ -497,72 +532,74 @@ export default {
         async exportWorkHistory() {
             try {
                 // Check if date filters are applied
-            const isDateFiltered =
-    this.workHistoryFilters.startDate &&
-    this.workHistoryFilters.endDate;
+                const isDateFiltered =
+                    this.workHistoryFilters.startDate &&
+                    this.workHistoryFilters.endDate;
 
-// Build confirmation message HTML
-let confirmMessageHtml = "<div style='text-align: left;'>";
-confirmMessageHtml +=
-    "<p style='margin-bottom: 15px;'><strong>⚠️ Note:</strong> This will export ALL matching records, not just the current page.</p>";
-confirmMessageHtml += "<p style='margin-bottom: 10px;'><strong>Export Details:</strong></p>";
-confirmMessageHtml += "<ul style='list-style: none; padding-left: 0;'>";
+                // Build confirmation message HTML
+                let confirmMessageHtml = "<div style='text-align: left;'>";
+                confirmMessageHtml +=
+                    "<p style='margin-bottom: 15px;'><strong>⚠️ Note:</strong> This will export ALL matching records, not just the current page.</p>";
+                confirmMessageHtml +=
+                    "<p style='margin-bottom: 10px;'><strong>Export Details:</strong></p>";
+                confirmMessageHtml +=
+                    "<ul style='list-style: none; padding-left: 0;'>";
 
-if (isDateFiltered) {
-    const startDate = new Date(
-        this.workHistoryFilters.startDate
-    ).toLocaleDateString();
-    const endDate = new Date(
-        this.workHistoryFilters.endDate
-    ).toLocaleDateString();
-    confirmMessageHtml += `<li style='margin-bottom: 8px;'>📅 <strong>Date Range:</strong> ${startDate} to ${endDate}</li>`;
-} else {
-    confirmMessageHtml +=
-        "<li style='margin-bottom: 8px;'>📅 <strong>Date Range:</strong> All available data (no date filter applied)</li>";
-}
+                if (isDateFiltered) {
+                    const startDate = new Date(
+                        this.workHistoryFilters.startDate
+                    ).toLocaleDateString();
+                    const endDate = new Date(
+                        this.workHistoryFilters.endDate
+                    ).toLocaleDateString();
+                    confirmMessageHtml += `<li style='margin-bottom: 8px;'>📅 <strong>Date Range:</strong> ${startDate} to ${endDate}</li>`;
+                } else {
+                    confirmMessageHtml +=
+                        "<li style='margin-bottom: 8px;'>📅 <strong>Date Range:</strong> All available data (no date filter applied)</li>";
+                }
 
-if (this.workHistoryFilters.userId !== "all") {
-    confirmMessageHtml += `<li style='margin-bottom: 8px;'>👤 <strong>User:</strong> ${this.workHistoryFilters.userId}</li>`;
-}
+                if (this.workHistoryFilters.userId !== "all") {
+                    confirmMessageHtml += `<li style='margin-bottom: 8px;'>👤 <strong>User:</strong> ${this.workHistoryFilters.userId}</li>`;
+                }
 
-if (this.workHistoryFilters.searchQuery) {
-    confirmMessageHtml += `<li style='margin-bottom: 8px;'>🔍 <strong>Search:</strong> "${this.workHistoryFilters.searchQuery}"</li>`;
-}
+                if (this.workHistoryFilters.searchQuery) {
+                    confirmMessageHtml += `<li style='margin-bottom: 8px;'>🔍 <strong>Search:</strong> "${this.workHistoryFilters.searchQuery}"</li>`;
+                }
 
-if (this.workHistoryFilters.carrierFilter) {
-    confirmMessageHtml += `<li style='margin-bottom: 8px;'>🚚 <strong>Carrier:</strong> ${this.workHistoryFilters.carrierFilter}</li>`;
-}
+                if (this.workHistoryFilters.carrierFilter) {
+                    confirmMessageHtml += `<li style='margin-bottom: 8px;'>🚚 <strong>Carrier:</strong> ${this.workHistoryFilters.carrierFilter}</li>`;
+                }
 
-if (this.workHistoryFilters.storeFilter) {
-    confirmMessageHtml += `<li style='margin-bottom: 8px;'>🏪 <strong>Store:</strong> ${this.workHistoryFilters.storeFilter}</li>`;
-}
+                if (this.workHistoryFilters.storeFilter) {
+                    confirmMessageHtml += `<li style='margin-bottom: 8px;'>🏪 <strong>Store:</strong> ${this.workHistoryFilters.storeFilter}</li>`;
+                }
 
-if (this.workHistoryFilters.lateOrders) {
-    confirmMessageHtml += `<li style='margin-bottom: 8px;'>⏰ <strong>Late Orders:</strong> ${this.workHistoryFilters.lateOrders}</li>`;
-}
+                if (this.workHistoryFilters.lateOrders) {
+                    confirmMessageHtml += `<li style='margin-bottom: 8px;'>⏰ <strong>Late Orders:</strong> ${this.workHistoryFilters.lateOrders}</li>`;
+                }
 
-confirmMessageHtml += "</ul></div>";
+                confirmMessageHtml += "</ul></div>";
 
-// Show SweetAlert confirmation dialog
-const result = await Swal.fire({
-    title: 'Export Work History to Excel',
-    html: confirmMessageHtml,
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonColor: '#3085d6',
-    cancelButtonColor: '#d33',
-    confirmButtonText: 'Yes, export it!',
-    cancelButtonText: 'Cancel',
-    customClass: {
-        popup: 'swal-wide'
-    }
-});
+                // Show SweetAlert confirmation dialog
+                const result = await Swal.fire({
+                    title: "Export Work History to Excel",
+                    html: confirmMessageHtml,
+                    icon: "question",
+                    showCancelButton: true,
+                    confirmButtonColor: "#3085d6",
+                    cancelButtonColor: "#d33",
+                    confirmButtonText: "Yes, export it!",
+                    cancelButtonText: "Cancel",
+                    customClass: {
+                        popup: "swal-wide",
+                    },
+                });
 
-if (!result.isConfirmed) {
-    return;
-}
+                if (!result.isConfirmed) {
+                    return;
+                }
 
-// Continue with export...
+                // Continue with export...
 
                 // Show loading state
                 const exportButton = document.querySelector(
@@ -674,10 +711,10 @@ if (!result.isConfirmed) {
 
                 // alert("Work history exported successfully!");
                 Swal.fire({
-                    icon: 'success',
-                    title: 'Work history exported successfully!',
-                    confirmButtonText: 'Ok'
-                })
+                    icon: "success",
+                    title: "Work history exported successfully!",
+                    confirmButtonText: "Ok",
+                });
             } catch (error) {
                 console.error("Error exporting work history:", error);
 
@@ -725,11 +762,11 @@ if (!result.isConfirmed) {
                 // alert(errorMessage);
 
                 Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text : errorMessage,
-                    confirmButtonText: 'Ok'
-                })
+                    icon: "error",
+                    title: "Error",
+                    text: errorMessage,
+                    confirmButtonText: "Ok",
+                });
             }
         },
 
@@ -839,6 +876,10 @@ if (!result.isConfirmed) {
                 alert("Please select items first.");
                 return;
             }
+
+            this.forms = {};
+            this.rateResults = [];
+            this.selectedCarriers = {};
 
             const itemIds = this.dispenseItemsSelected.join(",");
             axios
@@ -1047,36 +1088,40 @@ if (!result.isConfirmed) {
         },
 
         // Format store-specific condition
-       formatStoreSpecificCondition(conditionId, conditionSubtypeId, storeName) {
-    const normalizedStore = this.normalizeStoreName(storeName);
-    
-    if (normalizedStore === 'allrenewed') {
-        // Only apply Refurbished mapping for New items
-        if (conditionId === 'New') {
-            const combinedCondition = conditionId + conditionSubtypeId;
-            
-            switch (combinedCondition) {
-                case 'NewNew':
-                    return 'Refurbished - Excellent';
-                case 'NewGood':
-                    return 'Refurbished - Good';
-                case 'NewAcceptable':
-                    return 'Refurbished - Acceptable';
-                default:
-                    return combinedCondition;
+        formatStoreSpecificCondition(
+            conditionId,
+            conditionSubtypeId,
+            storeName
+        ) {
+            const normalizedStore = this.normalizeStoreName(storeName);
+
+            if (normalizedStore === "allrenewed") {
+                // Only apply Refurbished mapping for New items
+                if (conditionId === "New") {
+                    const combinedCondition = conditionId + conditionSubtypeId;
+
+                    switch (combinedCondition) {
+                        case "NewNew":
+                            return "Refurbished - Excellent";
+                        case "NewGood":
+                            return "Refurbished - Good";
+                        case "NewAcceptable":
+                            return "Refurbished - Acceptable";
+                        default:
+                            return combinedCondition;
+                    }
+                } else {
+                    // ✅ NEW: For Used conditions, display as-is
+                    if (conditionSubtypeId) {
+                        return conditionId + " " + conditionSubtypeId;
+                    }
+                    return conditionId;
+                }
             }
-        } else {
-            // ✅ NEW: For Used conditions, display as-is
-            if (conditionSubtypeId) {
-                return conditionId + ' ' + conditionSubtypeId;
-            }
-            return conditionId;
-        }
-    }
-    
-    // Default for other stores
-    return conditionId + conditionSubtypeId;
-},
+
+            // Default for other stores
+            return conditionId + conditionSubtypeId;
+        },
 
         // Open scanner modal method
         openScannerModal() {
@@ -1551,11 +1596,11 @@ if (!result.isConfirmed) {
                 console.error("Error in standalone auto dispense:", error);
                 // alert("Failed to perform auto-dispensing. Please try again.");
                 await Swal.fire({
-                    icon:'error',
-                    title: 'Operation Failed',
-                    text: 'Failed to perform auto-dispensing. Please try again.',
-                    confirmButtonText: 'Ok'
-                })
+                    icon: "error",
+                    title: "Operation Failed",
+                    text: "Failed to perform auto-dispensing. Please try again.",
+                    confirmButtonText: "Ok",
+                });
             }
         },
 
@@ -1571,15 +1616,15 @@ if (!result.isConfirmed) {
         async cancelDispense(order) {
             if (!this.hasDispensedItems(order)) return;
 
-               const result = await Swal.fire({
-                    title: "Are you sure?",
-                    text: "Are you sure you want to cancel dispense for this order?",
-                    icon: "warning",
-                    showCancelButton: true,
-                    confirmButtonText: "Yes, cancel it",
-                    cancelButtonText: "No",
-                });
-                if (!result.isConfirmed) return;
+            const result = await Swal.fire({
+                title: "Are you sure?",
+                text: "Are you sure you want to cancel dispense for this order?",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Yes, cancel it",
+                cancelButtonText: "No",
+            });
+            if (!result.isConfirmed) return;
             try {
                 const itemIds = order.items
                     .filter((item) => this.isItemDispensed(item))
@@ -1614,11 +1659,11 @@ if (!result.isConfirmed) {
 
                 if (response.data && response.data.success) {
                     await Swal.fire({
-                        icon: 'success',
-                        title: 'Operation Success',
-                        text: 'Dispense canceled successfully',
-                        confirmButtonText: 'Ok'
-                    })
+                        icon: "success",
+                        title: "Operation Success",
+                        text: "Dispense canceled successfully",
+                        confirmButtonText: "Ok",
+                    });
                     // alert("Dispense canceled successfully");
 
                     // COMPREHENSIVE REFRESH STRATEGY
@@ -1990,12 +2035,12 @@ if (!result.isConfirmed) {
 
             if (selectedOrderIds.length === 0) {
                 // alert("Please select at least one order to process");
-                 Swal.fire({
-                    icon: 'warning',
-                    title: 'Ooops',
-                    text: 'Please select at least one order to process',
-                    confirmButtonText: 'Ok'
-                })
+                Swal.fire({
+                    icon: "warning",
+                    title: "Ooops",
+                    text: "Please select at least one order to process",
+                    confirmButtonText: "Ok",
+                });
                 return;
             }
 
@@ -2098,11 +2143,11 @@ if (!result.isConfirmed) {
                 if (response.data && response.data.success) {
                     // alert("Shipping label generated successfully");
                     await Swal.fire({
-                        icon: 'success',
-                        title: 'Operation Success',
-                        text: 'Shipping label generated successfully',
-                        confirmButtonText: 'Ok'
-                    })
+                        icon: "success",
+                        title: "Operation Success",
+                        text: "Shipping label generated successfully",
+                        confirmButtonText: "Ok",
+                    });
                     if (response.data.label_url) {
                         window.open(response.data.label_url, "_blank");
                     }
@@ -2114,24 +2159,24 @@ if (!result.isConfirmed) {
                     //     }`
                     // );
                     Swal.fire({
-                        icon: 'error',
-                        title: 'Operation Failed',
+                        icon: "error",
+                        title: "Operation Failed",
                         text: `${
                             response.data.message ||
                             "Failed to generate shipping label"
                         }`,
-                        confirmButtonText: 'Ok'
-                    })
+                        confirmButtonText: "Ok",
+                    });
                 }
             } catch (error) {
                 console.error("Error generating shipping label:", error);
                 // alert("Failed to generate shipping label. Please try again.");
                 await Swal.fire({
-                        icon: 'success',
-                        title: 'Operation Failed',
-                        text: 'Failed to generate shipping label. Please try again.',
-                        confirmButtonText: 'Ok'
-                    })
+                    icon: "success",
+                    title: "Operation Failed",
+                    text: "Failed to generate shipping label. Please try again.",
+                    confirmButtonText: "Ok",
+                });
             }
         },
 
@@ -2241,39 +2286,41 @@ if (!result.isConfirmed) {
 
                 //     alert(message);
                 //     await this.refreshCurrentContext();
-                // } 
-                
-                if (response.data && response.data.success) {
-                        const hasReplacement = response.data.replacement_found;
+                // }
 
-                        let htmlMessage = `
+                if (response.data && response.data.success) {
+                    const hasReplacement = response.data.replacement_found;
+
+                    let htmlMessage = `
                             <div style="text-align:left;">
                                 Product marked as <strong>"Not Found"</strong> successfully.<br><br>
                         `;
 
-                        if (hasReplacement) {
-                            htmlMessage += `
+                    if (hasReplacement) {
+                        htmlMessage += `
                                 <strong>Replacement product automatically selected:</strong><br>
                                 • ${response.data.replacement_details.title}<br>
                                 • Location: ${response.data.replacement_details.warehouseLocation}<br>
                             `;
-                        } else {
-                            htmlMessage += `
+                    } else {
+                        htmlMessage += `
                                 <strong>No replacement product was found in inventory.</strong><br>
                             `;
-                        }
+                    }
 
-                        htmlMessage += `</div>`;
+                    htmlMessage += `</div>`;
 
-                        Swal.fire({
-                            icon: hasReplacement ? "success" : "warning",
-                            title: hasReplacement ? "Replacement Found" : "No Replacement Found",
-                            html: htmlMessage,
-                            confirmButtonText: "OK",
-                        }).then(() => {
-                            this.refreshCurrentContext();
-                        });
-                    }else {
+                    Swal.fire({
+                        icon: hasReplacement ? "success" : "warning",
+                        title: hasReplacement
+                            ? "Replacement Found"
+                            : "No Replacement Found",
+                        html: htmlMessage,
+                        confirmButtonText: "OK",
+                    }).then(() => {
+                        this.refreshCurrentContext();
+                    });
+                } else {
                     // alert(
                     //     `Error: ${
                     //         response.data.message ||
@@ -2281,24 +2328,24 @@ if (!result.isConfirmed) {
                     //     }`
                     // );
                     Swal.fire({
-                    icon: 'error',
-                    title: 'Operation Failed',
-                    text: `${
+                        icon: "error",
+                        title: "Operation Failed",
+                        text: `${
                             response.data.message ||
                             "Failed to mark product as not found"
                         }`,
-                    confirmButtonText: 'Ok'
-                })
+                        confirmButtonText: "Ok",
+                    });
                 }
             } catch (error) {
                 console.error("Error marking product as not found:", error);
                 // alert("Failed to mark product as not found. Please try again.");
-                  Swal.fire({
-                    icon: 'error',
-                    title: 'Operation Failed',
-                    text: 'Failed to mark product as not found. Please try again.',
-                    confirmButtonText: 'Ok'
-                })
+                Swal.fire({
+                    icon: "error",
+                    title: "Operation Failed",
+                    text: "Failed to mark product as not found. Please try again.",
+                    confirmButtonText: "Ok",
+                });
             }
         },
 
@@ -2340,11 +2387,11 @@ if (!result.isConfirmed) {
             if (selectedOrderIds.length === 0) {
                 // alert("Please select at least one order to print labels");
                 Swal.fire({
-                    icon: 'warning',
-                    title: 'Ooops',
-                    text: 'Please select at least one order to print labels',
-                    confirmButtonText: 'Ok'
-                })
+                    icon: "warning",
+                    title: "Ooops",
+                    text: "Please select at least one order to print labels",
+                    confirmButtonText: "Ok",
+                });
                 return;
             }
             selectedOrderIds.forEach((id) => this.printShippingLabel(id));
@@ -2356,12 +2403,12 @@ if (!result.isConfirmed) {
                 // alert(
                 //     "Please select at least one order to generate packing slips"
                 // );
-                  Swal.fire({
-                    icon: 'warning',
-                    title: 'Ooops',
-                    text: 'Please select at least one order to generate packing slips',
-                    confirmButtonText: 'Ok'
-                })
+                Swal.fire({
+                    icon: "warning",
+                    title: "Ooops",
+                    text: "Please select at least one order to generate packing slips",
+                    confirmButtonText: "Ok",
+                });
                 return;
             }
             selectedOrderIds.forEach((id) => this.generatePackingSlip(id));
@@ -2481,11 +2528,11 @@ if (!result.isConfirmed) {
                 if (response.data && response.data.success) {
                     // alert("Items dispensed successfully");
                     await Swal.fire({
-                        icon: 'success',
-                        title: 'Operation Successful',
-                        text: 'Items dispensed successfully',
-                        confirmButtonText: 'Ok'
-                    })
+                        icon: "success",
+                        title: "Operation Successful",
+                        text: "Items dispensed successfully",
+                        confirmButtonText: "Ok",
+                    });
 
                     // Close the auto dispense modal first
                     this.closeAutoDispenseModal();
@@ -2572,11 +2619,11 @@ if (!result.isConfirmed) {
                 console.error("Error confirming dispense:", error);
                 // alert("Failed to dispense items. Please try again.");
                 await Swal.fire({
-                    icon: 'error',
-                    title: 'Dispense Failed',
-                    text: 'Failed to dispense items. Please try again.',
-                    confirmButtonText: 'Ok'
-                })
+                    icon: "error",
+                    title: "Dispense Failed",
+                    text: "Failed to dispense items. Please try again.",
+                    confirmButtonText: "Ok",
+                });
             }
         },
 
@@ -2641,7 +2688,11 @@ if (!result.isConfirmed) {
 
                             item.auto_selected_products.forEach((product) => {
                                 htmlMessage += `
-                                    &nbsp;&nbsp;&nbsp;&nbsp;◦ Product ID: ${product.ProductID} (${product.warehouseLocation || "No location"})<br>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;◦ Product ID: ${
+                                        product.ProductID
+                                    } (${
+                                    product.warehouseLocation || "No location"
+                                })<br>
                                 `;
                                 totalItemsToDispense++;
                             });
@@ -2656,35 +2707,31 @@ if (!result.isConfirmed) {
                         </div>
                     `;
 
-
-                    if(totalItemsToDispense > 0) {
-
-                    // SHOW SWEET ALERT
-                    const result = await Swal.fire({
-                        title: "Auto-Dispense Confirmation",
-                        html: htmlMessage,
-                        icon: "question",
-                        showCancelButton: true,
-                        confirmButtonText: "Yes, proceed",
-                        cancelButtonText: "Cancel"
-                    });
-                    if(result.isConfirmed) {
-                        await this.performAutoDispense(itemIds);
+                    if (totalItemsToDispense > 0) {
+                        // SHOW SWEET ALERT
+                        const result = await Swal.fire({
+                            title: "Auto-Dispense Confirmation",
+                            html: htmlMessage,
+                            icon: "question",
+                            showCancelButton: true,
+                            confirmButtonText: "Yes, proceed",
+                            cancelButtonText: "Cancel",
+                        });
+                        if (result.isConfirmed) {
+                            await this.performAutoDispense(itemIds);
+                        } else {
+                            this.processingAutoDispense = false;
+                            return;
+                        }
                     }
-                    else {
-                        this.processingAutoDispense = false
-                        return
-                    }
-                    }
-
 
                     if (totalItemsToDispense === 0) {
                         await Swal.fire({
-                            icon: 'error',
-                            title: 'Dispense Failed',
-                            text: 'No products available for auto-dispensing at this time.',
-                             confirmButtonText: "OK",
-                        })
+                            icon: "error",
+                            title: "Dispense Failed",
+                            text: "No products available for auto-dispensing at this time.",
+                            confirmButtonText: "OK",
+                        });
                         // alert(
                         //     "No products available for auto-dispensing at this time."
                         // );
@@ -2692,8 +2739,6 @@ if (!result.isConfirmed) {
                         this.loadingDispenseProducts = false;
                         return;
                     }
-
-                   
 
                     // if (confirm(dispenseMessage)) {
                     //     await this.performAutoDispense(itemIds);
@@ -2758,7 +2803,7 @@ if (!result.isConfirmed) {
                                 across <strong>${response.data.items_processed}</strong> items.
                             </div>
                         `,
-                        confirmButtonText: "OK"
+                        confirmButtonText: "OK",
                     });
 
                     // IMMEDIATE STATE CLEANUP
@@ -3020,77 +3065,94 @@ if (!result.isConfirmed) {
         },
 
         openManualDispenseForItem(item) {
-        if (!item) return;
-        
-        console.log('🔧 Opening manual dispense for item:', item.outboundorderitemid);
-        
-        this.currentManualDispenseItem = item;
-        this.showManualDispenseModal = true;
-       },
+            if (!item) return;
 
-      async handleManualDispenseComplete(data) {
-        console.log('✅ Manual dispense completed:', data);
-        
-        // Comprehensive refresh
-        await this.refreshAfterManualDispense(data.orderId);
-     },
+            console.log(
+                "🔧 Opening manual dispense for item:",
+                item.outboundorderitemid
+            );
 
-     async refreshAfterManualDispense(orderId) {
-        console.log('🔄 Starting refresh after manual dispense for order:', orderId);
-        
-        // Step 1: Refresh main orders list
-        await this.fetchOrders();
-        
-        // Step 2: Update process modal if open
-        if (this.currentProcessOrder && this.currentProcessOrder.outboundorderid === orderId) {
-            const updatedOrder = this.orders.find(o => o.outboundorderid === orderId);
-            if (updatedOrder) {
-                this.currentProcessOrder = {
-                    ...updatedOrder,
-                    checked: this.currentProcessOrder.checked
-                };
-                
-                this.selectedItems = this.currentProcessOrder.items
-                    ? this.currentProcessOrder.items.map(item => item.outboundorderitemid)
-                    : [];
+            this.currentManualDispenseItem = item;
+            this.showManualDispenseModal = true;
+        },
+
+        async handleManualDispenseComplete(data) {
+            console.log("✅ Manual dispense completed:", data);
+
+            // Comprehensive refresh
+            await this.refreshAfterManualDispense(data.orderId);
+        },
+
+        async refreshAfterManualDispense(orderId) {
+            console.log(
+                "🔄 Starting refresh after manual dispense for order:",
+                orderId
+            );
+
+            // Step 1: Refresh main orders list
+            await this.fetchOrders();
+
+            // Step 2: Update process modal if open
+            if (
+                this.currentProcessOrder &&
+                this.currentProcessOrder.outboundorderid === orderId
+            ) {
+                const updatedOrder = this.orders.find(
+                    (o) => o.outboundorderid === orderId
+                );
+                if (updatedOrder) {
+                    this.currentProcessOrder = {
+                        ...updatedOrder,
+                        checked: this.currentProcessOrder.checked,
+                    };
+
+                    this.selectedItems = this.currentProcessOrder.items
+                        ? this.currentProcessOrder.items.map(
+                              (item) => item.outboundorderitemid
+                          )
+                        : [];
+                }
             }
-        }
-        
-        // Step 3: Update details modal if open
-        if (this.selectedOrder && this.selectedOrder.outboundorderid === orderId) {
-            const updatedOrder = this.orders.find(o => o.outboundorderid === orderId);
-            if (updatedOrder) {
-                this.selectedOrder = { ...updatedOrder };
+
+            // Step 3: Update details modal if open
+            if (
+                this.selectedOrder &&
+                this.selectedOrder.outboundorderid === orderId
+            ) {
+                const updatedOrder = this.orders.find(
+                    (o) => o.outboundorderid === orderId
+                );
+                if (updatedOrder) {
+                    this.selectedOrder = { ...updatedOrder };
+                }
             }
-        }
-        
-        // Step 4: Reinitialize dispense items
-        this.initializeDispenseItems();
-        
-        // Step 5: Force update
-        this.$nextTick(() => {
-            this.$forceUpdate();
-        });
-        
-        console.log('✅ Manual dispense refresh completed');
-     },
 
-     /**
-     * Get remaining quantity needed for an item
-     */
-    getRemainingQuantityNeeded(item) {
-        if (!item) return 0;
-        const dispensed = this.getDispensedProductCount(item);
-        return Math.max(0, item.quantity_ordered - dispensed);
-    },
-    
-    /**
-     * Check if item needs more products
-     */
-    itemNeedsMoreProducts(item) {
-        return this.getRemainingQuantityNeeded(item) > 0;
-    }
+            // Step 4: Reinitialize dispense items
+            this.initializeDispenseItems();
 
+            // Step 5: Force update
+            this.$nextTick(() => {
+                this.$forceUpdate();
+            });
+
+            console.log("✅ Manual dispense refresh completed");
+        },
+
+        /**
+         * Get remaining quantity needed for an item
+         */
+        getRemainingQuantityNeeded(item) {
+            if (!item) return 0;
+            const dispensed = this.getDispensedProductCount(item);
+            return Math.max(0, item.quantity_ordered - dispensed);
+        },
+
+        /**
+         * Check if item needs more products
+         */
+        itemNeedsMoreProducts(item) {
+            return this.getRemainingQuantityNeeded(item) > 0;
+        },
     },
     watch: {
         searchQuery() {
