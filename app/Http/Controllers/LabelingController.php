@@ -65,7 +65,13 @@ class LabelingController extends BasetablesController
                     'fnsku.MSKU',
                     'fnsku.grading',
                     'fnsku.storename',
-                    'asin.internal as AStitle',
+                    DB::raw("COALESCE(
+                        NULLIF(TRIM(asin.system_title), ''), 
+                        NULLIF(TRIM(asin.internal), ''), 
+                        NULLIF(TRIM(prod.ProductTitle), '')
+                    ) as AStitle"),
+                    'asin.internal',
+                    'asin.system_title',
                     'asin.metakeyword',
                 ])
                 ->where('prod.ProductModuleLoc', $location);
@@ -86,7 +92,9 @@ class LabelingController extends BasetablesController
                         ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
                         // Add ASIN table search
                         ->orWhere('asin.internal', 'like', "%{$search}%")
+                       ->orWhere('asin.system_title', 'like', "%{$search}%")  
                         ->orWhere('asin.metakeyword', 'like', "%{$search}%");
+                        
                 });
             }
 
@@ -208,102 +216,128 @@ class LabelingController extends BasetablesController
         }
     }
 
-    public function getFnskuData(Request $request)
-    {
-        $search = $request->input('search');
-        $location = $request->input('location');
+   public function getFnskuData(Request $request)
+{
+    $search = $request->input('search');
+    $location = $request->input('location');
 
-        // UPDATED: Use the same approach as index method
-        $productsQuery = DB::table($this->productTable.' as prod')
-            ->select(['prod.*'])
-            ->where('prod.ProductModuleLoc', $location);
+    // ✅ UPDATED: Keep same structure but fetch system_title
+    $productsQuery = DB::table($this->productTable.' as prod')
+        ->select(['prod.*'])
+        ->where('prod.ProductModuleLoc', $location);
 
-        if (! empty($search)) {
-            $productsQuery->where(function ($q) use ($search) {
-                $q->where('prod.serialnumber', 'like', "%{$search}%")
-                    ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
-                    ->orWhere('prod.rtcounter', 'like', "%{$search}%");
-            });
-        }
-
-        $products = $productsQuery->get();
-
-        // Extract base FNSKUs and get related data
-        $baseFnskus = [];
-        foreach ($products as $product) {
-            if (! empty($product->FNSKUviewer)) {
-                $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-                $baseFnskus[] = $baseFnsku;
-            }
-        }
-        $baseFnskus = array_unique($baseFnskus);
-
-        // Get FNSKU data
-        $fnskuData = [];
-        if (! empty($baseFnskus)) {
-            $fnskuRecords = DB::table($this->fnskuTable)
-                ->select('ASIN', 'FNSKU', 'MSKU', 'grading', 'storename')
-                ->whereIn('FNSKU', $baseFnskus)
-                ->get();
-
-            foreach ($fnskuRecords as $record) {
-                $fnskuData[$record->FNSKU] = $record;
-            }
-        }
-
-        // Get ASIN data
-        $asinList = [];
-        foreach ($fnskuData as $fnskuRecord) {
-            $asinList[] = $fnskuRecord->ASIN;
-        }
-        $asinList = array_unique($asinList);
-
-        $asinData = [];
-        if (! empty($asinList)) {
-            $asinRecords = DB::table($this->asinTable)
-                ->select('ASIN', 'internal')
-                ->whereIn('ASIN', $asinList)
-                ->get();
-
-            foreach ($asinRecords as $record) {
-                $asinData[$record->ASIN] = $record;
-            }
-        }
-
-        // Combine data
-        $results = $products->map(function ($product) use ($fnskuData, $asinData) {
-            $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-
-            if (isset($fnskuData[$baseFnsku])) {
-                $fnskuRecord = $fnskuData[$baseFnsku];
-                $product->FNSKU = $fnskuRecord->FNSKU;
-                $product->MSKU = $fnskuRecord->MSKU;
-                $product->ASIN = $fnskuRecord->ASIN;
-                $product->grading = $fnskuRecord->grading;
-                $product->storename = $fnskuRecord->storename;
-
-                if (isset($asinData[$fnskuRecord->ASIN])) {
-                    $product->AStitle = $asinData[$fnskuRecord->ASIN]->internal;
-                }
-            }
-
-            return $product;
+    if (! empty($search)) {
+        $productsQuery->where(function ($q) use ($search) {
+            $q->where('prod.serialnumber', 'like', "%{$search}%")
+                ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
+                ->orWhere('prod.rtcounter', 'like', "%{$search}%");
         });
+    }
 
-        // Apply additional filtering if search term matches FNSKU/ASIN data
-        if (! empty($search)) {
-            $results = $results->filter(function ($product) use ($search) {
-                return stripos($product->MSKU ?? '', $search) !== false ||
-                    stripos($product->ASIN ?? '', $search) !== false ||
-                    stripos($product->AStitle ?? '', $search) !== false ||
-                    stripos($product->serialnumber ?? '', $search) !== false ||
-                    stripos($product->FNSKUviewer ?? '', $search) !== false ||
-                    stripos($product->rtcounter ?? '', $search) !== false;
-            });
+    $products = $productsQuery->get();
+
+    // Extract base FNSKUs and get related data
+    $baseFnskus = [];
+    foreach ($products as $product) {
+        if (! empty($product->FNSKUviewer)) {
+            $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+            $baseFnskus[] = $baseFnsku;
+        }
+    }
+    $baseFnskus = array_unique($baseFnskus);
+
+    // Get FNSKU data
+    $fnskuData = [];
+    if (! empty($baseFnskus)) {
+        $fnskuRecords = DB::table($this->fnskuTable)
+            ->select('ASIN', 'FNSKU', 'MSKU', 'grading', 'storename')
+            ->whereIn('FNSKU', $baseFnskus)
+            ->get();
+
+        foreach ($fnskuRecords as $record) {
+            $fnskuData[$record->FNSKU] = $record;
+        }
+    }
+
+    // Get ASIN data
+    $asinList = [];
+    foreach ($fnskuData as $fnskuRecord) {
+        $asinList[] = $fnskuRecord->ASIN;
+    }
+    $asinList = array_unique($asinList);
+
+    $asinData = [];
+    if (! empty($asinList)) {
+        // ✅ UPDATED: Fetch both system_title and internal
+        $asinRecords = DB::table($this->asinTable)
+            ->select('ASIN', 'internal', 'system_title')
+            ->whereIn('ASIN', $asinList)
+            ->get();
+
+        foreach ($asinRecords as $record) {
+            $asinData[$record->ASIN] = $record;
+        }
+    }
+
+    // ✅ UPDATED: Combine data with proper title priority
+    $results = $products->map(function ($product) use ($fnskuData, $asinData) {
+        $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+
+        if (isset($fnskuData[$baseFnsku])) {
+            $fnskuRecord = $fnskuData[$baseFnsku];
+            $product->FNSKU = $fnskuRecord->FNSKU;
+            $product->MSKU = $fnskuRecord->MSKU;
+            $product->ASIN = $fnskuRecord->ASIN;
+            $product->grading = $fnskuRecord->grading;
+            $product->storename = $fnskuRecord->storename;
+
+            // ✅ NEW: Apply title priority logic
+            if (isset($asinData[$fnskuRecord->ASIN])) {
+                $asinRecord = $asinData[$fnskuRecord->ASIN];
+                
+                // Priority: system_title > internal > ProductTitle
+                if (!empty(trim($asinRecord->system_title ?? ''))) {
+                    $product->AStitle = $asinRecord->system_title;
+                } elseif (!empty(trim($asinRecord->internal ?? ''))) {
+                    $product->AStitle = $asinRecord->internal;
+                } elseif (!empty(trim($product->ProductTitle ?? ''))) {
+                    $product->AStitle = $product->ProductTitle;
+                } else {
+                    $product->AStitle = '—';
+                }
+                
+                // ✅ Also set these for JavaScript access
+                $product->system_title = $asinRecord->system_title ?? null;
+                $product->internal = $asinRecord->internal ?? null;
+            } else {
+                // No ASIN data, fallback to ProductTitle
+                $product->AStitle = !empty(trim($product->ProductTitle ?? '')) 
+                    ? $product->ProductTitle 
+                    : '—';
+                $product->system_title = null;
+                $product->internal = null;
+            }
         }
 
-        return response()->json(['data' => $results->values()]);
+        return $product;
+    });
+
+    // ✅ UPDATED: Apply additional filtering including system_title
+    if (! empty($search)) {
+        $results = $results->filter(function ($product) use ($search) {
+            return stripos($product->MSKU ?? '', $search) !== false ||
+                stripos($product->ASIN ?? '', $search) !== false ||
+                stripos($product->AStitle ?? '', $search) !== false ||
+                stripos($product->system_title ?? '', $search) !== false ||
+                stripos($product->internal ?? '', $search) !== false ||
+                stripos($product->serialnumber ?? '', $search) !== false ||
+                stripos($product->FNSKUviewer ?? '', $search) !== false ||
+                stripos($product->rtcounter ?? '', $search) !== false;
+        });
     }
+
+    return response()->json(['data' => $results->values()]);
+}
 
     public function moveToValidation(Request $request)
     {

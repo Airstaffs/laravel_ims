@@ -1,82 +1,187 @@
 <template>
     <div class="vue-container validation-module">
-        <!-- <div class="top-header">
-            <div class="header-buttons"></div>
-
-            <div class="validation-filter">
-                <label for="validationStatusFilter">Status:</label>
-                <select id="validationStatusFilter" v-model="validationStatusFilter" class="valid-select">
-                    <option value="">All Status</option>
-                    <option v-for="status in uniqueValidationStatuses" :key="status" :value="status">
-                        {{ status }}
-                    </option>
-                </select>
-
-            </div>
-        </div> -->
-
-        <!-- <h2 class="module-title">Validation Module</h2> -->
-        <TitlePage title="Validation Module"
-            subtitle="Review and validate critical order and inventory data to ensure all records are complete and accurate before processing." />
+        <TitlePage
+            title="Validation Module"
+            subtitle="Review and validate critical order and inventory data to ensure all records are complete and accurate before processing."
+        />
 
         <AnimateDiv :delay="200" class="px-4">
             <div class="search-container">
-                <fieldset class="d-flex align-items-center gap-3 ">
+                <fieldset class="d-flex align-items-center gap-3">
                     <label for="moduleFilter">Status:</label>
-                    <Select v-model="validationStatusFilter" :options="uniqueValidationStatusesList" optionLabel="label"
-                        optionValue="value" placeholder="All Status" class="select-form" size="small" />
+                    <Select
+                        v-model="validationStatusFilter"
+                        :options="uniqueValidationStatusesList"
+                        optionLabel="label"
+                        optionValue="value"
+                        placeholder="All Status"
+                        class="select-form"
+                        size="small"
+                    />
                 </fieldset>
             </div>
-            <XDataTable :value="sortedInventory" :paginator="false" :columns="columns" tableClass="desktop-view"
-                selectionMode="multiple" dataKey="ProductID">
+            <XDataTable
+                :value="sortedInventory"
+                :paginator="false"
+                :columns="columns"
+                tableClass="desktop-view"
+                selectionMode="multiple"
+                dataKey="ProductID"
+            >
+                <template #gallery="{ data }">
+                    <div
+                        class="d-flex justify-content-center align-items-center"
+                    >
+                        <!-- Use custom image display for captured images -->
+                        <div
+                            v-if="
+                                data.capturedImages &&
+                                data.capturedImages.capturedimg1
+                            "
+                            class="gallery-thumbnail position-relative"
+                            @click="openImageModal(data)"
+                            style="cursor: pointer"
+                        >
+                            <img
+                                :src="`/images/product_images/${
+                                    data.company || 'Airstaffs'
+                                }/${data.capturedImages.capturedimg1}`"
+                                :alt="data.ProductTitle"
+                                style="
+                                    width: 50px;
+                                    height: 50px;
+                                    object-fit: cover;
+                                    border-radius: 4px;
+                                "
+                                @error="handleImageError"
+                            />
+                            <span
+                                v-if="countCapturedImages(data) > 1"
+                                class="position-absolute bg-primary text-white rounded-circle"
+                                style="
+                                    top: -5px;
+                                    right: -5px;
+                                    min-width: 20px;
+                                    height: 20px;
+                                    font-size: 0.65rem;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    padding: 0 4px;
+                                "
+                            >
+                                +{{ countCapturedImages(data) - 1 }}
+                            </span>
+                        </div>
 
+                        <!-- Use regular product images as fallback -->
+                        <div
+                            v-else-if="data.img1 && data.img1 !== 'NULL'"
+                            class="gallery-thumbnail position-relative"
+                            @click="openImageModal(data)"
+                            style="cursor: pointer"
+                        >
+                            <img
+                                :src="`/images/thumbnails/${data.img1}`"
+                                :alt="data.ProductTitle"
+                                style="
+                                    width: 50px;
+                                    height: 50px;
+                                    object-fit: cover;
+                                    border-radius: 4px;
+                                "
+                                @error="handleImageError"
+                            />
+                            <span
+                                v-if="countAllImages(data) > 1"
+                                class="position-absolute bg-primary text-white rounded-circle"
+                                style="
+                                    top: -5px;
+                                    right: -5px;
+                                    min-width: 20px;
+                                    height: 20px;
+                                    font-size: 0.65rem;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    padding: 0 4px;
+                                "
+                            >
+                                +{{ countAllImages(data) - 1 }}
+                            </span>
+                        </div>
+
+                        <!-- Fallback icon if no images -->
+                        <div
+                            v-else
+                            class="d-flex justify-content-center align-items-center"
+                            style="
+                                width: 50px;
+                                height: 50px;
+                                background-color: #f0f0f0;
+                                border-radius: 4px;
+                            "
+                        >
+                            <i
+                                class="pi pi-image"
+                                style="font-size: 1.5rem; color: #999"
+                            ></i>
+                        </div>
+                    </div>
+                </template>
                 <template #productname="{ data }">
                     <div class="d-flex align-items-start gap-4">
-                        <div style="word-break: break-word; white-space: normal; overflow-wrap: break-word; flex: 1;">
-                            <div style="font-size: 14px;">
+                        <div
+                            style="
+                                word-break: break-word;
+                                white-space: normal;
+                                overflow-wrap: break-word;
+                                flex: 1;
+                            "
+                        >
+                            <div style="font-size: 14px">
                                 <span>ID# </span>
-                                <span v-if="
-                                    data.storename ===
-                                    'Allrenewed'
-                                ">AR {{ data.rtcounter }}</span>
-                                <span v-else-if="
-                                    data.storename ===
-                                    'Renovartech'
-                                ">RT {{ data.rtcounter }}</span>
-                                <span v-else>{{
-                                    data.rtcounter
-                                }}</span>
+                                <span v-if="data.storename === 'Allrenewed'"
+                                    >AR {{ data.rtcounter }}</span
+                                >
+                                <span
+                                    v-else-if="data.storename === 'Renovartech'"
+                                    >RT {{ data.rtcounter }}</span
+                                >
+                                <span v-else>{{ data.rtcounter }}</span>
                             </div>
                             <p class="fw-semibold">{{ data.astitle }}</p>
                         </div>
                     </div>
                 </template>
-
                 <template #validationStatus="{ data }">
                     <div>
-                        <div class="badge" :class="data.validation_status +
-                            '-badge'
-                            ">
+                        <div
+                            class="badge"
+                            :class="data.validation_status + '-badge'"
+                        >
                             {{ data.validation_status }}
                         </div>
                     </div>
                 </template>
-
                 <template #ASIN="{ data }">
                     <div>
-                        <a :href="`https://www.amazon.com/dp/${data.ASIN}`" target="_blank">
+                        <a
+                            :href="`https://www.amazon.com/dp/${data.ASIN}`"
+                            target="_blank"
+                        >
                             {{ data.ASIN }}
                         </a>
                     </div>
                 </template>
-
                 <template #serialnumber="{ data }">
                     <div>
-                        <a :href="`/houseage?serial=${encodeURIComponent(
-                            data.serialnumber
-                        )}`" @click.prevent="
-                            goToHouseage(data.serialnumber)
-                            ">
+                        <a
+                            :href="`/houseage?serial=${encodeURIComponent(
+                                data.serialnumber
+                            )}`"
+                            @click.prevent="goToHouseage(data.serialnumber)"
+                        >
                             {{ data.serialnumber }}
                         </a>
                     </div>
@@ -84,149 +189,19 @@
 
                 <template #actions="{ data }">
                     <div>
-                        <Button size="small" severity="contrast" variant="text" label="View More" class="text-primary"
-                            icon="pi pi-exclamation-circle" @click="openValidationModal(data)" />
+                        <Button
+                            size="small"
+                            severity="contrast"
+                            variant="text"
+                            label="View More"
+                            class="text-primary"
+                            icon="pi pi-exclamation-circle"
+                            @click="openValidationModal(data)"
+                        />
                     </div>
                 </template>
             </XDataTable>
         </AnimateDiv>
-
-        <!-- Desktop Table Container -->
-        <!-- <div class="table-container desktop-view">
-            <table>
-                <thead>
-                    <tr>
-                        <th class="sticky-header first-col">
-                            <input type="checkbox" @click="toggleAll" v-model="selectAll" />
-                        </th>
-                        <th class="sticky-header second-sticky">
-                            <div class="product-name">
-                                <span class="sortable" @click="sortBy('AStitle')">
-                                    Product Name
-                                    <i v-if="sortColumn === 'AStitle'" :class="sortOrder === 'asc'
-                                            ? 'fas fa-sort-up'
-                                            : 'fas fa-sort-down'
-                                        "></i>
-                                </span>
-                            </div>
-                        </th>
-                        <th class="">ASIN</th>
-                        <th class="">Order Number</th>
-                        <th class="">Serial Number</th>
-                        <th class="">Tracking Number</th>
-                        <th class="">Basket Number</th>
-                        <th class="">Quantity</th>
-                        <th class="">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-if="loading">
-                        <td colspan="9" class="text-center">
-                            <div class="loading-spinner">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                Loading...
-                            </div>
-                        </td>
-                    </tr>
-                    <tr v-else-if="sortedInventory.length === 0">
-                        <td colspan="9" class="text-center">No data found</td>
-                    </tr>
-                    <template v-else v-for="(item, index) in sortedInventory" :key="item.id">
-                        <tr>
-                            <td class="sticky-col first-col">
-                                <input type="checkbox" v-model="item.checked" />
-                                <span class="placeholder-date">{{
-                                    item.shipBy || ""
-                                    }}</span>
-                            </td>
-                            <td class="sticky-col second-sticky">
-                                <div class="product-container">
-                                    <div class="product-info">
-                                        <p>{{ item.astitle }}</p>
-                                        <p>
-                                            ID#:
-                                            <span v-if="
-                                                item.storename ===
-                                                'Allrenewed'
-                                            ">AR {{ item.rtcounter }}</span>
-                                            <span v-else-if="
-                                                item.storename ===
-                                                'Renovartech'
-                                            ">RT {{ item.rtcounter }}</span>
-                                            <span v-else>{{
-                                                item.rtcounter
-                                                }}</span>
-                                        </p>
-                                        <p>
-                                            <span class="badge" :class="item.validation_status +
-                                                '-badge'
-                                                ">
-                                                {{ item.validation_status }}
-                                            </span>
-                                        </p>
-                                    </div>
-                                </div>
-                            </td>
-
-                            <td>
-                                <a :href="`https://www.amazon.com/dp/${item.ASIN}`" target="_blank">
-                                    {{ item.ASIN }}
-                                </a>
-                            </td>
-                            <td>
-                                <span> {{ item.rtid }} </span>
-                            </td>
-                            <td>
-                                <a :href="`/houseage?serial=${encodeURIComponent(
-                                    item.serialnumber
-                                )}`" @click.prevent="
-                                        goToHouseage(item.serialnumber)
-                                        ">
-                                    {{ item.serialnumber }}
-                                </a>
-                            </td>
-                            <td>
-                                <span> {{ item.trackingnumber }} </span>
-                            </td>
-                            <td>
-                                <span> {{ item.basketnumber }} </span>
-                            </td>
-                            <td>
-                                <span> {{ item.quantity }} </span>
-                            </td>
-
-                            <td>
-                                <div class="action-buttons">
-                                    <button class="btn btn-viewMore" @click="openValidationModal(item)">
-                                        View More
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="expandedRows[index]">
-                            <td :colspan="showDetails ? 9 : 9">
-                                <div class="expanded-content p-3 border rounded">
-                                    <p>
-                                        <strong>
-                                            External Title provided by Supplier:
-                                        </strong>
-                                        {{ item.ProductTitle }}
-                                    </p>
-                                    <p>
-                                        <strong>Product Name:</strong>
-                                        {{ item.astitle }}
-                                    </p>
-                                    <p>
-                                        <strong>Store Name:</strong>
-                                        {{ item.storename }}
-                                    </p>
-                                </div>
-                            </td>
-                        </tr>
-                    </template>
-</tbody>
-</table>
-</div> -->
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
@@ -235,30 +210,48 @@
                     <i class="fas fa-spinner fa-spin"></i>
                     Loading...
                 </div>
-                <div v-else-if="sortedInventory.length === 0" class="no-data-mobile">
+                <div
+                    v-else-if="sortedInventory.length === 0"
+                    class="no-data-mobile"
+                >
                     No data found
                 </div>
-                <div class="mobile-card" v-else v-for="(item, index) in sortedInventory" :key="item.id">
+                <div
+                    class="mobile-card"
+                    v-else
+                    v-for="(item, index) in sortedInventory"
+                    :key="item.id"
+                >
                     <div class="mobile-card-header">
                         <div class="mobile-checkbox">
                             <input type="checkbox" v-model="item.checked" />
                         </div>
-                        <TableGallery :data="item" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages" />
+                        <TableGallery
+                            :data="item"
+                            :openImageModal="openImageModal"
+                            :handleImageError="handleImageError"
+                            :countAdditionalImages="countAdditionalImages"
+                        />
                         <div class="mobile-product-info">
                             <div class="mobile-product-name clickable">
                                 <p>
                                     ID#:
-                                    <span v-if="item.storename === 'Allrenewed'">AR {{ item.rtcounter }}</span>
-                                    <span v-else-if="
-                                        item.storename === 'Renovartech'
-                                    ">RT {{ item.rtcounter }}</span>
+                                    <span v-if="item.storename === 'Allrenewed'"
+                                        >AR {{ item.rtcounter }}</span
+                                    >
+                                    <span
+                                        v-else-if="
+                                            item.storename === 'Renovartech'
+                                        "
+                                        >RT {{ item.rtcounter }}</span
+                                    >
                                     <span v-else>{{ item.rtcounter }}</span>
                                 </p>
                                 <h6>{{ item.astitle }}</h6>
-                                <div class="badge" :class="item.validation_status +
-                                    '-badge'
-                                    ">
+                                <div
+                                    class="badge"
+                                    :class="item.validation_status + '-badge'"
+                                >
                                     {{ item.validation_status }}
                                 </div>
                             </div>
@@ -272,96 +265,162 @@
                             <div class="col-6 d-flex flex-column gap-2">
                                 <div class="mobile-detail-row">
                                     <div class="d-flex flex-wrap">
-                                        <span class="mobile-detail-label" style="margin-right: 8px;">Location:</span>
+                                        <span
+                                            class="mobile-detail-label"
+                                            style="margin-right: 8px"
+                                            >Location:</span
+                                        >
                                         <span class="mobile-detal-value">
-                                            {{ item.warehouselocation }}</span>
+                                            {{ item.warehouselocation }}</span
+                                        >
                                     </div>
                                 </div>
                                 <div class="mobile-detail-row">
                                     <div class="d-flex flex-wrap">
-                                        <span class="mobile-detail-label" style="margin-right: 8px;">Added date:</span>
+                                        <span
+                                            class="mobile-detail-label"
+                                            style="margin-right: 8px"
+                                            >Added date:</span
+                                        >
                                         <span class="mobile-detal-value">
-                                            {{ item.datedelivered }}</span>
+                                            {{ item.datedelivered }}</span
+                                        >
                                     </div>
                                 </div>
                                 <div class="mobile-detail-row">
                                     <div class="d-flex flex-wrap">
-                                        <span class="mobile-detail-label" style="margin-right: 8px;">Updated
-                                            date:</span>
+                                        <span
+                                            class="mobile-detail-label"
+                                            style="margin-right: 8px"
+                                            >Updated date:</span
+                                        >
                                         <span class="mobile-detal-value">
-                                            {{ item.lastDateUpdate }}</span>
+                                            {{ item.lastDateUpdate }}</span
+                                        >
                                     </div>
-
                                 </div>
                                 <div class="mobile-detail-row">
-                                    <span class="mobile-detail-label">FNSKU:</span>
+                                    <span class="mobile-detail-label"
+                                        >FNSKU:</span
+                                    >
                                     <span class="mobile-detal-value">
-                                        {{ item.FNSKUviewer }}</span>
+                                        {{ item.FNSKUviewer }}</span
+                                    >
                                 </div>
                                 <div class="mobile-detail-row">
-                                    <span class="mobile-detail-label">MSKU:</span>
+                                    <span class="mobile-detail-label"
+                                        >MSKU:</span
+                                    >
                                     <span class="mobile-detal-value">
-                                        {{ item.MSKUviewer }}</span>
+                                        {{ item.MSKUviewer }}</span
+                                    >
                                 </div>
                                 <div class="mobile-detail-row">
-                                    <span class="mobile-detail-label">ASIN:</span>
+                                    <span class="mobile-detail-label"
+                                        >ASIN:</span
+                                    >
                                     <span class="mobile-detal-value">
-                                        {{ item.ASINviewer }}</span>
+                                        {{ item.ASINviewer }}</span
+                                    >
                                 </div>
                                 <div class="mobile-detail-row">
-                                    <span class="mobile-detail-label">Status:</span>
+                                    <span class="mobile-detail-label"
+                                        >Status:</span
+                                    >
                                     <span class="mobile-detal-value">
-                                        {{ item.status }}</span>
+                                        {{ item.status }}</span
+                                    >
                                 </div>
                             </div>
 
-                            <div class="col-6  d-flex flex-column gap-2">
-                                <div class="mobile-detail-row" v-if="showDetails">
-                                    <span class="mobile-detail-label">FBM:</span>
+                            <div class="col-6 d-flex flex-column gap-2">
+                                <div
+                                    class="mobile-detail-row"
+                                    v-if="showDetails"
+                                >
+                                    <span class="mobile-detail-label"
+                                        >FBM:</span
+                                    >
                                     <span class="mobile-detal-value">
-                                        {{ item.FBMAvailable }}</span>
+                                        {{ item.FBMAvailable }}</span
+                                    >
                                 </div>
-                                <div class="mobile-detail-row" v-if="showDetails">
-                                    <span class="mobile-detail-label">FBA:</span>
+                                <div
+                                    class="mobile-detail-row"
+                                    v-if="showDetails"
+                                >
+                                    <span class="mobile-detail-label"
+                                        >FBA:</span
+                                    >
                                     <span class="mobile-detal-value">
-                                        {{ item.FbaAvailable }}</span>
+                                        {{ item.FbaAvailable }}</span
+                                    >
                                 </div>
-                                <div class="mobile-detail-row" v-if="showDetails">
-                                    <span class="mobile-detail-label">Outbound:</span>
+                                <div
+                                    class="mobile-detail-row"
+                                    v-if="showDetails"
+                                >
+                                    <span class="mobile-detail-label"
+                                        >Outbound:</span
+                                    >
                                     <span class="mobile-detal-value">
-                                        {{ item.Outbound }}</span>
+                                        {{ item.Outbound }}</span
+                                    >
                                 </div>
-                                <div class="mobile-detail-row" v-if="showDetails">
-                                    <span class="mobile-detail-label">Inbound:</span>
+                                <div
+                                    class="mobile-detail-row"
+                                    v-if="showDetails"
+                                >
+                                    <span class="mobile-detail-label"
+                                        >Inbound:</span
+                                    >
                                     <span class="mobile-detal-value">
-                                        {{ item.Inbound }}</span>
+                                        {{ item.Inbound }}</span
+                                    >
                                 </div>
-                                <div class="mobile-detail-row" v-if="showDetails">
-                                    <span class="mobile-detail-label">Unfulfillable:</span>
+                                <div
+                                    class="mobile-detail-row"
+                                    v-if="showDetails"
+                                >
+                                    <span class="mobile-detail-label"
+                                        >Unfulfillable:</span
+                                    >
                                     <span class="mobile-detal-value">
-                                        {{ item.Unfulfillable }}</span>
+                                        {{ item.Unfulfillable }}</span
+                                    >
                                 </div>
-                                <div class="mobile-detail-row" v-if="showDetails">
-                                    <span class="mobile-detail-label">Reserved:</span>
+                                <div
+                                    class="mobile-detail-row"
+                                    v-if="showDetails"
+                                >
+                                    <span class="mobile-detail-label"
+                                        >Reserved:</span
+                                    >
                                     <span class="mobile-detal-value">
-                                        {{ item.Reserved }}</span>
+                                        {{ item.Reserved }}</span
+                                    >
                                 </div>
                                 <!--  -->
                                 <div class="mobile-detail-row">
-                                    <span class="mobile-detail-label">Fullfilment:</span>
+                                    <span class="mobile-detail-label"
+                                        >Fullfilment:</span
+                                    >
                                     <span class="mobile-detal-value">
-                                        {{ item.Fulfilledby }}</span>
+                                        {{ item.Fulfilledby }}</span
+                                    >
                                 </div>
-
                             </div>
                         </div>
 
                         <!-- Insert Hidden Here -->
 
                         <div class="mobile-detail-row mt-2">
-                            <span class="mobile-detail-label">Serial Number:</span>
+                            <span class="mobile-detail-label"
+                                >Serial Number:</span
+                            >
                             <span class="mobile-detal-value">
-                                {{ item.serialnumber }}</span>
+                                {{ item.serialnumber }}</span
+                            >
                         </div>
                     </div>
 
@@ -369,27 +428,47 @@
 
                     <div class="d-flex flex-nowrap overflow-auto gap-2 pb-3">
                         <div class="flex-shrink-0">
-                            <Button label="Details" size="small" icon="pi pi-info-circle" severity="info"
-                                @click="toggleDetails(index)" />
+                            <Button
+                                label="Details"
+                                size="small"
+                                icon="pi pi-info-circle"
+                                severity="info"
+                                @click="toggleDetails(index)"
+                            />
                         </div>
 
                         <div class="flex-shrink-0">
-                            <Button label="Move to Labeling" size="small" icon="pi pi-check-circle"
-                                @click="confirmMoveToLabeling(item)" :disabled="isProcessing" />
+                            <Button
+                                label="Move to Labeling"
+                                size="small"
+                                icon="pi pi-check-circle"
+                                @click="confirmMoveToLabeling(item)"
+                                :disabled="isProcessing"
+                            />
                         </div>
 
                         <div class="flex-shrink-0">
-                            <Button label="Move to Stockroom" size="small" icon="pi pi-box"
-                                @click="confirmMoveToStockroom(item)" :disabled="isProcessing" severity="warn" />
+                            <Button
+                                label="Move to Stockroom"
+                                size="small"
+                                icon="pi pi-box"
+                                @click="confirmMoveToStockroom(item)"
+                                :disabled="isProcessing"
+                                severity="warn"
+                            />
                         </div>
 
                         <div class="flex-shrink-0">
-                            <Button label="Open Validation" size="small" icon="pi pi-verified"
-                                @click="openValidationModal(item)" :disabled="isProcessing" severity="help" />
+                            <Button
+                                label="Open Validation"
+                                size="small"
+                                icon="pi pi-verified"
+                                @click="openValidationModal(item)"
+                                :disabled="isProcessing"
+                                severity="help"
+                            />
                         </div>
                     </div>
-
-
 
                     <!-- <div class="mobile-card-actions">
                         <button class="btn btn-details" @click="toggleDetails(index)">
@@ -411,19 +490,29 @@
 
                     <hr v-if="expandedRows[index]" />
 
-                    <div v-if="expandedRows[index]" class="mobile-expanded-content d-flex flex-column gap-3">
+                    <div
+                        v-if="expandedRows[index]"
+                        class="mobile-expanded-content d-flex flex-column gap-3"
+                    >
                         <div>
-                            <p class="fw-semibold" style="font-size: 14px;">External Title provided by
-                                Supplier</p>
-                            <p style="font-size: 14px"> {{ item.ProductTitle }}</p>
+                            <p class="fw-semibold" style="font-size: 14px">
+                                External Title provided by Supplier
+                            </p>
+                            <p style="font-size: 14px">
+                                {{ item.ProductTitle }}
+                            </p>
                         </div>
                         <div>
-                            <p class="fw-semibold" style="font-size: 14px;">Product Name</p>
-                            <p style="font-size: 14px"> {{ item.astitle }}</p>
+                            <p class="fw-semibold" style="font-size: 14px">
+                                Product Name
+                            </p>
+                            <p style="font-size: 14px">{{ item.astitle }}</p>
                         </div>
                         <div>
-                            <p class="fw-semibold" style="font-size: 14px;">Store Name </p>
-                            <p style="font-size: 14px"> {{ item.storename }}</p>
+                            <p class="fw-semibold" style="font-size: 14px">
+                                Store Name
+                            </p>
+                            <p style="font-size: 14px">{{ item.storename }}</p>
                         </div>
                     </div>
                 </div>
@@ -431,151 +520,105 @@
         </div>
 
         <!-- Pagination with centered layout -->
-        <div class=" pagination-container">
+        <div class="pagination-container">
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" optionLabel="label"
-                        optionValue="value" size="small" />
-                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                            {{ option }}
-                        </option>
-                    </select> -->
+                    <Select
+                        v-model="perPage"
+                        @change="changePerPage"
+                        :options="rowsPerPage"
+                        optionLabel="label"
+                        optionValue="value"
+                        size="small"
+                    />
                 </div>
 
                 <div class="pagination">
-                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
-                        icon="pi pi-angle-left" size="small" severity="info" />
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
-                        label="Next" icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
+                    <Button
+                        @click="prevPage"
+                        :disabled="currentPage === 1"
+                        class="pagination-button"
+                        label="Back"
+                        icon="pi pi-angle-left"
+                        size="small"
+                        severity="info"
+                    />
+                    <span class="pagination-info"
+                        >Page {{ currentPage }} of {{ totalPages }}</span
+                    >
+                    <Button
+                        @click="nextPage"
+                        :disabled="currentPage === totalPages"
+                        class="pagination-button"
+                        label="Next"
+                        icon="pi pi-angle-right"
+                        size="small"
+                        severity="info"
+                        iconPos="right"
+                    />
                 </div>
             </div>
         </div>
 
         <!-- Image Modal with Tabs -->
-        <!-- <Dialog v-model:visible="showImageModal" modal :pt="{
-            root: { class: 'mobile-fullscreen-dialog' }
-        }">
-            <div>
+        <ViewImageGalleryModal
+            :showImageModal="showImageModal"
+            :closeImageModal="closeImageModal"
+            :ProductTitle="ProductTitle"
+            :regularImages="regularImages"
+            :capturedImages="capturedImages"
+            :handleImageError="handleImageError"
+        />
 
-                <div class="image-tabs">
-                    <button class="tab-button" :class="{ active: activeTab === 'regular' }"
-                        @click="switchTab('regular')" :disabled="regularImages.length === 0">
-                        Product Images ({{ regularImages.length }})
-                    </button>
-                    <button class="tab-button" :class="{ active: activeTab === 'captured' }"
-                        @click="switchTab('captured')" :disabled="capturedImages.length === 0">
-                        Captured Images ({{ capturedImages.length }})
-                    </button>
-                    <button class="tab-button" :class="{ active: activeTab === 'asin' }" @click="switchTab('asin')"
-                        :disabled="asinImages.length === 0">
-                        ASIN Images ({{ asinImages.length }})
-                    </button>
-                </div>
-
-                <div v-if="currentImageSet.length === 0" class="no-images-message">
-                    No images available in this category
-                </div>
-
-                <div v-if="currentImageSet.length > 0" class="main-image-container">
-                    <button class="nav-button prev" @click="prevImage" v-if="currentImageSet.length > 1">
-                        &lt;
-                    </button>
-                    <img :src="currentImageSet[currentImageIndex]" alt="Product Image" class="modal-main-image"
-                        @error="handleImageError" />
-                    <button class="nav-button next" @click="nextImage" v-if="currentImageSet.length > 1">
-                        &gt;
-                    </button>
-                </div>
-
-                <div class="image-counter" v-if="currentImageSet.length > 0">
-                    {{ currentImageIndex + 1 }} / {{ currentImageSet.length }}
-                </div>
-
-                <div class="thumbnails-container" v-if="currentImageSet.length > 1">
-                    <div v-for="(image, index) in currentImageSet" :key="index" class="modal-thumbnail"
-                        :class="{ active: index === currentImageIndex }" @click="currentImageIndex = index">
-                        <img :src="image" :alt="`Thumbnail ${index + 1}`" @error="handleImageError" />
-                    </div>
-                </div>
-            </div>
-        </Dialog> -->
-
-        <Dialog v-model:visible="showImageModal" modal :pt="{ root: { class: 'mobile-fullscreen-dialog' } }">
-            <div class="modal-wrapper-image">
-
-                <!-- Tabs -->
-                <Tabs v-model:value="activeTab" class="tabs-container">
-                    <TabList>
-                        <Tab value="regular" :disabled="regularImages.length === 0">
-                            Product Images ({{ regularImages.length }})
-                        </Tab>
-                        <Tab value="captured" :disabled="capturedImages.length === 0">
-                            Captured Images ({{ capturedImages.length }})
-                        </Tab>
-                        <Tab value="asin" :disabled="asinImages.length === 0">
-                            ASIN Images ({{ asinImages.length }})
-                        </Tab>
-                    </TabList>
-                </Tabs>
-
-                <!-- Empty State -->
-                <div v-if="currentImageSet.length === 0" class="no-images-message">
-                    No images available
-                </div>
-
-                <!-- MAIN IMAGE AREA -->
-                <div v-if="currentImageSet.length > 0" class="main-image-area">
-                    <!-- Prev Button -->
-                    <Button v-if="currentImageSet.length > 1" icon="pi pi-chevron-left" class="nav-btn prev-btn"
-                        @click="prevImage" rounded text />
-
-                    <!-- MAIN IMAGE -->
-                    <img :src="currentImageSet[currentImageIndex]" class="main-image" @error="handleImageError" />
-
-                    <!-- Next Button -->
-                    <Button v-if="currentImageSet.length > 1" icon="pi pi-chevron-right" class="nav-btn next-btn"
-                        @click="nextImage" rounded text />
-                </div>
-
-                <!-- Counter -->
-                <div class="image-counter">
-                    {{ currentImageIndex + 1 }} / {{ currentImageSet.length }}
-                </div>
-
-                <!-- THUMBNAILS -->
-                <div v-if="currentImageSet.length > 1" class="thumbs-wrapper">
-                    <div v-for="(image, i) in currentImageSet" :key="i"
-                        :class="['thumb-item', { active: i === currentImageIndex }]" @click="currentImageIndex = i">
-                        <img :src="image" @error="handleImageError" />
-                    </div>
-                </div>
-
-            </div>
-        </Dialog>
-
-
-        <Dialog v-model:visible="showValidationModal" modal header="Product Details" :style="{ width: '90vw' }" :pt="{
-            root: { class: 'mobile-fullscreen-dialog' }
-        }">
-            <div class="d-flex align-items-center justify-content-between gap-4 flex-wrap">
-                <div class="d-flex align-items-center gap-2 " style="width: 900px;">
+        <Dialog
+            v-model:visible="showValidationModal"
+            modal
+            header="Product Details"
+            :style="{ width: '90vw' }"
+            :pt="{
+                root: { class: 'mobile-fullscreen-dialog' },
+            }"
+        >
+            <div
+                class="d-flex align-items-center justify-content-between gap-4 flex-wrap"
+            >
+                <div
+                    class="d-flex align-items-center gap-2"
+                    style="width: 900px"
+                >
                     <h6>Serial Number Verification</h6>
-                    <InputText class="form-control" size="small" type="text" id="textserial"
-                        placeholder="Scan or enter serial number..." />
-                    <Button size="small" severity="info" type="submit" label="Verify Serial"
-                        style="height: 34px; width: 150px;" />
-
+                    <InputText
+                        class="form-control"
+                        size="small"
+                        type="text"
+                        id="textserial"
+                        placeholder="Scan or enter serial number..."
+                    />
+                    <Button
+                        size="small"
+                        severity="info"
+                        type="submit"
+                        label="Verify Serial"
+                        style="height: 34px; width: 150px"
+                    />
                 </div>
                 <div>
-                    <Button style="margin-right: 10px;" size="small" icon="pi pi-thumbs-up" label="Mark as Valid"
-                        @click="confirmMarkAsValid" />
-                    <Button severity="danger" icon="pi pi-thumbs-down" size="small" label="Mark as Invalid"
-                        @click="confirmMarkAsInvalid" />
+                    <Button
+                        style="margin-right: 10px"
+                        size="small"
+                        icon="pi pi-thumbs-up"
+                        label="Mark as Valid"
+                        @click="confirmMarkAsValid"
+                    />
+                    <Button
+                        severity="danger"
+                        icon="pi pi-thumbs-down"
+                        size="small"
+                        label="Mark as Invalid"
+                        @click="confirmMarkAsInvalid"
+                    />
                 </div>
-
             </div>
             <div class="row mt-4">
                 <div class="col-md-2">
@@ -597,54 +640,85 @@
                         </Card> -->
 
                         <div>
-                            <div class="image-section" v-show="imageList.length && imageList">
-
+                            <div
+                                class="image-section"
+                                v-show="imageList.length && imageList"
+                            >
                                 <div class="main-image">
-                                    <img :src="activeImageUrl" alt="Main Product Image" loading="lazy"
-                                        @error="onImageErrorMain" />
+                                    <img
+                                        :src="activeImageUrl"
+                                        alt="Main Product Image"
+                                        loading="lazy"
+                                        @error="onImageErrorMain"
+                                    />
                                 </div>
 
-
-                                <div class="thumbnail-carousel ">
-                                    <div v-for="(img, index) in imageList" :key="index" :class="[
-                                        'thumbnail',
-                                        {
-                                            active: index === activeIndex,
-                                        },
-                                    ]" @click="activeIndex = index" @mouseenter="activeIndex = index">
-                                        <img :src="basePath + img" alt="Thumbnail" loading="lazy"
-                                            @error="onThumbnailError($event)" />
+                                <div class="thumbnail-carousel">
+                                    <div
+                                        v-for="(img, index) in imageList"
+                                        :key="index"
+                                        :class="[
+                                            'thumbnail',
+                                            {
+                                                active: index === activeIndex,
+                                            },
+                                        ]"
+                                        @click="activeIndex = index"
+                                        @mouseenter="activeIndex = index"
+                                    >
+                                        <img
+                                            :src="basePath + img"
+                                            alt="Thumbnail"
+                                            loading="lazy"
+                                            @error="onThumbnailError($event)"
+                                        />
                                     </div>
                                 </div>
                             </div>
 
-                            <p class="image-label text-center ">
+                            <p class="image-label text-center">
                                 <label>
                                     <p>Images from Product</p>
                                 </label>
                             </p>
                         </div>
 
-
                         <Divider />
 
                         <div>
-                            <div class="image-section" v-if="asinImageList.length">
+                            <div
+                                class="image-section"
+                                v-if="asinImageList.length"
+                            >
                                 <div class="main-image">
-                                    <img :src="activeAsinImageUrl" alt="Main ASIN Image" loading="lazy"
-                                        @error="onImageErrorMain" />
+                                    <img
+                                        :src="activeAsinImageUrl"
+                                        alt="Main ASIN Image"
+                                        loading="lazy"
+                                        @error="onImageErrorMain"
+                                    />
                                 </div>
 
                                 <div class="thumbnail-carousel">
-                                    <div v-for="(img, index) in asinImageList" :key="'asin-' + index" :class="[
-                                        'thumbnail',
-                                        {
-                                            active:
-                                                index === activeAsinIndex,
-                                        },
-                                    ]" @click="activeAsinIndex = index" @mouseenter="activeAsinIndex = index">
-                                        <img :src="asinBasePath + img" alt="ASIN Thumbnail" loading="lazy"
-                                            @error="onThumbnailError($event)" />
+                                    <div
+                                        v-for="(img, index) in asinImageList"
+                                        :key="'asin-' + index"
+                                        :class="[
+                                            'thumbnail',
+                                            {
+                                                active:
+                                                    index === activeAsinIndex,
+                                            },
+                                        ]"
+                                        @click="activeAsinIndex = index"
+                                        @mouseenter="activeAsinIndex = index"
+                                    >
+                                        <img
+                                            :src="asinBasePath + img"
+                                            alt="ASIN Thumbnail"
+                                            loading="lazy"
+                                            @error="onThumbnailError($event)"
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -655,11 +729,9 @@
                                 </label>
                             </p>
                         </div>
-
-
                     </div>
                 </div>
-                <div class="col-md-10 " style="font-size: 14px;">
+                <div class="col-md-10" style="font-size: 14px">
                     <div>
                         <h3>{{ item.ProductTitle }}</h3>
                     </div>
@@ -671,51 +743,93 @@
                             <Divider />
 
                             <div class="d-flex flex-column gap-3">
-                                <div class="d-flex align-items-center justify-content-between ">
-                                    <span class="fw-semibold">Serial Number</span>
-                                    <span class="text-secondary">{{ item.serialnumber }}</span>
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
+                                    <span class="fw-semibold"
+                                        >Serial Number</span
+                                    >
+                                    <span class="text-secondary">{{
+                                        item.serialnumber
+                                    }}</span>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between">
-                                    <span class="fw-semibold">Date Delivered</span>
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
+                                    <span class="fw-semibold"
+                                        >Date Delivered</span
+                                    >
                                     <span>{{ item.shipdate }}</span>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between">
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
                                     <span class="fw-semibold">Order Date</span>
                                     <span>{{ item.orderdate }}</span>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between">
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
                                     <span class="fw-semibold">Seller</span>
                                     <span>{{ item.seller }}</span>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between">
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
                                     <span class="fw-semibold">Store</span>
                                     <span>{{ item.storename }}</span>
                                 </div>
                             </div>
 
                             <!------Shipping and Locaton Section -->
-                            <h5 class="text-primary  mt-4">Shipping and Location</h5>
+                            <h5 class="text-primary mt-4">
+                                Shipping and Location
+                            </h5>
                             <Divider />
                             <div class="d-flex flex-column gap-3">
-                                <div class="d-flex align-items-center justify-content-between ">
-                                    <span class="fw-semibold">Order Number</span>
-                                    <span class="text-secondary">{{ item.rtid }}</span>
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
+                                    <span class="fw-semibold"
+                                        >Order Number</span
+                                    >
+                                    <span class="text-secondary">{{
+                                        item.rtid
+                                    }}</span>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between ">
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
                                     <span class="fw-semibold">Tracking</span>
-                                    <span class="text-secondary">{{ item.trackingnumber }}</span>
+                                    <span class="text-secondary">{{
+                                        item.trackingnumber
+                                    }}</span>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between ">
-                                    <span class="fw-semibold">Basket Number</span>
-                                    <span class="text-secondary">{{ item.basketnumber }}</span>
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
+                                    <span class="fw-semibold"
+                                        >Basket Number</span
+                                    >
+                                    <span class="text-secondary">{{
+                                        item.basketnumber
+                                    }}</span>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between ">
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
                                     <span class="fw-semibold">Item Number</span>
-                                    <span class="text-secondary">{{ item.itemnumber }}</span>
+                                    <span class="text-secondary">{{
+                                        item.itemnumber
+                                    }}</span>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between ">
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
                                     <span class="fw-semibold">Location</span>
-                                    <span class="text-secondary">{{ item.ProductModuleLoc }}</span>
+                                    <span class="text-secondary">{{
+                                        item.ProductModuleLoc
+                                    }}</span>
                                 </div>
                             </div>
                         </div>
@@ -724,49 +838,83 @@
                             <h5 class="text-primary">Product Details</h5>
                             <Divider />
                             <div class="d-flex flex-column gap-3">
-                                <div class="d-flex align-items-center justify-content-between ">
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
                                     <span class="fw-semibold">ASIN</span>
-                                    <span class="text-secondary">{{ item.ASIN }}</span>
+                                    <span class="text-secondary">{{
+                                        item.ASIN
+                                    }}</span>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between ">
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
                                     <span class="fw-semibold">FNSKU</span>
-                                    <span class="text-secondary">{{ item.FNSKU }}</span>
+                                    <span class="text-secondary">{{
+                                        item.FNSKU
+                                    }}</span>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between ">
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
                                     <span class="fw-semibold">MSKU</span>
-                                    <span class="text-secondary">{{ item.MSKU }}</span>
+                                    <span class="text-secondary">{{
+                                        item.MSKU
+                                    }}</span>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between ">
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
                                     <span class="fw-semibold">RPN</span>
-                                    <span class="text-secondary">{{ item.RPN }}</span>
+                                    <span class="text-secondary">{{
+                                        item.RPN
+                                    }}</span>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between ">
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
                                     <span class="fw-semibold">PRD</span>
-                                    <span class="text-secondary">{{ item.PRD }}</span>
+                                    <span class="text-secondary">{{
+                                        item.PRD
+                                    }}</span>
                                 </div>
                             </div>
                             <!---Status Information Section--->
-                            <h5 class="text-primary mt-4">Status Information</h5>
+                            <h5 class="text-primary mt-4">
+                                Status Information
+                            </h5>
                             <Divider />
                             <div class="d-flex flex-column gap-3">
-                                <div class="d-flex align-items-center justify-content-between ">
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
                                     <span class="fw-semibold">Grading</span>
-                                    <span class="text-secondary">{{ item.grading }}</span>
+                                    <span class="text-secondary">{{
+                                        item.grading
+                                    }}</span>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between ">
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
                                     <span class="fw-semibold">Priority</span>
-                                    <span class="text-secondary">{{ item.priorityrank }}</span>
+                                    <span class="text-secondary">{{
+                                        item.priorityrank
+                                    }}</span>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between ">
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
                                     <span class="fw-semibold">Validation</span>
-                                    <div class="badge" :class="item.validation_status +
-                                        '-badge'
-                                        ">
+                                    <div
+                                        class="badge"
+                                        :class="
+                                            item.validation_status + '-badge'
+                                        "
+                                    >
                                         {{ item.validation_status }}
                                     </div>
                                 </div>
                             </div>
-
                         </div>
                     </div>
 
@@ -774,360 +922,82 @@
                     <div class="mt-5">
                         <h5 class="text-primary">Additional Information</h5>
                         <Divider />
-                        <p class="text-secondary">{{ item.notes }} Lorem ipsum dolor sit amet
-                            consectetur
-                            adipisicing
-                            elit.
-                            Debitis nisi
-                            incidunt
-                            similique hic sed illum magni error cupiditate sint natus!</p>
+                        <p class="text-secondary">
+                            {{ item.notes }} Lorem ipsum dolor sit amet
+                            consectetur adipisicing elit. Debitis nisi incidunt
+                            similique hic sed illum magni error cupiditate sint
+                            natus!
+                        </p>
                     </div>
                 </div>
             </div>
         </Dialog>
 
-        <!-- <div v-if="showValidationModal" class="modal validation-modal">
-            <div class="modal-overlay" @click="closeValidationModal"></div>
-
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Product Details</h3>
-
-                    <button class="btn btn-modal-close" @click="closeValidationModal">
-                        &times;
-                    </button>
-                </div>
-
-                <div class="modal-body">
-                    <div class="form-grid-wrapper">
-                        <div class="form-col-left">
-                            <div class="image-section" v-if="imageList.length">
-                           
-                                <div class="main-image">
-                                    <img :src="activeImageUrl" alt="Main Product Image" loading="lazy"
-                                        @error="onImageErrorMain" />
-                                </div>
-
-                        
-                                <div class="thumbnail-carousel">
-                                    <div v-for="(img, index) in imageList" :key="index" :class="[
-                                        'thumbnail',
-                                        {
-                                            active: index === activeIndex,
-                                        },
-                                    ]" @click="activeIndex = index" @mouseenter="activeIndex = index">
-                                        <img :src="basePath + img" alt="Thumbnail" loading="lazy"
-                                            @error="onThumbnailError($event)" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <p class="image-label text-center">
-                                <label>
-                                    <p>Images from Product</p>
-                                </label>
-                            </p>
-
-                            <hr />
-
-                            <div class="image-section" v-if="asinImageList.length">
-                                <div class="main-image">
-                                    <img :src="activeAsinImageUrl" alt="Main ASIN Image" loading="lazy"
-                                        @error="onImageErrorMain" />
-                                </div>
-
-                                <div class="thumbnail-carousel">
-                                    <div v-for="(img, index) in asinImageList" :key="'asin-' + index" :class="[
-                                        'thumbnail',
-                                        {
-                                            active:
-                                                index === activeAsinIndex,
-                                        },
-                                    ]" @click="activeAsinIndex = index" @mouseenter="activeAsinIndex = index">
-                                        <img :src="asinBasePath + img" alt="ASIN Thumbnail" loading="lazy"
-                                            @error="onThumbnailError($event)" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <p class="asin-label text-center" v-if="ASIN">
-                                <label>
-                                    <p>Image from <strong>ASIN</strong></p>
-                                    <p>{{ ASIN }}</p>
-                                </label>
-                            </p>
-                        </div>
-
-                        <div class="form-col-center">
-                            <div class="form-section center-section other-section">
-                                <div class="title-section">
-                                    <h3>{{ item.ProductTitle }}</h3>
-                                </div>
-
-                                <div class="validation-details">
-                                    <div class="basic-details-section shadow">
-                                        <h3 class="form-section-heading">
-                                            Basic Details
-                                        </h3>
-                                        <fieldset>
-                                            <label>
-                                                <span>Serial Number: </span>
-                                                <span>
-                                                    {{ item.serialnumber }}
-                                                </span>
-                                            </label>
-                                        </fieldset>
-                                        <fieldset>
-                                            <label>
-                                                <span>Date Delivered: </span>
-                                                <span>
-                                                    {{ item.shipdate }}
-                                                </span>
-                                            </label>
-                                        </fieldset>
-                                        <fieldset>
-                                            <label>
-                                                <span>Order Date: </span>
-                                                <span>
-                                                    {{ item.orderdate }}
-                                                </span>
-                                            </label>
-                                        </fieldset>
-                                        <fieldset>
-                                            <label>
-                                                <span>Seller: </span>
-                                                <span>{{ item.seller }}</span>
-                                            </label>
-                                        </fieldset>
-                                        <fieldset>
-                                            <label>
-                                                <span>Store: </span>
-                                                <span>
-                                                    {{ item.storename }}
-                                                </span>
-                                            </label>
-                                        </fieldset>
-                                    </div>
-
-                                    <div class="basic-details-section shadow">
-                                        <h3 class="form-section-heading">
-                                            Product Details
-                                        </h3>
-                                        <fieldset>
-                                            <label>
-                                                <span>ASIN: </span>
-                                                <span>
-                                                    {{ item.ASIN }}
-                                                </span>
-                                            </label>
-                                        </fieldset>
-                                        <fieldset>
-                                            <label>
-                                                <span>FNSKU: </span>
-                                                <span>
-                                                    {{ item.FNSKU }}
-                                                </span>
-                                            </label>
-                                        </fieldset>
-                                        <fieldset>
-                                            <label>
-                                                <span>MSKU: </span>
-                                                <span>
-                                                    {{ item.MSKU }}
-                                                </span>
-                                            </label>
-                                        </fieldset>
-                                        <fieldset>
-                                            <label>
-                                                <span>RPN: </span>
-                                                <span>{{ item.RPN }}</span>
-                                            </label>
-                                        </fieldset>
-                                        <fieldset>
-                                            <label>
-                                                <span>PRD: </span>
-                                                <span>
-                                                    {{ item.PRD }}
-                                                </span>
-                                            </label>
-                                        </fieldset>
-                                    </div>
-
-                                    <div class="basic-details-section shadow">
-                                        <h3 class="form-section-heading">
-                                            Shipping & Location
-                                        </h3>
-                                        <fieldset>
-                                            <label>
-                                                <span>Order Number: </span>
-                                                <span>{{ item.rtid }}</span>
-                                            </label>
-                                        </fieldset>
-                                        <fieldset>
-                                            <label>
-                                                <span>Tracking: </span>
-                                                <span>
-                                                    {{ item.trackingnumber }}
-                                                </span>
-                                            </label>
-                                        </fieldset>
-                                        <fieldset>
-                                            <label>
-                                                <span>Basket Number: </span>
-                                                <span>
-                                                    {{ item.basketnumber }}
-                                                </span>
-                                            </label>
-                                        </fieldset>
-                                        <fieldset>
-                                            <label>
-                                                <span>Item Number: </span>
-                                                <span>
-                                                    {{ item.itemnumber }}
-                                                </span>
-                                            </label>
-                                        </fieldset>
-                                        <fieldset>
-                                            <label>
-                                                <span>Location: </span>
-                                                <span>
-                                                    {{ item.ProductModuleLoc }}
-                                                </span>
-                                            </label>
-                                        </fieldset>
-                                    </div>
-
-                                    <div class="basic-details-section shadow">
-                                        <h3 class="form-section-heading">
-                                            Status Information
-                                        </h3>
-                                        <fieldset>
-                                            <label>
-                                                <span>Grading: </span>
-                                                <span>{{ item.grading }}</span>
-                                            </label>
-                                        </fieldset>
-                                        <fieldset>
-                                            <label>
-                                                <span>Priority: </span>
-                                                <span>
-                                                    {{ item.priorityrank }}
-                                                </span>
-                                            </label>
-                                        </fieldset>
-                                        <fieldset>
-                                            <label>
-                                                <span>Validation: </span>
-                                                <span>
-                                                    {{ item.validation_status }}
-                                                </span>
-                                            </label>
-                                        </fieldset>
-                                        <fieldset>
-                                            <label>
-                                                <span></span>
-                                                <span> </span>
-                                            </label>
-                                        </fieldset>
-                                        <fieldset>
-                                            <label>
-                                                <span></span>
-                                                <span> </span>
-                                            </label>
-                                        </fieldset>
-                                    </div>
-
-                                    <div class="basic-details-section shadow">
-                                        <h3 class="form-section-heading">
-                                            Additional Information
-                                        </h3>
-                                        <fieldset>
-                                            <label>
-                                                <span>Notes: </span>
-                                                <span>{{ item.notes }}</span>
-                                            </label>
-                                        </fieldset>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-col-right">
-                            <div class="bg-white rounded shadow p-4">
-                                <div class="border-bottom pb-2">
-                                    <h3 class="text-dark mb-0">
-                                        Serial Number Verification
-                                    </h3>
-                                </div>
-
-                                <form class="serialVerificationForm">
-                                    <input class="form-control" type="text" id="textserial"
-                                        placeholder="Scan or enter serial number..." />
-
-                                    <button type="submit" class="btn btn-submit">
-                                        Verify Serial
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button class="btn btn-success" @click="confirmMarkAsValid">
-                        Mark as Valid
-                    </button>
-
-                    <button class="btn btn-danger" @click="confirmMarkAsInvalid">
-                        Mark as Invalid
-                    </button>
-                </div>
-            </div>
-        </div> -->
-
-        <!-- Add this confirmation modal HTML to your template section -->
-        <!-- Confirmation Modal -->
-
-        <Dialog v-model:visible="showConfirmationModal" modal :header="confirmationTitle" :style="{ width: '90vw' }">
+        <Dialog
+            v-model:visible="showConfirmationModal"
+            modal
+            :header="confirmationTitle"
+            :style="{ width: '90vw' }"
+        >
             <p>{{ confirmationMessage }}</p>
             <template #footer>
                 <div class="d-flex gap-2">
-                    <Button size="small" severity="danger" @click="cancelConfirmation">Cancel</Button>
-                    <Button size="small" :class="{
-                        'btn-validation':
-                            confirmationActionType === 'validation',
-                        'btn-stockroom':
-                            confirmationActionType === 'stockroom',
-                    }" @click="confirmAction"> Yes, Proceed</Button>
+                    <Button
+                        size="small"
+                        severity="danger"
+                        @click="cancelConfirmation"
+                        >Cancel</Button
+                    >
+                    <Button
+                        size="small"
+                        :class="{
+                            'btn-validation':
+                                confirmationActionType === 'validation',
+                            'btn-stockroom':
+                                confirmationActionType === 'stockroom',
+                        }"
+                        @click="confirmAction"
+                    >
+                        Yes, Proceed</Button
+                    >
                 </div>
             </template>
         </Dialog>
 
-
-
-
         <!-- Validation Confirmation Modal -->
-        <div class="validation-confirmation-modal" v-if="showConfirmationModal && confirmationActionType">
-            <div class="validation-confirmation-overlay" @click="cancelConfirmation"></div>
+        <div
+            class="validation-confirmation-modal"
+            v-if="showConfirmationModal && confirmationActionType"
+        >
+            <div
+                class="validation-confirmation-overlay"
+                @click="cancelConfirmation"
+            ></div>
             <div class="validation-confirmation-content">
-                <div class="validation-confirmation-header" :class="{
-                    'header-valid': confirmationActionType === 'valid',
-                    'header-invalid': confirmationActionType === 'invalid',
-                    'header-default': !['valid', 'invalid'].includes(
-                        confirmationActionType
-                    ),
-                }">
+                <div
+                    class="validation-confirmation-header"
+                    :class="{
+                        'header-valid': confirmationActionType === 'valid',
+                        'header-invalid': confirmationActionType === 'invalid',
+                        'header-default': !['valid', 'invalid'].includes(
+                            confirmationActionType
+                        ),
+                    }"
+                >
                     <div class="header-icon-container">
-                        <i class="header-icon" :class="{
-                            'bi bi-check-circle-fill':
-                                confirmationActionType === 'valid',
-                            'bi bi-x-circle-fill':
-                                confirmationActionType === 'invalid',
-                            'bi bi-question-circle-fill': ![
-                                'valid',
-                                'invalid',
-                            ].includes(confirmationActionType),
-                        }"></i>
+                        <i
+                            class="header-icon"
+                            :class="{
+                                'bi bi-check-circle-fill':
+                                    confirmationActionType === 'valid',
+                                'bi bi-x-circle-fill':
+                                    confirmationActionType === 'invalid',
+                                'bi bi-question-circle-fill': ![
+                                    'valid',
+                                    'invalid',
+                                ].includes(confirmationActionType),
+                            }"
+                        ></i>
                     </div>
                     <h3>{{ confirmationTitle }}</h3>
                     <button class="close-button" @click="cancelConfirmation">
@@ -1143,11 +1013,14 @@
                     <button class="btn-no" @click="cancelConfirmation">
                         <i class="bi bi-x"></i> No
                     </button>
-                    <button class="btn-yes" @click="
-                        confirmationActionType === 'valid'
-                            ? markAsValid()
-                            : markAsInvalid()
-                        " :class="{
+                    <button
+                        class="btn-yes"
+                        @click="
+                            confirmationActionType === 'valid'
+                                ? markAsValid()
+                                : markAsInvalid()
+                        "
+                        :class="{
                             'btn-valid-confirm':
                                 confirmationActionType === 'valid',
                             'btn-invalid-confirm':
@@ -1156,7 +1029,8 @@
                                 'valid',
                                 'invalid',
                             ].includes(confirmationActionType),
-                        }">
+                        }"
+                    >
                         <i class="bi bi-check-lg"></i> Yes
                     </button>
                 </div>
@@ -1169,18 +1043,40 @@
 
 <script>
 import Validation from "./validation.js";
-import { Badge, Button, Divider, Dialog, Card, InputText, Select, ScrollTop, Tab, TabList, Tabs, TabPanels, TabPanel, Galleria } from "primevue";
+import {
+    Badge,
+    Button,
+    Divider,
+    Dialog,
+    Card,
+    InputText,
+    Select,
+    ScrollTop,
+    Tab,
+    TabList,
+    Tabs,
+    TabPanels,
+    TabPanel,
+    Galleria,
+} from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 // export default Validation;
 
 const TABLE_COLUMNS = [
     {
+        field: "gallery",
+        header: "Gallery",
+        slot: "gallery",
+        style: { width: "4rem", minWidth: "4rem" },
+    },
+    {
         header: "Product Name",
-        field: 'astitle',
+        field: "astitle",
         sortable: true,
         headerStyle: "font-size: 16px;",
         slot: "productname",
@@ -1188,20 +1084,20 @@ const TABLE_COLUMNS = [
     },
     {
         header: "Status",
-        field: 'validation_status',
+        field: "validation_status",
         headerStyle: "font-size: 16px;",
         slot: "validationStatus",
         style: { width: "6rem", minWidth: "6rem" },
     },
     {
         header: "ASIN",
-        field: 'ASIN',
+        field: "ASIN",
         headerStyle: "font-size: 16px;",
-        slot: "ASIN"
+        slot: "ASIN",
     },
     {
         header: "Order Number",
-        field: 'rtid',
+        field: "rtid",
         headerStyle: "font-size: 16px;",
     },
     {
@@ -1226,8 +1122,8 @@ const TABLE_COLUMNS = [
         header: "Quantity",
         field: "quantity",
         headerStyle: "font-size: 16px;",
-    }
-]
+    },
+];
 
 export default {
     mixins: [Validation],
@@ -1243,35 +1139,34 @@ export default {
         Select,
         ScrollTop,
         TitlePage,
+        ViewImageGalleryModal,
         AnimateDiv,
         Tab,
         TabList,
         Tabs,
         TabPanel,
         TabPanels,
-        Galleria
+        Galleria,
     },
     data() {
         return {
             columns: TABLE_COLUMNS,
-            rowsPerPage: ROWS_PER_PAGE
-        }
+            rowsPerPage: ROWS_PER_PAGE,
+        };
     },
     computed: {
         uniqueValidationStatusesList() {
-            let validationStatus = this.uniqueValidationStatuses.map(stat => ({
-                value: stat,
-                label: stat.charAt(0).toUpperCase() + stat.slice(1) //capitalize first letter
-            }));
+            let validationStatus = this.uniqueValidationStatuses.map(
+                (stat) => ({
+                    value: stat,
+                    label: stat.charAt(0).toUpperCase() + stat.slice(1), //capitalize first letter
+                })
+            );
 
-            return [
-                { value: "", label: "All Status" },
-                ...validationStatus
-
-            ]
-        }
-    }
-}
+            return [{ value: "", label: "All Status" }, ...validationStatus];
+        },
+    },
+};
 </script>
 
 <style>
@@ -1312,7 +1207,6 @@ export default {
     /* REQUIRED FOR ABSOLUTE BUTTONS */
     padding: 1px;
 }
-
 
 /* Centered main image */
 .main-image {

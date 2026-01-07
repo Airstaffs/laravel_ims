@@ -120,7 +120,7 @@ export default {
                     : String(valueB).localeCompare(String(valueA));
             });
         },
-        
+
         hasValidationCapturedImages() {
             if (
                 !this.currentValidationItem ||
@@ -172,12 +172,123 @@ export default {
             event.target.onerror = null; // Prevent infinite error loop
         },
 
-        // Count additional images based on the image fields (img2-img15)
+        // Helper to validate image fields
+        isValidImage(path) {
+            return path && path !== "NULL" && path.trim() !== "";
+        },
+
+        // Generic image counter for any image type
+        countImages(item, prefix, start, end, container = null) {
+            if (!item) return 0;
+            const source = container ? item[container] : item;
+            if (!source) return 0;
+
+            let count = 0;
+            for (let i = start; i <= end; i++) {
+                const fieldName = `${prefix}${i}`;
+                if (this.isValidImage(source[fieldName])) {
+                    count++;
+                }
+            }
+            return count;
+        },
+
+        // Count regular images (img2 - img15)
+        countRegularImages(item) {
+            return this.countImages(item, "img", 2, 15);
+        },
+
+        // Count captured images (capturedimg1 - capturedimg12)
+        countCapturedImages(item) {
+            if (!item || !item.capturedImages) return 0;
+
+            console.log("🔍 Counting captured images for item:", {
+                ProductID: item.ProductID,
+                capturedImages: item.capturedImages,
+            });
+
+            let count = 0;
+            const capturedImagesObj = item.capturedImages;
+
+            // Check both capturedimg1-12 AND serialimg1-2
+            for (let i = 1; i <= 12; i++) {
+                const fieldName = `capturedimg${i}`;
+                if (this.isValidImage(capturedImagesObj[fieldName])) {
+                    count++;
+                }
+            }
+
+            // Also check serial images
+            if (this.isValidImage(capturedImagesObj.serialimg1)) count++;
+            if (this.isValidImage(capturedImagesObj.serialimg2)) count++;
+
+            console.log("🔍 Total captured images found:", count);
+            return count;
+        },
+
+        // Count all images (regular + captured)
+        countAllImages(item) {
+            if (!item) {
+                return 0;
+            }
+
+            // If captured images exist, count them
+            if (item.capturedImages) {
+                let capturedCount = 0;
+                const capturedImagesObj = item.capturedImages;
+
+                // Count capturedimg1-12
+                for (let i = 1; i <= 12; i++) {
+                    const fieldName = `capturedimg${i}`;
+                    if (this.isValidImage(capturedImagesObj[fieldName])) {
+                        capturedCount++;
+                    }
+                }
+
+                // If we have captured images, return that count
+                if (capturedCount > 0) {
+                    return capturedCount;
+                }
+            }
+
+            // Otherwise count regular product images (fallback)
+            return this.countRegularImages(item);
+        },
+
+        transformDataForGallery(data) {
+            if (!data) {
+                return {};
+            }
+
+            if (data.capturedImages && data.capturedImages.capturedimg1) {
+                const transformedData = { ...data };
+                const companyFolder = data.company || "Airstaffs";
+
+                for (let i = 1; i <= 12; i++) {
+                    const capturedImg = data.capturedImages[`capturedimg${i}`];
+                    if (capturedImg) {
+                        transformedData[
+                            `img${i}`
+                        ] = `/images/product_images/${companyFolder}/${capturedImg}`;
+                    } else {
+                        transformedData[`img${i}`] = null;
+                    }
+                }
+
+                for (let i = 13; i <= 15; i++) {
+                    transformedData[`img${i}`] = null;
+                }
+
+                return transformedData;
+            }
+
+            return data;
+        },
+
         countAdditionalImages(item) {
             if (!item) return 0;
 
             let count = 0;
-            // Check fields img2 through img15
             for (let i = 2; i <= 15; i++) {
                 const fieldName = `img${i}`;
                 if (
@@ -192,158 +303,94 @@ export default {
             return count;
         },
 
-        // Count additional images based on the image fields (img2-img15)
-        countRegularImages(item) {
-            if (!item) return 0;
-
-            let count = 0;
-            // Check fields img2 through img15
-            for (let i = 2; i <= 15; i++) {
-                const fieldName = `img${i}`;
-                if (
-                    item[fieldName] &&
-                    item[fieldName] !== "NULL" &&
-                    item[fieldName].trim() !== ""
-                ) {
-                    count++;
-                }
-            }
-
-            return count;
-        },
-
-        countCapturedImages(item) {
-            if (!item || !item.capturedImages) return 0;
-
-            // For debugging
-            console.log("Checking capturedImages:", item.capturedImages);
-
-            let count = 0;
-            // Check capturedimg1 through capturedimg12
-            for (let i = 1; i <= 12; i++) {
-                const fieldName = `capturedimg${i}`;
-                if (
-                    item.capturedImages &&
-                    item.capturedImages[fieldName] &&
-                    item.capturedImages[fieldName] !== "NULL" &&
-                    item.capturedImages[fieldName].trim() !== ""
-                ) {
-                    count++;
-                }
-            }
-
-            return count;
-        },
-
-        // Count all images (regular + captured + ASIN)
-        countAllImages(item) {
-            return (
-                this.countRegularImages(item) +
-                this.countCapturedImages(item) +
-                (item.asin ? 1 : 0)
-            );
-        },
-
-        // Open image modal with all available images in separate categories
-        async openImageModal(item) {
+        openImageModal(item) {
             if (!item) return;
 
-            console.log("Opening modal for item:", item);
-
-            // Reset modal state
             this.regularImages = [];
             this.capturedImages = [];
-            this.asinImages = [];
             this.currentImageIndex = 0;
-
-            // First collect regular images (img1-img15)
-            if (item.img1 && item.img1 !== "NULL" && item.img1.trim() !== "") {
-                const mainImagePath = `/images/thumbnails/${item.img1}`;
-                this.regularImages.push(mainImagePath);
-                console.log("Added main image:", mainImagePath);
-            }
-
-            // Add regular additional images
-            for (let i = 2; i <= 15; i++) {
-                const fieldName = `img${i}`;
-                if (
-                    item[fieldName] &&
-                    item[fieldName] !== "NULL" &&
-                    item[fieldName].trim() !== ""
-                ) {
-                    const imagePath = `/images/thumbnails/${item[fieldName]}`;
-                    this.regularImages.push(imagePath);
-                    console.log("Added additional image:", imagePath);
-                }
-            }
-
-            // Get company folder for captured image paths
+            this.ProductTitle = item.ProductTitle;
             const companyFolder = item.company || "Airstaffs";
 
-            // Then collect captured images if available
-            if (item.capturedImages) {
+            console.log("🔍 Opening image modal for item:", {
+                ProductID: item.ProductID,
+                rtcounter: item.rtcounter,
+                company: companyFolder,
+                capturedImages: item.capturedImages,
+            });
+
+            // Load regular images (img1 - img15)
+            for (let i = 1; i <= 15; i++) {
+                const fieldName = `img${i}`;
+                if (this.isValidImage(item[fieldName])) {
+                    const path = `/images/thumbnails/${item[fieldName]}`;
+                    this.regularImages.push(path);
+                }
+            }
+
+            console.log("📸 Regular images loaded:", this.regularImages.length);
+
+            // ✅ FIXED: Load captured images properly
+            if (
+                item.capturedImages &&
+                typeof item.capturedImages === "object"
+            ) {
+                const capturedImagesObj = item.capturedImages;
+
                 console.log(
-                    "Processing captured images data:",
-                    item.capturedImages
+                    "🔍 Processing captured images:",
+                    capturedImagesObj
                 );
 
-                // Check if capturedImages is empty or not a proper object
-                const hasCapturedImages =
-                    typeof item.capturedImages === "object" &&
-                    Object.keys(item.capturedImages).length > 0;
-
-                if (hasCapturedImages) {
-                    for (let i = 1; i <= 12; i++) {
-                        const fieldName = `capturedimg${i}`;
-                        if (
-                            item.capturedImages[fieldName] &&
-                            item.capturedImages[fieldName] !== "NULL" &&
-                            item.capturedImages[fieldName].trim() !== ""
-                        ) {
-                            // Use the exact path based on your server structure
-                            const imagePath = `/images/product_images/${companyFolder}/${item.capturedImages[fieldName]}`;
-                            console.log(
-                                `Adding captured image path: ${imagePath}`
-                            );
-                            this.capturedImages.push(imagePath);
-                        }
+                // Load capturedimg1 - capturedimg12
+                for (let i = 1; i <= 12; i++) {
+                    const fieldName = `capturedimg${i}`;
+                    if (this.isValidImage(capturedImagesObj[fieldName])) {
+                        const filename = capturedImagesObj[fieldName];
+                        const path = `/images/product_images/${companyFolder}/${filename}`;
+                        this.capturedImages.push(path);
+                        console.log(`✅ Added captured image ${i}:`, path);
                     }
-                } else {
-                    console.log(
-                        "Captured images object exists but is empty or invalid"
-                    );
                 }
-            } else {
-                console.log("No captured images data found for item:", item);
+
+                // Load serial images (serialimg1 and serialimg2)
+                if (this.isValidImage(capturedImagesObj.serialimg1)) {
+                    const filename = capturedImagesObj.serialimg1;
+                    const path = `/images/product_images/${companyFolder}/${filename}`;
+                    this.capturedImages.push(path);
+                    console.log("✅ Added serial image 1:", path);
+                }
+
+                if (this.isValidImage(capturedImagesObj.serialimg2)) {
+                    const filename = capturedImagesObj.serialimg2;
+                    const path = `/images/product_images/${companyFolder}/${filename}`;
+                    this.capturedImages.push(path);
+                    console.log("✅ Added serial image 2:", path);
+                }
             }
 
-            // If no images were found in any category, add a default image to regularImages
+            console.log(
+                "📸 Total captured images loaded:",
+                this.capturedImages.length
+            );
+
+            // Fallback if no images exist
             if (
                 this.regularImages.length === 0 &&
-                this.capturedImages.length === 0 &&
-                this.asinImages.length === 0
+                this.capturedImages.length === 0
             ) {
-                const defaultPath = this.defaultImage;
-                this.regularImages.push(defaultPath);
-                console.log("No images found, using default:", defaultPath);
+                this.regularImages.push(this.defaultImage);
             }
 
-            // Set initial tab based on which images are available
-            if (this.regularImages.length > 0) {
-                this.activeTab = "regular";
-                this.currentImageSet = this.regularImages;
-            } else if (this.capturedImages.length > 0) {
-                this.activeTab = "captured";
-                this.currentImageSet = this.capturedImages;
-            } else if (this.asinImages.length > 0) {
-                this.activeTab = "asin";
-                this.currentImageSet = this.asinImages;
-            }
+            // Set default active tab
+            this.activeTab = this.regularImages.length ? "regular" : "captured";
+            this.currentImageSet =
+                this.activeTab === "regular"
+                    ? this.regularImages
+                    : this.capturedImages;
 
-            // Show the modal
+            // Show modal and disable page scrolling
             this.showImageModal = true;
-
-            // Prevent scrolling when modal is open
             document.body.style.overflow = "hidden";
         },
 
@@ -351,71 +398,38 @@ export default {
         switchTab(tab) {
             this.activeTab = tab;
             this.currentImageIndex = 0;
-
-            if (tab === "regular") {
-                this.currentImageSet = this.regularImages;
-            } else if (tab === "captured") {
-                this.currentImageSet = this.capturedImages;
-            } else if (tab === "asin") {
-                this.currentImageSet = this.asinImages;
-            }
+            this.currentImageSet =
+                tab === "regular" ? this.regularImages : this.capturedImages;
         },
 
-        // Method to switch tabs in validation modal
-        switchValidationTab(tab) {
-            this.validationActiveTab = tab;
+        openImageModalFallback(item) {
+            if (!item) return;
 
-            // If switching to ASIN tab, load ASIN images if not loaded already
-            if (
-                tab === "asin" &&
-                !this.currentValidationItemAsinLoaded &&
-                this.currentValidationItem
-            ) {
-                this.loadAsinImagesForValidation();
-            }
-        },
+            this.item = { ...item };
+            this.activeIndex = 0;
+            this.ProductTitle = item.ProductTitle;
 
-        // Load ASIN images for validation modal
-        async loadAsinImagesForValidation() {
-            if (
-                !this.currentValidationItem ||
-                !this.currentValidationItem.FNSKUviewer
-            )
-                return;
+            console.log("Fallback imageList:", this.imageList);
 
-            this.currentValidationItemAsinLoaded = false;
-            this.currentValidationItemAsinImages = [];
-
-            try {
-                // Add the ASIN image
-                const asinImagePath = `/images/asinimg/${this.currentValidationItem.asin}.png`;
-                this.currentValidationItemAsinImages.push(asinImagePath);
-            } catch (error) {
-                console.error(
-                    "Error loading ASIN images for validation:",
-                    error
-                );
-            } finally {
-                this.currentValidationItemAsinLoaded = true;
-            }
+            this.showImageModal = true;
+            document.body.style.overflow = "hidden";
         },
 
         closeImageModal() {
             this.showImageModal = false;
-            this.currentImageSet = [];
-            this.regularImages = [];
-            this.capturedImages = [];
-            this.asinImages = [];
 
-            // Re-enable scrolling
-            document.body.style.overflow = "auto";
+            this.item = {};
+            this.activeIndex = 0;
+            this.ProductTitle = "";
+
+            document.body.style.overflow = "";
         },
 
         nextImage() {
             if (this.currentImageIndex < this.currentImageSet.length - 1) {
                 this.currentImageIndex++;
             } else {
-                this.currentImageIndex = 0; // Loop back to the first image
+                this.currentImageIndex = 0;
             }
         },
 
@@ -423,13 +437,14 @@ export default {
             if (this.currentImageIndex > 0) {
                 this.currentImageIndex--;
             } else {
-                this.currentImageIndex = this.currentImageSet.length - 1; // Loop to the last image
+                this.currentImageIndex = this.currentImageSet.length - 1;
             }
         },
 
         // Fetch inventory data from the API
         async fetchInventory() {
             this.loading = true;
+
             try {
                 console.log("Fetching inventory with params:", {
                     search: this.searchQuery,
@@ -452,13 +467,15 @@ export default {
                     }
                 );
 
-                console.log("API Response:", response.data);
+                console.log("API Response:", response.data); // ADD THIS
+                console.log("Data array:", response.data.data); // ADD THIS
+                console.log("Data count:", response.data.data?.length); // ADD THIS
 
                 // Process the returned data
                 this.inventory = response.data.data;
                 this.totalPages = response.data.last_page;
 
-                // Debug first item to see structure
+                // Debug first item
                 if (this.inventory.length > 0) {
                     console.log("First item structure:", this.inventory[0]);
                     if (this.inventory[0].capturedImages) {
@@ -470,6 +487,7 @@ export default {
                 }
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
+                console.error("Error response:", error.response); // ADD THIS
             } finally {
                 this.loading = false;
             }

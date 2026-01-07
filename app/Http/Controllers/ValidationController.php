@@ -2,16 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Product;
-use App\Models\Rpn;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator; // Add this line
-use DateTime;
-use DateTimeZone;
 
 class ValidationController extends BasetablesController
 {
@@ -32,12 +28,17 @@ class ValidationController extends BasetablesController
     public function index(Request $request)
     {
         try {
+            // Define table names directly
+            $productTable = 'tblproduct';
+            $fnskuTable = 'tblfnsku';
+            $asinTable = 'tblasin';
+            $company = 'Airstaffs';
+
             Log::info('Tables being used:', [
-                'productTable' => $this->productTable,
-                'fnskuTable' => $this->fnskuTable,
-                'asinTable' => $this->asinTable,
-                'capturedImagesTable' => $this->capturedImagesTable,
-                'company' => $this->company
+                'productTable' => $productTable,
+                'fnskuTable' => $fnskuTable,
+                'asinTable' => $asinTable,
+                'company' => $company,
             ]);
 
             $perPage = $request->input('per_page', 10);
@@ -46,14 +47,14 @@ class ValidationController extends BasetablesController
             $includeImages = $request->boolean('include_images', false);
 
             // Step 1: Fetch products without JOINs
-            $productsQuery = DB::table($this->productTable . ' as prod')
+            $productsQuery = DB::table($productTable.' as prod')
                 ->select(['prod.*'])
                 ->where('prod.ProductModuleLoc', $location)
                 ->when($search, function ($query) use ($search) {
                     return $query->where(function ($q) use ($search) {
                         $q->where('prod.serialnumber', 'like', "%{$search}%")
                             ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
-                            ->orWhere('trackingnumber', 'like', "%{$search}%")
+                            ->orWhere('prod.trackingnumber', 'like', "%{$search}%")
                             ->orWhere('prod.rtcounter', 'like', "%{$search}%");
                     });
                 })
@@ -65,7 +66,7 @@ class ValidationController extends BasetablesController
             // Step 2: Extract base FNSKUs
             $baseFnskus = [];
             foreach ($products->items() as $product) {
-                if (!empty($product->FNSKUviewer)) {
+                if (! empty($product->FNSKUviewer)) {
                     $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
                     $baseFnskus[] = $baseFnsku;
                     $product->baseFnsku = $baseFnsku;
@@ -75,8 +76,8 @@ class ValidationController extends BasetablesController
 
             // Step 3: Get FNSKU data
             $fnskuData = [];
-            if (!empty($baseFnskus)) {
-                $fnskuRecords = DB::table($this->fnskuTable)
+            if (! empty($baseFnskus)) {
+                $fnskuRecords = DB::table($fnskuTable)
                     ->select('ASIN', 'FNSKU', 'MSKU', 'grading', 'storename')
                     ->whereIn('FNSKU', $baseFnskus)
                     ->get();
@@ -91,8 +92,8 @@ class ValidationController extends BasetablesController
             $asinList = array_unique($asinList);
             $asinData = [];
 
-            if (!empty($asinList)) {
-                $asinRecords = DB::table($this->asinTable)
+            if (! empty($asinList)) {
+                $asinRecords = DB::table($asinTable)
                     ->select('ASIN', 'internal')
                     ->whereIn('ASIN', $asinList)
                     ->get();
@@ -103,9 +104,10 @@ class ValidationController extends BasetablesController
             }
 
             // Step 5: Enrich products with FNSKU and ASIN info
-            $products->getCollection()->transform(function ($product) use ($fnskuData, $asinData) {
+            $products->getCollection()->transform(function ($product) use ($fnskuData, $asinData, $company) {
                 $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
                 $product->FNSKU = $product->FNSKUviewer;
+                $product->company = $company;
 
                 if (isset($fnskuData[$baseFnsku])) {
                     $fnskuRecord = $fnskuData[$baseFnsku];
@@ -122,81 +124,71 @@ class ValidationController extends BasetablesController
                 return $product;
             });
 
-            // Step 6: Add images if requested
+            // Step 6: Add images if requested (using filesystem approach)
             if ($includeImages) {
                 try {
-                    $productIds = $products->pluck('ProductID')->toArray();
-                    Log::info('Product IDs for image fetch', ['count' => count($productIds), 'ids' => $productIds]);
+                    $publicPath = public_path('images/product_images/'.$company);
 
-                    $capturedImagesTableName = $this->capturedImagesTable;
-                    Log::info('Checking table existence', ['table' => $capturedImagesTableName]);
+                    Log::info('Checking for captured images in path', ['path' => $publicPath]);
 
-                    if (!Schema::hasTable($capturedImagesTableName)) {
-                        Log::warning('Captured images table does not exist', [
-                            'table' => $capturedImagesTableName
-                        ]);
+                    // Add captured images data to each product
+                    $products->getCollection()->transform(function ($product) use ($publicPath) {
+                        $capturedImages = (object) [];
 
-                        $products->getCollection()->transform(function ($product) {
-                            $product->company = $this->company;
-                            return $product;
-                        });
-                    } else {
-                        Log::info('Captured images table exists', ['table' => $capturedImagesTableName]);
+                        // Check for up to 12 captured images
+                        for ($i = 1; $i <= 12; $i++) {
+                            $filename = $product->ProductID.'_img'.$i.'.jpg';
+                            $filePath = $publicPath.'/'.$filename;
 
-                        $capturedImages = DB::table($capturedImagesTableName)
-                            ->whereIn('ProductID', $productIds)
-                            ->get();
-
-                        Log::info('Captured images fetched', [
-                            'count' => $capturedImages->count(),
-                            'sample' => $capturedImages->take(1)
-                        ]);
-
-                        $imagesByProductId = [];
-                        foreach ($capturedImages as $img) {
-                            $imagesByProductId[$img->ProductID] = $img;
+                            if (file_exists($filePath)) {
+                                $capturedImages->{"capturedimg{$i}"} = $filename;
+                            }
                         }
 
-                        $products->getCollection()->transform(function ($product) use ($imagesByProductId) {
-                            $product->company = $this->company;
+                        // Check for serial images
+                        $serialImg1 = $product->ProductID.'_serialimg1.jpg';
+                        $serialImg2 = $product->ProductID.'_serialimg2.jpg';
 
-                            if (isset($imagesByProductId[$product->ProductID])) {
-                                $product->capturedImages = $imagesByProductId[$product->ProductID];
+                        if (file_exists($publicPath.'/'.$serialImg1)) {
+                            $capturedImages->serialimg1 = $serialImg1;
+                        }
+                        if (file_exists($publicPath.'/'.$serialImg2)) {
+                            $capturedImages->serialimg2 = $serialImg2;
+                        }
 
-                                if (empty($product->img1) && !empty($product->capturedImages->capturedimg1)) {
-                                    $product->img1 = $product->capturedImages->capturedimg1;
-                                }
+                        $product->capturedImages = $capturedImages;
 
-                                Log::info('Added captured images to product', [
-                                    'ProductID' => $product->ProductID,
-                                    'capturedImages' => json_encode($product->capturedImages)
-                                ]);
-                            } else {
-                                Log::info('No captured images found for product', [
-                                    'ProductID' => $product->ProductID
-                                ]);
-                                $product->capturedImages = (object)[];
-                            }
+                        // Set img1 directly for the main thumbnail display if capturedimg1 exists
+                        if (! empty($capturedImages->capturedimg1)) {
+                            $product->img1 = $capturedImages->capturedimg1;
+                        }
 
-                            return $product;
-                        });
-                    }
+                        Log::info('Added captured images to product', [
+                            'ProductID' => $product->ProductID,
+                            'capturedImagesCount' => count((array) $capturedImages),
+                            'hasImg1' => ! empty($product->img1),
+                        ]);
+
+                        return $product;
+                    });
                 } catch (\Exception $e) {
-                    Log::error('Error fetching images', [
+                    Log::error('Error checking for image files', [
                         'message' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
+                        'trace' => $e->getTraceAsString(),
                     ]);
 
+                    // Continue without images but add empty capturedImages object
                     $products->getCollection()->transform(function ($product) {
-                        $product->company = $this->company;
-                        $product->capturedImages = (object)[];
+                        $product->capturedImages = (object) [];
+
                         return $product;
                     });
                 }
             } else {
-                // Add company info even if images are not included
+                // Even if images are not requested, initialize empty capturedImages
                 $products->getCollection()->transform(function ($product) {
-                    $product->company = $this->company;
+                    $product->capturedImages = (object) [];
+
                     return $product;
                 });
             }
@@ -205,12 +197,12 @@ class ValidationController extends BasetablesController
         } catch (\Exception $e) {
             Log::error('Error in ValidationController index', [
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'error' => 'An error occurred while fetching products',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -230,7 +222,7 @@ class ValidationController extends BasetablesController
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -239,7 +231,7 @@ class ValidationController extends BasetablesController
                 ->where('ProductID', $request->product_id)
                 ->update([
                     'ProductModuleLoc' => 'Stockroom',
-                    'lastDateUpdate' => now()->format('Y-m-d H:i:s')
+                    'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
                 ]);
 
             // Optional: Log the location change
@@ -254,16 +246,16 @@ class ValidationController extends BasetablesController
 
             return response()->json([
                 'success' => true,
-                'message' => 'Product successfully moved to Stockroom'
+                'message' => 'Product successfully moved to Stockroom',
             ]);
         } catch (\Exception $e) {
             // Log the error
-            \Log::error('Error moving product to Stockroom: ' . $e->getMessage());
+            \Log::error('Error moving product to Stockroom: '.$e->getMessage());
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to move product to Stockroom',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -282,7 +274,7 @@ class ValidationController extends BasetablesController
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -291,7 +283,7 @@ class ValidationController extends BasetablesController
                 ->where('ProductID', $request->product_id)
                 ->update([
                     'ProductModuleLoc' => 'Labeling',
-                    'lastDateUpdate' => now()->format('Y-m-d H:i:s')
+                    'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
                 ]);
 
             // Optional: Log the location change
@@ -306,16 +298,16 @@ class ValidationController extends BasetablesController
 
             return response()->json([
                 'success' => true,
-                'message' => 'Product successfully moved to Stockroom'
+                'message' => 'Product successfully moved to Stockroom',
             ]);
         } catch (\Exception $e) {
             // Log the error
-            \Log::error('Error moving product to Stockroom: ' . $e->getMessage());
+            \Log::error('Error moving product to Stockroom: '.$e->getMessage());
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to move product to Stockroom',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -329,14 +321,14 @@ class ValidationController extends BasetablesController
                 'rt_counter' => 'required',
                 'status' => 'required|in:validated,invalid',
                 'notes' => 'nullable|string',
-                'ProductModuleLoc' => 'nullable|string|max:255'
+                'ProductModuleLoc' => 'nullable|string|max:255',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -349,7 +341,7 @@ class ValidationController extends BasetablesController
             // Prepare update data
             $updateData = [
                 'validation_status' => $request->status,
-                'lastDateUpdate' => $now
+                'lastDateUpdate' => $now,
             ];
 
             // ✅ Only apply ProductModuleLoc if status is 'invalid' and the value is present
@@ -369,23 +361,23 @@ class ValidationController extends BasetablesController
                 'status' => $request->status,
                 'validated_by' => $userId,
                 'notes' => $request->notes,
-                'ProductModuleLoc' => $request->ProductModuleLoc ?? null
+                'ProductModuleLoc' => $request->ProductModuleLoc ?? null,
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Product ' . ($request->status === 'validated' ? 'validated' : 'marked as invalid') . ' successfully'
+                'message' => 'Product '.($request->status === 'validated' ? 'validated' : 'marked as invalid').' successfully',
             ]);
         } catch (\Exception $e) {
             // Log the error
-            Log::error('Error updating validation status: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
+            Log::error('Error updating validation status: '.$e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update validation status',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
