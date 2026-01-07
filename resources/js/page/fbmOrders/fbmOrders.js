@@ -982,6 +982,7 @@ export default {
 
         // Check if order has any dispensed items
         hasDispensedItems(order) {
+            console.log(" Order Data" . order);
             if (!order || !order.items || !Array.isArray(order.items)) {
                 return false;
             }
