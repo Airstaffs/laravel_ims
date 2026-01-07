@@ -3,6 +3,18 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+// ---- DEBUG HIT LOG (temporary) ----
+$logFile = __DIR__ . '/eb_hits.log';
+$headers = function_exists('getallheaders') ? getallheaders() : [];
+$raw = file_get_contents('php://input');
+
+file_put_contents($logFile, date('c') . " HIT\n", FILE_APPEND);
+file_put_contents($logFile, "IP: " . ($_SERVER['REMOTE_ADDR'] ?? '') . "\n", FILE_APPEND);
+file_put_contents($logFile, "UA: " . ($_SERVER['HTTP_USER_AGENT'] ?? '') . "\n", FILE_APPEND);
+file_put_contents($logFile, "Headers: " . json_encode($headers) . "\n", FILE_APPEND);
+file_put_contents($logFile, "BodyLen: " . strlen($raw) . "\n", FILE_APPEND);
+file_put_contents($logFile, "BodyHead: " . substr($raw, 0, 500) . "\n\n", FILE_APPEND);
+
 $Connect = new mysqli("localhost", "imsv2_dbims_user", "Imsv2_dbims_user", "imsv2_dbims");
 // 1) Verify secret header
 $expectedSecret = 'eb_4f9c2a7d8e6b41a9b0d3c5e7f2a8d6c1b9e4a7f0d3c8e5b2a6f9c1d7e4';
@@ -14,7 +26,6 @@ if (!hash_equals($expectedSecret, $receivedSecret)) {
 }
 
 // 2) Read JSON body
-$raw = file_get_contents('php://input');
 if (!$raw) {
     http_response_code(400);
     exit('No body');
@@ -35,24 +46,34 @@ $account     = $event['account'] ?? null;
 $region      = $event['region'] ?? null;
 $eventTimeIso = $event['time'] ?? null;
 
-// 4) Extract detail block
+/// 4) Extract detail block (support Amazon LISTINGS_ITEM_STATUS_CHANGE format)
 $detail = $event['detail'] ?? [];
 
-$sellerId       = $detail['sellerId'] ?? null;
-$marketplaceId  = $detail['marketplaceId'] ?? null;
-$asin           = $detail['asin'] ?? null;
-$sku            = $detail['sku'] ?? null;
+// Amazon format: detail.Payload has the useful fields
+$payload = $detail['Payload'] ?? [];
 
-// These vary by notification/payload version, so keep them optional:
-$notificationVersion = $detail['notificationVersion'] ?? ($detail['notificationMetadata']['notificationVersion'] ?? null);
-$notificationType    = $detail['notificationType'] ?? null;
-$payloadVersion      = $detail['payloadVersion'] ?? null;
+// Helper to read either camelCase OR PascalCase keys
+function pick($arr, ...$keys) {
+    foreach ($keys as $k) {
+        if (is_array($arr) && array_key_exists($k, $arr)) return $arr[$k];
+    }
+    return null;
+}
 
-$eventDetailTimeIso  = $detail['eventTime'] ?? ($detail['time'] ?? null);
-$createdDateIso      = $detail['createdDate'] ?? null;
+// From detail (top-level)
+$notificationVersion = pick($detail, 'notificationVersion', 'NotificationVersion');
+$notificationType    = pick($detail, 'notificationType', 'NotificationType');
+$payloadVersion      = pick($detail, 'payloadVersion', 'PayloadVersion');
+$eventDetailTimeIso  = pick($detail, 'eventTime', 'EventTime');
 
-// Status can be string/array depending on payload; store as JSON text if array
-$statusVal = $detail['status'] ?? null;
+// From detail.Payload (listing fields)
+$sellerId      = pick($payload, 'sellerId', 'SellerId');
+$marketplaceId = pick($payload, 'marketplaceId', 'MarketplaceId');
+$asin          = pick($payload, 'asin', 'Asin');
+$sku           = pick($payload, 'sku', 'Sku', 'sellerSku', 'SellerSku', 'sellerSKU', 'SellerSKU');
+$createdDateIso= pick($payload, 'createdDate', 'CreatedDate');
+
+$statusVal = pick($payload, 'status', 'Status');
 $statusJson = null;
 if (is_array($statusVal)) {
     $statusJson = json_encode($statusVal, JSON_UNESCAPED_SLASHES);
@@ -60,11 +81,13 @@ if (is_array($statusVal)) {
     $statusJson = json_encode([$statusVal], JSON_UNESCAPED_SLASHES);
 }
 
-// Metadata (optional)
-$notificationId = $detail['notificationId'] ?? null;
-$subscriptionId = $detail['subscriptionId'] ?? null;
-$applicationId  = $detail['applicationId'] ?? null;
-$publishTimeIso = $detail['publishTime'] ?? null;
+// Metadata (Amazon: detail.NotificationMetadata)
+$meta = $detail['NotificationMetadata'] ?? ($detail['notificationMetadata'] ?? []);
+
+$notificationId = pick($meta, 'notificationId', 'NotificationId');
+$subscriptionId = pick($meta, 'subscriptionId', 'SubscriptionId');
+$applicationId  = pick($meta, 'applicationId', 'ApplicationId');
+$publishTimeIso = pick($meta, 'publishTime', 'PublishTime');
 
 // Helper: ISO -> MySQL datetime
 function isoToMysqlDatetime($iso) {
