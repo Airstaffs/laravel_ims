@@ -912,6 +912,9 @@ public function getOrderDetail(Request $request)
 /**
  * Find matching products for auto dispense with quantity handling
  */
+/**
+ * Find matching products for auto dispense with quantity handling
+ */
 public function findDispenseProducts(Request $request)
 {
     try {
@@ -1039,7 +1042,7 @@ public function findDispenseProducts(Request $request)
                     'quantity_dispensed' => $alreadyDispensed,
                     'quantity_remaining' => $quantityNeeded,
                     'available_products_count' => count($availableProducts),
-                    'auto_selected_products' => $selectedProducts, // Auto-selected products
+                    'auto_selected_products' => $selectedProducts,
                     'matching_products' => [], // Empty since we auto-select
                     'already_dispensed_products' => array_column($dispensedProducts, 'product_id'),
                     'dispensed_products_details' => $dispensedProducts
@@ -1068,10 +1071,14 @@ public function findDispenseProducts(Request $request)
     }
 }
 
-
+/**
+ * AUTO DISPENSE - Completely rewritten to work correctly
+ */
 public function autoDispense(Request $request)
 {
     try {
+        Log::info('🤖 Auto dispense request received', $request->all());
+        
         // Check if dispensed table exists
         if (!Schema::hasTable('tblorderitemdispense')) {
             return response()->json([
@@ -1090,33 +1097,99 @@ public function autoDispense(Request $request)
         // Start transaction
         DB::beginTransaction();
 
-        // Get fresh matching products and auto-select them
-        $findProductsRequest = new \Illuminate\Http\Request();
-        $findProductsRequest->merge([
-            'order_id' => $request->order_id,
-            'item_ids' => $request->item_ids
-        ]);
-        
-        $findResponse = $this->findDispenseProducts($findProductsRequest);
-        $findData = $findResponse->getData(true);
-        
-        if (!$findData['success'] || empty($findData['data'])) {
+        // Get the order's store name
+        $order = DB::table('tbloutboundorders')
+            ->select('outboundorderid', 'storename', 'platform_order_id')
+            ->where('outboundorderid', $request->order_id)
+            ->first();
+            
+        if (!$order) {
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'No products available for auto-dispense'
-            ], 400);
+                'message' => 'Order not found'
+            ], 404);
         }
         
+        $storeName = $order->storename;
+        $normalizedStoreName = $this->normalizeStoreName($storeName);
+
+        // Get order items
+        $items = DB::table('tbloutboundordersitem')
+            ->select(
+                'outboundorderitemid',
+                'platform_order_id',
+                'platform_asin',
+                'platform_title',
+                'ConditionId',
+                'ConditionSubtypeId',
+                'QuantityOrdered'
+            )
+            ->whereIn('outboundorderitemid', $request->item_ids)
+            ->get();
+
+        if ($items->isEmpty()) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'No items found for dispense'
+            ], 404);
+        }
+
+        // Get ALL already dispensed products for this entire order
+        $allDispensedProductIds = DB::table('tblorderitemdispense as d')
+            ->join('tbloutboundordersitem as oi', 'd.orderitemid', '=', 'oi.outboundorderitemid')
+            ->where('oi.platform_order_id', $order->platform_order_id)
+            ->pluck('d.productid')
+            ->toArray();
+
+        Log::info('Already dispensed product IDs:', $allDispensedProductIds);
+
+        $usedProductIds = $allDispensedProductIds;
         $dispenseItems = [];
         
-        // Build dispense items from auto-selected products
-        foreach ($findData['data'] as $itemData) {
-            foreach ($itemData['auto_selected_products'] as $product) {
-                $dispenseItems[] = [
-                    'item_id' => $itemData['item_id'],
-                    'product_id' => $product['ProductID']
-                ];
+        // Process each item
+        foreach ($items as $item) {
+            if (empty($item->platform_asin)) continue;
+            
+            // Get already dispensed for this specific item
+            $dispensedProducts = $this->getDispensedProductsForItem($item->outboundorderitemid);
+            $alreadyDispensed = count($dispensedProducts);
+            $quantityNeeded = max(0, $item->QuantityOrdered - $alreadyDispensed);
+            
+            Log::info("Processing item {$item->outboundorderitemid}: Ordered={$item->QuantityOrdered}, Dispensed={$alreadyDispensed}, Needed={$quantityNeeded}");
+            
+            if ($quantityNeeded > 0) {
+                // Find matching products
+                $allMatchingProducts = $this->findMatchingProductsForItem($item, $storeName, $normalizedStoreName);
+                
+                // Filter out already used products
+                $availableProducts = array_filter($allMatchingProducts, function($product) use ($usedProductIds) {
+                    return !in_array($product['ProductID'], $usedProductIds);
+                });
+                
+                // Sort by FIFO
+                usort($availableProducts, function($a, $b) {
+                    $dateA = $a['stockroom_insert_date'] ?? '1970-01-01';
+                    $dateB = $b['stockroom_insert_date'] ?? '1970-01-01';
+                    return strcmp($dateA, $dateB);
+                });
+                
+                // Select products
+                $productsToTake = min($quantityNeeded, count($availableProducts));
+                
+                for ($i = 0; $i < $productsToTake; $i++) {
+                    $product = $availableProducts[$i];
+                    
+                    $dispenseItems[] = [
+                        'item_id' => $item->outboundorderitemid,
+                        'product_id' => $product['ProductID']
+                    ];
+                    
+                    $usedProductIds[] = $product['ProductID'];
+                }
+                
+                Log::info("Selected {$productsToTake} products for item {$item->outboundorderitemid}");
             }
         }
         
@@ -1124,37 +1197,80 @@ public function autoDispense(Request $request)
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'No products were auto-selected for dispensing'
+                'message' => 'No products available for auto-dispense'
             ], 400);
         }
         
-        // Use the existing dispense logic
-        $dispenseRequest = new \Illuminate\Http\Request();
-        $dispenseRequest->merge([
-            'order_id' => $request->order_id,
-            'dispense_items' => $dispenseItems
-        ]);
-        
-        // Call the existing dispense method
-        $dispenseResponse = $this->dispense($dispenseRequest);
-        $dispenseData = $dispenseResponse->getData(true);
-        
-        if ($dispenseData['success']) {
-            DB::commit();
-            return response()->json([
-                'success' => true,
-                'message' => 'Items auto-dispensed successfully',
-                'dispensed_count' => count($dispenseItems),
-                'items_processed' => count($findData['data'])
+        // Now actually dispense the items
+        $dispensedCount = 0;
+        foreach ($dispenseItems as $dispenseItem) {
+            $itemId = $dispenseItem['item_id'];
+            $productId = $dispenseItem['product_id'];
+            
+            // Verify item exists and not fully dispensed
+            $orderItem = DB::table('tbloutboundordersitem')
+                ->select('QuantityOrdered')
+                ->where('outboundorderitemid', $itemId)
+                ->first();
+            
+            if (!$orderItem) continue;
+            
+            $currentDispensedCount = DB::table('tblorderitemdispense')
+                ->where('orderitemid', $itemId)
+                ->count();
+            
+            if ($currentDispensedCount >= $orderItem->QuantityOrdered) continue;
+            
+            // Insert dispense record
+            DB::table('tblorderitemdispense')->insert([
+                'orderitemid' => $itemId,
+                'productid' => $productId,
+                'created_at' => now(),
+                'updated_at' => now()
             ]);
-        } else {
-            DB::rollBack();
-            return response()->json($dispenseData, $dispenseResponse->getStatusCode());
+            
+            // Decrement FBMAvailable
+            if (Schema::hasColumn('tblproduct', 'FBMAvailable')) {
+                DB::table('tblproduct')
+                    ->where('ProductID', $productId)
+                    ->decrement('FBMAvailable', 1);
+            }
+            
+            $dispensedCount++;
         }
+        
+        // Add note to order
+        $currentNote = DB::table('tbloutboundorders')
+            ->where('outboundorderid', $request->order_id)
+            ->value('ordernote');
+        
+        $dateTime = new DateTime('now', new DateTimeZone('America/New_York'));
+        $timestamp = $dateTime->format('Y-m-d H:i:s');
+        $dispenseNote = $timestamp . " - Auto dispense completed for {$dispensedCount} products";
+        
+        $newNote = $currentNote ? $currentNote . "\n\n" . $dispenseNote : $dispenseNote;
+        
+        DB::table('tbloutboundorders')
+            ->where('outboundorderid', $request->order_id)
+            ->update([
+                'ordernote' => $newNote,
+                'updated_at' => now()
+            ]);
+
+        DB::commit();
+        
+        Log::info("✅ Auto dispense successful: {$dispensedCount} products dispensed");
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Items auto-dispensed successfully',
+            'dispensed_count' => $dispensedCount,
+            'items_processed' => count($items)
+        ]);
 
     } catch (\Exception $e) {
         DB::rollBack();
-        Log::error('Error in auto dispense: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+        Log::error('❌ Error in auto dispense: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
         return response()->json([
             'success' => false, 
             'message' => 'Error in auto dispense', 
@@ -1452,150 +1568,274 @@ public function debugStoreNames(Request $request)
         ]);
     }
 }
-    /**
-     * Perform auto dispense (assign products to order items)
-     */
- public function dispense(Request $request)
+
+/**
+ * MANUAL DISPENSE - Enhanced with better error handling and debugging
+ */
+public function dispense(Request $request)
 {
     try {
+        // Log the raw request
+        Log::info('📦 Manual dispense RAW request', [
+            'all' => $request->all(),
+            'json' => $request->json()->all(),
+            'input' => $request->input()
+        ]);
+        
         // Check if dispensed table exists
         if (!Schema::hasTable('tblorderitemdispense')) {
+            Log::error('❌ Table tblorderitemdispense does not exist');
             return response()->json([
                 'success' => false,
                 'message' => 'Dispensed products table not found. Please contact system administrator.'
             ], 500);
         }
         
-        // Validate request
-        $request->validate([
-            'order_id' => 'required|integer',
-            'dispense_items' => 'required|array',
-            'dispense_items.*.item_id' => 'required|integer',
-            'dispense_items.*.product_id' => 'required|integer'
-        ]);
+        // More flexible validation - try to handle different payload formats
+        try {
+            $validated = $request->validate([
+                'order_id' => 'required|integer',
+                'dispense_items' => 'required|array|min:1',
+                'dispense_items.*.item_id' => 'required|integer',
+                'dispense_items.*.product_id' => 'required|integer'
+            ]);
+            
+            Log::info('✅ Validation passed', $validated);
+            
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('❌ Validation failed', [
+                'errors' => $e->errors(),
+                'request_data' => $request->all()
+            ]);
+            
+            // Return detailed validation errors
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+                'received_data' => $request->all()
+            ], 422);
+        }
 
         // Start transaction
         DB::beginTransaction();
 
-        // Safety check: Make sure we're not dispensing the same product ID multiple times
-        $productIds = array_column($request->dispense_items, 'product_id');
-        $uniqueProductIds = array_unique($productIds);
-        
-        // If we have duplicate product IDs, return an error
-        if (count($productIds) !== count($uniqueProductIds)) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Cannot dispense the same product multiple times. Please select different products for each slot.'
-            ], 400);
-        }
-        
-        // Also check if any of the requested products are already assigned to another order
-        $alreadyAssignedProducts = DB::table('tblorderitemdispense')
-            ->whereIn('productid', $productIds)
-            ->count();
-            
-        if ($alreadyAssignedProducts > 0) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'One or more selected products are already assigned to other orders. Please refresh and try again.'
-            ], 400);
-        }
-
-        // Process each item - insert into tblorderitemdispense
-        foreach ($request->dispense_items as $dispenseItem) {
-            $itemId = $dispenseItem['item_id'];
-            $productId = $dispenseItem['product_id'];
-            
-            // Check if this order item has already been fully dispensed
-            $orderItem = DB::table('tbloutboundordersitem')
-                ->select('QuantityOrdered')
-                ->where('outboundorderitemid', $itemId)
+        try {
+            // Get order to verify it exists
+            $order = DB::table('tbloutboundorders')
+                ->where('outboundorderid', $request->order_id)
                 ->first();
-            
-            if (!$orderItem) {
+                
+            if (!$order) {
+                Log::error("❌ Order not found: {$request->order_id}");
                 DB::rollBack();
                 return response()->json([
                     'success' => false,
-                    'message' => 'Order item not found: ' . $itemId
+                    'message' => 'Order not found with ID: ' . $request->order_id
                 ], 404);
             }
+
+            Log::info("✅ Order found: {$order->platform_order_id}");
+
+            // Extract product IDs for duplicate check
+            $productIds = array_column($request->dispense_items, 'product_id');
+            $uniqueProductIds = array_unique($productIds);
             
-            // Count existing dispense records
-            $dispensedCount = DB::table('tblorderitemdispense')
-                ->where('orderitemid', $itemId)
-                ->count();
+            Log::info('Product IDs to dispense', [
+                'all' => $productIds,
+                'unique' => $uniqueProductIds,
+                'has_duplicates' => count($productIds) !== count($uniqueProductIds)
+            ]);
             
-            // Check if we already have enough dispensed products
-            if ($dispensedCount >= $orderItem->QuantityOrdered) {
+            // Check for duplicates in request
+            if (count($productIds) !== count($uniqueProductIds)) {
+                Log::error('❌ Duplicate product IDs detected');
                 DB::rollBack();
                 return response()->json([
                     'success' => false,
-                    'message' => 'Order item ' . $itemId . ' already has the maximum number of dispensed products'
+                    'message' => 'Cannot dispense the same product multiple times. Please select different products for each slot.'
                 ], 400);
             }
             
-            // Insert into tblorderitemdispense
-            DB::table('tblorderitemdispense')->insert([
-                'orderitemid' => $itemId,
-                'productid' => $productId,
-                'created_at' => now(),
-                'updated_at' => now()
+            // Check if any products are already dispensed to ANY order
+            $alreadyDispensed = DB::table('tblorderitemdispense')
+                ->whereIn('productid', $productIds)
+                ->get();
+                
+            if ($alreadyDispensed->count() > 0) {
+                Log::error('❌ Products already assigned', [
+                    'products' => $alreadyDispensed->toArray()
+                ]);
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'One or more selected products are already assigned to orders. Product IDs: ' . 
+                                 implode(', ', $alreadyDispensed->pluck('productid')->toArray())
+                ], 400);
+            }
+
+            $totalDispensed = 0;
+            
+            // Process each dispense item
+            foreach ($request->dispense_items as $index => $dispenseItem) {
+                $itemId = $dispenseItem['item_id'];
+                $productId = $dispenseItem['product_id'];
+                
+                Log::info("Processing dispense #{$index}: item_id={$itemId}, product_id={$productId}");
+                
+                // Verify order item exists
+                $orderItem = DB::table('tbloutboundordersitem')
+                    ->select('QuantityOrdered', 'outboundorderitemid', 'platform_order_id')
+                    ->where('outboundorderitemid', $itemId)
+                    ->first();
+                
+                if (!$orderItem) {
+                    Log::error("❌ Order item not found: {$itemId}");
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Order item not found with ID: {$itemId}"
+                    ], 404);
+                }
+                
+                Log::info("✅ Order item found", [
+                    'item_id' => $orderItem->outboundorderitemid,
+                    'quantity_ordered' => $orderItem->QuantityOrdered
+                ]);
+                
+                // Count existing dispense records for this item
+                $currentDispensedCount = DB::table('tblorderitemdispense')
+                    ->where('orderitemid', $itemId)
+                    ->count();
+                
+                Log::info("Current dispensed count for item {$itemId}: {$currentDispensedCount}/{$orderItem->QuantityOrdered}");
+                
+                // Check if already fully dispensed
+                if ($currentDispensedCount >= $orderItem->QuantityOrdered) {
+                    Log::error("❌ Item {$itemId} already fully dispensed");
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Order item {$itemId} already has the maximum number of dispensed products ({$orderItem->QuantityOrdered})"
+                    ], 400);
+                }
+                
+                // Verify product exists and is available
+                $product = DB::table('tblproduct')
+                    ->where('ProductID', $productId)
+                    ->first();
+                    
+                if (!$product) {
+                    Log::error("❌ Product not found: {$productId}");
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Product not found with ID: {$productId}"
+                    ], 404);
+                }
+                
+                Log::info("✅ Product found: {$productId}");
+                
+                // Check if product is in correct location
+                if (isset($product->ProductModuleLoc) && $product->ProductModuleLoc !== 'Stockroom') {
+                    Log::warning("⚠️ Product {$productId} not in Stockroom, location: {$product->ProductModuleLoc}");
+                }
+                
+                // Insert dispense record
+                $insertId = DB::table('tblorderitemdispense')->insertGetId([
+                    'orderitemid' => $itemId,
+                    'productid' => $productId,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+                
+                Log::info("✅ Dispense record created with ID: {$insertId}");
+                
+                // Decrement FBMAvailable
+                if (Schema::hasColumn('tblproduct', 'FBMAvailable')) {
+                    $fbmBefore = $product->FBMAvailable ?? 0;
+                    
+                    DB::table('tblproduct')
+                        ->where('ProductID', $productId)
+                        ->decrement('FBMAvailable', 1);
+                    
+                    $fbmAfter = DB::table('tblproduct')
+                        ->where('ProductID', $productId)
+                        ->value('FBMAvailable');
+                        
+                    Log::info("FBMAvailable updated for product {$productId}: {$fbmBefore} -> {$fbmAfter}");
+                }
+                
+                $totalDispensed++;
+            }
+            
+            // Add note to order
+            $currentNote = DB::table('tbloutboundorders')
+                ->where('outboundorderid', $request->order_id)
+                ->value('ordernote');
+            
+            $dateTime = new DateTime('now', new DateTimeZone('America/New_York'));
+            $timestamp = $dateTime->format('Y-m-d H:i:s');
+            $dispenseNote = $timestamp . " - Manual dispense completed for {$totalDispensed} product(s)";
+            
+            $newNote = $currentNote ? $currentNote . "\n\n" . $dispenseNote : $dispenseNote;
+            
+            DB::table('tbloutboundorders')
+                ->where('outboundorderid', $request->order_id)
+                ->update([
+                    'ordernote' => $newNote,
+                    'updated_at' => now()
+                ]);
+            
+            Log::info("✅ Order note updated");
+
+            DB::commit();
+            
+            Log::info("✅✅✅ Manual dispense completed successfully: {$totalDispensed} products dispensed");
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Items dispensed successfully',
+                'dispensed_count' => $totalDispensed
             ]);
             
-            // Decrement the FBMAvailable count for the product if column exists
-            if (Schema::hasColumn('tblproduct', 'FBMAvailable')) {
-                DB::table('tblproduct')
-                    ->where('ProductID', $productId)
-                    ->decrement('FBMAvailable', 1);
-            }
+        } catch (\Exception $innerE) {
+            DB::rollBack();
+            Log::error('❌ Transaction error: ' . $innerE->getMessage(), [
+                'trace' => $innerE->getTraceAsString()
+            ]);
+            throw $innerE;
         }
         
-        // Add note to order
-        $currentNote = DB::table('tbloutboundorders')
-            ->where('outboundorderid', $request->order_id)
-            ->value('ordernote');
+    } catch (\Exception $e) {
+        if (DB::transactionLevel() > 0) {
+            DB::rollBack();
+        }
         
-        $dateTime = new DateTime('now', new DateTimeZone('America/New_York'));
-        $timestamp = $dateTime->format('Y-m-d H:i:s');
-        
-        $dispenseNote = $timestamp . " - Auto dispense completed for " . count($request->dispense_items) . " products";
-        
-        $newNote = $currentNote 
-            ? $currentNote . "\n\n" . $dispenseNote
-            : $dispenseNote;
-        
-        DB::table('tbloutboundorders')
-            ->where('outboundorderid', $request->order_id)
-            ->update([
-                'ordernote' => $newNote,
-                'updated_at' => now()
-            ]);
-
-        DB::commit();
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Items dispensed successfully'
+        Log::error('❌❌❌ Fatal error in manual dispense', [
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString()
         ]);
         
-    } catch (\Exception $e) {
-        DB::rollBack();
-        Log::error('Error dispensing items: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
         return response()->json([
             'success' => false, 
             'message' => 'Error dispensing items', 
-            'error' => $e->getMessage()
+            'error' => $e->getMessage(),
+            'error_details' => [
+                'file' => basename($e->getFile()),
+                'line' => $e->getLine()
+            ]
         ], 500);
     }
-}
-    /**
+}    /**
      * Cancel auto dispense
-     */
-  public function cancelDispense(Request $request)
+     */public function cancelDispense(Request $request)
 {
     try {
+        Log::info('🗑️ Cancel dispense request received', $request->all());
+        
         // Check if dispensed table exists
         if (!Schema::hasTable('tblorderitemdispense')) {
             return response()->json([
@@ -1614,22 +1854,28 @@ public function debugStoreNames(Request $request)
         // Start transaction
         DB::beginTransaction();
 
-        // Get the dispensed products for these items to increment FBMAvailable correctly
+        // Get the dispensed products for these items
         $dispensedProducts = DB::table('tblorderitemdispense')
             ->whereIn('orderitemid', $request->item_ids)
             ->get();
         
-        // Delete the dispense records for these items
-        DB::table('tblorderitemdispense')
+        Log::info("Found {$dispensedProducts->count()} dispensed products to cancel");
+        
+        // Delete the dispense records
+        $deletedCount = DB::table('tblorderitemdispense')
             ->whereIn('orderitemid', $request->item_ids)
             ->delete();
         
-        // Increment FBMAvailable for each product if column exists
+        Log::info("Deleted {$deletedCount} dispense records");
+        
+        // Increment FBMAvailable for each product
         if (Schema::hasColumn('tblproduct', 'FBMAvailable')) {
             foreach ($dispensedProducts as $dispense) {
                 DB::table('tblproduct')
                     ->where('ProductID', $dispense->productid)
                     ->increment('FBMAvailable', 1);
+                    
+                Log::info("Incremented FBMAvailable for product {$dispense->productid}");
             }
         }
 
@@ -1640,12 +1886,9 @@ public function debugStoreNames(Request $request)
         
         $dateTime = new DateTime('now', new DateTimeZone('America/New_York'));
         $timestamp = $dateTime->format('Y-m-d H:i:s');
+        $cancelNote = $timestamp . " - Dispense canceled for " . count($dispensedProducts) . " products";
         
-        $cancelNote = $timestamp . " - Auto dispense canceled for " . count($dispensedProducts) . " products";
-        
-        $newNote = $currentNote 
-            ? $currentNote . "\n\n" . $cancelNote
-            : $cancelNote;
+        $newNote = $currentNote ? $currentNote . "\n\n" . $cancelNote : $cancelNote;
         
         DB::table('tbloutboundorders')
             ->where('outboundorderid', $request->order_id)
@@ -1656,15 +1899,22 @@ public function debugStoreNames(Request $request)
 
         DB::commit();
         
+        Log::info("✅ Cancel dispense successful");
+        
         return response()->json([
             'success' => true,
-            'message' => 'Dispense canceled successfully'
+            'message' => 'Dispense canceled successfully',
+            'canceled_count' => count($dispensedProducts)
         ]);
 
     } catch (\Exception $e) {
         DB::rollback();
-        Log::error('Error canceling dispense: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
-        return response()->json(['success' => false, 'message' => 'Error canceling dispense', 'error' => $e->getMessage()], 500);
+        Log::error('❌ Error canceling dispense: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+        return response()->json([
+            'success' => false, 
+            'message' => 'Error canceling dispense', 
+            'error' => $e->getMessage()
+        ], 500);
     }
 }
 
