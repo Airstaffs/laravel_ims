@@ -1068,7 +1068,7 @@ dispensedProduct, dpIndex
                 </div>
 
                 <div class="modal-body">
-                    <div class="order-section" v-for="order in shipmentData" :key="order.platform_order_id">
+                    <div class="order-section" v-for="order in selectedShipmentData" :key="order.platform_order_id">
                         <div class="left-container">
                             <div class="order-info">
                                 <ul class="list-unstyled m-0">
