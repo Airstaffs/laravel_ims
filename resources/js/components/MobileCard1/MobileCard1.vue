@@ -29,7 +29,7 @@
                 <div class="mobile-product-info">
                     <h5 class="mobile-product-name clickable">
                         <p style="font-size: 1rem">RT#: {{ item.rtcounter }}</p>
-                        <p>{{ item.ProductTitle }}</p>
+                        <p>{{ getDisplayTitle(item) }}</p>
                     </h5>
                 </div>
             </div>
@@ -103,6 +103,44 @@ const props = defineProps({
     countAdditionalImages: Function,
     openEditModal: Function,
 });
+
+const getDisplayTitle = (item) => {
+    if (!item) return "—";
+    // Priority: system_title > internal > AStitle > ProductTitle
+    if (item.system_title && item.system_title.trim() !== "") {
+        return item.system_title;
+    }
+    if (item.internal && item.internal.trim() !== "") {
+        return item.internal;
+    }
+    if (item.AStitle && item.AStitle.trim() !== "") {
+        return item.AStitle;
+    }
+    if (item.ProductTitle && item.ProductTitle.trim() !== "") {
+        return item.ProductTitle;
+    }
+    return "—";
+};
+
+const getFnskuDisplayTitle = (fnskuItem) => {
+    if (!fnskuItem) return "—";
+
+    // Backend already prioritizes: system_title > internal via COALESCE
+    if (fnskuItem.astitle && fnskuItem.astitle.trim() !== "") {
+        return fnskuItem.astitle;
+    }
+
+    // Fallbacks if astitle is missing
+    if (fnskuItem.system_title && fnskuItem.system_title.trim() !== "") {
+        return fnskuItem.system_title;
+    }
+
+    if (fnskuItem.internal && fnskuItem.internal.trim() !== "") {
+        return fnskuItem.internal;
+    }
+
+    return "—";
+};
 
 const firstCol = (item) => {
     const allFields = [

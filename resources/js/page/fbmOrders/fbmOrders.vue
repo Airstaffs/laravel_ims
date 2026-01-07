@@ -388,10 +388,14 @@
                             size="small" outlined /> -->
                         <Button label="Print" icon="pi pi-print" severity="contrast" variant="text" size="small"
                             @click="openPrintInvoiceModal(data)" class="text-primary" />
-                        <Button label="Process" icon="pi pi-truck" severity="contrast" variant="text" size="small"
+                        <!-- <Button label="Process" icon="pi pi-truck" severity="contrast" variant="text" size="small"
                             :disabled="data.order_status ===
                                 'Shipped' ||
                                 data.order_status ===
+                                'Canceled'" @click="openProcessModal(data)" class="text-warning" /> -->
+
+                        <Button label="Process" icon="pi pi-truck" severity="contrast" variant="text" size="small"
+                            :disabled=" data.order_status ===
                                 'Canceled'" @click="openProcessModal(data)" class="text-warning" />
                         <Button type="button" severity="contrast" variant="text" icon="pi pi-list"
                             @click="toggle($event, data)" aria-haspopup="true" aria-controls="overlay_menu" size="small"
