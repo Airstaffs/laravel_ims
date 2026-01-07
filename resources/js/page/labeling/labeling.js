@@ -537,6 +537,51 @@ export default {
             }
         },
 
+
+        getDisplayTitle(item) {
+    if (!item) return '—';
+    
+    // Priority: system_title > internal > AStitle > ProductTitle
+    if (item.system_title && item.system_title.trim() !== '') {
+        return item.system_title;
+    }
+    
+    if (item.internal && item.internal.trim() !== '') {
+        return item.internal;
+    }
+    
+    if (item.AStitle && item.AStitle.trim() !== '') {
+        return item.AStitle;
+    }
+    
+    if (item.ProductTitle && item.ProductTitle.trim() !== '') {
+        return item.ProductTitle;
+    }
+    
+    return '—';
+},
+
+// For FNSKU modal display (uses backend's astitle field)
+getFnskuDisplayTitle(fnskuItem) {
+    if (!fnskuItem) return '—';
+    
+    // Backend already prioritizes: system_title > internal via COALESCE
+    if (fnskuItem.astitle && fnskuItem.astitle.trim() !== '') {
+        return fnskuItem.astitle;
+    }
+    
+    // Fallbacks if astitle is missing
+    if (fnskuItem.system_title && fnskuItem.system_title.trim() !== '') {
+        return fnskuItem.system_title;
+    }
+    
+    if (fnskuItem.internal && fnskuItem.internal.trim() !== '') {
+        return fnskuItem.internal;
+    }
+    
+    return '—';
+},
+
         // Fetch inventory data from the API
         async fetchInventory() {
             this.loading = true;

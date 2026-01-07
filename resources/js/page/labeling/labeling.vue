@@ -39,7 +39,7 @@
                                 :src="`/images/product_images/${
                                     data.company || 'Airstaffs'
                                 }/${data.capturedImages.capturedimg1}`"
-                                :alt="data.ProductTitle"
+                                :alt="getDisplayTitle(data)"
                                 style="
                                     width: 50px;
                                     height: 50px;
@@ -91,7 +91,7 @@
                                 RT# {{ data.rtcounter }}
                             </p>
                             <p class="fw-semibold">
-                                {{ data.ProductTitle }}
+                                {{ getDisplayTitle(data) }}
                             </p>
                         </div>
                     </div>
@@ -183,7 +183,7 @@
                                     :src="`/images/product_images/${
                                         item.company || 'Airstaffs'
                                     }/${item.capturedImages.capturedimg1}`"
-                                    :alt="item.ProductTitle || 'Product'"
+                                    :alt="getDisplayTitle(item)"
                                     class="product-thumbnail clickable-image"
                                     @error="handleImageError"
                                 />
@@ -203,7 +203,7 @@
                             >
                                 <img
                                     :src="'/images/thumbnails/' + item.img1"
-                                    :alt="item.ProductTitle || 'Product'"
+                                    :alt="getDisplayTitle(item)"
                                     class="product-thumbnail clickable-image"
                                     @error="handleImageError($event)"
                                 />
@@ -221,7 +221,7 @@
                                 <span style="font-size: 1rem"
                                     >RT# : {{ item.rtcounter }}</span
                                 >
-                                <span>{{ item.ProductTitle }}</span>
+                                <span>{{ getDisplayTitle(item) }}</span>
                             </h6>
                         </div>
                     </div>
@@ -537,20 +537,19 @@
                                                     <label
                                                         >Internal Title</label
                                                     >
-                                                    <Textarea
-                                                        ref="productTextarea"
-                                                        class="form-control no-resize"
-                                                        v-model="
-                                                            item.ProductTitle
-                                                        "
-                                                        placeholder="Product Title"
-                                                        rows="1"
-                                                        @input="autoResize"
-                                                        fluid
-                                                        size="small"
-                                                        disabled
-                                                    />
-                                                </fieldset>
+                                                        <Textarea
+                                                            ref="productTextarea"
+                                                            class="form-control no-resize"
+                                                            :value="getDisplayTitle(item)"
+                                                            placeholder="ASIN Title"
+                                                            rows="1"
+                                                            @input="autoResize"
+                                                            fluid
+                                                            size="small"
+                                                            disabled
+                                                            readonly
+                                                        />
+                                               </fieldset>
                                                 <fieldset>
                                                     <label>RT:</label>
                                                     <InputText
@@ -1025,7 +1024,7 @@
                     </div>
 
                     <div class="my-4">
-                        <h5>{{ currentItem.ProductTitle }}</h5>
+                         <h5>{{ getDisplayTitle(currentItem) }}</h5>
 
                         <div class="mt-4">
                             <span class="fw-semibold">RT#: </span>
@@ -1152,7 +1151,7 @@
                                     "
                                 >
                                     <p class="fw-semibold">
-                                        {{ data.astitle }}
+                                        {{ getFnskuDisplayTitle(data) }}
                                     </p>
                                 </div>
                             </div>
@@ -1261,7 +1260,7 @@
                                     <div class="mobile-product-info">
                                         <div class="mobile-product-name">
                                             <h6>
-                                                {{ item.astitle || "----" }}
+                                                {{ getFnskuDisplayTitle(item) || "----"  }}
                                             </h6>
                                         </div>
                                     </div>
@@ -1660,7 +1659,7 @@ const FNSKU_COLUMN = [
         style: { width: "10rem", minWidth: "10rem" },
     },
     {
-        field: "astitle",
+        field: "AStitle",
         header: "Product Name",
         slot: "ProductTitle",
         bodyStyle: "font-size: 14px",
