@@ -3,8 +3,7 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-require("../../../dbserver/server.php"); // should define $Connect (mysqli)
-
+$Connect = new mysqli("localhost", "imsv2_dbims_user", "Imsv2_dbims_user", "imsv2_dbims");
 // 1) Verify secret header
 $expectedSecret = 'eb_4f9c2a7d8e6b41a9b0d3c5e7f2a8d6c1b9e4a7f0d3c8e5b2a6f9c1d7e4';
 $receivedSecret = $_SERVER['HTTP_SECRET_IMS_KEY_V2'] ?? '';
