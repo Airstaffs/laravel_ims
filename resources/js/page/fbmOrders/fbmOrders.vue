@@ -1068,7 +1068,7 @@ dispensedProduct, dpIndex
                 </div>
 
                 <div class="modal-body">
-                    <div class="order-section" v-for="order in shipmentData" :key="order.platform_order_id">
+                    <div class="order-section" v-for="order in selectedShipmentData" :key="order.platform_order_id">
                         <div class="left-container">
                             <div class="order-info">
                                 <ul class="list-unstyled m-0">
@@ -1111,7 +1111,7 @@ dispensedProduct, dpIndex
                                     <hr>
 
                                     <li
-                                        v-if="(!selectedCarriers.hasOwnProperty(order.platform_order_id) || !selectedCarriers[order.platform_order_id])">
+                                        v-if="!selectedCarriers?.[order.platform_order_id]">
                                         <button v-if="rateResults && rateResults.length"
                                             @click="openCarrierModal(order)" class="btn btn-carrier">
                                             Select Carrier Option
@@ -1128,7 +1128,7 @@ dispensedProduct, dpIndex
                                     </li>
 
                                     <li
-                                        v-if="selectedCarriers.hasOwnProperty(order.platform_order_id) && selectedCarriers[order.platform_order_id]">
+                                        v-if="selectedCarriers?.[order.platform_order_id]">
                                         <ul class="list-unstyled m-0 selected-carrier">
                                             <li>
                                                 <strong>Selected Carrier: </strong>
