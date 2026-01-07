@@ -294,7 +294,9 @@ public function index(Request $request)
 /**
  * Get dispensed products for a specific order item
  */
-private function getDispensedProductsForItem($orderItemId)
+Yes! You're absolutely right. Since you have the extractBaseFnsku() function to handle FNSKU prefixes (like C0X004BWMS3B → X004BWMS3B), you should use it in the getDispensedProductsForItem() method too.
+Here's the updated version that uses your extractBaseFnsku() logic:
+phpprivate function getDispensedProductsForItem($orderItemId)
 {
     try {
         // Check if the dispensed table exists first
@@ -303,27 +305,76 @@ private function getDispensedProductsForItem($orderItemId)
             return [];
         }
         
+        // Get dispensed products with basic product info
         $dispensedProducts = DB::table('tblorderitemdispense as d')
             ->select(
                 'd.productid as product_id',
                 'p.warehouseLocation',
                 'p.serialNumber', 
                 'p.rtCounter',
-                'p.FNSKUviewer as FNSKU',
-                'asin.ASIN as asin',
-                'asin.internal as title'
+                'p.FNSKUviewer as FNSKU'
             )
             ->leftJoin('tblproduct as p', 'd.productid', '=', 'p.ProductID')
-            ->leftJoin('tblfnsku as fnsku', 'p.FNSKUviewer', '=', 'fnsku.FNSKU')
-            ->leftJoin('tblasin as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
             ->where('d.orderitemid', $orderItemId)
             ->get();
         
+        Log::info("Found {$dispensedProducts->count()} dispensed products for item {$orderItemId}");
+        
+        // Process each product to get title and ASIN using base FNSKU matching
         return $dispensedProducts->map(function($item) {
+            // Extract base FNSKU (removes C0 prefix if present)
+            $baseFnsku = $this->extractBaseFnsku($item->FNSKU);
+            
+            Log::info("Processing dispensed product {$item->product_id}: FNSKU={$item->FNSKU}, Base={$baseFnsku}");
+            
+            // Find matching FNSKU record using base FNSKU with LIKE pattern
+            $fnskuRecord = DB::table('tblfnsku')
+                ->where('FNSKU', 'like', "%{$baseFnsku}%")
+                ->first();
+            
+            $title = 'N/A';
+            $asin = 'N/A';
+            
+            if ($fnskuRecord) {
+                Log::info("Found FNSKU record for {$baseFnsku}: ASIN={$fnskuRecord->ASIN}");
+                
+                // Get ASIN details
+                $asinRecord = DB::table('tblasin')
+                    ->where('ASIN', $fnskuRecord->ASIN)
+                    ->first();
+                
+                if ($asinRecord) {
+                    $title = $asinRecord->internal ?? 'N/A';
+                    $asin = $asinRecord->ASIN ?? 'N/A';
+                    Log::info("Found ASIN details: Title={$title}");
+                } else {
+                    Log::warning("No ASIN record found for ASIN: {$fnskuRecord->ASIN}");
+                }
+            } else {
+                Log::warning("No FNSKU record found for base FNSKU: {$baseFnsku}");
+                
+                // Try exact match as fallback
+                $fnskuRecordExact = DB::table('tblfnsku')
+                    ->where('FNSKU', $item->FNSKU)
+                    ->first();
+                    
+                if ($fnskuRecordExact) {
+                    Log::info("Found exact FNSKU match: {$item->FNSKU}");
+                    $asinRecord = DB::table('tblasin')
+                        ->where('ASIN', $fnskuRecordExact->ASIN)
+                        ->first();
+                    
+                    if ($asinRecord) {
+                        $title = $asinRecord->internal ?? 'N/A';
+                        $asin = $asinRecord->ASIN ?? 'N/A';
+                    }
+                }
+            }
+            
             return [
                 'product_id' => $item->product_id,
-                'title' => $item->title ?? 'N/A',
-                'asin' => $item->asin ?? 'N/A',
+                'title' => $title,
+                'asin' => $asin,
                 'warehouseLocation' => $item->warehouseLocation ?? '',
                 'serialNumber' => $item->serialNumber ?? '',
                 'rtCounter' => $item->rtCounter ?? '',
@@ -333,6 +384,7 @@ private function getDispensedProductsForItem($orderItemId)
         
     } catch (\Exception $e) {
         Log::error('Error getting dispensed products for item ' . $orderItemId . ': ' . $e->getMessage());
+        Log::error('Stack trace: ' . $e->getTraceAsString());
         return [];
     }
 }
@@ -581,94 +633,132 @@ private function getPossibleConditionVariations($conditionId, $conditionSubtypeI
 private function findReplacementProduct($asin, $conditionId, $conditionSubtypeId, $storeName, $normalizedStoreName, $excludeProductIds = [])
 {
     try {
-        // Build the query to find replacement products
-        $query = DB::table('tblasin')
+        // STEP 1: Get FNSKU records first
+        $fnskuQuery = DB::table('tblfnsku')
+            ->select(['FNSKU', 'MSKU', 'storename', 'grading', 'ASIN'])
+            ->where('ASIN', $asin);
+
+        // Apply condition filtering
+        if ($normalizedStoreName === 'allrenewed') {
+            $fnskuQuery->where(function($q) {
+                $q->where('storename', 'All Renewed')
+                    ->orWhere('storename', 'AllRenewed')
+                    ->orWhere('storename', 'Allrenewed');
+            });
+            $fnskuQuery->where('grading', 'New');
+        } else {
+            $possibleConditions = $this->getPossibleConditionVariations($conditionId, $conditionSubtypeId);
+            
+            if (!empty($possibleConditions)) {
+                $fnskuQuery->whereIn('grading', $possibleConditions);
+            } else {
+                $fnskuQuery->where('grading', $conditionId);
+            }
+        }
+
+        $fnskuRecords = $fnskuQuery->get();
+        
+        if ($fnskuRecords->isEmpty()) {
+            return null;
+        }
+
+        // STEP 2: Extract base FNSKUs and build mapping
+        $baseFnskus = [];
+        $fnskuMap = [];
+        foreach ($fnskuRecords as $record) {
+            $baseFnsku = $this->extractBaseFnsku($record->FNSKU);
+            $baseFnskus[] = $baseFnsku;
+            $fnskuMap[$baseFnsku] = $record;
+        }
+        $baseFnskus = array_unique($baseFnskus);
+
+        // STEP 3: Get products matching these base FNSKUs
+        $productsQuery = DB::table('tblproduct')
             ->select([
-                'tblasin.ASIN',
-                'tblasin.internal as title',
-                'tblfnsku.MSKU as msku',
-                'tblfnsku.storename',
-                'tblfnsku.grading',
-                'tblfnsku.FNSKU',
-                'tblproduct.FBMAvailable',
-                'tblproduct.ProductID',
-                'tblproduct.warehouseLocation',
-                'tblproduct.serialNumber',
-                'tblproduct.rtCounter',
-                'tblproduct.stockroom_insert_date'
-            ])
-            ->leftJoin('tblfnsku', 'tblasin.ASIN', '=', 'tblfnsku.ASIN')
-            ->leftJoin('tblproduct', 'tblfnsku.FNSKU', '=', 'tblproduct.FNSKUviewer')
-            ->where('tblasin.ASIN', $asin);
+                'ProductID',
+                'FNSKUviewer',
+                'FBMAvailable',
+                'warehouseLocation',
+                'serialNumber',
+                'rtCounter',
+                'stockroom_insert_date'
+            ]);
 
         // Add availability filter
         if (Schema::hasColumn('tblproduct', 'FBMAvailable')) {
-            $query->where('tblproduct.FBMAvailable', '>', 0);
+            $productsQuery->where('FBMAvailable', '>', 0);
         }
 
         // Add location filter - exclude Not Found products
         if (Schema::hasColumn('tblproduct', 'ProductModuleLoc')) {
-            $query->where('tblproduct.ProductModuleLoc', 'Stockroom');
+            $productsQuery->where('ProductModuleLoc', 'Stockroom');
         }
 
         // Exclude already dispensed products
         if (!empty($excludeProductIds)) {
-            $query->whereNotIn('tblproduct.ProductID', $excludeProductIds);
+            $productsQuery->whereNotIn('ProductID', $excludeProductIds);
         }
 
-        // Add store-specific filtering with flexible condition matching
-        if ($normalizedStoreName === 'allrenewed') {
-            $query->where(function($q) {
-                $q->where('tblfnsku.storename', 'All Renewed')
-                    ->orWhere('tblfnsku.storename', 'AllRenewed')
-                    ->orWhere('tblfnsku.storename', 'Allrenewed');
-            });
-            $query->where('tblfnsku.grading', 'New');
-        } else {
-            // Use flexible condition matching for replacement products too
-            $possibleConditions = $this->getPossibleConditionVariations($conditionId, $conditionSubtypeId);
-            
-            if (!empty($possibleConditions)) {
-                $query->whereIn('tblfnsku.grading', $possibleConditions);
-            } else {
-                $query->where('tblfnsku.grading', $conditionId);
+        // Match using base FNSKUs with LIKE for flexible matching
+        $productsQuery->where(function($q) use ($baseFnskus) {
+            foreach ($baseFnskus as $baseFnsku) {
+                $q->orWhere('FNSKUviewer', 'like', "%{$baseFnsku}%");
             }
-        }
+        });
 
         // Order by stockroom date for FIFO
         if (Schema::hasColumn('tblproduct', 'stockroom_insert_date')) {
-            $query->orderBy('tblproduct.stockroom_insert_date', 'asc');
+            $productsQuery->orderBy('stockroom_insert_date', 'asc');
         }
 
-        // Get all potential products
-        $allProducts = $query->get();
-        
-        // Filter by normalized store name (except for AllRenewed which is already filtered)
-        if ($normalizedStoreName !== 'allrenewed') {
-            $allProducts = $allProducts->filter(function($product) use ($normalizedStoreName) {
-                $productStoreName = $product->storename ?? '';
-                $normalizedProductStore = $this->normalizeStoreName($productStoreName);
-                return $normalizedProductStore === $normalizedStoreName;
-            });
+        $allProducts = $productsQuery->get();
+
+        // STEP 4: Match products with FNSKU records and apply store filtering
+        foreach ($allProducts as $product) {
+            $productBaseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+            
+            // Find matching FNSKU record
+            if (!isset($fnskuMap[$productBaseFnsku])) {
+                continue;
+            }
+            
+            $fnskuRecord = $fnskuMap[$productBaseFnsku];
+            
+            // Apply store name filter using normalization
+            $productStoreName = $fnskuRecord->storename ?? '';
+            $normalizedProductStore = $this->normalizeStoreName($productStoreName);
+            
+            // Store matching logic
+            if ($normalizedStoreName === 'allrenewed') {
+                // Already filtered in FNSKU query, accept all
+                $storeMatches = true;
+            } else {
+                $storeMatches = ($normalizedProductStore === $normalizedStoreName);
+            }
+            
+            if (!$storeMatches) {
+                continue;
+            }
+
+            // Get ASIN title
+            $asinTitle = DB::table('tblasin')
+                ->where('ASIN', $fnskuRecord->ASIN)
+                ->value('internal') ?? 'No title';
+
+            // This product matches - return it
+            return [
+                'ProductID' => $product->ProductID,
+                'asin' => $fnskuRecord->ASIN,
+                'title' => $asinTitle,
+                'msku' => $fnskuRecord->MSKU ?? '',
+                'warehouseLocation' => $product->warehouseLocation ?? '',
+                'serialNumber' => $product->serialNumber ?? '',
+                'rtCounter' => $product->rtCounter ?? '',
+                'fnsku' => $fnskuRecord->FNSKU
+            ];
         }
 
-        // Get the first available product
-        $product = $allProducts->first();
-
-        if (!$product) {
-            return null;
-        }
-
-        return [
-            'ProductID' => $product->ProductID,
-            'asin' => $product->ASIN,
-            'title' => $product->title ?? 'No title',
-            'msku' => $product->msku ?? '',
-            'warehouseLocation' => $product->warehouseLocation ?? '',
-            'serialNumber' => $product->serialNumber ?? '',
-            'rtCounter' => $product->rtCounter ?? '',
-            'fnsku' => $product->FNSKU ?? ''
-        ];
+        return null;
 
     } catch (\Exception $e) {
         Log::error('Error finding replacement product: ' . $e->getMessage());
