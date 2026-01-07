@@ -17,7 +17,7 @@ class ASINlistController extends BasetablesController
     /**
      * Display a listing of ASINs with their FNSKU data
      */
-     public function index(Request $request)
+    public function index(Request $request)
     {
         try {
             $perPage = min($request->input('per_page', 15), 100);
@@ -303,7 +303,7 @@ class ASINlistController extends BasetablesController
                 $marketplaceId
             );
 
-            $isRestricted = !empty($restriction['restricted']);
+            $isRestricted = (bool)($restriction['restricted'] ?? false);
             $reason = $restriction['reason'] ?? null;
             $raw = $restriction['raw'] ?? null; // this should contain callListingsRestrictions result
 
@@ -489,37 +489,45 @@ class ASINlistController extends BasetablesController
         return 'ATVPDKIKX0DER'; // Amazon US
     }
 
-    private function callListingsRestrictions(string $store, string $asin, ?string $conditionType, string $marketplaceId = 'ATVPDKIKX0DER'): array
-    {
+    private function callListingsRestrictions(
+        string $store,
+        string $asin,
+        ?string $conditionType,
+        string $marketplaceId = 'ATVPDKIKX0DER'
+    ): array {
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
         $path = '/listings/2021-08-01/restrictions';
 
-        if ($conditionType) {
-            $customParams['conditionType'] = $conditionType;
-        }
-
-        $nextToken = null;
-
         // 1) Credentials
         $credentials = AWSCredentials($store);
-
-        $customParams = [
-            'asin' => $asin,
-            'marketplaceIds' => $marketplaceId,
-            'reasonLocale' => 'en_US',
-            'sellerId' => $credentials['MerchantID']
-        ];
         if (!$credentials) {
             return [
                 'success' => false,
                 'message' => "No AWS credentials found for store {$store}",
                 'status' => 500,
                 'data' => null,
+                'parsed' => null,
                 'errors' => [],
             ];
         }
 
+        // 2) Query params (build FIRST)
+        $customParams = [
+            'asin' => $asin,
+            'marketplaceIds' => $marketplaceId,
+            'reasonLocale' => 'en_US',
+            'sellerId' => $credentials['MerchantID'],
+        ];
+
+        // ✅ now conditionType will actually be included
+        if (!empty($conditionType)) {
+            $customParams['conditionType'] = $conditionType;
+        }
+
+        $nextToken = null;
+
+        // 3) Access token
         $accessToken = fetchAccessToken($credentials, $returnRaw = false);
         if (!$accessToken) {
             return [
@@ -527,11 +535,12 @@ class ASINlistController extends BasetablesController
                 'message' => "Failed to fetch access token for store {$store}",
                 'status' => 500,
                 'data' => null,
+                'parsed' => null,
                 'errors' => [],
             ];
         }
 
-        // 2) Build headers & query
+        // 4) Headers + URL
         $headers = buildHeaders(
             $credentials,
             $accessToken,
@@ -552,7 +561,6 @@ class ASINlistController extends BasetablesController
 
         Log::info('GetListingsRestrictions request', [
             'url' => $url,
-            'headers' => $headers,
             'query' => $customParams,
         ]);
 
@@ -561,10 +569,7 @@ class ASINlistController extends BasetablesController
                 ->withHeaders($headers)
                 ->get($url);
 
-            $curlInfo = $response->handlerStats();
-            Log::info('GetListingsRestrictions curl info', $curlInfo);
-
-            $rawBody = $response->body(); // <-- raw text from Amazon
+            $rawBody = $response->body();
             $parsed = null;
 
             try {
@@ -578,19 +583,17 @@ class ASINlistController extends BasetablesController
                     'success' => true,
                     'message' => 'Data fetched successfully',
                     'status' => $response->status(),
-                    'data' => $rawBody,   // string, like your example
-                    'parsed' => $parsed,    // array|null
-                    'errors' => [],         // no SP error array in success
+                    'data' => $rawBody,
+                    'parsed' => $parsed,
+                    'errors' => [],
                 ];
             }
 
-            // Handle Amazon error format: {"errors":[{code,message,details}]}
             $errorsFromAmazon = [];
             if (is_array($parsed)) {
                 if (isset($parsed['errors']) && is_array($parsed['errors'])) {
                     $errorsFromAmazon = $parsed['errors'];
                 } elseif (array_keys($parsed) === range(0, count($parsed) - 1)) {
-                    // If it's just a bare array (like your example [ {code, message, details} ])
                     $errorsFromAmazon = $parsed;
                 }
             }
@@ -627,6 +630,7 @@ class ASINlistController extends BasetablesController
             ];
         }
     }
+
 
     private function checkListingRestriction(
         string $store,
@@ -730,7 +734,7 @@ class ASINlistController extends BasetablesController
                 'metakeyword' => 'nullable|string|max:500',
                 'transparency_qr_status' => 'nullable|string|max:1000',
                 'quantity_inside' => 'nullable|integer|min:1|max:4',
-                'system_title' => 'nullable|string|max:500' 
+                'system_title' => 'nullable|string|max:500'
             ]);
 
             // Check if ASIN exists
@@ -1405,51 +1409,51 @@ class ASINlistController extends BasetablesController
 
 
 
-   /**
- * Update Quantity Inside for a specific ASIN
- */
-public function updateQuantityInside(Request $request)
-{
-    try {
-        $validated = $request->validate([
-            'asin' => 'required|string',
-            'quantity_inside' => 'nullable|integer|min:1|max:4'
-        ]);
+    /**
+     * Update Quantity Inside for a specific ASIN
+     */
+    public function updateQuantityInside(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'asin' => 'required|string',
+                'quantity_inside' => 'nullable|integer|min:1|max:4'
+            ]);
 
-        $asin = DB::table($this->asinTable)
-            ->where('ASIN', $validated['asin'])
-            ->first();
+            $asin = DB::table($this->asinTable)
+                ->where('ASIN', $validated['asin'])
+                ->first();
 
-        if (!$asin) {
+            if (!$asin) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ASIN not found'
+                ], 404);
+            }
+
+            DB::table($this->asinTable)
+                ->where('ASIN', $validated['asin'])
+                ->update(['QuantityInside' => $validated['quantity_inside']]);
+
+            Log::info("Quantity Inside updated for: {$validated['asin']}", [
+                'quantity' => $validated['quantity_inside']
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Quantity Inside updated successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error updating Quantity Inside: ' . $e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'ASIN not found'
-            ], 404);
+                'message' => 'An error occurred while updating Quantity Inside',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        DB::table($this->asinTable)
-            ->where('ASIN', $validated['asin'])
-            ->update(['QuantityInside' => $validated['quantity_inside']]);
-
-        Log::info("Quantity Inside updated for: {$validated['asin']}", [
-            'quantity' => $validated['quantity_inside']
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Quantity Inside updated successfully'
-        ]);
-
-    } catch (\Exception $e) {
-        Log::error('Error updating Quantity Inside: ' . $e->getMessage());
-
-        return response()->json([
-            'success' => false,
-            'message' => 'An error occurred while updating Quantity Inside',
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
 
 
 
