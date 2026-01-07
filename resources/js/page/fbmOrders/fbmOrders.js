@@ -65,6 +65,7 @@ export default {
                 notes: "",
             },
             isProcessing: false,
+            selectedCarriers: {},
 
             // For auto dispense (standalone and in process modal)
             showAutoDispenseModal: false,
