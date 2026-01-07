@@ -34,7 +34,7 @@
                                 :src="`/images/product_images/${
                                     data.company || 'Airstaffs'
                                 }/${data.capturedImages.capturedimg1}`"
-                                :alt="data.ProductTitle"
+                                :alt="getDisplayTitle(data)"
                                 style="
                                     width: 50px;
                                     height: 50px;
@@ -71,7 +71,7 @@
                         >
                             <img
                                 :src="`/images/thumbnails/${data.img1}`"
-                                :alt="data.ProductTitle"
+                                :alt="getDisplayTitle(item)"
                                 style="
                                     width: 50px;
                                     height: 50px;
@@ -131,7 +131,7 @@
                                 ID# {{ data.rtcounter }}
                             </p>
                             <p class="fw-semibold">
-                                {{ data.ProductTitle }}
+                                {{ getDisplayTitle(data) }}
                             </p>
                         </div>
                     </div>
@@ -231,7 +231,7 @@
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">ASIN:</span>
                             <span class="mobile-detal-value">
-                                {{ item.ASINviewer }}</span
+                                {{ item.ASIN }}</span
                             >
                         </div>
                         <!-- Insert Hidden Here -->
@@ -326,7 +326,10 @@
                         class="mobile-expanded-content"
                     >
                         <p><strong>Expanded Rows Here</strong></p>
-                        <p><strong>Product Name:</strong> {{ item.AStitle }}</p>
+                        <p>
+                            <strong>Product Name:</strong>
+                            {{ getFnskuDisplayTitle(data) }}
+                        </p>
                     </div>
                 </div>
             </div>
@@ -671,7 +674,7 @@ const TABLE_COLUMNS = [
         style: { width: "4rem", minWidth: "4rem" },
     },
     {
-        field: "ProductTitle",
+        field: "AStitle",
         header: "Product Name",
         sortable: true,
         headerStyle: "font-size: 16px;",
@@ -679,7 +682,7 @@ const TABLE_COLUMNS = [
         style: { minWidth: "15rem", maxWidth: "20rem" },
     },
     {
-        field: "ASINviewer",
+        field: "ASIN",
         header: "ASIN",
         sortable: true,
         bodyStyle: "font-size: 14px;",
