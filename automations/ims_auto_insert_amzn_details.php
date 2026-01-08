@@ -599,9 +599,9 @@ function getSignatureKey($key, $dateStamp, $regionName, $serviceName)
 function sidfetcherino($Connect, $store)
 {
     if ($store == 'RT') {
-        $id = 1; // The id you want to retrieve
+        $id = 6; // The id you want to retrieve
     } else if ($store == 'AR') {
-        $id = 3;
+        $id = 10;
     }
 
     $sql = "SELECT MerchantID FROM tblstores WHERE store_id = $id";
