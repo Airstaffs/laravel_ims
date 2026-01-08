@@ -65,29 +65,32 @@ $allSkus = [];
 
 foreach ($stores as $store) {
 
-
     $tblname = "tblfnsku";
 
-    $sid = sidfetcherino($Connect, $store);
+    // ✅ MerchantID per store (this is what equals tblnewlycreatedamznitems.seller_id)
+    $merchantId = sidfetcherino($Connect, $store);
+    if (empty($merchantId)) {
+        echo "❌ No MerchantID found for store {$store}<br>";
+        continue;
+    }
 
-    $allSkus = getallnewitems($Connect, $sid);
+    // ✅ Get SKUs for THIS merchantId (seller_id)
+    $allSkus = getallnewitems_by_sellerid($Connect, $merchantId);
 
     $credentials = AWSCredentials($Connect, $store);
-
     if (!isset($credentials['client_id']) || !isset($credentials['client_secret'])) {
         die("Invalid keys in database.");
     }
 
+    // ✅ Token once per store
     $accessToken = fetchAccessToken($credentials, $returnRaw = false);
 
     foreach ($allSkus as $skuperitem) {
-        echo "Processing yawa MSKU: $skuperitem<br>";
+        echo "Processing yawa MSKU: $skuperitem (store {$store})<br>";
 
-        $path = "/listings/2021-08-01/items/{$sid}/{$skuperitem}";
-        $service = 'execute-api';
-        $region = 'us-east-1';
+        // ✅ IMPORTANT: use merchantId for the /items/{sellerId}/{sku} path
+        $results = fetchAmazonData($credentials, $accessToken, $skuperitem, $merchantId);
 
-        $results = fetchAmazonData($credentials, $accessToken, $skuperitem, $sid);
         echo "actual fucking array";
         echo "<pre>";
         print_r($results);
@@ -334,8 +337,6 @@ foreach ($stores as $store) {
             echo "<br>No summaries available for SKU: " . ($pta['sku'] ?? 'Unknown SKU') . "<br>";
         }
     }
-
-    exit;
 }
 
 $logMessage = "File uploaded and processed successfully.";
@@ -844,4 +845,37 @@ function fetchGrantlessAccessToken($credentials, $scope)
 
     $tokenData = json_decode($response, true);
     return $tokenData['access_token'];
+}
+
+function getallnewitems_by_sellerid(mysqli $Connect, string $merchantId): array
+{
+    $sql = "
+        SELECT sku
+        FROM tblnewlycreatedamznitems
+        WHERE cron_insert_status = 'FALSE'
+          AND seller_id = ?
+          AND publish_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        ORDER BY id DESC LIMIT 1
+    ";
+
+    $stmt = mysqli_prepare($Connect, $sql);
+    mysqli_stmt_bind_param($stmt, "s", $merchantId);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $allSkus = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $msku = $row['sku'];
+        if (!in_array($msku, $allSkus, true)) {
+            $allSkus[] = $msku;
+        }
+    }
+
+    mysqli_stmt_close($stmt);
+
+    echo "<pre>";
+    print_r($allSkus);
+    echo "</pre>";
+
+    return $allSkus;
 }
