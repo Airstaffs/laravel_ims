@@ -240,7 +240,7 @@ foreach ($stores as $store) {
                             // logs for uploads!
                             // uploading_Logs($Connect, $log_message = $logMessage, $reference_id = $ref, $upload_name = $uploader);
                             $insertCount++;
-                            updateCronInsertStatus($Connect, $MSKU, $sid);
+                            updateCronInsertStatus($Connect, $MSKU, $merchantId);
                         } else {
                             $logMessage = "Error inserting record for FNSKU: $FNSKU - Error: " . $stmt->error;
                             // logs for uploads!
@@ -277,7 +277,7 @@ foreach ($stores as $store) {
                         ) {
                             $logMessage = "All data is identical for FNSKU: $FNSKU MSKU $MSKU - Skipping insertion as it's a duplicate.";
                             // uploading_Logs($Connect, $log_message = $logMessage, $reference_id = $ref, $upload_name = $uploader);
-                            updateCronInsertStatus($Connect, $MSKU, $sid);
+                            updateCronInsertStatus($Connect, $MSKU, $merchantId);
                             $duplicateCount++;
                         } else if ($MSKU === null || $ASIN === null || $PRODUCT_NAME === null) {
 
