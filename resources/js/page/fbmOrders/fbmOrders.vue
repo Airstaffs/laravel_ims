@@ -107,6 +107,13 @@
                     <Select :options="statusOptions" v-model="statusFilter" optionLabel="label" optionValue="value"
                         size="small" class="select-form" @change="changeStatusFilter" placeholder="Select a status" />
                 </fieldset>
+        
+                 <fieldset class="d-flex align-items-center gap-3 ">
+                    <label for="orderByFilter">Order</label>
+                    <Select :options="orderByOptions" v-model="orderByFilter" optionLabel="label" optionValue="value"
+                        size="small" class="select-form" @change="changeOrderBy" placeholder="Order by" />
+                </fieldset>
+
             </div>
             <XDataTable :value="orders" :loading="loading" :columns="columns" :pagination="false"
                 tableClass="desktop-view " dataKey="outboundorderid" selectionMode="multiple"
@@ -1777,6 +1784,15 @@ export default {
                 { value: "created_date", label: "Purchase Date" },
                 { value: "delivery_date", label: "Delivery Date" },
             ],
+
+             // ✅ ADD THESE NEW OPTIONS
+            orderByOptions: [
+                { value: "desc", label: "Newest First" },
+                { value: "asc", label: "Oldest First" }
+            ],
+            // ✅ ADD THIS NEW STATE
+            orderByFilter: "desc",
+
             userOptions: [
                 { value: "all", label: "All Users" },
                 { value: "Van", label: "Van" },
@@ -1872,6 +1888,9 @@ export default {
                 },
             ]
         },
+
+   
+
         getStatusColor(status) {
             switch (status) {
                 case 'Pending':
@@ -1886,6 +1905,7 @@ export default {
                     return '#F1FF00'
             }
         }
+        
     },
     mounted() {
         console.log(this.workHistoryFilters.carrierFilter, "carrierFilter"
