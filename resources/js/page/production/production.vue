@@ -19,14 +19,59 @@
                     <div
                         class="d-flex justify-content-center align-items-center"
                     >
+                        <!-- Use custom image display for captured images -->
+                        <div
+                            v-if="
+                                data.capturedImages &&
+                                data.capturedImages.capturedimg1
+                            "
+                            class="gallery-thumbnail position-relative"
+                            @click="openImageModal(data)"
+                            style="cursor: pointer"
+                        >
+                            <img
+                                :src="`/images/product_images/${
+                                    data.company || 'Airstaffs'
+                                }/${data.capturedImages.capturedimg1}`"
+                                :alt="getDisplayTitle(data)"
+                                style="
+                                    width: 50px;
+                                    height: 50px;
+                                    object-fit: cover;
+                                    border-radius: 4px;
+                                "
+                                @error="handleImageError"
+                            />
+                            <span
+                                v-if="countCapturedImages(data) > 1"
+                                class="position-absolute bg-primary text-white rounded-circle"
+                                style="
+                                    top: -5px;
+                                    right: -5px;
+                                    min-width: 20px;
+                                    height: 20px;
+                                    font-size: 0.65rem;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    padding: 0 4px;
+                                "
+                            >
+                                +{{ countCapturedImages(data) - 1 }}
+                            </span>
+                        </div>
+
+                        <!-- Use TableGallery for regular product images -->
                         <TableGallery
+                            v-else
                             :data="data"
                             :openImageModal="openImageModal"
                             :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages"
+                            :countAdditionalImages="countAllImages"
                         />
                     </div>
                 </template>
+
                 <template #ProductTitle="{ data }">
                     <div class="d-flex align-items-start gap-4">
                         <div
@@ -41,7 +86,7 @@
                                 ID# {{ data.rtcounter }}
                             </p>
                             <p class="fw-semibold">
-                                {{ data.ProductTitle }}
+                                {{ getDisplayTitle(data) }}
                             </p>
                         </div>
                     </div>
@@ -93,7 +138,7 @@
                         <div class="mobile-product-info">
                             <h6 class="mobile-product-name clickable">
                                 <p>RT# : {{ item.rtcounter }}</p>
-                                <p>{{ item.ProductTitle }}</p>
+                                <p>{{ getDisplayTitle(data) }}</p>
                             </h6>
                         </div>
                     </div>
@@ -130,7 +175,7 @@
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">ASIN:</span>
                             <span class="mobile-detal-value">
-                                {{ item.ASINviewer }}</span
+                                {{ item.ASIN }}</span
                             >
                         </div>
                         <!-- Insert Hidden Here -->
@@ -270,22 +315,21 @@
             </div>
         </div>
 
-        <!-- Image Modal -->
-        <ViewImageModal
-            v-model:visible="showImageModal"
-            :title="ProductTitle"
-            :imageList="imageList"
-            :basePath="basePath"
-            :onImageErrorMain="onImageErrorMain"
-            :onThumbnailError="onThumbnailError"
-            @close="closeImageModal"
+        <!-- Image Modal with Tabs -->
+        <ViewImageGalleryModal
+            :showImageModal="showImageModal"
+            :closeImageModal="closeImageModal"
+            :ProductTitle="ProductTitle"
+            :regularImages="regularImages"
+            :capturedImages="capturedImages"
+            :handleImageError="handleImageError"
         />
 
         <Dialog
             class="view-modal"
             v-model:visible="showEditModal"
             modal
-            :header="`RT # ${item.ProductID} ${item.ProductTitle}`"
+            :header="`RT # ${item.rtcounter} - ${getDisplayTitle(item)}`"
             style="width: 110rem"
         >
             <div class="modal-body">
@@ -544,7 +588,7 @@ import Production from "./production.js";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import Gallery from "../../components/Gallery/gallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
-import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
+import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 
@@ -605,7 +649,7 @@ export default {
         Button,
         ScrollTop,
         TitlePage,
-        ViewImageModal,
+        ViewImageGalleryModal,
         AnimateDiv,
         Select,
     },
@@ -614,6 +658,72 @@ export default {
             columns: TABLE_COLUMNS,
             rowsPerPage: ROWS_PER_PAGE,
         };
+    },
+    methods: {
+        transformDataForGallery(data) {
+            // Safety check
+            if (!data) {
+                return {};
+            }
+
+            // If captured images exist, use them with full path
+            if (data.capturedImages && data.capturedImages.capturedimg1) {
+                const transformedData = { ...data };
+
+                // Map capturedimg1-12 to img1-12 with full path
+                for (let i = 1; i <= 12; i++) {
+                    const capturedImg = data.capturedImages[`capturedimg${i}`];
+                    if (capturedImg) {
+                        // Add full path: /images/product_images/Airstaffs/
+                        transformedData[
+                            `img${i}`
+                        ] = `/images/product_images/Airstaffs/${capturedImg}`;
+                    } else {
+                        transformedData[`img${i}`] = null;
+                    }
+                }
+
+                // Clear img13-15 since captured images only go up to 12
+                for (let i = 13; i <= 15; i++) {
+                    transformedData[`img${i}`] = null;
+                }
+
+                return transformedData;
+            }
+
+            // Return original data if no captured images exist (fallback to product images)
+            return data;
+        },
+
+        countAllImages(data) {
+            // Safety check
+            if (!data) {
+                return 0;
+            }
+
+            // If captured images exist, count them
+            if (data.capturedImages) {
+                let count = 0;
+                for (let i = 1; i <= 12; i++) {
+                    if (data.capturedImages[`capturedimg${i}`]) {
+                        count++;
+                    }
+                }
+                // Return count if captured images exist
+                if (count > 0) {
+                    return count;
+                }
+            }
+
+            // Otherwise count product images (fallback)
+            let count = 0;
+            for (let i = 1; i <= 15; i++) {
+                if (data[`img${i}`]) {
+                    count++;
+                }
+            }
+            return count;
+        },
     },
 };
 </script>

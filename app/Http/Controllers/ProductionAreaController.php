@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class ProductionAreaController extends BasetablesController
 {
@@ -41,7 +42,13 @@ class ProductionAreaController extends BasetablesController
                     'fnsku.MSKU',
                     'fnsku.grading',
                     'fnsku.storename',
-                    'asin.internal as AStitle',
+                    DB::raw("COALESCE(
+                        NULLIF(TRIM(asin.system_title), ''), 
+                        NULLIF(TRIM(asin.internal), ''), 
+                        NULLIF(TRIM(prod.ProductTitle), '')
+                    ) as AStitle"),
+                    'asin.internal',
+                    'asin.system_title',
                     'asin.metakeyword',
                 ])
                 ->where('prod.ProductModuleLoc', $location);
@@ -66,6 +73,7 @@ class ProductionAreaController extends BasetablesController
                         ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
                         // Add ASIN table search
                         ->orWhere('asin.internal', 'like', "%{$search}%")
+                        ->orWhere('asin.system_title', 'like', "%{$search}%")
                         ->orWhere('asin.metakeyword', 'like', "%{$search}%");
                 });
             }
