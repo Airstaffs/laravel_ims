@@ -3,56 +3,107 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-// ---- DEBUG HIT LOG (temporary) ----
+/* =========================================================
+   CONFIG
+========================================================= */
 $logFile = __DIR__ . '/eb_hits.log';
+$expectedSecret = 'eb_4f9c2a7d8e6b41a9b0d3c5e7f2a8d6c1b9e4a7f0d3c8e5b2a6f9c1d7e4';
+
+/* =========================================================
+   LOG ROTATION (10MB)
+========================================================= */
+if (file_exists($logFile) && filesize($logFile) > 10 * 1024 * 1024) {
+    rename($logFile, __DIR__ . '/eb_hits_' . date('Ymd_His') . '.log');
+}
+
+/* =========================================================
+   LOG HELPERS
+========================================================= */
+function logLine($msg) {
+    global $logFile;
+    file_put_contents($logFile, $msg . "\n", FILE_APPEND);
+}
+
+function logBlock($title, $data) {
+    global $logFile;
+    $out = is_string($data)
+        ? $data
+        : json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    file_put_contents($logFile, "== {$title} ==\n{$out}\n", FILE_APPEND);
+}
+
+function fail($httpCode, $msg, $extra = null) {
+    if ($extra !== null) logBlock("FAIL EXTRA", $extra);
+    logLine("RESULT: FAIL {$httpCode} {$msg}");
+    logLine(str_repeat("-", 70));
+    http_response_code($httpCode);
+    exit($msg);
+}
+
+function ok($msg = "OK", $extra = null) {
+    if ($extra !== null) logBlock("OK EXTRA", $extra);
+    logLine("RESULT: OK 200 {$msg}");
+    logLine(str_repeat("-", 70));
+    http_response_code(200);
+    echo $msg;
+    exit;
+}
+
+/* =========================================================
+   HIT LOG
+========================================================= */
 $headers = function_exists('getallheaders') ? getallheaders() : [];
 $raw = file_get_contents('php://input');
 
-file_put_contents($logFile, date('c') . " HIT\n", FILE_APPEND);
-file_put_contents($logFile, "IP: " . ($_SERVER['REMOTE_ADDR'] ?? '') . "\n", FILE_APPEND);
-file_put_contents($logFile, "UA: " . ($_SERVER['HTTP_USER_AGENT'] ?? '') . "\n", FILE_APPEND);
-file_put_contents($logFile, "Headers: " . json_encode($headers) . "\n", FILE_APPEND);
-file_put_contents($logFile, "BodyLen: " . strlen($raw) . "\n", FILE_APPEND);
-file_put_contents($logFile, "BodyHead: " . substr($raw, 0, 500) . "\n\n", FILE_APPEND);
+logLine(date('c') . " HIT");
+logLine("IP: " . ($_SERVER['REMOTE_ADDR'] ?? ''));
+logLine("UA: " . ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+logBlock("Headers", $headers);
+logLine("BodyLen: " . strlen($raw));
+logLine("BodyHead: " . substr($raw, 0, 800));
 
-$Connect = new mysqli("localhost", "imsv2_dbims_user", "Imsv2_dbims_user", "imsv2_dbims");
-// 1) Verify secret header
-$expectedSecret = 'eb_4f9c2a7d8e6b41a9b0d3c5e7f2a8d6c1b9e4a7f0d3c8e5b2a6f9c1d7e4';
+/* =========================================================
+   AUTH
+========================================================= */
 $receivedSecret = $_SERVER['HTTP_SECRET_IMS_KEY_V2'] ?? '';
-
 if (!hash_equals($expectedSecret, $receivedSecret)) {
-    http_response_code(401);
-    exit('Unauthorized');
+    fail(401, "Unauthorized", ["header_present" => $receivedSecret ? "yes" : "no"]);
 }
+logLine("AUTH: ok");
 
-// 2) Read JSON body
+/* =========================================================
+   JSON
+========================================================= */
 if (!$raw) {
-    http_response_code(400);
-    exit('No body');
+    fail(400, "No body");
 }
 
 $event = json_decode($raw, true);
 if (!is_array($event)) {
-    http_response_code(400);
-    exit('Bad JSON');
+    fail(400, "Bad JSON", [
+        "json_error" => json_last_error(),
+        "json_error_msg" => json_last_error_msg()
+    ]);
 }
+logLine("JSON: ok");
 
-// 3) Extract top-level
-$version     = $event['version'] ?? null;
-$eventId     = $event['id'] ?? null;
-$detailType  = $event['detail-type'] ?? null;
-$source      = $event['source'] ?? null;
-$account     = $event['account'] ?? null;
-$region      = $event['region'] ?? null;
-$eventTimeIso = $event['time'] ?? null;
+/* =========================================================
+   TOP-LEVEL FIELDS
+========================================================= */
+$version       = $event['version'] ?? null;
+$eventId       = $event['id'] ?? null;
+$detailType    = $event['detail-type'] ?? null;
+$source        = $event['source'] ?? null;
+$account       = $event['account'] ?? null;
+$region        = $event['region'] ?? null;
+$eventTimeIso  = $event['time'] ?? null;
 
-/// 4) Extract detail block (support Amazon LISTINGS_ITEM_STATUS_CHANGE format)
-$detail = $event['detail'] ?? [];
+/* =========================================================
+   DETAIL / PAYLOAD PARSING (Amazon-compatible)
+========================================================= */
+$detail  = $event['detail'] ?? [];
+$payload = $detail['Payload'] ?? ($detail['payload'] ?? []);
 
-// Amazon format: detail.Payload has the useful fields
-$payload = $detail['Payload'] ?? [];
-
-// Helper to read either camelCase OR PascalCase keys
 function pick($arr, ...$keys) {
     foreach ($keys as $k) {
         if (is_array($arr) && array_key_exists($k, $arr)) return $arr[$k];
@@ -60,20 +111,20 @@ function pick($arr, ...$keys) {
     return null;
 }
 
-// From detail (top-level)
-$notificationVersion = pick($detail, 'notificationVersion', 'NotificationVersion');
-$notificationType    = pick($detail, 'notificationType', 'NotificationType');
-$payloadVersion      = pick($detail, 'payloadVersion', 'PayloadVersion');
-$eventDetailTimeIso  = pick($detail, 'eventTime', 'EventTime');
+// Detail
+$notificationVersion = pick($detail, 'NotificationVersion', 'notificationVersion');
+$notificationType    = pick($detail, 'NotificationType', 'notificationType');
+$payloadVersion      = pick($detail, 'PayloadVersion', 'payloadVersion');
+$eventDetailTimeIso  = pick($detail, 'EventTime', 'eventTime');
 
-// From detail.Payload (listing fields)
-$sellerId      = pick($payload, 'sellerId', 'SellerId');
-$marketplaceId = pick($payload, 'marketplaceId', 'MarketplaceId');
-$asin          = pick($payload, 'asin', 'Asin');
-$sku           = pick($payload, 'sku', 'Sku', 'sellerSku', 'SellerSku', 'sellerSKU', 'SellerSKU');
-$createdDateIso= pick($payload, 'createdDate', 'CreatedDate');
+// Payload
+$sellerId       = pick($payload, 'SellerId', 'sellerId');
+$marketplaceId  = pick($payload, 'MarketplaceId', 'marketplaceId');
+$asin           = pick($payload, 'Asin', 'asin');
+$sku            = pick($payload, 'Sku', 'sku', 'sellerSku', 'SellerSku', 'sellerSKU', 'SellerSKU');
+$createdDateIso = pick($payload, 'CreatedDate', 'createdDate');
 
-$statusVal = pick($payload, 'status', 'Status');
+$statusVal = pick($payload, 'Status', 'status');
 $statusJson = null;
 if (is_array($statusVal)) {
     $statusJson = json_encode($statusVal, JSON_UNESCAPED_SLASHES);
@@ -81,29 +132,55 @@ if (is_array($statusVal)) {
     $statusJson = json_encode([$statusVal], JSON_UNESCAPED_SLASHES);
 }
 
-// Metadata (Amazon: detail.NotificationMetadata)
+// Metadata
 $meta = $detail['NotificationMetadata'] ?? ($detail['notificationMetadata'] ?? []);
+$notificationId = pick($meta, 'NotificationId', 'notificationId');
+$subscriptionId = pick($meta, 'SubscriptionId', 'subscriptionId');
+$applicationId  = pick($meta, 'ApplicationId', 'applicationId');
+$publishTimeIso = pick($meta, 'PublishTime', 'publishTime');
 
-$notificationId = pick($meta, 'notificationId', 'NotificationId');
-$subscriptionId = pick($meta, 'subscriptionId', 'SubscriptionId');
-$applicationId  = pick($meta, 'applicationId', 'ApplicationId');
-$publishTimeIso = pick($meta, 'publishTime', 'PublishTime');
-
-// Helper: ISO -> MySQL datetime
-function isoToMysqlDatetime($iso) {
+/* =========================================================
+   DATE HELPERS
+========================================================= */
+function isoToMysql($iso) {
     if (!$iso) return null;
     $ts = strtotime($iso);
-    if ($ts === false) return null;
-    return gmdate('Y-m-d H:i:s', $ts);
+    return $ts ? gmdate('Y-m-d H:i:s', $ts) : null;
 }
 
-$eventTime      = isoToMysqlDatetime($eventTimeIso);
-$eventDetailTime= isoToMysqlDatetime($eventDetailTimeIso);
-$createdDate    = isoToMysqlDatetime($createdDateIso);
-$publishTime    = isoToMysqlDatetime($publishTimeIso);
+$eventTime       = isoToMysql($eventTimeIso);
+$eventDetailTime = isoToMysql($eventDetailTimeIso);
+$createdDate     = isoToMysql($createdDateIso);
+$publishTime     = isoToMysql($publishTimeIso);
 
-// 5) Insert quickly (dedupe by event_id if you add UNIQUE uq_event_id)
-$sql = "INSERT INTO tblnewlycreatedamznitems
+/* =========================================================
+   LOG EXTRACTED VALUES
+========================================================= */
+logBlock("Extracted", [
+    "event_id" => $eventId,
+    "detail_type" => $detailType,
+    "seller_id" => $sellerId,
+    "marketplace_id" => $marketplaceId,
+    "asin" => $asin,
+    "sku" => $sku,
+    "event_time" => $eventTime,
+    "publish_time" => $publishTime
+]);
+
+/* =========================================================
+   DB CONNECT
+========================================================= */
+$Connect = new mysqli("localhost", "imsv2_dbims_user", "Imsv2_dbims_user", "imsv2_dbims");
+if ($Connect->connect_error) {
+    fail(500, "DB connect failed", $Connect->connect_error);
+}
+logLine("DB: connected");
+
+/* =========================================================
+   INSERT
+========================================================= */
+$sql = "
+INSERT INTO tblnewlycreatedamznitems
 (version, event_id, detail_type, source, account, event_time, region,
  notification_version, notification_type, payload_version, event_detail_time,
  seller_id, marketplace_id, asin, sku, created_date, status,
@@ -112,12 +189,12 @@ VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'FALSE')
 ON DUPLICATE KEY UPDATE
   publish_time = VALUES(publish_time),
   event_time = VALUES(event_time),
-  cron_insert_status = cron_insert_status";
+  cron_insert_status = cron_insert_status
+";
 
 $stmt = $Connect->prepare($sql);
 if (!$stmt) {
-    http_response_code(500);
-    exit("Prepare failed: " . $Connect->error);
+    fail(500, "Prepare failed", $Connect->error);
 }
 
 $stmt->bind_param(
@@ -128,14 +205,14 @@ $stmt->bind_param(
     $notificationId, $subscriptionId, $applicationId, $publishTime
 );
 
-$ok = $stmt->execute();
-$stmt->close();
-
-// 6) Respond 200 no matter what if insert ok; otherwise 500 to trigger retries
-if (!$ok) {
-    http_response_code(500);
-    exit("Insert failed");
+if (!$stmt->execute()) {
+    fail(500, "Insert failed", $stmt->error);
 }
 
-http_response_code(200);
-echo "OK";
+$insertId = $stmt->insert_id;
+$stmt->close();
+
+/* =========================================================
+   SUCCESS
+========================================================= */
+ok("OK", ["insert_id" => $insertId]);
