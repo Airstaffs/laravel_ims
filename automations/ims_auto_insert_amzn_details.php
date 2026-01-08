@@ -603,12 +603,12 @@ function sidfetcherino($Connect, $store)
         $id = 3;
     }
 
-    $sql = "SELECT SID FROM tblcompanydetails WHERE id = $id";
+    $sql = "SELECT MerchantID FROM tblstores WHERE store_id = $id";
     $result = mysqli_query($Connect, $sql);
 
     if (mysqli_num_rows($result) > 0) {
         $row = mysqli_fetch_assoc($result);
-        return $row['SID'];
+        return $row['MerchantID'];
     } else {
         return null;
     }
@@ -682,7 +682,7 @@ function AWSCredentials($Connect, $store)
     } else if ($store == 'AR') {
         $id = 10;
     }
-    $sql = "SELECT client_id, client_secret, refresh_token FROM tblstores WHERE id = $id";
+    $sql = "SELECT client_id, client_secret, refresh_token FROM tblstores WHERE store_id = $id";
     $result = $Connect->query($sql);
     $row = $result->fetch_assoc();
 
