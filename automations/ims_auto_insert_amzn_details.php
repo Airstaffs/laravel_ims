@@ -362,7 +362,7 @@ echo $logMessage;
 echo " <br> Successfully uploaded the File!";
 
 $archivedCount = archiveOldNewlyCreatedItems($Connect);
-echo "Archived {$archivedCount} old staging rows<br>";
+echo "<br><br>Archived {$archivedCount} old staging rows<br>";
 echo "<br><br>";
 /*
 if (!empty($newASIN)) {
