@@ -34,7 +34,7 @@
                                 :src="`/images/product_images/${
                                     data.company || 'Airstaffs'
                                 }/${data.capturedImages.capturedimg1}`"
-                                :alt="data.ProductTitle"
+                                :alt="getDisplayTitle(data)"
                                 style="
                                     width: 50px;
                                     height: 50px;
@@ -71,7 +71,7 @@
                         >
                             <img
                                 :src="`/images/thumbnails/${data.img1}`"
-                                :alt="data.ProductTitle"
+                                :alt="getDisplayTitle(data)"
                                 style="
                                     width: 50px;
                                     height: 50px;
@@ -131,7 +131,7 @@
                                 ID# {{ data.rtcounter }}
                             </p>
                             <p class="fw-semibold">
-                                {{ data.ProductTitle }}
+                                {{ getDisplayTitle(data) }}
                             </p>
                         </div>
                     </div>
@@ -369,7 +369,7 @@
             class="view-modal"
             v-model:visible="showEditModal"
             modal
-            :header="`RT # ${item.ProductID} ${item.ProductTitle}`"
+            :header="`RT # ${item.rtcounter} - ${getDisplayTitle(item)}`"
             style="width: 110rem"
         >
             <div class="modal-body">
@@ -638,7 +638,7 @@ const TABLE_COLUMNS = [
         style: { width: "5rem", minWidth: "5rem" },
     },
     {
-        field: "ProductTitle",
+        field: "AStitle",
         header: "Product Name",
         sortable: true,
         headerStyle: "font-size: 16px;",
@@ -646,7 +646,7 @@ const TABLE_COLUMNS = [
         style: { minWidth: "15rem", maxWidth: "20rem" },
     },
     {
-        field: "ASINviewer",
+        field: "ASIN",
         header: "ASIN",
         sortable: true,
         bodyStyle: "font-size: 14px;",

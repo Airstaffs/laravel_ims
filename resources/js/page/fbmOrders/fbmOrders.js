@@ -1170,6 +1170,19 @@ export default {
             }
         },
 
+       changeStatusFilter() {
+            this.currentPage = 1;
+            this.clearAllSelections();
+            this.fetchOrders();
+        },
+
+        // ✅ ADD THIS NEW METHOD
+        changeOrderBy() {
+            this.currentPage = 1;
+            this.clearAllSelections();
+            this.fetchOrders();
+        },
+
         // Fetch orders from the API with persistent selection
         async fetchOrders() {
             this.loading = true;
@@ -1196,6 +1209,7 @@ export default {
                             status: this.statusFilter,
                             sort_column: this.sortColumn,
                             sort_order: this.sortOrder,
+                            order_by: this.orderByFilter,
                         },
                         withCredentials: true,
                     }

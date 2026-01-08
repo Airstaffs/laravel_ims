@@ -46,16 +46,49 @@ class ValidationController extends BasetablesController
             $location = $request->input('location', 'Validation');
             $includeImages = $request->boolean('include_images', false);
 
-            // Step 1: Fetch products without JOINs
+            // UPDATED: Build query with proper joins to include ASIN and metakeyword in search
             $productsQuery = DB::table($productTable.' as prod')
-                ->select(['prod.*'])
+                ->leftJoin($fnskuTable.' as fnsku', function ($join) {
+                    $join->on(DB::raw("CASE 
+                    WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
+                    THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
+                    ELSE prod.FNSKUviewer 
+                END"), '=', 'fnsku.FNSKU');
+                })
+                ->leftJoin($asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->select([
+                    'prod.*',
+                    'fnsku.ASIN',
+                    'fnsku.MSKU',
+                    'fnsku.grading',
+                    'fnsku.storename',
+                    DB::raw("COALESCE(
+                        NULLIF(TRIM(asin.system_title), ''), 
+                        NULLIF(TRIM(asin.internal), ''), 
+                        NULLIF(TRIM(prod.ProductTitle), '')
+                    ) as AStitle"),
+                    'asin.internal',
+                    'asin.system_title',
+                    'asin.metakeyword',
+                ])
                 ->where('prod.ProductModuleLoc', $location)
                 ->when($search, function ($query) use ($search) {
                     return $query->where(function ($q) use ($search) {
                         $q->where('prod.serialnumber', 'like', "%{$search}%")
                             ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
                             ->orWhere('prod.trackingnumber', 'like', "%{$search}%")
-                            ->orWhere('prod.rtcounter', 'like', "%{$search}%");
+                            ->orWhere('prod.rtcounter', 'like', "%{$search}%")
+                            ->orWhere('prod.ProductTitle', 'like', "%{$search}%")
+                            ->orWhere('prod.PCN', 'like', "%{$search}%")
+                            ->orWhere('prod.RPN', 'like', "%{$search}%")
+                            ->orWhere('prod.PRD', 'like', "%{$search}%")
+                            // Add FNSKU table search
+                            ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
+                            ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
+                            // Add ASIN table search
+                            ->orWhere('asin.internal', 'like', "%{$search}%")
+                            ->orWhere('asin.system_title', 'like', "%{$search}%")
+                            ->orWhere('asin.metakeyword', 'like', "%{$search}%");
                     });
                 })
                 ->orderBy('prod.lastDateUpdate', 'desc');
@@ -63,68 +96,15 @@ class ValidationController extends BasetablesController
             $products = $productsQuery->paginate($perPage);
             Log::info('Products fetched successfully', ['count' => $products->count()]);
 
-            // Step 2: Extract base FNSKUs
-            $baseFnskus = [];
-            foreach ($products->items() as $product) {
-                if (! empty($product->FNSKUviewer)) {
-                    $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-                    $baseFnskus[] = $baseFnsku;
-                    $product->baseFnsku = $baseFnsku;
-                }
-            }
-            $baseFnskus = array_unique($baseFnskus);
-
-            // Step 3: Get FNSKU data
-            $fnskuData = [];
-            if (! empty($baseFnskus)) {
-                $fnskuRecords = DB::table($fnskuTable)
-                    ->select('ASIN', 'FNSKU', 'MSKU', 'grading', 'storename')
-                    ->whereIn('FNSKU', $baseFnskus)
-                    ->get();
-
-                foreach ($fnskuRecords as $record) {
-                    $fnskuData[$record->FNSKU] = $record;
-                }
-            }
-
-            // Step 4: Get ASIN data
-            $asinList = array_column($fnskuData, 'ASIN');
-            $asinList = array_unique($asinList);
-            $asinData = [];
-
-            if (! empty($asinList)) {
-                $asinRecords = DB::table($asinTable)
-                    ->select('ASIN', 'internal')
-                    ->whereIn('ASIN', $asinList)
-                    ->get();
-
-                foreach ($asinRecords as $record) {
-                    $asinData[$record->ASIN] = $record;
-                }
-            }
-
-            // Step 5: Enrich products with FNSKU and ASIN info
-            $products->getCollection()->transform(function ($product) use ($fnskuData, $asinData, $company) {
-                $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-                $product->FNSKU = $product->FNSKUviewer;
+            // Transform products to add company field
+            $products->getCollection()->transform(function ($product) use ($company) {
                 $product->company = $company;
-
-                if (isset($fnskuData[$baseFnsku])) {
-                    $fnskuRecord = $fnskuData[$baseFnsku];
-                    $product->MSKU = $fnskuRecord->MSKU;
-                    $product->ASIN = $fnskuRecord->ASIN;
-                    $product->grading = $fnskuRecord->grading;
-                    $product->storename = $fnskuRecord->storename;
-
-                    if (isset($asinData[$fnskuRecord->ASIN])) {
-                        $product->astitle = $asinData[$fnskuRecord->ASIN]->internal;
-                    }
-                }
+                $product->FNSKU = $product->FNSKUviewer;
 
                 return $product;
             });
 
-            // Step 6: Add images if requested (using filesystem approach)
+            // Step 2 (formerly Step 6): Add images if requested (using filesystem approach)
             if ($includeImages) {
                 try {
                     $publicPath = public_path('images/product_images/'.$company);
