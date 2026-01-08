@@ -678,11 +678,11 @@ function connectDatabase()
 function AWSCredentials($Connect, $store)
 {
     if ($store == 'RT') {
-        $id = 3; // The id you want to retrieve
+        $id = 6; // The id you want to retrieve
     } else if ($store == 'AR') {
-        $id = 9;
+        $id = 10;
     }
-    $sql = "SELECT client_id, client_secret, refresh_token FROM aws_key WHERE id = $id";
+    $sql = "SELECT client_id, client_secret, refresh_token FROM tblstores WHERE id = $id";
     $result = $Connect->query($sql);
     $row = $result->fetch_assoc();
 
@@ -801,17 +801,17 @@ function fetchRDT($credentials, $accessToken, $jsonbody, $nextToken = null)
 function getMerchantIDorSID($Connect, $store)
 {
     if ($store == 'RT') {
-        $id = 1; // The id you want to retrieve
+        $id = 6; // The id you want to retrieve
     } else if ($store == 'AR') {
-        $id = 3;
+        $id = 10;
     }
 
-    $sql = "SELECT SID FROM tblcompanydetails WHERE id = $id";
+    $sql = "SELECT MerchantID FROM tblcompanydetails WHERE id = $id";
     $result = mysqli_query($Connect, $sql);
 
     if (mysqli_num_rows($result) > 0) {
         $row = mysqli_fetch_assoc($result);
-        return $row['SID'];
+        return $row['MerchantID'];
     } else {
         return null;
     }
