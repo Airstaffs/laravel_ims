@@ -1409,7 +1409,7 @@ export default {
                 title: "Confirm Move to Validation",
                 html: `
             <p>Are you sure you want to move 
-            <strong>${item.ProductTitle || "—"}</strong>
+            <strong>${this.getDisplayTitle(item)}</strong>
             to <strong>Validation</strong>?</p>
             <ul style="text-align:left">
                 <li><strong>RT Counter:</strong> ${item.rtcounter || "N/A"}</li>
@@ -1543,9 +1543,10 @@ export default {
                         icon: "warning",
                         title: "Split Required",
                         html: `
-                    <p><strong>${
-                        item.ProductTitle || "This item"
-                    }</strong> has a quantity of <strong>${
+                    <p>
+                    <strong>
+                    ${this.getDisplayTitle(item)}</strong> 
+                        has a quantity of <strong>${
                             error.response.data.quantity
                         }</strong>.</p>
                     <p>Items must be split into individual units (quantity = 1) before moving to Validation.</p>

@@ -46,7 +46,7 @@
                                 :src="`/images/product_images/${
                                     data.company || 'Airstaffs'
                                 }/${data.capturedImages.capturedimg1}`"
-                                :alt="data.ProductTitle"
+                                :alt="getDisplayTitle(data)"
                                 style="
                                     width: 50px;
                                     height: 50px;
@@ -83,7 +83,7 @@
                         >
                             <img
                                 :src="`/images/thumbnails/${data.img1}`"
-                                :alt="data.ProductTitle"
+                                :alt="getDisplayTitle(data)"
                                 style="
                                     width: 50px;
                                     height: 50px;
@@ -150,7 +150,9 @@
                                 >
                                 <span v-else>{{ data.rtcounter }}</span>
                             </div>
-                            <p class="fw-semibold">{{ data.astitle }}</p>
+                            <p class="fw-semibold">
+                                {{ getDisplayTitle(data) }}
+                            </p>
                         </div>
                     </div>
                 </template>
@@ -623,22 +625,6 @@
             <div class="row mt-4">
                 <div class="col-md-2">
                     <div class="form-col-left">
-                        <!-- <Card>
-                            <template #title>
-                                <h4 style="font-size: 1.5rem;">Serial Number Verification</h4>
-                            </template>
-                            <template #content>
-                                <form class="text-center">
-                                    <InputText class="form-control" size="small" type="text" id="textserial"
-                                        placeholder="Scan or enter serial number..." />
-
-                                    <Button size="small" severity="info" type="submit" class="btn btn-submit mt-2">
-                                        Verify Serial
-                                    </Button>
-                                </form>
-                            </template>
-                        </Card> -->
-
                         <div>
                             <div
                                 class="image-section"
@@ -733,7 +719,7 @@
                 </div>
                 <div class="col-md-10" style="font-size: 14px">
                     <div>
-                        <h3>{{ item.ProductTitle }}</h3>
+                        <h3>{{ getDisplayTitle(item) }}</h3>
                     </div>
 
                     <div class="row mt-4">
@@ -1075,8 +1061,8 @@ const TABLE_COLUMNS = [
         style: { width: "4rem", minWidth: "4rem" },
     },
     {
+        field: "AStitle",
         header: "Product Name",
-        field: "astitle",
         sortable: true,
         headerStyle: "font-size: 16px;",
         slot: "productname",
