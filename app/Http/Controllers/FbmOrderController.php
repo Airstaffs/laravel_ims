@@ -27,6 +27,7 @@ public function index(Request $request)
         $search = $request->input('search', '');
         $storeFilter = $request->input('store', '');
         $statusFilter = $request->input('status', '');
+        $orderBy = $request->input('order_by', 'desc');
         
         Log::info('FBM Orders index called with params:', [
             'per_page' => $perPage,
@@ -141,12 +142,15 @@ public function index(Request $request)
         $totalPages = ceil($totalCount / $perPage);
         
         Log::info('Query built, total count after filtering: ' . $totalCount);
-        
-        // Get paginated orders
-        $orders = $query->orderBy('PurchaseDate', 'desc')
-                      ->skip(($page - 1) * $perPage)
-                      ->take($perPage)
-                      ->get();
+
+         // ✅ PurchaseDate DESC
+
+            $query->orderBy('PurchaseDate', $orderBy);
+
+            // Get paginated orders
+            $orders = $query->skip(($page - 1) * $perPage)
+                        ->take($perPage)
+                        ->get();
         
         Log::info('Orders fetched: ' . $orders->count());
         
@@ -294,9 +298,8 @@ public function index(Request $request)
 /**
  * Get dispensed products for a specific order item
  */
-Yes! You're absolutely right. Since you have the extractBaseFnsku() function to handle FNSKU prefixes (like C0X004BWMS3B → X004BWMS3B), you should use it in the getDispensedProductsForItem() method too.
-Here's the updated version that uses your extractBaseFnsku() logic:
-phpprivate function getDispensedProductsForItem($orderItemId)
+
+private function getDispensedProductsForItem($orderItemId)
 {
     try {
         // Check if the dispensed table exists first
