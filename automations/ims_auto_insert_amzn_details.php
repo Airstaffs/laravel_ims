@@ -357,9 +357,12 @@ $logMessage = "Total Rows Processed: " . $totalRowsProcessed . "<br>
                                                 New Asin Count: " . $newasinCount . "<br>
                                                 Error Asin Count: " . $errorasinCount;
 
+
 echo $logMessage;
 echo " <br> Successfully uploaded the File!";
 
+$archivedCount = archiveOldNewlyCreatedItems($Connect);
+echo "Archived {$archivedCount} old staging rows<br>";
 echo "<br><br>";
 /*
 if (!empty($newASIN)) {
@@ -878,4 +881,22 @@ function getallnewitems_by_sellerid(mysqli $Connect, string $merchantId): array
     echo "</pre>";
 
     return $allSkus;
+}
+
+function archiveOldNewlyCreatedItems(mysqli $Connect): int
+{
+    $sql = "
+        UPDATE tblnewlycreatedamznitems
+        SET cron_insert_status = 'ARCHIVE'
+        WHERE created_date < DATE_SUB(NOW(), INTERVAL 1 WEEK)
+          AND cron_insert_status = 'FALSE'
+    ";
+
+    $stmt = mysqli_prepare($Connect, $sql);
+    mysqli_stmt_execute($stmt);
+
+    $affected = mysqli_stmt_affected_rows($stmt);
+    mysqli_stmt_close($stmt);
+
+    return $affected; // number of rows archived
 }
