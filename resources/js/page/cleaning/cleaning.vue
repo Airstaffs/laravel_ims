@@ -398,7 +398,7 @@
             class="view-modal"
             v-model:visible="showEditModal"
             modal
-            :header="`RT # ${item.ProductID} ${item.ProductTitle}`"
+            :header="`RT # ${item.rtcounter} - ${getDisplayTitle(item)}`"
             style="width: 110rem"
             :pt="{
                 root: { class: 'mobile-fullscreen-dialog' },

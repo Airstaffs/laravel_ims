@@ -34,7 +34,7 @@
                                 :src="`/images/product_images/${
                                     data.company || 'Airstaffs'
                                 }/${data.capturedImages.capturedimg1}`"
-                                :alt="data.ProductTitle"
+                                :alt="getDisplayTitle(data)"
                                 style="
                                     width: 50px;
                                     height: 50px;
@@ -71,7 +71,7 @@
                         >
                             <img
                                 :src="`/images/thumbnails/${data.img1}`"
-                                :alt="data.ProductTitle"
+                                :alt="getDisplayTitle(data)"
                                 style="
                                     width: 50px;
                                     height: 50px;
@@ -132,7 +132,7 @@
                                 RT# {{ data.rtcounter }}
                             </p>
                             <p class="fw-semibold">
-                                {{ data.ProductTitle }}
+                                {{ getDisplayTitle(data) }}
                             </p>
                         </div>
                     </div>
@@ -298,7 +298,7 @@
             v-model:visible="showEditModal"
             class="view-modal"
             modal
-            :header="`RT # ${item.ProductID} ${item.ProductTitle}`"
+            :header="`RT # ${item.rtcounter} - ${getDisplayTitle(item)}`"
             style="width: 110rem"
             :pt="{
                 root: { class: 'mobile-fullscreen-dialog' },
@@ -571,7 +571,7 @@ const TABLE_COLUMNS = [
         style: { width: "4rem", minWidth: "4rem" },
     },
     {
-        field: "ProductTitle",
+        field: "AStitle",
         header: "Product Name",
         sortable: true,
         headerStyle: "font-size: 16px;",

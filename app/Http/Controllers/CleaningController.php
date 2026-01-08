@@ -23,14 +23,16 @@ class CleaningController extends BasetablesController
 
             $perPage = $request->input('per_page', 10);
             $search = $request->input('search', '');
-            $location = $request->input('location', 'Testing');
+            $location = $request->input('location', 'Cleaning');
             $includeImages = $request->boolean('include_images', false);
 
-            Log::info('Testing API called', [
+            Log::info('Cleaning API called', [
                 'search' => $search,
                 'location' => $location,
                 'perPage' => $perPage,
                 'includeImages' => $includeImages,
+                'productTable' => $productTable,
+                'company' => $company,
             ]);
 
             // UPDATED: Build query with proper joins to include ASIN and metakeyword in search
@@ -171,7 +173,7 @@ class CleaningController extends BasetablesController
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Testing API error', [
+            Log::error('Cleaning API error', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
