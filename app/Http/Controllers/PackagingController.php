@@ -13,6 +13,8 @@ class PackagingController extends BasetablesController
         try {
             // Define table names directly
             $productTable = 'tblproduct'; // Your actual product table name
+            $fnskuTable = 'tblfnsku'; // Your FNSKU table name
+            $asinTable = 'tblasin'; // Your ASIN table name
             $company = 'Airstaffs'; // Your company name
 
             $perPage = $request->input('per_page', 10);
@@ -29,18 +31,52 @@ class PackagingController extends BasetablesController
                 'company' => $company,
             ]);
 
-            $query = DB::table($productTable)
-                ->where('ProductModuleLoc', $location);
+            // UPDATED: Build query with proper joins to include ASIN and metakeyword in search
+            $query = DB::table($productTable.' as prod')
+                ->leftJoin($fnskuTable.' as fnsku', function ($join) {
+                    $join->on(DB::raw("CASE 
+                    WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
+                    THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
+                    ELSE prod.FNSKUviewer 
+                END"), '=', 'fnsku.FNSKU');
+                })
+                ->leftJoin($asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->select([
+                    'prod.*',
+                    'fnsku.ASIN',
+                    'fnsku.MSKU',
+                    'fnsku.grading',
+                    'fnsku.storename',
+                    DB::raw("COALESCE(
+                    NULLIF(TRIM(asin.system_title), ''), 
+                    NULLIF(TRIM(asin.internal), ''), 
+                    NULLIF(TRIM(prod.ProductTitle), '')
+                ) as AStitle"),
+                    'asin.internal',
+                    'asin.system_title',
+                    'asin.metakeyword',
+                ])
+                ->where('prod.ProductModuleLoc', $location);
 
             if ($search) {
                 $query->where(function ($q) use ($search) {
-                    $q->where('AStitle', 'like', "%{$search}%")
-                        ->orWhere('ProductTitle', 'like', "%{$search}%")
-                        ->orWhere('serialnumber', 'like', "%{$search}%")
-                        ->orWhere('FNSKUviewer', 'like', "%{$search}%")
-                        ->orWhere('MSKUviewer', 'like', "%{$search}%")
-                        ->orWhere('ASINviewer', 'like', "%{$search}%")
-                        ->orWhere('rtcounter', 'like', "%{$search}%");
+                    $q->where('prod.AStitle', 'like', "%{$search}%")
+                        ->orWhere('prod.ProductTitle', 'like', "%{$search}%")
+                        ->orWhere('prod.serialnumber', 'like', "%{$search}%")
+                        ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
+                        ->orWhere('prod.MSKUviewer', 'like', "%{$search}%")
+                        ->orWhere('prod.ASINviewer', 'like', "%{$search}%")
+                        ->orWhere('prod.rtcounter', 'like', "%{$search}%")
+                        ->orWhere('prod.PCN', 'like', "%{$search}%")
+                        ->orWhere('prod.RPN', 'like', "%{$search}%")
+                        ->orWhere('prod.PRD', 'like', "%{$search}%")
+                        // Add FNSKU table search
+                        ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
+                        ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
+                        // Add ASIN table search
+                        ->orWhere('asin.internal', 'like', "%{$search}%")
+                        ->orWhere('asin.system_title', 'like', "%{$search}%")
+                        ->orWhere('asin.metakeyword', 'like', "%{$search}%");
                 });
             }
 
