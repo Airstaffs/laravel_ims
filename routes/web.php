@@ -50,6 +50,7 @@ use App\Http\Controllers\ValidationController;
 use App\Http\Middleware\PreventBackHistory;
 use App\Http\Controllers\TestingController;
 use App\Http\Controllers\CleaningController;
+use App\Http\Controllers\SoldlistController;
 
 
 use App\Http\Models\Store;
@@ -555,6 +556,12 @@ Route::prefix('api/notfound')->group(function () {
     Route::get('products', [notfoundController::class, 'index']);
     Route::post('move-to-stockroom', [notfoundController::class, 'moveToStockroom']);
 });
+
+// Routes for Soldlist 
+Route::prefix('api/soldlist')->middleware(['auth'])->group(function () {
+    Route::get('products', [SoldlistController::class, 'index']);
+});
+
 
 // Routes for ASIN List Function
 Route::prefix('api/asinlist')->group(function () {

@@ -115,25 +115,20 @@ public function index(Request $request)
                     break;
                     
                 case 'Unshipped':
-                    // Orders with mixed statuses (not all shipped, not all canceled, not all pending)
-                    $query->whereExists(function($subQuery) {
-                        $subQuery->select(DB::raw(1))
-                                ->from('tbloutboundordersitem as oi')
-                                ->whereRaw('oi.platform_order_id = tbloutboundorders.platform_order_id');
-                    })
-                    ->whereNotExists(function($subQuery) {
-                        $subQuery->select(DB::raw(1))
-                                ->from('tbloutboundordersitem as oi')
-                                ->whereRaw('oi.platform_order_id = tbloutboundorders.platform_order_id')
-                                ->where('oi.order_status', 'Shipped');
-                    })
-                    ->whereNotExists(function($subQuery) {
-                        $subQuery->select(DB::raw(1))
-                                ->from('tbloutboundordersitem as oi')
-                                ->whereRaw('oi.platform_order_id = tbloutboundorders.platform_order_id')
-                                ->where('oi.order_status', 'Canceled');
-                    });
-                    break;
+                // ✅ FIXED: Orders where ALL items have status "Unshipped"
+                $query->whereExists(function($subQuery) {
+                    $subQuery->select(DB::raw(1))
+                            ->from('tbloutboundordersitem as oi')
+                            ->whereRaw('oi.platform_order_id = tbloutboundorders.platform_order_id')
+                            ->where('oi.order_status', 'Unshipped');
+                })
+                ->whereNotExists(function($subQuery) {
+                    $subQuery->select(DB::raw(1))
+                            ->from('tbloutboundordersitem as oi')
+                            ->whereRaw('oi.platform_order_id = tbloutboundorders.platform_order_id')
+                            ->where('oi.order_status', '!=', 'Unshipped');
+                });
+                break;
             }
         }
         

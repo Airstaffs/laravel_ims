@@ -62,6 +62,8 @@
 import { Drawer, Divider, Avatar } from "primevue";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import soldlist from "../page/soldlist/soldlist";
+import returnlist from "../page/returnlist/returnlist";
 
 const router = useRouter();
 
@@ -100,6 +102,7 @@ const modules = ref({
     packing: "Packaging",
     stockroom: "Stockroom",
     productionarea: "Production Area",
+    soldlist: "Sold Items",
     rts: "RTS",
     returnscanner: "Return Scanner",
     fbmorder: "FBM Order",
