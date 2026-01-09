@@ -1,10 +1,5 @@
 <template>
     <div class="vue-container labeling-module">
-        <!-- <div class="top-header">
-            <span>Top Header</span>
-        </div> -->
-
-        <!-- <h2 class="module-title">Labeling Module</h2> -->
         <TitlePage
             title="Labeling Module"
             subtitle="Prepare and manage the details required to generate inventory, shipment, or fulfillment labels for products."
@@ -537,19 +532,23 @@
                                                     <label
                                                         >Internal Title</label
                                                     >
-                                                        <Textarea
-                                                            ref="productTextarea"
-                                                            class="form-control no-resize"
-                                                            :value="getDisplayTitle(item)"
-                                                            placeholder="ASIN Title"
-                                                            rows="1"
-                                                            @input="autoResize"
-                                                            fluid
-                                                            size="small"
-                                                            disabled
-                                                            readonly
-                                                        />
-                                               </fieldset>
+                                                    <Textarea
+                                                        ref="productTextarea"
+                                                        class="form-control no-resize"
+                                                        :value="
+                                                            getDisplayTitle(
+                                                                item
+                                                            )
+                                                        "
+                                                        placeholder="ASIN Title"
+                                                        rows="1"
+                                                        @input="autoResize"
+                                                        fluid
+                                                        size="small"
+                                                        disabled
+                                                        readonly
+                                                    />
+                                                </fieldset>
                                                 <fieldset>
                                                     <label>RT:</label>
                                                     <InputText
@@ -1024,7 +1023,7 @@
                     </div>
 
                     <div class="my-4">
-                         <h5>{{ getDisplayTitle(currentItem) }}</h5>
+                        <h5>{{ getDisplayTitle(currentItem) }}</h5>
 
                         <div class="mt-4">
                             <span class="fw-semibold">RT#: </span>
@@ -1260,7 +1259,11 @@
                                     <div class="mobile-product-info">
                                         <div class="mobile-product-name">
                                             <h6>
-                                                {{ getFnskuDisplayTitle(item) || "----"  }}
+                                                {{
+                                                    getFnskuDisplayTitle(
+                                                        item
+                                                    ) || "----"
+                                                }}
                                             </h6>
                                         </div>
                                     </div>
@@ -1599,7 +1602,7 @@ const TABLE_COLUMNS = [
         style: { width: "4rem", minWidth: "4rem" },
     },
     {
-        field: "ProductTitle",
+        field: "AStitle",
         header: "Product Name",
         sortable: true,
         headerStyle: "font-size: 16px;",
