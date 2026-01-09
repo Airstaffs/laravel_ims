@@ -2,17 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Models\tblproduct;
 use Illuminate\Http\Request;
-use App\Models\Product;
-use App\Models\Rpn;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
-use DateTime;
-use DateTimeZone;
 
 class RTSController extends BasetablesController
 {
@@ -33,36 +30,59 @@ class RTSController extends BasetablesController
     public function index(Request $request)
     {
         try {
-            // Log tables being used for debugging
+            // Define table names directly
+            $productTable = 'tblproduct';
+            $fnskuTable = 'tblfnsku';
+            $asinTable = 'tblasin';
+            $company = 'Airstaffs';
+
             Log::info('Tables being used:', [
-                'productTable' => $this->productTable,
-                'capturedImagesTable' => $this->capturedImagesTable,
-                'fnskuTable' => $this->fnskuTable,
-                'asinTable' => $this->asinTable,
-                'company' => $this->company
+                'productTable' => $productTable,
+                'fnskuTable' => $fnskuTable,
+                'asinTable' => $asinTable,
+                'company' => $company,
             ]);
 
             $perPage = $request->input('per_page', 10);
             $search = $request->input('search', '');
-            $location = $request->input('location', 'Labeling');
+            $location = $request->input('location', 'RTS');
             $includeImages = $request->boolean('include_images', false);
 
-            // Log the parameters being used
             Log::info('Request parameters:', [
                 'per_page' => $perPage,
                 'search' => $search,
                 'location' => $location,
-                'include_images' => $includeImages
+                'include_images' => $includeImages,
             ]);
 
-            // Build the products query with proper filtering
-            $productsQuery = DB::table($this->productTable . ' as prod')
+            // UPDATED: Build query with proper joins to include ASIN and metakeyword in search
+            $productsQuery = DB::table($productTable.' as prod')
+                ->leftJoin($fnskuTable.' as fnsku', function ($join) {
+                    $join->on(DB::raw("CASE 
+                    WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
+                    THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
+                    ELSE prod.FNSKUviewer 
+                END"), '=', 'fnsku.FNSKU');
+                })
+                ->leftJoin($asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                 ->select([
-                    'prod.*'
+                    'prod.*',
+                    'fnsku.ASIN',
+                    'fnsku.MSKU',
+                    'fnsku.grading',
+                    'fnsku.storename',
+                    DB::raw("COALESCE(
+                    NULLIF(TRIM(asin.system_title), ''), 
+                    NULLIF(TRIM(asin.internal), ''), 
+                    NULLIF(TRIM(prod.ProductTitle), '')
+                ) as AStitle"),
+                    'asin.internal',
+                    'asin.system_title',
+                    'asin.metakeyword',
                 ]);
 
             // Apply location filter - show only products in RTS module
-            if (!empty($location)) {
+            if (! empty($location)) {
                 $productsQuery->where('prod.ProductModuleLoc', $location);
                 Log::info('Applied location filter', ['location' => $location]);
             }
@@ -77,12 +97,22 @@ class RTSController extends BasetablesController
             });
 
             // Apply search filters
-            if (!empty($search)) {
+            if (! empty($search)) {
                 $productsQuery->where(function ($q) use ($search) {
                     $q->where('prod.serialnumber', 'like', "%{$search}%")
                         ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
                         ->orWhere('prod.rtcounter', 'like', "%{$search}%")
-                        ->orWhere('prod.ProductTitle', 'like', "%{$search}%");
+                        ->orWhere('prod.ProductTitle', 'like', "%{$search}%")
+                        ->orWhere('prod.PCN', 'like', "%{$search}%")
+                        ->orWhere('prod.RPN', 'like', "%{$search}%")
+                        ->orWhere('prod.PRD', 'like', "%{$search}%")
+                        // Add FNSKU table search
+                        ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
+                        ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
+                        // Add ASIN table search
+                        ->orWhere('asin.internal', 'like', "%{$search}%")
+                        ->orWhere('asin.system_title', 'like', "%{$search}%")
+                        ->orWhere('asin.metakeyword', 'like', "%{$search}%");
                 });
                 Log::info('Applied search filter', ['search' => $search]);
             }
@@ -90,7 +120,7 @@ class RTSController extends BasetablesController
             // Log the generated SQL for debugging
             Log::info('Generated SQL Query:', [
                 'sql' => $productsQuery->toSql(),
-                'bindings' => $productsQuery->getBindings()
+                'bindings' => $productsQuery->getBindings(),
             ]);
 
             // Execute the query
@@ -100,7 +130,7 @@ class RTSController extends BasetablesController
                 'count' => $products->count(),
                 'total' => $products->total(),
                 'current_page' => $products->currentPage(),
-                'last_page' => $products->lastPage()
+                'last_page' => $products->lastPage(),
             ]);
 
             // If no products found, return early with debug info
@@ -108,11 +138,11 @@ class RTSController extends BasetablesController
                 Log::warning('No products found matching criteria');
 
                 // Debug query - check if any products exist at all
-                $totalProducts = DB::table($this->productTable)->count();
+                $totalProducts = DB::table($productTable)->count();
                 Log::info('Total products in table:', ['count' => $totalProducts]);
 
                 // Check products by location
-                $productsByLocation = DB::table($this->productTable)
+                $productsByLocation = DB::table($productTable)
                     ->select('ProductModuleLoc', DB::raw('count(*) as count'))
                     ->groupBy('ProductModuleLoc')
                     ->get();
@@ -121,87 +151,10 @@ class RTSController extends BasetablesController
                 return response()->json($products);
             }
 
-            // Extract all unique base FNSKUs from products
-            $baseFnskus = [];
-            $fnskuProductMap = [];
-
-            foreach ($products->items() as $product) {
-                if (!empty($product->FNSKUviewer)) {
-                    $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-                    $baseFnskus[] = $baseFnsku;
-
-                    if (!isset($fnskuProductMap[$baseFnsku])) {
-                        $fnskuProductMap[$baseFnsku] = [];
-                    }
-                    $fnskuProductMap[$baseFnsku][] = $product;
-                }
-            }
-
-            $baseFnskus = array_unique($baseFnskus);
-            Log::info('Base FNSKUs extracted:', ['count' => count($baseFnskus)]);
-
-            // Get FNSKU data for base FNSKUs
-            $fnskuData = [];
-            if (!empty($baseFnskus)) {
-                $fnskuRecords = DB::table($this->fnskuTable)
-                    ->select('ASIN', 'FNSKU', 'MSKU', 'grading', 'storename')
-                    ->whereIn('FNSKU', $baseFnskus)
-                    ->get();
-
-                Log::info('FNSKU records found:', ['count' => $fnskuRecords->count()]);
-
-                foreach ($fnskuRecords as $record) {
-                    $fnskuData[$record->FNSKU] = $record;
-                }
-            }
-
-            // Get ASIN data
-            $asinList = [];
-            foreach ($fnskuData as $fnskuRecord) {
-                if (!empty($fnskuRecord->ASIN)) {
-                    $asinList[] = $fnskuRecord->ASIN;
-                }
-            }
-            $asinList = array_unique($asinList);
-
-            $asinData = [];
-            if (!empty($asinList)) {
-                $asinRecords = DB::table($this->asinTable)
-                    ->select('ASIN', 'internal')
-                    ->whereIn('ASIN', $asinList)
-                    ->get();
-
-                Log::info('ASIN records found:', ['count' => $asinRecords->count()]);
-
-                foreach ($asinRecords as $record) {
-                    $asinData[$record->ASIN] = $record;
-                }
-            }
-
-            // Add FNSKU and ASIN data to all products
-            $products->getCollection()->transform(function ($product) use ($fnskuData, $asinData) {
-                $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-
-                // Set default values
+            // Transform products to add company field and set defaults
+            $products->getCollection()->transform(function ($product) use ($company) {
+                $product->company = $company;
                 $product->FNSKU = $product->FNSKUviewer ?? '';
-                $product->MSKU = '';
-                $product->ASIN = '';
-                $product->grading = '';
-                $product->storename = '';
-                $product->AStitle = $product->ProductTitle ?? '';
-
-                if (isset($fnskuData[$baseFnsku])) {
-                    $fnskuRecord = $fnskuData[$baseFnsku];
-                    $product->FNSKU = $fnskuRecord->FNSKU;
-                    $product->MSKU = $fnskuRecord->MSKU;
-                    $product->ASIN = $fnskuRecord->ASIN;
-                    $product->grading = $fnskuRecord->grading;
-                    $product->storename = $fnskuRecord->storename;
-
-                    if (isset($asinData[$fnskuRecord->ASIN])) {
-                        $product->AStitle = $asinData[$fnskuRecord->ASIN]->internal;
-                    }
-                }
 
                 // Ensure required fields have default values
                 $product->quantity = $product->quantity ?? 1;
@@ -212,81 +165,78 @@ class RTSController extends BasetablesController
                 return $product;
             });
 
-            // If images are requested, fetch them for each product
+            // If images are requested, check for captured image files
             if ($includeImages) {
                 try {
-                    $productIds = $products->pluck('ProductID')->toArray();
-                    Log::info('Product IDs for image fetch', ['count' => count($productIds)]);
+                    $publicPath = public_path('images/product_images/'.$company);
 
-                    $capturedImagesTableName = $this->capturedImagesTable;
+                    Log::info('Checking for captured images in path', ['path' => $publicPath]);
 
-                    Log::info('Checking table existence', [
-                        'table' => $capturedImagesTableName
-                    ]);
+                    // Add captured images data to each product
+                    $products->getCollection()->transform(function ($product) use ($publicPath) {
+                        $capturedImages = (object) [];
 
-                    if (!Schema::hasTable($capturedImagesTableName)) {
-                        Log::warning('Captured images table does not exist', [
-                            'table' => $capturedImagesTableName
-                        ]);
-                        $products->getCollection()->transform(function ($product) {
-                            $product->company = $this->company;
-                            $product->capturedImages = (object) [];
-                            return $product;
-                        });
-                    } else {
-                        Log::info('Captured images table exists', ['table' => $capturedImagesTableName]);
+                        // Check for up to 12 captured images
+                        for ($i = 1; $i <= 12; $i++) {
+                            $filename = $product->ProductID.'_img'.$i.'.jpg';
+                            $filePath = $publicPath.'/'.$filename;
 
-                        $capturedImages = DB::table($capturedImagesTableName)
-                            ->whereIn('ProductID', $productIds)
-                            ->get();
-
-                        Log::info('Captured images fetched', [
-                            'count' => $capturedImages->count()
-                        ]);
-
-                        $imagesByProductId = [];
-                        foreach ($capturedImages as $img) {
-                            $imagesByProductId[$img->ProductID] = $img;
+                            if (file_exists($filePath)) {
+                                $capturedImages->{"capturedimg{$i}"} = $filename;
+                            }
                         }
 
-                        $products->getCollection()->transform(function ($product) use ($imagesByProductId) {
-                            $product->company = $this->company;
+                        // Check for serial images
+                        $serialImg1 = $product->ProductID.'_serialimg1.jpg';
+                        $serialImg2 = $product->ProductID.'_serialimg2.jpg';
 
-                            if (isset($imagesByProductId[$product->ProductID])) {
-                                $product->capturedImages = $imagesByProductId[$product->ProductID];
+                        if (file_exists($publicPath.'/'.$serialImg1)) {
+                            $capturedImages->serialimg1 = $serialImg1;
+                        }
+                        if (file_exists($publicPath.'/'.$serialImg2)) {
+                            $capturedImages->serialimg2 = $serialImg2;
+                        }
 
-                                if (empty($product->img1) && !empty($product->capturedImages->capturedimg1)) {
-                                    $product->img1 = $product->capturedImages->capturedimg1;
-                                }
-                            } else {
-                                $product->capturedImages = (object) [];
-                            }
+                        $product->capturedImages = $capturedImages;
 
-                            return $product;
-                        });
-                    }
+                        // Set img1 directly for the main thumbnail display if capturedimg1 exists
+                        if (! empty($capturedImages->capturedimg1)) {
+                            $product->img1 = $capturedImages->capturedimg1;
+                        }
+
+                        Log::info('Added captured images to product', [
+                            'ProductID' => $product->ProductID,
+                            'capturedImagesCount' => count((array) $capturedImages),
+                            'hasImg1' => ! empty($product->img1),
+                        ]);
+
+                        return $product;
+                    });
                 } catch (\Exception $e) {
-                    Log::error('Error fetching images', [
+                    Log::error('Error checking for image files', [
                         'message' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
+                        'trace' => $e->getTraceAsString(),
                     ]);
 
+                    // Continue without images but add empty capturedImages object
                     $products->getCollection()->transform(function ($product) {
-                        $product->company = $this->company;
                         $product->capturedImages = (object) [];
+
                         return $product;
                     });
                 }
             } else {
+                // Even if images are not requested, initialize empty capturedImages
                 $products->getCollection()->transform(function ($product) {
-                    $product->company = $this->company;
+                    $product->capturedImages = (object) [];
+
                     return $product;
                 });
             }
 
             Log::info('Final products prepared for response', [
                 'count' => $products->count(),
-                'sample_product' => $products->count() > 0 ? $products->items()[0] : null
+                'sample_product' => $products->count() > 0 ? $products->items()[0] : null,
             ]);
 
             return response()->json($products);
@@ -296,12 +246,12 @@ class RTSController extends BasetablesController
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'line' => $e->getLine(),
             ]);
 
             return response()->json([
                 'error' => 'An error occurred while fetching products',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -331,19 +281,19 @@ class RTSController extends BasetablesController
                 'refundDate' => 'nullable|date',
                 'reasonOfReturn' => 'nullable|string|max:1000',
                 'returnTN' => 'nullable|string|max:255',
-                'notes' => 'nullable|string|max:2000'
+                'notes' => 'nullable|string|max:2000',
             ]);
 
             if ($validator->fails()) {
                 Log::warning('RTS Options validation failed', [
                     'errors' => $validator->errors()->toArray(),
-                    'request_data' => $request->all()
+                    'request_data' => $request->all(),
                 ]);
 
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -357,14 +307,14 @@ class RTSController extends BasetablesController
                 'ProductID' => $data['ProductID'],
                 'user_id' => Auth::id(),
                 'testResult' => $data['testResult'],
-                'status' => $data['status']
+                'status' => $data['status'],
             ]);
 
             // Create the RTS table name
-            $rtsTableName = $this->company . 'tblrts';
+            $rtsTableName = $this->company.'tblrts';
 
             // Create table if it doesn't exist
-            if (!Schema::hasTable($rtsTableName)) {
+            if (! Schema::hasTable($rtsTableName)) {
                 Log::info('Creating RTS table as it does not exist', ['table' => $rtsTableName]);
 
                 Schema::create($rtsTableName, function ($table) {
@@ -406,6 +356,7 @@ class RTSController extends BasetablesController
             // Helper function to get current user identifier
             $getCurrentUser = function () {
                 $user = Auth::user();
+
                 return $user ? ($user->username ?? $user->name ?? 'Unknown') : 'Unknown';
             };
 
@@ -419,7 +370,7 @@ class RTSController extends BasetablesController
             if ($data['testResult'] === 'Passed') {
                 Log::info('Test result is Passed - removing RTS record and updating product to Labeling', [
                     'rtcounter' => $data['rtcounter'],
-                    'ProductID' => $data['ProductID']
+                    'ProductID' => $data['ProductID'],
                 ]);
 
                 // If test passed, remove from RTS table (if exists)
@@ -432,7 +383,7 @@ class RTSController extends BasetablesController
                     Log::info('Deleted RTS record for passed test', [
                         'rts_id' => $existingRecord->rts_id,
                         'rtcounter' => $data['rtcounter'],
-                        'ProductID' => $data['ProductID']
+                        'ProductID' => $data['ProductID'],
                     ]);
                 }
 
@@ -441,22 +392,22 @@ class RTSController extends BasetablesController
                     ->where('ProductID', $data['ProductID'])
                     ->update([
                         'ProductModuleLoc' => 'Labeling',
-                        'refund' => 0
+                        'refund' => 0,
                     ]);
 
                 Log::info('Updated product to Labeling module with reset refund', [
                     'ProductID' => $data['ProductID'],
                     'ProductModuleLoc' => 'Labeling',
-                    'refund' => 0
+                    'refund' => 0,
                 ]);
 
                 $message = 'Test passed successfully. Product moved to Labeling module and refund reset.';
 
-            } else if ($data['testResult'] === 'Failed') {
+            } elseif ($data['testResult'] === 'Failed') {
                 Log::info('Test result is Failed - saving/updating RTS record and updating product to RTS module', [
                     'rtcounter' => $data['rtcounter'],
                     'ProductID' => $data['ProductID'],
-                    'refundAmount' => $data['refundAmount'] ?? 0
+                    'refundAmount' => $data['refundAmount'] ?? 0,
                 ]);
 
                 // Prepare data for database
@@ -471,13 +422,13 @@ class RTSController extends BasetablesController
                     'test_result' => $data['testResult'],
                     'status' => $data['status'],
                     'rts_result' => $data['rtsResult'],
-                    'refund_amount' => !empty($data['refundAmount']) ? $data['refundAmount'] : null,
-                    'refund_date' => !empty($data['refundDate']) ? $data['refundDate'] : null,
+                    'refund_amount' => ! empty($data['refundAmount']) ? $data['refundAmount'] : null,
+                    'refund_date' => ! empty($data['refundDate']) ? $data['refundDate'] : null,
                     'reason_of_return' => $data['reasonOfReturn'] ?? null,
                     'return_tn' => $data['returnTN'] ?? null,
                     'notes' => $data['notes'] ?? null,
                     'updated_by' => $getCurrentUser(),
-                    'updated_at' => now()
+                    'updated_at' => now(),
                 ];
 
                 if ($existingRecord) {
@@ -491,7 +442,7 @@ class RTSController extends BasetablesController
                         'rts_id' => $existingRecord->rts_id,
                         'rtcounter' => $data['rtcounter'],
                         'ProductID' => $data['ProductID'],
-                        'updated_by' => $getCurrentUser()
+                        'updated_by' => $getCurrentUser(),
                     ]);
                 } else {
                     // Create new record
@@ -504,24 +455,24 @@ class RTSController extends BasetablesController
                         'rts_id' => $rtsId,
                         'rtcounter' => $data['rtcounter'],
                         'ProductID' => $data['ProductID'],
-                        'created_by' => $getCurrentUser()
+                        'created_by' => $getCurrentUser(),
                     ]);
                 }
 
                 // Update product table - move to RTS module and set refund amount
-                $refundAmount = !empty($data['refundAmount']) ? $data['refundAmount'] : 0;
+                $refundAmount = ! empty($data['refundAmount']) ? $data['refundAmount'] : 0;
 
                 DB::table($this->productTable)
                     ->where('ProductID', $data['ProductID'])
                     ->update([
                         'ProductModuleLoc' => 'RTS',
-                        'refund' => $refundAmount
+                        'refund' => $refundAmount,
                     ]);
 
                 Log::info('Updated product to RTS module with refund amount', [
                     'ProductID' => $data['ProductID'],
                     'ProductModuleLoc' => 'RTS',
-                    'refund' => $refundAmount
+                    'refund' => $refundAmount,
                 ]);
 
                 $message = 'Test failed. RTS options saved and product moved to RTS module with refund amount set.';
@@ -531,7 +482,7 @@ class RTSController extends BasetablesController
                 'rtcounter' => $data['rtcounter'],
                 'ProductID' => $data['ProductID'],
                 'testResult' => $data['testResult'],
-                'finalStatus' => $data['testResult'] === 'Passed' ? 'Moved to Labeling' : 'Moved to RTS'
+                'finalStatus' => $data['testResult'] === 'Passed' ? 'Moved to Labeling' : 'Moved to RTS',
             ]);
 
             return response()->json([
@@ -544,8 +495,8 @@ class RTSController extends BasetablesController
                     'result' => $data['rtsResult'],
                     'filed_date' => $data['dateField'],
                     'productModuleLoc' => $data['testResult'] === 'Passed' ? 'Labeling' : 'RTS',
-                    'refundAmount' => $data['testResult'] === 'Passed' ? 0 : ($data['refundAmount'] ?? 0)
-                ]
+                    'refundAmount' => $data['testResult'] === 'Passed' ? 0 : ($data['refundAmount'] ?? 0),
+                ],
             ]);
 
         } catch (\Exception $e) {
@@ -554,12 +505,12 @@ class RTSController extends BasetablesController
                 'trace' => $e->getTraceAsString(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'request_data' => $request->all()
+                'request_data' => $request->all(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while saving RTS options: ' . $e->getMessage()
+                'message' => 'An error occurred while saving RTS options: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -576,18 +527,18 @@ class RTSController extends BasetablesController
             if (empty($rtcounter) || empty($productId)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'RT Counter and Product ID are required'
+                    'message' => 'RT Counter and Product ID are required',
                 ], 400);
             }
 
             // Updated table name without underscore
-            $rtsTableName = $this->company . 'tblrts';
+            $rtsTableName = $this->company.'tblrts';
 
-            if (!Schema::hasTable($rtsTableName)) {
+            if (! Schema::hasTable($rtsTableName)) {
                 return response()->json([
                     'success' => true,
                     'data' => null,
-                    'message' => 'No RTS options found'
+                    'message' => 'No RTS options found',
                 ]);
             }
 
@@ -614,7 +565,7 @@ class RTSController extends BasetablesController
                     'created_by' => $rtsOptions->created_by, // Now username instead of ID
                     'updated_by' => $rtsOptions->updated_by, // Now username instead of ID
                     'created_at' => $rtsOptions->created_at,
-                    'updated_at' => $rtsOptions->updated_at
+                    'updated_at' => $rtsOptions->updated_at,
                 ];
 
                 Log::info('Retrieved RTS options', [
@@ -622,19 +573,19 @@ class RTSController extends BasetablesController
                     'rtcounter' => $rtcounter,
                     'ProductID' => $productId,
                     'created_by' => $rtsOptions->created_by,
-                    'updated_by' => $rtsOptions->updated_by
+                    'updated_by' => $rtsOptions->updated_by,
                 ]);
 
                 return response()->json([
                     'success' => true,
-                    'data' => $formData
+                    'data' => $formData,
                 ]);
             }
 
             return response()->json([
                 'success' => true,
                 'data' => null,
-                'message' => 'No RTS options found for this product'
+                'message' => 'No RTS options found for this product',
             ]);
 
         } catch (\Exception $e) {
@@ -642,12 +593,12 @@ class RTSController extends BasetablesController
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'rtcounter' => $rtcounter ?? null,
-                'ProductID' => $productId ?? null
+                'ProductID' => $productId ?? null,
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while fetching RTS options'
+                'message' => 'An error occurred while fetching RTS options',
             ], 500);
         }
     }
@@ -701,7 +652,7 @@ class RTSController extends BasetablesController
         return response()->json([
             'success' => true,
             'message' => 'Order product saved successfully',
-            'product' => $product
+            'product' => $product,
         ]);
     }
 }

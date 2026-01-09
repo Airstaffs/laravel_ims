@@ -1602,7 +1602,7 @@ const TABLE_COLUMNS = [
         style: { width: "4rem", minWidth: "4rem" },
     },
     {
-        field: "ProductTitle",
+        field: "AStitle",
         header: "Product Name",
         sortable: true,
         headerStyle: "font-size: 16px;",
