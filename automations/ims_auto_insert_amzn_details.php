@@ -888,7 +888,7 @@ function archiveOldNewlyCreatedItems(mysqli $Connect): int
     $sql = "
         UPDATE tblnewlycreatedamznitems
         SET cron_insert_status = 'ARCHIVE'
-        WHERE created_date < DATE_SUB(NOW(), INTERVAL 1 WEEK)
+        WHERE event_detail_time < DATE_SUB(NOW(), INTERVAL 1 WEEK)
           AND cron_insert_status = 'FALSE'
     ";
 
