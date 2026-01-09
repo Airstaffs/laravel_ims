@@ -65,29 +65,32 @@ $allSkus = [];
 
 foreach ($stores as $store) {
 
-
     $tblname = "tblfnsku";
 
-    $sid = sidfetcherino($Connect, $store);
+    // ✅ MerchantID per store (this is what equals tblnewlycreatedamznitems.seller_id)
+    $merchantId = sidfetcherino($Connect, $store);
+    if (empty($merchantId)) {
+        echo "❌ No MerchantID found for store {$store}<br>";
+        continue;
+    }
 
-    $allSkus = getallnewitems($Connect, $sid);
+    // ✅ Get SKUs for THIS merchantId (seller_id)
+    $allSkus = getallnewitems_by_sellerid($Connect, $merchantId);
 
     $credentials = AWSCredentials($Connect, $store);
-
     if (!isset($credentials['client_id']) || !isset($credentials['client_secret'])) {
         die("Invalid keys in database.");
     }
 
+    // ✅ Token once per store
     $accessToken = fetchAccessToken($credentials, $returnRaw = false);
 
     foreach ($allSkus as $skuperitem) {
-        echo "Processing yawa MSKU: $skuperitem<br>";
+        echo "Processing yawa MSKU: $skuperitem (store {$store})<br>";
 
-        $path = "/listings/2021-08-01/items/{$sid}/{$skuperitem}";
-        $service = 'execute-api';
-        $region = 'us-east-1';
+        // ✅ IMPORTANT: use merchantId for the /items/{sellerId}/{sku} path
+        $results = fetchAmazonData($credentials, $accessToken, $skuperitem, $merchantId);
 
-        $results = fetchAmazonData($credentials, $accessToken, $skuperitem, $sid);
         echo "actual fucking array";
         echo "<pre>";
         print_r($results);
@@ -237,7 +240,7 @@ foreach ($stores as $store) {
                             // logs for uploads!
                             // uploading_Logs($Connect, $log_message = $logMessage, $reference_id = $ref, $upload_name = $uploader);
                             $insertCount++;
-                            updateCronInsertStatus($Connect, $MSKU, $sid);
+                            updateCronInsertStatus($Connect, $MSKU, $merchantId);
                         } else {
                             $logMessage = "Error inserting record for FNSKU: $FNSKU - Error: " . $stmt->error;
                             // logs for uploads!
@@ -274,7 +277,7 @@ foreach ($stores as $store) {
                         ) {
                             $logMessage = "All data is identical for FNSKU: $FNSKU MSKU $MSKU - Skipping insertion as it's a duplicate.";
                             // uploading_Logs($Connect, $log_message = $logMessage, $reference_id = $ref, $upload_name = $uploader);
-                            updateCronInsertStatus($Connect, $MSKU, $sid);
+                            updateCronInsertStatus($Connect, $MSKU, $merchantId);
                             $duplicateCount++;
                         } else if ($MSKU === null || $ASIN === null || $PRODUCT_NAME === null) {
 
@@ -334,8 +337,6 @@ foreach ($stores as $store) {
             echo "<br>No summaries available for SKU: " . ($pta['sku'] ?? 'Unknown SKU') . "<br>";
         }
     }
-
-    exit;
 }
 
 $logMessage = "File uploaded and processed successfully.";
@@ -356,9 +357,12 @@ $logMessage = "Total Rows Processed: " . $totalRowsProcessed . "<br>
                                                 New Asin Count: " . $newasinCount . "<br>
                                                 Error Asin Count: " . $errorasinCount;
 
+
 echo $logMessage;
 echo " <br> Successfully uploaded the File!";
 
+$archivedCount = archiveOldNewlyCreatedItems($Connect);
+echo "<br><br>Archived {$archivedCount} old staging rows<br>";
 echo "<br><br>";
 /*
 if (!empty($newASIN)) {
@@ -598,17 +602,17 @@ function getSignatureKey($key, $dateStamp, $regionName, $serviceName)
 function sidfetcherino($Connect, $store)
 {
     if ($store == 'RT') {
-        $id = 1; // The id you want to retrieve
+        $id = 6; // The id you want to retrieve
     } else if ($store == 'AR') {
-        $id = 3;
+        $id = 10;
     }
 
-    $sql = "SELECT SID FROM tblcompanydetails WHERE id = $id";
+    $sql = "SELECT MerchantID FROM tblstores WHERE store_id = $id";
     $result = mysqli_query($Connect, $sql);
 
     if (mysqli_num_rows($result) > 0) {
         $row = mysqli_fetch_assoc($result);
-        return $row['SID'];
+        return $row['MerchantID'];
     } else {
         return null;
     }
@@ -682,7 +686,7 @@ function AWSCredentials($Connect, $store)
     } else if ($store == 'AR') {
         $id = 10;
     }
-    $sql = "SELECT client_id, client_secret, refresh_token FROM tblstores WHERE id = $id";
+    $sql = "SELECT client_id, client_secret, refresh_token FROM tblstores WHERE store_id = $id";
     $result = $Connect->query($sql);
     $row = $result->fetch_assoc();
 
@@ -844,4 +848,55 @@ function fetchGrantlessAccessToken($credentials, $scope)
 
     $tokenData = json_decode($response, true);
     return $tokenData['access_token'];
+}
+
+function getallnewitems_by_sellerid(mysqli $Connect, string $merchantId): array
+{
+    $sql = "
+        SELECT sku
+        FROM tblnewlycreatedamznitems
+        WHERE cron_insert_status = 'FALSE'
+          AND seller_id = ?
+          AND publish_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        ORDER BY id DESC LIMIT 1
+    ";
+
+    $stmt = mysqli_prepare($Connect, $sql);
+    mysqli_stmt_bind_param($stmt, "s", $merchantId);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $allSkus = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $msku = $row['sku'];
+        if (!in_array($msku, $allSkus, true)) {
+            $allSkus[] = $msku;
+        }
+    }
+
+    mysqli_stmt_close($stmt);
+
+    echo "<pre>";
+    print_r($allSkus);
+    echo "</pre>";
+
+    return $allSkus;
+}
+
+function archiveOldNewlyCreatedItems(mysqli $Connect): int
+{
+    $sql = "
+        UPDATE tblnewlycreatedamznitems
+        SET cron_insert_status = 'ARCHIVE'
+        WHERE created_date < DATE_SUB(NOW(), INTERVAL 1 WEEK)
+          AND cron_insert_status = 'FALSE'
+    ";
+
+    $stmt = mysqli_prepare($Connect, $sql);
+    mysqli_stmt_execute($stmt);
+
+    $affected = mysqli_stmt_affected_rows($stmt);
+    mysqli_stmt_close($stmt);
+
+    return $affected; // number of rows archived
 }
