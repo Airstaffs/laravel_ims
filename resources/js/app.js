@@ -560,6 +560,8 @@ import RTS from "./page/rts/rts.vue";
 import Kanban from "./page/kanban/kanban.vue";
 import Training from "./page/aiTraining/training.vue";
 import History from "./page/history/history.vue";
+import Soldlist from "./page/soldlist/soldlist.vue";
+import Returnedlist from "./page/returnlist/returnlist.vue";
 
 import FbaInboundShipment from "./components/Stockroom/fba_inbound/fba_inbound_shipment.vue";
 import Navbar from "./components/Navbar/Navbar.vue";
@@ -623,6 +625,8 @@ const componentMapping = {
     RTS: "rts",
     Kanban: "kanban",
     History: "history",
+    "Sold Items": "soldlist",
+    "Returned Items": "returnlist",
 };
 
 // ============================================
@@ -942,6 +946,8 @@ const app = createApp({
         training: Training,
         kanban: Kanban,
         history: History,
+        soldlist: Soldlist,
+        returnlist: Returnedlist,
     },
 });
 
