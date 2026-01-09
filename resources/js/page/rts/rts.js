@@ -200,50 +200,120 @@ export default {
             event.target.onerror = null;
         },
 
+        // Helper to validate image fields
         isValidImage(path) {
             return path && path !== "NULL" && path.trim() !== "";
         },
 
-        countRegularImages(item) {
+        // Generic image counter for any image type
+        countImages(item, prefix, start, end, container = null) {
             if (!item) return 0;
+            const source = container ? item[container] : item;
+            if (!source) return 0;
+
             let count = 0;
-            for (let i = 2; i <= 15; i++) {
-                const fieldName = `img${i}`;
-                if (
-                    item[fieldName] &&
-                    item[fieldName] !== "NULL" &&
-                    item[fieldName].trim() !== ""
-                ) {
+            for (let i = start; i <= end; i++) {
+                const fieldName = `${prefix}${i}`;
+                if (this.isValidImage(source[fieldName])) {
                     count++;
                 }
             }
             return count;
         },
 
+        // Count regular images (img2 - img15)
+        countRegularImages(item) {
+            return this.countImages(item, "img", 2, 15);
+        },
+
+        // Count captured images (capturedimg1 - capturedimg12)
         countCapturedImages(item) {
             if (!item || !item.capturedImages) return 0;
+
+            console.log("🔍 Counting captured images for item:", {
+                ProductID: item.ProductID,
+                capturedImages: item.capturedImages,
+            });
+
             let count = 0;
+            const capturedImagesObj = item.capturedImages;
+
+            // Check both capturedimg1-12 AND serialimg1-2
             for (let i = 1; i <= 12; i++) {
                 const fieldName = `capturedimg${i}`;
-                if (
-                    item.capturedImages &&
-                    item.capturedImages[fieldName] &&
-                    item.capturedImages[fieldName] !== "NULL" &&
-                    item.capturedImages[fieldName].trim() !== ""
-                ) {
+                if (this.isValidImage(capturedImagesObj[fieldName])) {
                     count++;
                 }
             }
+
+            // Also check serial images
+            if (this.isValidImage(capturedImagesObj.serialimg1)) count++;
+            if (this.isValidImage(capturedImagesObj.serialimg2)) count++;
+
+            console.log("🔍 Total captured images found:", count);
             return count;
         },
 
+        // Count all images (regular + captured)
         countAllImages(item) {
-            return (
-                this.countRegularImages(item) + this.countCapturedImages(item)
-            );
+            if (!item) {
+                return 0;
+            }
+
+            // If captured images exist, count them
+            if (item.capturedImages) {
+                let capturedCount = 0;
+                const capturedImagesObj = item.capturedImages;
+
+                // Count capturedimg1-12
+                for (let i = 1; i <= 12; i++) {
+                    const fieldName = `capturedimg${i}`;
+                    if (this.isValidImage(capturedImagesObj[fieldName])) {
+                        capturedCount++;
+                    }
+                }
+
+                // If we have captured images, return that count
+                if (capturedCount > 0) {
+                    return capturedCount;
+                }
+            }
+
+            // Otherwise count regular product images (fallback)
+            return this.countRegularImages(item);
         },
 
-        // Image modal methods
+        transformDataForGallery(data) {
+            if (!data) {
+                return {};
+            }
+
+            if (data.capturedImages && data.capturedImages.capturedimg1) {
+                const transformedData = { ...data };
+                const companyFolder = data.company || "Airstaffs";
+
+                for (let i = 1; i <= 12; i++) {
+                    const capturedImg = data.capturedImages[`capturedimg${i}`];
+                    if (capturedImg) {
+                        transformedData[
+                            `img${i}`
+                        ] = `/images/product_images/${companyFolder}/${capturedImg}`;
+                    } else {
+                        transformedData[`img${i}`] = null;
+                    }
+                }
+
+                for (let i = 13; i <= 15; i++) {
+                    transformedData[`img${i}`] = null;
+                }
+
+                return transformedData;
+            }
+
+            return data;
+        },
+
+        // Open the image modal and prepare images
         openImageModal(item) {
             if (!item) return;
 
@@ -253,6 +323,14 @@ export default {
             this.ProductTitle = item.ProductTitle;
             const companyFolder = item.company || "Airstaffs";
 
+            console.log("🔍 Opening image modal for item:", {
+                ProductID: item.ProductID,
+                rtcounter: item.rtcounter,
+                company: companyFolder,
+                capturedImages: item.capturedImages,
+            });
+
+            // Load regular images (img1 - img15)
             for (let i = 1; i <= 15; i++) {
                 const fieldName = `img${i}`;
                 if (this.isValidImage(item[fieldName])) {
@@ -261,26 +339,53 @@ export default {
                 }
             }
 
+            console.log("📸 Regular images loaded:", this.regularImages.length);
+
+            // ✅ FIXED: Load captured images properly
             if (
                 item.capturedImages &&
                 typeof item.capturedImages === "object"
             ) {
-                // for (let i = 1; i <= 12; i++) {
-                //     const filename = `${item.rtcounter}_img${i}.jpg`;
-                //     const path = `/images/product_images/${companyFolder}/${filename}`;
-                //     this.capturedImages.push(path);
-                // }
-                 for (let i = 1; i <= 12; i++) {
-                    const field = `${item.rtcounter}_img${i}.jpg`;
-                    const value = item.capturedImages[field];
-                    //dont include null value
-                    if (value && value.trim()) {
-                        const path = `/images/product_images/${companyFolder}/${value}`;
+                const capturedImagesObj = item.capturedImages;
+
+                console.log(
+                    "🔍 Processing captured images:",
+                    capturedImagesObj
+                );
+
+                // Load capturedimg1 - capturedimg12
+                for (let i = 1; i <= 12; i++) {
+                    const fieldName = `capturedimg${i}`;
+                    if (this.isValidImage(capturedImagesObj[fieldName])) {
+                        const filename = capturedImagesObj[fieldName];
+                        const path = `/images/product_images/${companyFolder}/${filename}`;
                         this.capturedImages.push(path);
+                        console.log(`✅ Added captured image ${i}:`, path);
                     }
+                }
+
+                // Load serial images (serialimg1 and serialimg2)
+                if (this.isValidImage(capturedImagesObj.serialimg1)) {
+                    const filename = capturedImagesObj.serialimg1;
+                    const path = `/images/product_images/${companyFolder}/${filename}`;
+                    this.capturedImages.push(path);
+                    console.log("✅ Added serial image 1:", path);
+                }
+
+                if (this.isValidImage(capturedImagesObj.serialimg2)) {
+                    const filename = capturedImagesObj.serialimg2;
+                    const path = `/images/product_images/${companyFolder}/${filename}`;
+                    this.capturedImages.push(path);
+                    console.log("✅ Added serial image 2:", path);
                 }
             }
 
+            console.log(
+                "📸 Total captured images loaded:",
+                this.capturedImages.length
+            );
+
+            // Fallback if no images exist
             if (
                 this.regularImages.length === 0 &&
                 this.capturedImages.length === 0
@@ -288,16 +393,19 @@ export default {
                 this.regularImages.push(this.defaultImage);
             }
 
+            // Set default active tab
             this.activeTab = this.regularImages.length ? "regular" : "captured";
             this.currentImageSet =
                 this.activeTab === "regular"
                     ? this.regularImages
                     : this.capturedImages;
 
+            // Show modal and disable page scrolling
             this.showImageModal = true;
             document.body.style.overflow = "hidden";
         },
 
+        // Method to switch tabs
         switchTab(tab) {
             this.activeTab = tab;
             this.currentImageIndex = 0;
@@ -310,6 +418,8 @@ export default {
             this.currentImageSet = [];
             this.regularImages = [];
             this.capturedImages = [];
+
+            // Re-enable scrolling
             document.body.style.overflow = "auto";
         },
 
@@ -317,7 +427,7 @@ export default {
             if (this.currentImageIndex < this.currentImageSet.length - 1) {
                 this.currentImageIndex++;
             } else {
-                this.currentImageIndex = 0;
+                this.currentImageIndex = 0; // Loop back to the first image
             }
         },
 
@@ -325,15 +435,70 @@ export default {
             if (this.currentImageIndex > 0) {
                 this.currentImageIndex--;
             } else {
-                this.currentImageIndex = this.currentImageSet.length - 1;
+                this.currentImageIndex = this.currentImageSet.length - 1; // Loop to the last image
             }
         },
 
-        // Data fetching methods
+        getDisplayTitle(item) {
+            if (!item) return "—";
+
+            // Priority: system_title > internal > AStitle > ProductTitle
+            if (item.system_title && item.system_title.trim() !== "") {
+                return item.system_title;
+            }
+
+            if (item.internal && item.internal.trim() !== "") {
+                return item.internal;
+            }
+
+            if (item.AStitle && item.AStitle.trim() !== "") {
+                return item.AStitle;
+            }
+
+            if (item.ProductTitle && item.ProductTitle.trim() !== "") {
+                return item.ProductTitle;
+            }
+
+            return "—";
+        },
+
+        // For FNSKU modal display (uses backend's astitle field)
+        getFnskuDisplayTitle(fnskuItem) {
+            if (!fnskuItem) return "—";
+
+            // Backend already prioritizes: system_title > internal via COALESCE
+            if (fnskuItem.astitle && fnskuItem.astitle.trim() !== "") {
+                return fnskuItem.astitle;
+            }
+
+            // Fallbacks if astitle is missing
+            if (
+                fnskuItem.system_title &&
+                fnskuItem.system_title.trim() !== ""
+            ) {
+                return fnskuItem.system_title;
+            }
+
+            if (fnskuItem.internal && fnskuItem.internal.trim() !== "") {
+                return fnskuItem.internal;
+            }
+
+            return "—";
+        },
+
+        // Fetch inventory data from the API
         async fetchInventory() {
             this.loading = true;
+
             try {
-                console.log("Fetching inventory...");
+                console.log("Fetching inventory with params:", {
+                    search: this.searchQuery,
+                    page: this.currentPage,
+                    per_page: this.perPage,
+                    location: "",
+                    include_images: true,
+                });
+
                 const response = await axios.get(
                     `${API_BASE_URL}/api/rts/products`,
                     {
@@ -347,13 +512,22 @@ export default {
                     }
                 );
 
+                console.log("API Response:", response.data);
+
+                // Process the returned data
                 this.inventory = response.data.data;
                 this.totalPages = response.data.last_page;
-                console.log(
-                    "Inventory loaded:",
-                    this.inventory.length,
-                    "items"
-                );
+
+                // Debug first item to see structure
+                if (this.inventory.length > 0) {
+                    console.log("First item structure:", this.inventory[0]);
+                    if (this.inventory[0].capturedImages) {
+                        console.log(
+                            "First item capturedImages:",
+                            this.inventory[0].capturedImages
+                        );
+                    }
+                }
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
             } finally {
