@@ -97,6 +97,19 @@
                     </div>
                 </div>
 
+
+                <!-- ✅ NEW: Image capture status for multi-serial -->
+                <div v-if="capturingImages" class="image-capture-status">
+                    <div class="capture-banner">
+                        <i class="fas fa-camera"></i>
+                        <span>Capturing images for: <strong>{{ currentCapturingSerial }}</strong></span>
+                        <span class="remaining-count">{{ serialsToCapture.length }} more serial(s) after this</span>
+                    </div>
+                    <button @click="finishCurrentSerialCapture" class="finish-capture-btn">
+                        <i class="fas fa-check"></i> Done with this serial
+                    </button>
+                </div>
+
                 <!-- Submit button (only in manual mode) -->
                 <button v-if="showManualInput" @click="processScan()" class="submit-button">
                     Submit
@@ -736,6 +749,57 @@ export default {
 
 .view-details-dialog {
     width: 100% !important;
+}
+
+/* captured button */
+.image-capture-status {
+    margin: 20px 0;
+    padding: 15px;
+    background-color: #e3f2fd;
+    border-radius: 8px;
+    border: 2px solid #2196f3;
+}
+
+.capture-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    font-size: 16px;
+    color: #1976d2;
+}
+
+.capture-banner i {
+    font-size: 24px;
+}
+
+.remaining-count {
+    margin-left: auto;
+    font-size: 14px;
+    color: #666;
+}
+
+.finish-capture-btn {
+    width: 100%;
+    padding: 12px;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.finish-capture-btn:hover {
+    background-color: #45a049;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.finish-capture-btn i {
+    margin-right: 8px;
 }
 
 @media (min-width: 768px) {
