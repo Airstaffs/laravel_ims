@@ -1764,12 +1764,12 @@ export default {
                     "value": ''
                 },
                 {
-                    "label": "All Renewed",
-                    "value": "All Renewed"
+                    "label": "Allrenewed",
+                    "value": "Allrenewed"
                 },
                 {
-                    "label": "Renovar Tech",
-                    "value": "Renovar Tech"
+                    "label": "Renovartech",
+                    "value": "Renovartech"
                 }
             ],
             statusOptions: [
