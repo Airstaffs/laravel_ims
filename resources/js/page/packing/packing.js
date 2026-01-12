@@ -1,4 +1,4 @@
-import { eventBus } from "../../components/eventBus";
+import { eventBus } from "../../components/eventbus";
 import "../../../css/modules.css";
 import { DEFAULT_IMAGE } from "../../constant";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
