@@ -1,4 +1,4 @@
-import { eventBus } from "../../components/eventBus";
+import { eventBus } from "../../components/eventbus";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 

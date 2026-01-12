@@ -12,7 +12,7 @@ import Swal from "sweetalert2";
 window.Swal = Swal;
 
 // ⭐ IMPORT TIME FORMATTER
-import timeFormatter from "./utils/timeformatter";
+import timeFormatter from "./utils/timeFormatter";
 import timeFormatterPlugin from "./plugins/timeFormatterPlugin";
 
 // ============================================

@@ -3,7 +3,7 @@
  * Makes timeFormatter available in all Vue components
  */
 
-import timeFormatter from "../utils/timeformatter";
+import timeFormatter from "../utils/timeFormatter";
 
 export default {
     install(app) {
