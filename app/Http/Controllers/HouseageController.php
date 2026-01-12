@@ -2,20 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Models\tblproduct;
 use Illuminate\Http\Request;
-use App\Models\Product;
-use App\Models\Rpn;
-use Illuminate\Validation\Rule;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
-use DateTime;
-use DateTimeZone;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class HouseageController extends BasetablesController
 {
@@ -45,7 +41,7 @@ class HouseageController extends BasetablesController
                 'capturedImagesTable' => $this->capturedImagesTable,
                 'fnskuTable' => $this->fnskuTable,
                 'asinTable' => $this->asinTable,
-                'company' => $this->company
+                'company' => $this->company,
             ]);
 
             $perPage = $request->input('per_page', 10);
@@ -53,33 +49,39 @@ class HouseageController extends BasetablesController
             $includeImages = $request->boolean('include_images', false);
 
             // UPDATED: Build query with proper joins to include ASIN and metakeyword in search
-            $productsQuery = DB::table($this->productTable . ' as prod')
-                ->leftJoin($this->fnskuTable . ' as fnsku', function ($join) {
+            $productsQuery = DB::table($this->productTable.' as prod')
+                ->leftJoin($this->fnskuTable.' as fnsku', function ($join) {
                     $join->on(DB::raw("CASE 
-                        WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
-                        THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
-                        ELSE prod.FNSKUviewer 
-                    END"), '=', 'fnsku.FNSKU');
+                    WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
+                    THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
+                    ELSE prod.FNSKUviewer 
+                END"), '=', 'fnsku.FNSKU');
                 })
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                 ->select([
                     'prod.*',
                     'fnsku.ASIN',
                     'fnsku.MSKU',
                     'fnsku.grading',
                     'fnsku.storename',
-                    'asin.internal as AStitle',
-                    'asin.metakeyword'
+                    DB::raw("COALESCE(
+                    NULLIF(TRIM(asin.system_title), ''), 
+                    NULLIF(TRIM(asin.internal), ''), 
+                    NULLIF(TRIM(prod.ProductTitle), '')
+                ) as AStitle"),
+                    'asin.internal',
+                    'asin.system_title',
+                    'asin.metakeyword',
                 ]);
 
             // Apply comprehensive search including ASIN and metakeyword
-            if (!empty($search)) {
+            if (! empty($search)) {
                 $productsQuery->where(function ($q) use ($search) {
                     $q->where('prod.serialnumber', 'like', "%{$search}%")
                         ->orWhere('prod.ProductTitle', 'like', "%{$search}%")
                         ->orWhere('prod.rtid', 'like', "%{$search}%")
                         ->orWhere('prod.itemnumber', 'like', "%{$search}%")
-                        ->orWhere('trackingnumber', 'like', '%'.substr($search, -12).'%')
+                        ->orWhere('prod.trackingnumber', 'like', '%'.substr($search, -12).'%') // ✅ Fixed: added 'prod.' prefix
                         ->orWhere('prod.PCN', 'like', "%{$search}%")
                         ->orWhere('prod.RPN', 'like', "%{$search}%")
                         ->orWhere('prod.PRD', 'like', "%{$search}%")
@@ -90,6 +92,7 @@ class HouseageController extends BasetablesController
                         ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
                         // Add ASIN table search
                         ->orWhere('asin.internal', 'like', "%{$search}%")
+                        ->orWhere('asin.system_title', 'like', "%{$search}%")
                         ->orWhere('asin.metakeyword', 'like', "%{$search}%");
                 });
             }
@@ -117,17 +120,18 @@ class HouseageController extends BasetablesController
                     $capturedImagesTableName = $this->capturedImagesTable;
 
                     Log::info('Checking table existence', [
-                        'table' => $capturedImagesTableName
+                        'table' => $capturedImagesTableName,
                     ]);
 
-                    if (!Schema::hasTable($capturedImagesTableName)) {
+                    if (! Schema::hasTable($capturedImagesTableName)) {
                         Log::warning('Captured images table does not exist', [
-                            'table' => $capturedImagesTableName
+                            'table' => $capturedImagesTableName,
                         ]);
 
                         // Add empty capturedImages object to prevent JS errors
                         $products->getCollection()->transform(function ($product) {
                             $product->capturedImages = (object) [];
+
                             return $product;
                         });
                     } else {
@@ -140,7 +144,7 @@ class HouseageController extends BasetablesController
 
                         Log::info('Captured images fetched', [
                             'count' => $capturedImages->count(),
-                            'sample' => $capturedImages->take(1)
+                            'sample' => $capturedImages->take(1),
                         ]);
 
                         // Create a lookup by ProductID for efficient access
@@ -156,17 +160,17 @@ class HouseageController extends BasetablesController
                                 $product->capturedImages = $imagesByProductId[$product->ProductID];
 
                                 // Set img1 directly for the main thumbnail display if not already set
-                                if (empty($product->img1) && !empty($product->capturedImages->capturedimg1)) {
+                                if (empty($product->img1) && ! empty($product->capturedImages->capturedimg1)) {
                                     $product->img1 = $product->capturedImages->capturedimg1;
                                 }
 
                                 Log::info('Added captured images to product', [
                                     'ProductID' => $product->ProductID,
-                                    'capturedImages' => json_encode($product->capturedImages)
+                                    'capturedImages' => json_encode($product->capturedImages),
                                 ]);
                             } else {
                                 Log::info('No captured images found for product', [
-                                    'ProductID' => $product->ProductID
+                                    'ProductID' => $product->ProductID,
                                 ]);
 
                                 $product->capturedImages = (object) [];
@@ -178,12 +182,13 @@ class HouseageController extends BasetablesController
                 } catch (\Exception $e) {
                     Log::error('Error fetching images', [
                         'message' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
+                        'trace' => $e->getTraceAsString(),
                     ]);
 
                     // Continue without images but add empty capturedImages object
                     $products->getCollection()->transform(function ($product) {
                         $product->capturedImages = (object) [];
+
                         return $product;
                     });
                 }
@@ -191,6 +196,7 @@ class HouseageController extends BasetablesController
                 // Even if images are not requested, initialize empty capturedImages
                 $products->getCollection()->transform(function ($product) {
                     $product->capturedImages = (object) [];
+
                     return $product;
                 });
             }
@@ -199,12 +205,12 @@ class HouseageController extends BasetablesController
         } catch (\Exception $e) {
             Log::error('Error in HouseageController index', [
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'error' => 'An error occurred while fetching products',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -260,7 +266,7 @@ class HouseageController extends BasetablesController
 
         $validated['validation'] = $validated['validation'] ?? 'unvalidated';
 
-        if (!empty($validated['serialnumber'])) {
+        if (! empty($validated['serialnumber'])) {
             $exists = \App\Models\tblproduct::where('serialnumber', $validated['serialnumber'])
                 ->where('itemnumber', '<>', $validated['itemnumber'])
                 ->exists();
@@ -268,7 +274,7 @@ class HouseageController extends BasetablesController
             if ($exists) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Serial Number '{$validated['serialnumber']}' is already assigned to another product."
+                    'message' => "Serial Number '{$validated['serialnumber']}' is already assigned to another product.",
                 ], 422);
             }
         }
@@ -282,7 +288,7 @@ class HouseageController extends BasetablesController
         return response()->json([
             'success' => true,
             'message' => 'Houseage product saved successfully',
-            'product' => $product
+            'product' => $product,
         ]);
     }
 
@@ -296,7 +302,7 @@ class HouseageController extends BasetablesController
 
         $cols = array_filter(
             Schema::getColumnListing($this->productTable),
-            fn($c) => str_starts_with($c, 'serial')
+            fn ($c) => str_starts_with($c, 'serial')
         );
 
         $existing = DB::table($this->productTable)
@@ -308,12 +314,11 @@ class HouseageController extends BasetablesController
             })
             ->first();
 
-
         if ($existing) {
             return response()->json([
                 'duplicate' => true,
                 'product_id' => $existing->ProductID,
-                'product_title' => $existing->ProductTitle
+                'product_title' => $existing->ProductTitle,
             ]);
         }
 
@@ -339,7 +344,7 @@ class HouseageController extends BasetablesController
         $file = $request->file('image');
 
         $targetDir = public_path('images/serimg');
-        if (!File::exists($targetDir)) {
+        if (! File::exists($targetDir)) {
             File::makeDirectory($targetDir, 0755, true);
         }
 
@@ -356,7 +361,7 @@ class HouseageController extends BasetablesController
 
         $ext = strtolower($file->getClientOriginalExtension() ?: $file->extension());
         $filename = "{$serialSan}.{$ext}";
-        $absPath = $targetDir . DIRECTORY_SEPARATOR . $filename;
+        $absPath = $targetDir.DIRECTORY_SEPARATOR.$filename;
 
         // ensure we don't collide — replace any existing file with the same name
         if (File::exists($absPath)) {
@@ -366,7 +371,7 @@ class HouseageController extends BasetablesController
         // move uploaded file
         $file->move($targetDir, $filename);
 
-        $relativePath = 'images/serimg/' . $filename;
+        $relativePath = 'images/serimg/'.$filename;
         $url = asset($relativePath);
 
         // optional: delete any specifically provided old file (your existing rule)
@@ -430,7 +435,8 @@ class HouseageController extends BasetablesController
         foreach ($candidates as $abs) {
             if (\Illuminate\Support\Facades\File::exists($abs)) {
                 // Build the public URL
-                $rel = 'images/serimg/' . basename($abs);
+                $rel = 'images/serimg/'.basename($abs);
+
                 return response()->json([
                     'exists' => true,
                     'url' => asset($rel),

@@ -1,52 +1,143 @@
 <template>
     <div class="vue-container houseage-module">
+        <TitlePage
+            title="Houseage Module"
+            subtitle="Manage all products in the internal processing flow, including grading, return status, and next module assignment."
+        />
 
-        <TitlePage title="Houseage Module"
-            subtitle="Manage all products in the internal processing flow, including grading, return status, and next module assignment." />
         <!-- Desktop Table Container -->
-
-
         <AnimateDiv :delay="200" class="px-4">
             <div class="search-container">
-                <fieldset class="d-flex align-items-center gap-3 ">
+                <fieldset class="d-flex align-items-center gap-3">
                     <label for="moduleFilter">Module:</label>
-                    <Select v-model="moduleFilter" :options="uniqueModuleOptions" optionLabel="label"
-                        optionValue="value" placeholder="Select module" size="small" class="select-form" />
+                    <Select
+                        v-model="moduleFilter"
+                        :options="uniqueModuleOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                        placeholder="Select module"
+                        size="small"
+                        class="select-form"
+                    />
                 </fieldset>
             </div>
-            <XDataTable :value="sortedInventory" :loading="loading" :columns="columns" :paginator="false"
-                tableClass="desktop-view" selectionMode="multiple" dataKey="ProductID">
+            <XDataTable
+                :value="sortedInventory"
+                :loading="loading"
+                :columns="columns"
+                :paginator="false"
+                tableClass="desktop-view"
+                selectionMode="multiple"
+                dataKey="ProductID"
+            >
                 <template #gallery="{ data }">
-                    <div class="d-flex justify-content-center align-items-center">
-                        <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAllImages" />
+                    <div
+                        class="d-flex justify-content-center align-items-center"
+                    >
+                        <!-- Use custom image display for captured images -->
+                        <div
+                            v-if="
+                                data.capturedImages &&
+                                data.capturedImages.capturedimg1
+                            "
+                            class="gallery-thumbnail position-relative"
+                            @click="openImageModal(data)"
+                            style="cursor: pointer"
+                        >
+                            <img
+                                :src="`/images/product_images/${
+                                    data.company || 'Airstaffs'
+                                }/${data.capturedImages.capturedimg1}`"
+                                :alt="getDisplayTitle(data)"
+                                style="
+                                    width: 50px;
+                                    height: 50px;
+                                    object-fit: cover;
+                                    border-radius: 4px;
+                                "
+                                @error="handleImageError"
+                            />
+                            <span
+                                v-if="countCapturedImages(data) > 1"
+                                class="position-absolute bg-primary text-white rounded-circle"
+                                style="
+                                    top: -5px;
+                                    right: -5px;
+                                    min-width: 20px;
+                                    height: 20px;
+                                    font-size: 0.65rem;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    padding: 0 4px;
+                                "
+                            >
+                                +{{ countCapturedImages(data) - 1 }}
+                            </span>
+                        </div>
+
+                        <!-- Use TableGallery for regular product images -->
+                        <TableGallery
+                            v-else
+                            :data="data"
+                            :openImageModal="openImageModal"
+                            :handleImageError="handleImageError"
+                            :countAdditionalImages="countAllImages"
+                        />
                     </div>
                 </template>
+
                 <template #ProductTitle="{ data }">
                     <div class="d-flex align-items-start gap-4">
-                        <div style="word-break: break-word; white-space: normal; overflow-wrap: break-word; flex: 1;">
-                            <p style="font-size: .8rem;">ID# {{ data.rtcounter }}</p>
+                        <div
+                            style="
+                                word-break: break-word;
+                                white-space: normal;
+                                overflow-wrap: break-word;
+                                flex: 1;
+                            "
+                        >
+                            <p style="font-size: 0.8rem">
+                                ID# {{ data.rtcounter }}
+                            </p>
                             <p class="fw-semibold">
-                                {{ data.ProductTitle }}
+                                {{ getDisplayTitle(data) }}
                             </p>
                         </div>
                     </div>
                 </template>
+
                 <template #validationStatus="{ data }">
                     <div>
-                        <div class="badge" :class="data.validation_status +
-                            '-badge'
-                            ">
+                        <div
+                            class="badge"
+                            :class="data.validation_status + '-badge'"
+                        >
                             {{ data.validation_status }}
                         </div>
                     </div>
                 </template>
+
                 <template #actions="{ data }">
-                    <div class="d-flex flex-column  align-items-start">
-                        <Button severity="contrast" variant="text" size="small" class="text-success"
-                            label="Copy Details" icon="pi pi-clone" @click="openCopyDetailsModal(data)" />
-                        <Button severity="contrast" variant="text" size="small" class="text-primary" label="Edit"
-                            icon="pi pi-pencil" @click="openEditModal(data)" />
+                    <div class="d-flex flex-column align-items-start">
+                        <Button
+                            severity="contrast"
+                            variant="text"
+                            size="small"
+                            class="text-success"
+                            label="Copy Details"
+                            icon="pi pi-clone"
+                            @click="openCopyDetailsModal(data)"
+                        />
+                        <Button
+                            severity="contrast"
+                            variant="text"
+                            size="small"
+                            class="text-primary"
+                            label="Edit"
+                            icon="pi pi-pencil"
+                            @click="openEditModal(data)"
+                        />
                     </div>
                 </template>
             </XDataTable>
@@ -59,24 +150,83 @@
                     <i class="fas fa-spinner fa-spin"></i>
                     Loading...
                 </div>
-                <div v-else-if="sortedInventory.length === 0" class="no-data-mobile">
+                <div
+                    v-else-if="sortedInventory.length === 0"
+                    class="no-data-mobile"
+                >
                     No data found
                 </div>
-                <div class="mobile-card" v-else v-for="(item, index) in sortedInventory" :key="item.id">
+                <div
+                    class="mobile-card"
+                    v-else
+                    v-for="(item, index) in sortedInventory"
+                    :key="item.id"
+                >
                     <div class="mobile-card-header">
                         <div class="mobile-checkbox">
                             <input type="checkbox" v-model="item.checked" />
                         </div>
-                        <TableGallery :data="item" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAllImages" />
+
+                        <!-- Updated mobile gallery with captured images support -->
+                        <div class="mobile-product-image clickable">
+                            <!-- Show captured image if available -->
+                            <div
+                                v-if="
+                                    item.capturedImages &&
+                                    item.capturedImages.capturedimg1
+                                "
+                                class="gallery-thumbnail position-relative"
+                                @click="openImageModal(item)"
+                                style="cursor: pointer"
+                            >
+                                <img
+                                    :src="`/images/product_images/${
+                                        item.company || 'Airstaffs'
+                                    }/${item.capturedImages.capturedimg1}`"
+                                    :alt="getDisplayTitle(item)"
+                                    class="product-thumbnail clickable-image"
+                                    @error="handleImageError"
+                                />
+                                <div
+                                    class="image-count-badge"
+                                    v-if="countCapturedImages(item) > 1"
+                                >
+                                    +{{ countCapturedImages(item) - 1 }}
+                                </div>
+                            </div>
+
+                            <!-- Fallback to regular product image -->
+                            <div
+                                v-else
+                                @click="openImageModal(item)"
+                                style="cursor: pointer"
+                            >
+                                <img
+                                    :src="'/images/thumbnails/' + item.img1"
+                                    :alt="getDisplayTitle(item)"
+                                    class="product-thumbnail clickable-image"
+                                    @error="handleImageError($event)"
+                                />
+                                <div
+                                    class="image-count-badge"
+                                    v-if="countAllImages(item) > 0"
+                                >
+                                    +{{ countAllImages(item) }}
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="mobile-product-info">
                             <h6 class="mobile-product-name clickable">
-                                <span style="font-size: 1rem;">RT# : {{ item.rtcounter }}</span>
-                                <span>{{ item.ProductTitle }}</span>
+                                <span style="font-size: 1rem"
+                                    >RT# : {{ item.rtcounter }}</span
+                                >
+                                <span>{{ getDisplayTitle(item) }}</span>
                             </h6>
-                            <div class="badge" :class="item.validation_status +
-                                '-badge'
-                                ">
+                            <div
+                                class="badge"
+                                :class="item.validation_status + '-badge'"
+                            >
                                 {{ item.validation_status }}
                             </div>
                         </div>
@@ -88,66 +238,90 @@
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">ASIN:</span>
                             <span class="mobile-detal-value">
-                                {{ item.ASIN }}</span>
+                                {{ item.ASIN }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">FNSKU:</span>
                             <span class="mobile-detal-value">
-                                {{ item.FNSKU }}</span>
+                                {{ item.FNSKU }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">Grading:</span>
                             <span class="mobile-detal-value">
-                                {{ item.grading }}</span>
+                                {{ item.grading }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">Quantity:</span>
                             <span class="mobile-detal-value">
-                                {{ item.quantity }}</span>
+                                {{ item.quantity }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
-                            <span class="mobile-detail-label">Fullfilment Status:</span>
+                            <span class="mobile-detail-label"
+                                >Fullfilment Status:</span
+                            >
                             <span class="mobile-detal-value">
-                                {{ item.fulfillment_status }}</span>
+                                {{ item.fulfillment_status }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">Module:</span>
                             <span class="mobile-detal-value">
-                                {{ item.ProductModuleLoc }}</span>
+                                {{ item.ProductModuleLoc }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
-                            <span class="mobile-detail-label">Return Status:</span>
+                            <span class="mobile-detail-label"
+                                >Return Status:</span
+                            >
                             <span class="mobile-detal-value">
-                                {{ item.returnstatus }}</span>
+                                {{ item.returnstatus }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
-                            <span class="mobile-detail-label">Serial Number:</span>
+                            <span class="mobile-detail-label"
+                                >Serial Number:</span
+                            >
                             <span class="mobile-detal-value">
-                                {{ item.serialnumber }}</span>
+                                {{ item.serialnumber }}</span
+                            >
                         </div>
                     </div>
 
                     <hr />
 
-                    <div class="d-flex align-items-center justify-content-evenly">
-                        <!-- <button class="btn btn-details" @click="toggleDetails(index)">
-                            <i class="fas fa-info-circle"></i> Details
-                        </button> -->
-                        <!-- 
-                        <button @click="openEditModal(item)" class="btn btn-fnsku">
-                            <i class="bi bi-clipboard-check"></i> Edit
-                        </button> -->
-                        <Button severity="success" size="small" label="Copy Details" icon="pi pi-clone"
-                            @click="openCopyDetailsModal(item)" />
-                        <Button severity="info" size="small" label="Edit" icon="pi pi-pencil"
-                            @click="openEditModal(item)" />
+                    <div
+                        class="d-flex align-items-center justify-content-evenly"
+                    >
+                        <Button
+                            severity="success"
+                            size="small"
+                            label="Copy Details"
+                            icon="pi pi-clone"
+                            @click="openCopyDetailsModal(item)"
+                        />
+                        <Button
+                            severity="info"
+                            size="small"
+                            label="Edit"
+                            icon="pi pi-pencil"
+                            @click="openEditModal(item)"
+                        />
                     </div>
 
                     <hr v-if="expandedRows[index]" />
 
-                    <div v-if="expandedRows[index]" class="mobile-expanded-content">
+                    <div
+                        v-if="expandedRows[index]"
+                        class="mobile-expanded-content"
+                    >
                         <p>
-                            <strong>External Title provided by Supplier:</strong>
+                            <strong
+                                >External Title provided by Supplier:</strong
+                            >
                             {{ item.ProductTitle }}
                         </p>
                         <p><strong>Product Name:</strong> {{ item.AStitle }}</p>
@@ -161,34 +335,62 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" size="small"
-                        optionLabel="label" optionValue="value" />
-                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                            {{ option }}
-                        </option>
-                    </select> -->
+                    <Select
+                        v-model="perPage"
+                        @change="changePerPage"
+                        :options="rowsPerPage"
+                        size="small"
+                        optionLabel="label"
+                        optionValue="value"
+                    />
                 </div>
 
                 <div class="pagination">
-                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
-                        icon="pi pi-angle-left" size="small" severity="info" />
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
-                        label="Next" icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
+                    <Button
+                        @click="prevPage"
+                        :disabled="currentPage === 1"
+                        class="pagination-button"
+                        label="Back"
+                        icon="pi pi-angle-left"
+                        size="small"
+                        severity="info"
+                    />
+                    <span class="pagination-info"
+                        >Page {{ currentPage }} of {{ totalPages }}</span
+                    >
+                    <Button
+                        @click="nextPage"
+                        :disabled="currentPage === totalPages"
+                        class="pagination-button"
+                        label="Next"
+                        icon="pi pi-angle-right"
+                        size="small"
+                        severity="info"
+                        iconPos="right"
+                    />
                 </div>
             </div>
         </div>
 
         <!-- Image Modal with Tabs -->
-        <ViewImageGalleryModal :showImageModal="showImageModal" :closeImageModal="closeImageModal"
-            :ProductTitle="ProductTitle" :regularImages="regularImages" :capturedImages="capturedImages"
-            :handleImageError="handleImageError" />
+        <ViewImageGalleryModal
+            :showImageModal="showImageModal"
+            :closeImageModal="closeImageModal"
+            :ProductTitle="ProductTitle"
+            :regularImages="regularImages"
+            :capturedImages="capturedImages"
+            :handleImageError="handleImageError"
+        />
 
-
-        <Dialog v-model:visible="showEditModal" modal :style="{ width: '95%' }" header="Edit Product" :pt="{
-            root: { class: 'mobile-fullscreen-dialog' }
-        }">
+        <Dialog
+            v-model:visible="showEditModal"
+            modal
+            :style="{ width: '95%' }"
+            header="Edit Product"
+            :pt="{
+                root: { class: 'mobile-fullscreen-dialog' },
+            }"
+        >
             <div class="edit-order-container">
                 <form method="POST" class="editOrderForm">
                     <div class="form-grid-wrapper">
@@ -197,27 +399,34 @@
                             <div class="image-section" v-if="imageList.length">
                                 <!-- Main Image -->
                                 <div class="main-image">
-                                    <img :src="activeImageUrl" alt="Main Product Image" loading="lazy"
-                                        @error="onImageErrorMain" />
+                                    <img
+                                        :src="activeImageUrl"
+                                        alt="Main Product Image"
+                                        loading="lazy"
+                                        @error="onImageErrorMain"
+                                    />
                                 </div>
 
                                 <!-- Thumbnails -->
                                 <div class="thumbnail-carousel">
-                                    <div v-for="(
-img, index
-                                                ) in imageList" :key="index" :class="[
-                                                    'thumbnail',
-                                                    {
-                                                        active:
-                                                            index ===
-                                                            activeIndex,
-                                                    },
-                                                ]" @click="activeIndex = index" @mouseenter="
-                                                    activeIndex = index
-                                                    ">
-                                        <img :src="basePath + img" alt="Thumbnail" loading="lazy" @error="
-                                            onThumbnailError($event)
-                                            " />
+                                    <div
+                                        v-for="(img, index) in imageList"
+                                        :key="index"
+                                        :class="[
+                                            'thumbnail',
+                                            {
+                                                active: index === activeIndex,
+                                            },
+                                        ]"
+                                        @click="activeIndex = index"
+                                        @mouseenter="activeIndex = index"
+                                    >
+                                        <img
+                                            :src="basePath + img"
+                                            alt="Thumbnail"
+                                            loading="lazy"
+                                            @error="onThumbnailError($event)"
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -228,26 +437,37 @@ img, index
 
                                     <div class="serial-upload">
                                         <!-- hidden file input triggered by button -->
-                                        <input ref="serialInput" type="file" accept="image/*" capture="environment"
-                                            class="form-control hidden" @change="
-                                                onSerialImageSelected
-                                            " />
+                                        <input
+                                            ref="serialInput"
+                                            type="file"
+                                            accept="image/*"
+                                            capture="environment"
+                                            class="form-control hidden"
+                                            @change="onSerialImageSelected"
+                                        />
 
                                         <!-- Live preview -->
                                         <div class="serial-preview">
-                                            <img :src="displaySerialImage
-                                                " alt="Serial number preview" loading="lazy" width="100%" @error="
-                                                    onSerialImgError
-                                                " />
+                                            <img
+                                                :src="displaySerialImage"
+                                                alt="Serial number preview"
+                                                loading="lazy"
+                                                width="100%"
+                                                @error="onSerialImgError"
+                                            />
 
-                                            <div v-if="
-                                                serialImageUploading
-                                            " class="progress">
-                                                <div class="bar" :style="{
-                                                    width:
-                                                        uploadProgress +
-                                                        '%',
-                                                }"></div>
+                                            <div
+                                                v-if="serialImageUploading"
+                                                class="progress"
+                                            >
+                                                <div
+                                                    class="bar"
+                                                    :style="{
+                                                        width:
+                                                            uploadProgress +
+                                                            '%',
+                                                    }"
+                                                ></div>
                                             </div>
                                         </div>
                                     </div>
@@ -260,7 +480,9 @@ img, index
                             <Card>
                                 <template #title>
                                     <div>
-                                        <h6 class="text-primary">General Information</h6>
+                                        <h6 class="text-primary">
+                                            General Information
+                                        </h6>
                                         <Divider />
                                     </div>
                                 </template>
@@ -269,17 +491,35 @@ img, index
                                         <div class="col-md-6">
                                             <fieldset>
                                                 <label>External Title:</label>
-                                                <Textarea ref="productTextarea" class="no-resize"
-                                                    v-model="item.ProductTitle" placeholder="Product Title" rows="2"
-                                                    @input="autoResize" size="small" fluid></Textarea>
+                                                <Textarea
+                                                    ref="productTextarea"
+                                                    class="no-resize"
+                                                    v-model="item.ProductTitle"
+                                                    placeholder="Product Title"
+                                                    rows="2"
+                                                    @input="autoResize"
+                                                    size="small"
+                                                    fluid
+                                                ></Textarea>
                                             </fieldset>
                                         </div>
                                         <div class="col-md-6">
                                             <fieldset>
                                                 <label>Internal Title:</label>
-                                                <Textarea ref="productTextarea" class="no-resize"
-                                                    v-model="item.ProductTitle" placeholder="Product Title" rows="2"
-                                                    @input="autoResize" size="small" fluid readonly disabled></Textarea>
+                                                <Textarea
+                                                    ref="productTextarea"
+                                                    class="no-resize"
+                                                    :value="
+                                                        getDisplayTitle(item)
+                                                    "
+                                                    placeholder="Product Title"
+                                                    rows="2"
+                                                    @input="autoResize"
+                                                    size="small"
+                                                    fluid
+                                                    readonly
+                                                    disabled
+                                                ></Textarea>
                                             </fieldset>
                                         </div>
                                     </div>
@@ -287,29 +527,46 @@ img, index
                                         <div class="col-md-4">
                                             <fieldset>
                                                 <label>RT:</label>
-                                                <InputText type="text" size="small" fluid :value="item.ProductID"
-                                                    placeholder="RT Counter" />
+                                                <InputText
+                                                    type="text"
+                                                    size="small"
+                                                    fluid
+                                                    :value="item.ProductID"
+                                                    placeholder="RT Counter"
+                                                />
                                             </fieldset>
                                         </div>
                                         <div class="col-md-4">
                                             <fieldset>
                                                 <label>ASIN:</label>
-                                                <InputText type="text" size="small" fluid v-model="item.ASIN" readonly
-                                                    disabled />
+                                                <InputText
+                                                    type="text"
+                                                    size="small"
+                                                    fluid
+                                                    v-model="item.ASIN"
+                                                    readonly
+                                                    disabled
+                                                />
                                             </fieldset>
                                         </div>
                                         <div class="col-md-4">
                                             <fieldset>
                                                 <label>FNSKU:</label>
-                                                <InputText type="text" size="small" fluid v-model="item.FNSKU" readonly
-                                                    disabled />
+                                                <InputText
+                                                    type="text"
+                                                    size="small"
+                                                    fluid
+                                                    v-model="item.FNSKU"
+                                                    readonly
+                                                    disabled
+                                                />
                                             </fieldset>
                                         </div>
                                     </div>
                                 </template>
                             </Card>
                             <div class="mt-4 bg-white border-0">
-                                <div class="row ">
+                                <div class="row">
                                     <div class="col-lg-3 mb-2">
                                         <Card>
                                             <template #title>
@@ -320,27 +577,66 @@ img, index
                                             </template>
                                             <template #content>
                                                 <fieldset>
-                                                    <label><span>Order Date:</span></label>
-                                                    <InputText type="date" size=small fluid v-model="item.orderdate" />
+                                                    <label
+                                                        ><span
+                                                            >Order Date:</span
+                                                        ></label
+                                                    >
+                                                    <InputText
+                                                        type="date"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="item.orderdate"
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label><span>Payment Date:</span></label>
-                                                    <InputText type="date" size=small fluid
-                                                        v-model="item.paymentdate" />
+                                                    <label
+                                                        ><span
+                                                            >Payment Date:</span
+                                                        ></label
+                                                    >
+                                                    <InputText
+                                                        type="date"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="
+                                                            item.paymentdate
+                                                        "
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label><span>Shipped Date:</span></label>
-                                                    <InputText type="date" size=small fluid v-model="item.shipdate" />
+                                                    <label
+                                                        ><span
+                                                            >Shipped Date:</span
+                                                        ></label
+                                                    >
+                                                    <InputText
+                                                        type="date"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="item.shipdate"
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label><span>Delivered Date:</span></label>
-                                                    <InputText type="date" size=small fluid
-                                                        v-model="item.datedelivered" />
+                                                    <label
+                                                        ><span
+                                                            >Delivered
+                                                            Date:</span
+                                                        ></label
+                                                    >
+                                                    <InputText
+                                                        type="date"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="
+                                                            item.datedelivered
+                                                        "
+                                                    />
                                                 </fieldset>
                                             </template>
                                         </Card>
                                     </div>
-                                    <div class="col-lg-3  mb-2">
+                                    <div class="col-lg-3 mb-2">
                                         <Card>
                                             <template #title>
                                                 <h6 class="text-primary">
@@ -349,99 +645,218 @@ img, index
                                                 <Divider />
                                             </template>
                                             <template #content>
-                                                <template v-if="serialKeys.length">
-                                                    <fieldset v-for="(
-key, index
-                                                    ) in serialKeys" :key="key">
-                                                        <label>Serial Number
+                                                <template
+                                                    v-if="serialKeys.length"
+                                                >
+                                                    <fieldset
+                                                        v-for="(
+                                                            key, index
+                                                        ) in serialKeys"
+                                                        :key="key"
+                                                    >
+                                                        <label
+                                                            >Serial Number
                                                             {{
                                                                 getLabel(index)
-                                                            }}:</label>
-                                                        <InputText type="text" size="small" fluid v-model="item[key]"
+                                                            }}:</label
+                                                        >
+                                                        <InputText
+                                                            type="text"
+                                                            size="small"
+                                                            fluid
+                                                            v-model="item[key]"
                                                             @blur="
                                                                 checkDuplicateSerial(
                                                                     item[key]
                                                                 )
-                                                                " />
+                                                            "
+                                                        />
                                                     </fieldset>
                                                 </template>
 
-                                                <template v-if="trackingKeys.length">
-                                                    <fieldset v-for="(
-key, index
-                                                    ) in trackingKeys" :key="key">
-                                                        <label>Tracking Number
+                                                <template
+                                                    v-if="trackingKeys.length"
+                                                >
+                                                    <fieldset
+                                                        v-for="(
+                                                            key, index
+                                                        ) in trackingKeys"
+                                                        :key="key"
+                                                    >
+                                                        <label
+                                                            >Tracking Number
                                                             {{
                                                                 index + 1
-                                                            }}:</label>
-                                                        <InputText type="text" size="small" fluid v-model="item[key]" />
+                                                            }}:</label
+                                                        >
+                                                        <InputText
+                                                            type="text"
+                                                            size="small"
+                                                            fluid
+                                                            v-model="item[key]"
+                                                        />
                                                     </fieldset>
                                                 </template>
                                             </template>
                                         </Card>
                                     </div>
-                                    <div class="col-lg-3  mb-2">
+                                    <div class="col-lg-3 mb-2">
                                         <Card>
                                             <template #title>
-                                                <h6 class="text-primary">Product Information</h6>
+                                                <h6 class="text-primary">
+                                                    Product Information
+                                                </h6>
                                                 <Divider />
                                             </template>
                                             <template #content>
                                                 <fieldset>
-                                                    <label><span>Sub-variant:</span></label>
-                                                    <InputText type="text" size="small" fluid
-                                                        v-model="item.itemnumber" />
+                                                    <label
+                                                        ><span
+                                                            >Sub-variant:</span
+                                                        ></label
+                                                    >
+                                                    <InputText
+                                                        type="text"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="
+                                                            item.itemnumber
+                                                        "
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label><span>Order Number:</span></label>
-                                                    <InputText type="text" size="small" fluid :value="item.rtid"
-                                                        placeholder="Order Number" />
+                                                    <label
+                                                        ><span
+                                                            >Order Number:</span
+                                                        ></label
+                                                    >
+                                                    <InputText
+                                                        type="text"
+                                                        size="small"
+                                                        fluid
+                                                        :value="item.rtid"
+                                                        placeholder="Order Number"
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label><span>Item Number:</span></label>
-                                                    <InputText type="text" size="small" fluid
-                                                        v-model="item.itemnumber" />
+                                                    <label
+                                                        ><span
+                                                            >Item Number:</span
+                                                        ></label
+                                                    >
+                                                    <InputText
+                                                        type="text"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="
+                                                            item.itemnumber
+                                                        "
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label><span>Supplier ID/Name:</span></label>
-                                                    <InputText type="text" size="small" fluid v-model="item.seller" />
+                                                    <label
+                                                        ><span
+                                                            >Supplier
+                                                            ID/Name:</span
+                                                        ></label
+                                                    >
+                                                    <InputText
+                                                        type="text"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="item.seller"
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
                                                     <label>Material:</label>
-                                                    <Select v-model="item.materialtype" :options="materialTypesOptions"
-                                                        optionLabel="label" optionValue="value"
-                                                        placeholder="Select material type" size="small" fluid />
+                                                    <Select
+                                                        v-model="
+                                                            item.materialtype
+                                                        "
+                                                        :options="
+                                                            materialTypesOptions
+                                                        "
+                                                        optionLabel="label"
+                                                        optionValue="value"
+                                                        placeholder="Select material type"
+                                                        size="small"
+                                                        fluid
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
                                                     <label>Source Type:</label>
-                                                    <Select v-model="item.sourceType" :options="sourceTypeOptions"
-                                                        optionLabel="label" optionValue="value"
-                                                        placeholder="Select source type" size="small" fluid />
+                                                    <Select
+                                                        v-model="
+                                                            item.sourceType
+                                                        "
+                                                        :options="
+                                                            sourceTypeOptions
+                                                        "
+                                                        optionLabel="label"
+                                                        optionValue="value"
+                                                        placeholder="Select source type"
+                                                        size="small"
+                                                        fluid
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label>Carrier /
-                                                        Courier:</label>
-                                                    <Select v-model="item.carrier" :options="courierOptions"
-                                                        optionLabel="label" optionValue="value"
-                                                        placeholder="Select courier" size="small" fluid />
+                                                    <label
+                                                        >Carrier /
+                                                        Courier:</label
+                                                    >
+                                                    <Select
+                                                        v-model="item.carrier"
+                                                        :options="
+                                                            courierOptions
+                                                        "
+                                                        optionLabel="label"
+                                                        optionValue="value"
+                                                        placeholder="Select courier"
+                                                        size="small"
+                                                        fluid
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label>Listed Condition:</label>
-                                                    <Select v-model="item.listedcondition"
-                                                        :options="listedConditionOptions" optionLabel="label"
-                                                        optionValue="value" placeholder="Select condition" size="small"
-                                                        fluid />
+                                                    <label
+                                                        >Listed
+                                                        Condition:</label
+                                                    >
+                                                    <Select
+                                                        v-model="
+                                                            item.listedcondition
+                                                        "
+                                                        :options="
+                                                            listedConditionOptions
+                                                        "
+                                                        optionLabel="label"
+                                                        optionValue="value"
+                                                        placeholder="Select condition"
+                                                        size="small"
+                                                        fluid
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label>Payment Method:</label>
-                                                    <Select v-model="item.paymentmethod" :options="paymentMethodOptions"
-                                                        optionLabel="label" optionValue="value"
-                                                        placeholder="Select Payment Method" size="small" fluid />
+                                                    <label
+                                                        >Payment Method:</label
+                                                    >
+                                                    <Select
+                                                        v-model="
+                                                            item.paymentmethod
+                                                        "
+                                                        :options="
+                                                            paymentMethodOptions
+                                                        "
+                                                        optionLabel="label"
+                                                        optionValue="value"
+                                                        placeholder="Select Payment Method"
+                                                        size="small"
+                                                        fluid
+                                                    />
                                                 </fieldset>
                                             </template>
                                         </Card>
                                     </div>
-                                    <div class="col-lg-3  mb-2">
+                                    <div class="col-lg-3 mb-2">
                                         <Card>
                                             <template #title>
                                                 <h6 class="text-primary">
@@ -452,50 +867,122 @@ key, index
                                             <template #content>
                                                 <fieldset>
                                                     <label>Module:</label>
-                                                    <InputText type="text" size="small" fluid v-model="item.ProductModuleLoc
-                                                        " readonly disabled />
+                                                    <InputText
+                                                        type="text"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="
+                                                            item.ProductModuleLoc
+                                                        "
+                                                        readonly
+                                                        disabled
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
                                                     <label>Store Name:</label>
-                                                    <Select v-model="item.storename" :options="storenameOptions"
-                                                        optionLabel="label" optionValue="value"
-                                                        placeholder=" Select Store Name" size="small" fluid />
+                                                    <Select
+                                                        v-model="item.storename"
+                                                        :options="
+                                                            storenameOptions
+                                                        "
+                                                        optionLabel="label"
+                                                        optionValue="value"
+                                                        placeholder=" Select Store Name"
+                                                        size="small"
+                                                        fluid
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
                                                     <label>RPN:</label>
-                                                    <InputText type="text" size="small" fluid v-model="item.RPN" />
+                                                    <InputText
+                                                        type="text"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="item.RPN"
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
                                                     <label>PRD:</label>
-                                                    <InputText type="text" size="small" fluid v-model="item.PRD" />
+                                                    <InputText
+                                                        type="text"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="item.PRD"
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
                                                     <label>PCN:</label>
-                                                    <InputText type="text" size="small" fluid v-model="item.PCN" />
+                                                    <InputText
+                                                        type="text"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="item.PCN"
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label>Basket Number:</label>
-                                                    <InputText type="text" size="small" fluid
-                                                        v-model="item.basketnumber" />
+                                                    <label
+                                                        >Basket Number:</label
+                                                    >
+                                                    <InputText
+                                                        type="text"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="
+                                                            item.basketnumber
+                                                        "
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label>Priority Rank:</label>
-                                                    <Select v-model="item.priorityrank" :options="priorityRanksOptions"
-                                                        optionLabel="label" optionValue="value"
-                                                        placeholder=" Select Priority Rank" size="small" fluid />
+                                                    <label
+                                                        >Priority Rank:</label
+                                                    >
+                                                    <Select
+                                                        v-model="
+                                                            item.priorityrank
+                                                        "
+                                                        :options="
+                                                            priorityRanksOptions
+                                                        "
+                                                        optionLabel="label"
+                                                        optionValue="value"
+                                                        placeholder=" Select Priority Rank"
+                                                        size="small"
+                                                        fluid
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label>Validation
-                                                        Status:</label>
-                                                    <Select v-model="item.validation_status"
-                                                        :options="validationStatusOptions" optionLabel="label"
-                                                        optionValue="value" placeholder="Select Validation Status"
-                                                        size="small" fluid />
+                                                    <label
+                                                        >Validation
+                                                        Status:</label
+                                                    >
+                                                    <Select
+                                                        v-model="
+                                                            item.validation_status
+                                                        "
+                                                        :options="
+                                                            validationStatusOptions
+                                                        "
+                                                        optionLabel="label"
+                                                        optionValue="value"
+                                                        placeholder="Select Validation Status"
+                                                        size="small"
+                                                        fluid
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label>Return Status:</label>
-                                                    <InputText type="text" size="small" fluid
-                                                        v-model="item.returnstatus" readonly disabled />
+                                                    <label
+                                                        >Return Status:</label
+                                                    >
+                                                    <InputText
+                                                        type="text"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="
+                                                            item.returnstatus
+                                                        "
+                                                        readonly
+                                                        disabled
+                                                    />
                                                 </fieldset>
                                             </template>
                                         </Card>
@@ -504,30 +991,58 @@ key, index
                             </div>
                             <fieldset>
                                 <label><span>Description:</span></label>
-                                <Textarea ref="descriptionarea" class="no-resize" v-model="item.description"
-                                    placeholder="Description" rows="3" fluid size="small"
-                                    @input="autoResize"></Textarea>
+                                <Textarea
+                                    ref="descriptionarea"
+                                    class="no-resize"
+                                    v-model="item.description"
+                                    placeholder="Description"
+                                    rows="3"
+                                    fluid
+                                    size="small"
+                                    @input="autoResize"
+                                ></Textarea>
                             </fieldset>
 
                             <fieldset>
                                 <label><span>Supplier Notes:</span></label>
-                                <Textarea ref="supplierNotesarea" class="no-resize" v-model="item.supplierNotes"
-                                    placeholder="Supplier Notes" rows="3" fluid size="small"
-                                    @input="autoResize"></Textarea>
+                                <Textarea
+                                    ref="supplierNotesarea"
+                                    class="no-resize"
+                                    v-model="item.supplierNotes"
+                                    placeholder="Supplier Notes"
+                                    rows="3"
+                                    fluid
+                                    size="small"
+                                    @input="autoResize"
+                                ></Textarea>
                             </fieldset>
 
                             <fieldset>
                                 <label><span>Employee Notes:</span></label>
-                                <Textarea ref="employeeNotesarea" class="no-resize" v-model="item.employeeNotes"
-                                    placeholder="Employee Notes" rows="3" fluid size="small"
-                                    @input="autoResize"></Textarea>
+                                <Textarea
+                                    ref="employeeNotesarea"
+                                    class="no-resize"
+                                    v-model="item.employeeNotes"
+                                    placeholder="Employee Notes"
+                                    rows="3"
+                                    fluid
+                                    size="small"
+                                    @input="autoResize"
+                                ></Textarea>
                             </fieldset>
 
                             <fieldset>
                                 <label><span>Sticker Notes:</span></label>
-                                <Textarea ref="stickerNotesarea" class="no-resize" v-model="item.stickerNotes"
-                                    placeholder="Employee Notes" rows="3" fluid size="small"
-                                    @input="autoResize"></Textarea>
+                                <Textarea
+                                    ref="stickerNotesarea"
+                                    class="no-resize"
+                                    v-model="item.stickerNotes"
+                                    placeholder="Employee Notes"
+                                    rows="3"
+                                    fluid
+                                    size="small"
+                                    @input="autoResize"
+                                ></Textarea>
                             </fieldset>
                         </div>
 
@@ -535,46 +1050,74 @@ key, index
                         <div class="form-col-right">
                             <Card class="shadow">
                                 <template #title>
-                                    <h4 class="text-primary">
-                                        Pricing
-                                    </h4>
+                                    <h4 class="text-primary">Pricing</h4>
                                     <Divider />
                                 </template>
                                 <template #content>
                                     <fieldset>
                                         <label><span>Quantity</span></label>
-                                        <InputText type="number" size="small" fluid class="text-end"
-                                            v-model="item.quantity" />
+                                        <InputText
+                                            type="number"
+                                            size="small"
+                                            fluid
+                                            class="text-end"
+                                            v-model="item.quantity"
+                                        />
                                     </fieldset>
 
                                     <fieldset>
                                         <label><span>Total Price</span></label>
-                                        <InputText type="number" size="small" fluid class="text-end"
-                                            v-model="item.price" />
+                                        <InputText
+                                            type="number"
+                                            size="small"
+                                            fluid
+                                            class="text-end"
+                                            v-model="item.price"
+                                        />
                                     </fieldset>
 
                                     <fieldset>
                                         <label><span>Discount</span></label>
-                                        <InputText type="number" size="small" fluid class="text-end"
-                                            v-model="item.Discount" />
+                                        <InputText
+                                            type="number"
+                                            size="small"
+                                            fluid
+                                            class="text-end"
+                                            v-model="item.Discount"
+                                        />
                                     </fieldset>
 
                                     <fieldset>
                                         <label><span>Tax</span></label>
-                                        <InputText type="number" size="small" fluid class="text-end"
-                                            v-model="item.tax" />
+                                        <InputText
+                                            type="number"
+                                            size="small"
+                                            fluid
+                                            class="text-end"
+                                            v-model="item.tax"
+                                        />
                                     </fieldset>
 
                                     <fieldset>
                                         <label><span>Shipping</span></label>
-                                        <InputText type="number" size="small" fluid class="text-end"
-                                            v-model="item.priceshipping" />
+                                        <InputText
+                                            type="number"
+                                            size="small"
+                                            fluid
+                                            class="text-end"
+                                            v-model="item.priceshipping"
+                                        />
                                     </fieldset>
 
                                     <fieldset>
                                         <label><span>Refund</span></label>
-                                        <InputText type="number" size="small" fluid class="text-end"
-                                            v-model="item.refund" />
+                                        <InputText
+                                            type="number"
+                                            size="small"
+                                            fluid
+                                            class="text-end"
+                                            v-model="item.refund"
+                                        />
                                     </fieldset>
 
                                     <!-- Divider -->
@@ -582,15 +1125,26 @@ key, index
 
                                     <fieldset>
                                         <label><span>Unit Price</span></label>
-                                        <InputText type="text" size="small" fluid class="text-end bg-light"
-                                            :value="formattedUnitprice" readonly />
+                                        <InputText
+                                            type="text"
+                                            size="small"
+                                            fluid
+                                            class="text-end bg-light"
+                                            :value="formattedUnitprice"
+                                            readonly
+                                        />
                                     </fieldset>
                                     <!-- Total Summary -->
                                     <fieldset>
                                         <label><span>Grand Total</span></label>
-                                        <InputText type="text" size="small" fluid
-                                            class="text-end bg-light fw-bold text-success" :value="grandTotal"
-                                            readonly />
+                                        <InputText
+                                            type="text"
+                                            size="small"
+                                            fluid
+                                            class="text-end bg-light fw-bold text-success"
+                                            :value="grandTotal"
+                                            readonly
+                                        />
                                     </fieldset>
                                 </template>
                             </Card>
@@ -607,15 +1161,27 @@ key, index
             </template>
         </Dialog>
 
-        <copyDetailsModal :show-modal="showCopyDetailsModal" :item-data="currentCopyItem"
-            @close="closeCopyDetailsModal" />
+        <copyDetailsModal
+            :show-modal="showCopyDetailsModal"
+            :item-data="currentCopyItem"
+            @close="closeCopyDetailsModal"
+        />
 
         <ScrollTop />
     </div>
 </template>
 
 <script>
-import { Button, Card, Dialog, Divider, InputText, ScrollTop, Select, Textarea } from "primevue";
+import {
+    Button,
+    Card,
+    Dialog,
+    Divider,
+    InputText,
+    ScrollTop,
+    Select,
+    Textarea,
+} from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import Houseage from "./houseage.js";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
@@ -632,7 +1198,7 @@ const TABLE_COLUMNS = [
         style: { width: "4rem", minWidth: "4rem" },
     },
     {
-        field: "ProductTitle",
+        field: "AStitle",
         header: "Product Name",
         sortable: true,
         headerStyle: "font-size: 16px;",
@@ -641,7 +1207,7 @@ const TABLE_COLUMNS = [
     },
     {
         header: "Status",
-        field: 'validation_status',
+        field: "validation_status",
         headerStyle: "font-size: 16px;",
         slot: "validationStatus",
         style: { width: "6rem", minWidth: "6rem" },
@@ -650,54 +1216,67 @@ const TABLE_COLUMNS = [
         field: "ASIN",
         header: "ASIN",
         headerStyle: "font-size: 16px;",
-        bodyStyle: { fontSize: "14px" }
+        bodyStyle: { fontSize: "14px" },
     },
     {
         field: "FNSKU",
         header: "FNSKU",
         headerStyle: "font-size: 16px;",
-        bodyStyle: { fontSize: "14px" }
+        bodyStyle: { fontSize: "14px" },
     },
     {
         field: "grading",
         header: "Grading",
         headerStyle: "font-size: 16px;",
-        bodyStyle: { fontSize: "14px" }
+        bodyStyle: { fontSize: "14px" },
     },
     {
         field: "serialnumber",
         header: "Serial Number",
         headerStyle: "font-size: 16px;",
-        bodyStyle: { fontSize: "14px" }
+        bodyStyle: { fontSize: "14px" },
     },
     {
         field: "quantity",
         header: "Quantity",
         headerStyle: "font-size: 16px;",
-        bodyStyle: { fontSize: "14px" }
+        bodyStyle: { fontSize: "14px" },
     },
     {
         field: "fulfillment_status",
         header: "Fullfilment Status",
         headerStyle: "font-size: 16px;",
-        bodyStyle: { fontSize: "14px" }
-    }, {
+        bodyStyle: { fontSize: "14px" },
+    },
+    {
         field: "ProductModuleLoc",
         header: "Module",
         headerStyle: "font-size: 16px;",
-        bodyStyle: { fontSize: "14px" }
+        bodyStyle: { fontSize: "14px" },
     },
     {
         field: "returnstatus",
         header: "Return Status",
         headerStyle: "font-size: 16px;",
-        bodyStyle: { fontSize: "14px" }
+        bodyStyle: { fontSize: "14px" },
     },
-]
+];
 export default {
     mixins: [Houseage],
     components: {
-        XDataTable, Dialog, Divider, Card, Select, InputText, TableGallery, Button, Textarea, ScrollTop, TitlePage, ViewImageGalleryModal, AnimateDiv
+        XDataTable,
+        Dialog,
+        Divider,
+        Card,
+        Select,
+        InputText,
+        TableGallery,
+        Button,
+        Textarea,
+        ScrollTop,
+        TitlePage,
+        ViewImageGalleryModal,
+        AnimateDiv,
     },
     data() {
         return {
@@ -708,23 +1287,26 @@ export default {
                 { label: "XS", value: "XS" },
                 { label: "PS", value: "PS" },
                 { label: "RS", value: "RS" },
-                { label: "B&H", value: "B&H" }
+                { label: "B&H", value: "B&H" },
             ],
             listedConditionOptions: [
                 { label: "New", value: "New" },
                 { label: "Open Box", value: "Open Box" },
                 { label: "Used", value: "Used" },
-                { label: "For parts or not working", value: "For parts or not working" }
+                {
+                    label: "For parts or not working",
+                    value: "For parts or not working",
+                },
             ],
             paymentMethodOptions: [
                 { label: "PayPal", value: "PayPal" },
                 { label: "Credit/Debit Card", value: "Credit/Debit Card" },
                 { label: "Cash", value: "Cash" },
                 { label: "Bank Transfer", value: "Bank Transfer" },
-                { label: "Check", value: "Check" }
+                { label: "Check", value: "Check" },
             ],
-            rowsPerPage: ROWS_PER_PAGE
-        }
+            rowsPerPage: ROWS_PER_PAGE,
+        };
     },
     computed: {
         materialTypesOptions() {
@@ -737,30 +1319,103 @@ export default {
             return this.carrierOptions.map((carrier) => ({
                 value: carrier,
                 label: carrier,
-            }))
+            }));
         },
         storenameOptions() {
             return this.storeNames.map((store) => ({
                 value: store,
                 label: store,
-            }))
+            }));
         },
         priorityRanksOptions() {
-            return this.priorityRanks.map((type) => ({ label: type, value: type }))
+            return this.priorityRanks.map((type) => ({
+                label: type,
+                value: type,
+            }));
         },
         validationStatusOptions() {
-            return this.validationStatuses.map((status) => ({ label: status, value: status }))
+            return this.validationStatuses.map((status) => ({
+                label: status,
+                value: status,
+            }));
         },
         uniqueModuleOptions() {
             return [
                 { value: "", label: "All Modules" },
-                ...this.uniqueModules.map((module) => ({ label: module, value: module }))
-            ]
+                ...this.uniqueModules.map((module) => ({
+                    label: module,
+                    value: module,
+                })),
+            ];
+        },
+    },
+    methods: {
+        transformDataForGallery(data) {
+            // Safety check
+            if (!data) {
+                return {};
+            }
 
-        }
-    }
-}
+            // If captured images exist, use them with full path
+            if (data.capturedImages && data.capturedImages.capturedimg1) {
+                const transformedData = { ...data };
 
+                // Map capturedimg1-12 to img1-12 with full path
+                for (let i = 1; i <= 12; i++) {
+                    const capturedImg = data.capturedImages[`capturedimg${i}`];
+                    if (capturedImg) {
+                        // Add full path: /images/product_images/Airstaffs/
+                        transformedData[
+                            `img${i}`
+                        ] = `/images/product_images/Airstaffs/${capturedImg}`;
+                    } else {
+                        transformedData[`img${i}`] = null;
+                    }
+                }
+
+                // Clear img13-15 since captured images only go up to 12
+                for (let i = 13; i <= 15; i++) {
+                    transformedData[`img${i}`] = null;
+                }
+
+                return transformedData;
+            }
+
+            // Return original data if no captured images exist (fallback to product images)
+            return data;
+        },
+
+        countAllImages(data) {
+            // Safety check
+            if (!data) {
+                return 0;
+            }
+
+            // If captured images exist, count them
+            if (data.capturedImages) {
+                let count = 0;
+                for (let i = 1; i <= 12; i++) {
+                    if (data.capturedImages[`capturedimg${i}`]) {
+                        count++;
+                    }
+                }
+                // Return count if captured images exist
+                if (count > 0) {
+                    return count;
+                }
+            }
+
+            // Otherwise count product images (fallback)
+            let count = 0;
+            for (let i = 1; i <= 15; i++) {
+                if (data[`img${i}`]) {
+                    count++;
+                }
+            }
+            return count;
+        },
+    },
+};
 </script>
 
 <style>
@@ -985,8 +1640,6 @@ button:disabled {
         font-size: 0.8rem;
         margin: 1px;
     }
-
-
 }
 
 .search-container {

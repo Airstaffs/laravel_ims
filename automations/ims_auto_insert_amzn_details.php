@@ -65,6 +65,14 @@ $allSkus = [];
 
 foreach ($stores as $store) {
 
+    if ($store == 'RT') {
+        $storename = 'Renovartech';
+    } else if ($store == 'AR') {
+        $storename = 'Allrenewed';
+    } else {
+        $storename = 'unset_auto_insert';
+    }
+
     $tblname = "tblfnsku";
 
     // ✅ MerchantID per store (this is what equals tblnewlycreatedamznitems.seller_id)
@@ -231,9 +239,9 @@ foreach ($stores as $store) {
                         $hehe = "Available";
 
                         // Inserts into the Connect!
-                        $insertQuery = "INSERT INTO $tblname (FNSKU, MSKU, grading, ASIN, insert_date, fnsku_status, addedby) VALUES ( ?, ?, ?, ?, ?, ?, ?)";
+                        $insertQuery = "INSERT INTO $tblname (FNSKU, MSKU, grading, ASIN, insert_date, fnsku_status, storename, addedby) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?)";
                         $stmt = $Connect->prepare($insertQuery);
-                        $stmt->bind_param("sssssss", $FNSKU, $MSKU, $skucondition, $ASIN, $currentDateTime, $hehe, $user);
+                        $stmt->bind_param("ssssssss", $FNSKU, $MSKU, $skucondition, $ASIN, $currentDateTime, $hehe, $storename, $user);
 
                         if ($stmt->execute()) {
                             $logMessage = "Record inserted successfully for FNSKU: $FNSKU MSKU: $MSKU";
@@ -888,7 +896,7 @@ function archiveOldNewlyCreatedItems(mysqli $Connect): int
     $sql = "
         UPDATE tblnewlycreatedamznitems
         SET cron_insert_status = 'ARCHIVE'
-        WHERE created_date < DATE_SUB(NOW(), INTERVAL 1 WEEK)
+        WHERE event_detail_time < DATE_SUB(NOW(), INTERVAL 1 WEEK)
           AND cron_insert_status = 'FALSE'
     ";
 
