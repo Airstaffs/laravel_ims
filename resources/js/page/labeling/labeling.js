@@ -197,8 +197,58 @@ export default {
             return images;
         },
 
+        allProductImages() {
+            if (!this.currentItem) return [];
+
+            const images = [];
+            const company = this.currentItem.company || "Airstaffs";
+
+            // First, add captured images if they exist
+            if (this.currentItem.capturedImages) {
+                const capturedImagesObj = this.currentItem.capturedImages;
+
+                // Add capturedimg1-12
+                for (let i = 1; i <= 12; i++) {
+                    const fieldName = `capturedimg${i}`;
+                    if (capturedImagesObj[fieldName]) {
+                        images.push(
+                            `/images/product_images/${company}/${capturedImagesObj[fieldName]}`
+                        );
+                    }
+                }
+
+                // Add serial images
+                if (capturedImagesObj.serialimg1) {
+                    images.push(
+                        `/images/product_images/${company}/${capturedImagesObj.serialimg1}`
+                    );
+                }
+                if (capturedImagesObj.serialimg2) {
+                    images.push(
+                        `/images/product_images/${company}/${capturedImagesObj.serialimg2}`
+                    );
+                }
+            }
+
+            // If no captured images, fall back to regular product images (img1-15)
+            if (images.length === 0) {
+                for (let i = 1; i <= 15; i++) {
+                    const fieldName = `img${i}`;
+                    if (this.currentItem[fieldName]) {
+                        images.push(
+                            `/images/thumbnails/${this.currentItem[fieldName]}`
+                        );
+                    }
+                }
+            }
+
+            return images;
+        },
+
         mainImage() {
-            return this.productImages.length > 0 ? this.productImages[0] : null;
+            return this.allProductImages.length > 0
+                ? this.allProductImages[0]
+                : this.defaultImage;
         },
 
         uniqueStores() {
