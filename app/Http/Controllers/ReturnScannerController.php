@@ -277,13 +277,14 @@ class ReturnScannerController extends BasetablesController
                 $serialsToCheck[] = $secondSerial;
             }
             
-            foreach ($serialsToCheck as $serialToCheck) {
+       foreach ($serialsToCheck as $serialToCheck) {
                 $existingSerialCheck = DB::table($this->productTable)
                     ->where(function ($query) use ($serialToCheck) {
                         $query->where('serialnumber', $serialToCheck)
                             ->orWhere('serialnumberb', $serialToCheck);
                     })
-                    ->whereIn('ProductModuleLoc', ['Production Area', 'Stockroom'])
+                  //  ->whereIn('ProductModuleLoc', ['Production Area', 'Stockroom'])
+                    ->whereIn('ProductModuleLoc', ['Production Area'])
                     ->first();
                 
                 if ($existingSerialCheck) {
