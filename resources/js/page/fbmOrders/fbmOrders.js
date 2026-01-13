@@ -127,6 +127,8 @@ export default {
             forms: {}, // holds forms[orderId]
             rateResults: [], // results of getRates
             selectedCarriers: {}, // selectedCarriers[orderId]
+
+            suppressDispenseSelectionSync: false,
         };
     },
     computed: {
@@ -220,8 +222,9 @@ export default {
     },
     methods: {
         // Check if an order can be selected (has dispensed items)
+
         canSelectOrder(order) {
-            return this.hasDispensedItems(order);
+            return this.hasSelectedItems(order);
         },
 
         toggleFilters() {
@@ -232,19 +235,16 @@ export default {
         openShipmentLabelModal() {
             this.showShipmentLabelModal = true;
 
-            // Ensure containers exist
             if (!this.forms) this.forms = {};
             if (!this.selectedCarriers) this.selectedCarriers = {};
-            if (!this.rateResults) this.rateResults = [];
+            if (!this.rateResults) this.rateResults = {}; // ✅ make this an object keyed by orderId
 
-            // selectedShipmentData is expected to be an array of orders
             (this.selectedShipmentData || []).forEach((order) => {
-                const id = order.platform_order_id;
-                if (!id) return;
+                const orderId = order.platform_order_id;
+                if (!orderId) return;
 
-                // Create a default form ONLY if missing
-                if (!this.forms[id]) {
-                    this.forms[id] = {
+                if (!this.forms[orderId]) {
+                    this.forms[orderId] = {
                         deliveryExperience:
                             "DeliveryConfirmationWithoutSignature",
                         length: "",
@@ -252,16 +252,19 @@ export default {
                         height: "",
                         dimensionUnit: "inches",
                         weight: "",
-                        weightUnit: "ounces",
-                        currency: "USD",
-                        shipBy: "",
-                        deliverBy: "",
+                        weightUnit: "pounds",
+                        carrier_description: "", // if you’re using this
                     };
                 }
-            });
 
-            // Force Vue to re-render form immediately (helps sometimes)
-            this.$nextTick(() => this.$forceUpdate());
+                if (!this.selectedCarriers[orderId]) {
+                    this.selectedCarriers[orderId] = ""; // will store serviceId or carrierId+serviceId
+                }
+
+                if (!this.rateResults[orderId]) {
+                    this.rateResults[orderId] = [];
+                }
+            });
         },
 
         closeShipmentLabelModal() {
@@ -952,6 +955,8 @@ export default {
             this.selectedCarriers = {};
 
             const itemIds = this.dispenseItemsSelected.join(",");
+            console.log("Items");
+            console.log(itemIds);
             axios
                 .get("api/fbm-orders/shipping-label-selected-items", {
                     params: { itemIds },
@@ -1051,6 +1056,7 @@ export default {
         },
 
         // Check if order has any dispensed items
+
         hasDispensedItems(order) {
             if (!order || !order.items || !Array.isArray(order.items)) {
                 return false;
@@ -1062,6 +1068,37 @@ export default {
                     (item.dispensed_products &&
                         item.dispensed_products.length > 0) ||
                     (item.dispensed_count && item.dispensed_count > 0)
+                );
+            });
+        },
+
+        hasSelectedItems(order) {
+            const orderPlatformId = order?.platform_order_id;
+            if (!orderPlatformId) return false;
+
+            return (this.dispenseItemsSelected || []).some((v) => {
+                const [oid, itemId] = String(v).split("|");
+                return (
+                    oid === String(orderPlatformId) &&
+                    itemId &&
+                    itemId !== "undefined" &&
+                    itemId !== "null" &&
+                    itemId !== ""
+                );
+            });
+        },
+
+        isOrderSelected(orderId) {
+            if (!orderId) return false;
+
+            return (this.dispenseItemsSelected || []).some((v) => {
+                const [oid, itemId] = String(v).split("|");
+                return (
+                    oid === String(orderId) &&
+                    itemId &&
+                    itemId !== "undefined" &&
+                    itemId !== "null" &&
+                    itemId !== ""
                 );
             });
         },
@@ -1201,9 +1238,10 @@ export default {
         },
 
         // Initialize dispenseItemsSelected on component mount
+        
         initializeDispenseItems() {
             this.dispenseItemsSelected = [];
-
+            
             this.orders.forEach((order) => {
                 if (order.items) {
                     order.items.forEach((item) => {
@@ -1220,6 +1258,7 @@ export default {
             // We only want to auto-check when items are NEWLY dispensed
             // NOT on every page load/refresh
         },
+        
 
         autoCheckOrderAfterDispense(orderId) {
             const orderIndex = this.orders.findIndex(
@@ -3339,6 +3378,30 @@ export default {
         searchQuery() {
             this.currentPage = 1;
             this.fetchOrders();
+        },
+
+        dispenseItemsSelected: {
+            deep: true,
+            handler(val, oldVal) {
+                console.group("🧪 dispenseItemsSelected changed");
+
+                console.log("old:", oldVal);
+                console.log("new:", val);
+
+                // show what's added/removed
+                const oldSet = new Set((oldVal || []).map(String));
+                const newSet = new Set((val || []).map(String));
+                const added = [...newSet].filter((x) => !oldSet.has(x));
+                const removed = [...oldSet].filter((x) => !newSet.has(x));
+
+                console.log("added:", added);
+                console.log("removed:", removed);
+
+                // THIS is the key: shows the stack trace (who triggered it)
+                console.trace("STACK TRACE");
+
+                console.groupEnd();
+            },
         },
     },
     mounted() {

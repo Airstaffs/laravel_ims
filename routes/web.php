@@ -683,6 +683,16 @@ Route::prefix('api/printer-management')->middleware(['auth'])->group(function ()
     Route::delete('divorce-printers/{id}', [PrinterManagementController::class, 'divorcePrinters']);
 });
 
+Route::get('/_debug/php', function () {
+    return response()->json([
+        'php_version' => PHP_VERSION,
+        'sapi' => php_sapi_name(),
+        'memory_limit' => ini_get('memory_limit'),
+        'loaded_ini' => php_ini_loaded_file(),
+        'scanned_ini' => php_ini_scanned_files(),
+    ]);
+});
+
 // Routes for FNSKU List Function
 Route::get('api/fnsku/fnsku-list', [FnskuController::class, 'getFnskuList']);
 Route::post('api/fnsku/update-fnsku', [FnskuController::class, 'updateFnsku']);
