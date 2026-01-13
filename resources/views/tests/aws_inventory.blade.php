@@ -16,8 +16,8 @@
         <label>
             Store:
             <select name="store" id="store-select" required>
-                <option value="RenovarTech">Renovar Tech</option>
-                <option value="AllRenewed">All Renewed</option>
+                <option value="Renovartech">Renovar Tech</option>
+                <option value="Allrenewed">All Renewed</option>
             </select>
         </label>
         <br>

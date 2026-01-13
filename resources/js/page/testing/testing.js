@@ -1,4 +1,4 @@
-import { eventBus } from "../../components/eventBus";
+import { eventBus } from "../../components/eventbus";
 import "../../../css/modules.css";
 import "./testing.css";
 import { DEFAULT_IMAGE } from "../../constant";

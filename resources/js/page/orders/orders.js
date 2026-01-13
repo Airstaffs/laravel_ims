@@ -1,4 +1,4 @@
-import { eventBus } from "../../components/eventBus";
+import { eventBus } from "../../components/eventbus";
 import "../../../css/modules.css";
 import "./orders.css";
 import Swal from "sweetalert2";
