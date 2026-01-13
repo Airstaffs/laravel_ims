@@ -40,16 +40,18 @@
                     severity="secondary"
                     outlined
                 />
-                <Button
-                    label="Detection Training"
-                    target="_blank"
-                    href="url('/aiTraining')"
-                    rel="noopener"
-                    icon="pi pi-search"
-                    outlined
-                    severity="secondary"
+                <Button 
+                    label="Detection Training" 
+                    icon="pi pi-search" 
+                    outlined 
+                    severity="secondary" 
                     size="small"
+                    as="a"
+                    href="/aitraining"
+                    target="_blank"
+                    rel="noopener"
                 />
+
             </div>
         </div>
 
@@ -82,6 +84,7 @@
 
         <!-- Scanner Component -->
         <scanner-component
+            module="received"
             scanner-title="Received Scanner"
             storage-prefix="received"
             :enable-camera="currentStep >= 1"
