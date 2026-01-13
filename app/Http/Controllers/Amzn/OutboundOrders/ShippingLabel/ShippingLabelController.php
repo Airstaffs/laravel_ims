@@ -43,7 +43,20 @@ class ShippingLabelController extends Controller
 
         foreach ($orders as $order) {
             $platformOrderId = $order['platform_order_id'] ?? null;
-            $store = $order['storename'] ?? '';
+            $rawStore = $order['storename'] ?? '';
+
+            $storeKey = strtolower(
+                preg_replace('/\s+/', '', trim($rawStore))
+            );
+
+            $storeMap = [
+                'allrenewed' => 'Allrenewed',
+                'renovartech' => 'Renovartech',
+            ];
+
+            $store = $storeMap[$storeKey] ?? ucfirst($storeKey);
+
+
             $form = $forms[$platformOrderId] ?? null;
 
             if (!$platformOrderId || !$form)
@@ -123,7 +136,7 @@ class ShippingLabelController extends Controller
 
                 // Dates
                 'Shipby_Datetime' => $form['shipBy'],
-                'Delivered_Datetime' => $form['deliverBy'],
+                // 'Delivered_Datetime' => $form['deliverBy'],
             ];
 
             $jsonData = $this->JsonCreation('get_rates', $companydetails, $destinationMarketplace, $data_additionale);

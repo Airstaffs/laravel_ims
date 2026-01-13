@@ -7,6 +7,7 @@ import ScrollFab from "../../components/ScrollFab.vue";
 import PrintInvoiceModal from "./modals/printinvoice.vue";
 import ManualShipmentLabelModal from "./modals/manualshipmentlabel.vue";
 import ManualDispenseModal from "./modals/manualdispense.vue";
+import CarrierModal from "./modals/selectcarrier.vue";
 import Swal from "sweetalert2";
 
 export default {
@@ -17,6 +18,7 @@ export default {
         ScrollFab,
         ManualShipmentLabelModal,
         ManualDispenseModal,
+        CarrierModal,
     },
     data() {
         return {
@@ -84,6 +86,10 @@ export default {
             // for shipment-label modal
             showShipmentLabelModal: false,
             selectedShipmentData: null,
+            rateResultsByOrderId: {}, // { [platform_order_id]: ShippingServiceList[] }
+            selectedCarriers: {}, // { [platform_order_id]: "serviceId" }
+            showCarrierModal: false,
+            carrierModalOrder: null,
 
             // for workHistory modal
             showWorkHistoryModal: false,
@@ -224,7 +230,7 @@ export default {
         // Check if an order can be selected (has dispensed items)
 
         canSelectOrder(order) {
-            return this.hasSelectedItems(order);
+            return this.hasDispensedItems(order);
         },
 
         toggleFilters() {
@@ -237,7 +243,7 @@ export default {
 
             if (!this.forms) this.forms = {};
             if (!this.selectedCarriers) this.selectedCarriers = {};
-            if (!this.rateResults) this.rateResults = {}; // ✅ make this an object keyed by orderId
+            if (!this.rateResultsByOrderId) this.rateResultsByOrderId = {};
 
             (this.selectedShipmentData || []).forEach((order) => {
                 const orderId = order.platform_order_id;
@@ -253,16 +259,16 @@ export default {
                         dimensionUnit: "inches",
                         weight: "",
                         weightUnit: "pounds",
-                        carrier_description: "", // if you’re using this
+                        carrier_description: "",
                     };
                 }
 
-                if (!this.selectedCarriers[orderId]) {
-                    this.selectedCarriers[orderId] = ""; // will store serviceId or carrierId+serviceId
+                if (this.selectedCarriers[orderId] === undefined) {
+                    this.selectedCarriers[orderId] = "";
                 }
 
-                if (!this.rateResults[orderId]) {
-                    this.rateResults[orderId] = [];
+                if (!this.rateResultsByOrderId[orderId]) {
+                    this.rateResultsByOrderId[orderId] = [];
                 }
             });
         },
@@ -278,16 +284,10 @@ export default {
                     return;
                 }
 
-                // basic validation
+                // validate forms...
                 for (const order of this.selectedShipmentData) {
                     const id = order.platform_order_id;
                     const f = this.forms[id];
-
-                    if (!f) {
-                        alert(`Missing form for order ${id}`);
-                        return;
-                    }
-
                     const required = [
                         "length",
                         "width",
@@ -298,7 +298,7 @@ export default {
                         "deliveryExperience",
                     ];
                     for (const k of required) {
-                        if (!f[k]) {
+                        if (!f?.[k]) {
                             alert(`Please fill ${k} for order ${id}`);
                             return;
                         }
@@ -317,15 +317,47 @@ export default {
                     payload
                 );
 
-                // store results
-                this.rateResults = res.data?.results || [];
+                // ✅ normalize into a map
+                const results = res.data?.results || [];
+                const map = {};
+                results.forEach((row) => {
+                    const oid = row.platform_order_id;
+                    const list =
+                        row?.rates?.payload?.ShippingServiceList ||
+                        row?.rates?.ShippingServiceList ||
+                        [];
+                    map[oid] = list;
+                });
 
-                // clear selected carriers because rates changed
+                this.rateResultsByOrderId = map;
+
+                // reset carrier selections (since rates changed)
                 this.selectedCarriers = {};
+                (this.selectedShipmentData || []).forEach((o) => {
+                    if (o.platform_order_id)
+                        this.selectedCarriers[o.platform_order_id] = "";
+                });
             } catch (err) {
                 console.error(err);
                 alert("Get Rates failed. Check console/network.");
             }
+        },
+
+        // select carrier modal
+        openCarrierModal(order) {
+            this.carrierModalOrder = order;
+            this.showCarrierModal = true;
+        },
+
+        closeCarrierModal() {
+            this.showCarrierModal = false;
+            this.carrierModalOrder = null;
+        },
+
+        handleCarrierSelected(rate) {
+            const orderId = this.carrierModalOrder.platform_order_id;
+            this.selectedCarriers[orderId] = rate;
+            this.closeCarrierModal();
         },
 
         openWorkHistoryModal() {
@@ -931,17 +963,13 @@ export default {
             return "N/A"; // Based on screenshot, most show N/A
         },
 
-        getRatesForOrder(orderId) {
-            console.log(this.rateResults[0]);
+        selectCarrier(order, rate) {
+            this.selectedCarriers[order.platform_order_id] = rate;
+            this.closeCarrierModal();
+        },
 
-            const row = (this.rateResults || []).find(
-                (r) => r.platform_order_id === orderId
-            );
-            return (
-                row?.rates?.ShippingServiceList ||
-                row?.rates?.payload?.ShippingServiceList ||
-                []
-            );
+        getRatesForOrder(orderId) {
+            return this.rateResultsByOrderId?.[orderId] || [];
         },
 
         PurchaseShippingLabel() {
@@ -1068,37 +1096,6 @@ export default {
                     (item.dispensed_products &&
                         item.dispensed_products.length > 0) ||
                     (item.dispensed_count && item.dispensed_count > 0)
-                );
-            });
-        },
-
-        hasSelectedItems(order) {
-            const orderPlatformId = order?.platform_order_id;
-            if (!orderPlatformId) return false;
-
-            return (this.dispenseItemsSelected || []).some((v) => {
-                const [oid, itemId] = String(v).split("|");
-                return (
-                    oid === String(orderPlatformId) &&
-                    itemId &&
-                    itemId !== "undefined" &&
-                    itemId !== "null" &&
-                    itemId !== ""
-                );
-            });
-        },
-
-        isOrderSelected(orderId) {
-            if (!orderId) return false;
-
-            return (this.dispenseItemsSelected || []).some((v) => {
-                const [oid, itemId] = String(v).split("|");
-                return (
-                    oid === String(orderId) &&
-                    itemId &&
-                    itemId !== "undefined" &&
-                    itemId !== "null" &&
-                    itemId !== ""
                 );
             });
         },
@@ -1238,10 +1235,10 @@ export default {
         },
 
         // Initialize dispenseItemsSelected on component mount
-        
+
         initializeDispenseItems() {
             this.dispenseItemsSelected = [];
-            
+
             this.orders.forEach((order) => {
                 if (order.items) {
                     order.items.forEach((item) => {
@@ -1258,7 +1255,6 @@ export default {
             // We only want to auto-check when items are NEWLY dispensed
             // NOT on every page load/refresh
         },
-        
 
         autoCheckOrderAfterDispense(orderId) {
             const orderIndex = this.orders.findIndex(
@@ -2591,7 +2587,7 @@ export default {
                 } else {
                     await this.fetchOrders();
                 }
-                this.initializeDispenseItems();
+                //this.initializeDispenseItems();
             } catch (error) {
                 console.error("Error refreshing context:", error);
             }
@@ -3378,30 +3374,6 @@ export default {
         searchQuery() {
             this.currentPage = 1;
             this.fetchOrders();
-        },
-
-        dispenseItemsSelected: {
-            deep: true,
-            handler(val, oldVal) {
-                console.group("🧪 dispenseItemsSelected changed");
-
-                console.log("old:", oldVal);
-                console.log("new:", val);
-
-                // show what's added/removed
-                const oldSet = new Set((oldVal || []).map(String));
-                const newSet = new Set((val || []).map(String));
-                const added = [...newSet].filter((x) => !oldSet.has(x));
-                const removed = [...oldSet].filter((x) => !newSet.has(x));
-
-                console.log("added:", added);
-                console.log("removed:", removed);
-
-                // THIS is the key: shows the stack trace (who triggered it)
-                console.trace("STACK TRACE");
-
-                console.groupEnd();
-            },
         },
     },
     mounted() {

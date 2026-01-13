@@ -104,7 +104,7 @@ foreach (array_keys($storeCredentials) as $store) {
                     $FNSKU = $ASIN;
                 }
 
-                if ($store == 'AR') {
+                if ($store == 'Allrenewed') {
                     $asin_status = (stripos($PRODUCT_NAME, 'renewed') !== false) ? 'Renewed' : null;
                 }
                 $test = $PRODUCT_NAME;
@@ -217,9 +217,9 @@ foreach (array_keys($storeCredentials) as $store) {
                         $hehe = "Available";
 
                         // Inserts into the Connect!
-                        $insertQuery = "INSERT INTO $tblname (FNSKU, MSKU, grading, ASIN, insert_date, fnsku_status, addedby) VALUES ( ?, ?, ?, ?, ?, ?, ?)";
+                        $insertQuery = "INSERT INTO $tblname (FNSKU, MSKU, grading, ASIN, insert_date, fnsku_status, storename, addedby) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?)";
                         $stmt = $Connect->prepare($insertQuery);
-                        $stmt->bind_param("sssssss", $FNSKU, $MSKU, $skucondition, $ASIN, $currentDateTime, $hehe, $user);
+                        $stmt->bind_param("ssssssss", $FNSKU, $MSKU, $skucondition, $ASIN, $currentDateTime, $hehe, $store, $user);
 
                         if ($stmt->execute()) {
                             $logMessage = "Record inserted successfully for FNSKU: $FNSKU MSKU: $MSKU";
@@ -743,25 +743,6 @@ function fetchRDT($credentials, $accessToken, $jsonbody, $nextToken = null)
     } while ($nextToken);
     $data['httpcode'] = $httpcode;
     return $data;
-}
-
-function getMerchantIDorSID($Connect, $store)
-{
-    if ($store == 'RT') {
-        $id = 1; // The id you want to retrieve
-    } else if ($store == 'AR') {
-        $id = 3;
-    }
-
-    $sql = "SELECT SID FROM tblcompanydetails WHERE id = $id";
-    $result = mysqli_query($Connect, $sql);
-
-    if (mysqli_num_rows($result) > 0) {
-        $row = mysqli_fetch_assoc($result);
-        return $row['SID'];
-    } else {
-        return null;
-    }
 }
 
 function fetchGrantlessAccessToken($credentials, $scope)
