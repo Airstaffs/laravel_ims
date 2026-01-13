@@ -32,12 +32,14 @@ class ValidationController extends BasetablesController
             $productTable = 'tblproduct';
             $fnskuTable = 'tblfnsku';
             $asinTable = 'tblasin';
+            $capturedImagesTable = 'tblcapturedimages';
             $company = 'Airstaffs';
 
             Log::info('Tables being used:', [
                 'productTable' => $productTable,
                 'fnskuTable' => $fnskuTable,
                 'asinTable' => $asinTable,
+                'capturedImagesTable' => $capturedImagesTable,
                 'company' => $company,
             ]);
 
@@ -46,14 +48,14 @@ class ValidationController extends BasetablesController
             $location = $request->input('location', 'Validation');
             $includeImages = $request->boolean('include_images', false);
 
-            // UPDATED: Build query with proper joins to include ASIN and metakeyword in search
+            // Build query with proper joins
             $productsQuery = DB::table($productTable.' as prod')
                 ->leftJoin($fnskuTable.' as fnsku', function ($join) {
                     $join->on(DB::raw("CASE 
-                    WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
-                    THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
-                    ELSE prod.FNSKUviewer 
-                END"), '=', 'fnsku.FNSKU');
+                WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
+                THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
+                ELSE prod.FNSKUviewer 
+            END"), '=', 'fnsku.FNSKU');
                 })
                 ->leftJoin($asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                 ->select([
@@ -63,10 +65,10 @@ class ValidationController extends BasetablesController
                     'fnsku.grading',
                     'fnsku.storename',
                     DB::raw("COALESCE(
-                        NULLIF(TRIM(asin.system_title), ''), 
-                        NULLIF(TRIM(asin.internal), ''), 
-                        NULLIF(TRIM(prod.ProductTitle), '')
-                    ) as AStitle"),
+                    NULLIF(TRIM(asin.system_title), ''), 
+                    NULLIF(TRIM(asin.internal), ''), 
+                    NULLIF(TRIM(prod.ProductTitle), '')
+                ) as AStitle"),
                     'asin.internal',
                     'asin.system_title',
                     'asin.metakeyword',
@@ -82,10 +84,8 @@ class ValidationController extends BasetablesController
                             ->orWhere('prod.PCN', 'like', "%{$search}%")
                             ->orWhere('prod.RPN', 'like', "%{$search}%")
                             ->orWhere('prod.PRD', 'like', "%{$search}%")
-                            // Add FNSKU table search
                             ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
                             ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
-                            // Add ASIN table search
                             ->orWhere('asin.internal', 'like', "%{$search}%")
                             ->orWhere('asin.system_title', 'like', "%{$search}%")
                             ->orWhere('asin.metakeyword', 'like', "%{$search}%");
@@ -104,44 +104,52 @@ class ValidationController extends BasetablesController
                 return $product;
             });
 
-            // Step 2 (formerly Step 6): Add images if requested (using filesystem approach)
+            // Add images if requested (using database approach)
             if ($includeImages) {
                 try {
-                    $publicPath = public_path('images/product_images/'.$company);
+                    // Get all ProductIDs from current page
+                    $productIds = $products->pluck('ProductID')->toArray();
 
-                    Log::info('Checking for captured images in path', ['path' => $publicPath]);
+                    // Fetch all captured images for these products in one query
+                    $capturedImagesData = DB::table($capturedImagesTable)
+                        ->whereIn('ProductID', $productIds)
+                        ->get()
+                        ->keyBy('ProductID');
+
+                    Log::info('Fetched captured images from database', [
+                        'count' => $capturedImagesData->count(),
+                    ]);
 
                     // Add captured images data to each product
-                    $products->getCollection()->transform(function ($product) use ($publicPath) {
+                    $products->getCollection()->transform(function ($product) use ($capturedImagesData) {
                         $capturedImages = (object) [];
 
-                        // Check for up to 12 captured images
-                        for ($i = 1; $i <= 12; $i++) {
-                            $filename = $product->ProductID.'_img'.$i.'.jpg';
-                            $filePath = $publicPath.'/'.$filename;
+                        if (isset($capturedImagesData[$product->ProductID])) {
+                            $imageRecord = $capturedImagesData[$product->ProductID];
 
-                            if (file_exists($filePath)) {
-                                $capturedImages->{"capturedimg{$i}"} = $filename;
+                            // Add all 12 captured images
+                            for ($i = 1; $i <= 12; $i++) {
+                                $fieldName = "capturedimg{$i}";
+                                if (! empty($imageRecord->$fieldName)) {
+                                    $capturedImages->$fieldName = $imageRecord->$fieldName;
+                                }
+                            }
+
+                            // Add serial images
+                            if (! empty($imageRecord->serialimg1)) {
+                                $capturedImages->serialimg1 = $imageRecord->serialimg1;
+                            }
+                            if (! empty($imageRecord->serialimg2)) {
+                                $capturedImages->serialimg2 = $imageRecord->serialimg2;
+                            }
+
+                            // Set img1 directly for the main thumbnail display if capturedimg1 exists
+                            if (! empty($imageRecord->capturedimg1)) {
+                                $product->img1 = $imageRecord->capturedimg1;
                             }
                         }
 
-                        // Check for serial images
-                        $serialImg1 = $product->ProductID.'_serialimg1.jpg';
-                        $serialImg2 = $product->ProductID.'_serialimg2.jpg';
-
-                        if (file_exists($publicPath.'/'.$serialImg1)) {
-                            $capturedImages->serialimg1 = $serialImg1;
-                        }
-                        if (file_exists($publicPath.'/'.$serialImg2)) {
-                            $capturedImages->serialimg2 = $serialImg2;
-                        }
-
                         $product->capturedImages = $capturedImages;
-
-                        // Set img1 directly for the main thumbnail display if capturedimg1 exists
-                        if (! empty($capturedImages->capturedimg1)) {
-                            $product->img1 = $capturedImages->capturedimg1;
-                        }
 
                         Log::info('Added captured images to product', [
                             'ProductID' => $product->ProductID,
@@ -151,10 +159,36 @@ class ValidationController extends BasetablesController
 
                         return $product;
                     });
+
+                    $asinPath = public_path('images/asinimg');
+
+                    $products->getCollection()->transform(function ($product) use ($asinPath) {
+                        $asinImages = [];
+
+                        if (! empty($product->ASIN)) {
+                            // Check for ASIN images (up to 10 images)
+                            for ($i = 0; $i < 10; $i++) {
+                                $filename = $product->ASIN.'_'.$i.'.jpg';
+                                $filePath = $asinPath.'/'.$filename;
+
+                                if (file_exists($filePath)) {
+                                    $asinImages[] = $filename;
+                                }
+                            }
+                        }
+
+                        $product->asinImages = $asinImages;
+
+                        return $product;
+                    });
                 } catch (\Exception $e) {
-                    Log::error('Error checking for image files', [
+                    Log::error('Error fetching captured images from database', [
                         'message' => $e->getMessage(),
                         'trace' => $e->getTraceAsString(),
+                    ]);
+
+                    Log::error('Error checking for ASIN images', [
+                        'message' => $e->getMessage(),
                     ]);
 
                     // Continue without images but add empty capturedImages object

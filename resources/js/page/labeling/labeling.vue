@@ -85,8 +85,21 @@
                             <p style="font-size: 0.8rem">
                                 RT# {{ data.rtcounter }}
                             </p>
-                            <p class="fw-semibold">
-                                {{ getDisplayTitle(data) }}
+                            <p>
+                                <span class="fw-semibold">
+                                    External Title:
+                                </span>
+                                <span>{{ data.ProductTitle }}</span>
+                            </p>
+                            <p
+                                v-if="
+                                    data.ProductTitle !== getDisplayTitle(data)
+                                "
+                            >
+                                <span class="fw-semibold">
+                                    Internal Title:
+                                </span>
+                                <span>{{ getDisplayTitle(data) }}</span>
                             </p>
                         </div>
                     </div>
@@ -402,7 +415,10 @@
                 <form method="POST" class="editOrderForm">
                     <div class="form-grid-wrapper">
                         <div class="form-col-left">
-                            <div class="image-section" v-if="imageList.length">
+                            <div
+                                class="image-section"
+                                v-if="imageList.length || hasSerialImages"
+                            >
                                 <!-- Main Image -->
                                 <div class="main-image">
                                     <img
@@ -415,9 +431,10 @@
 
                                 <!-- Thumbnails -->
                                 <div class="thumbnail-carousel">
+                                    <!-- Regular images -->
                                     <div
                                         v-for="(img, index) in imageList"
-                                        :key="index"
+                                        :key="'img-' + index"
                                         :class="[
                                             'thumbnail',
                                             {
@@ -428,14 +445,93 @@
                                         @mouseenter="activeIndex = index"
                                     >
                                         <img
-                                            :src="basePath + img"
-                                            alt="Thumbnail"
+                                            :src="dynamicBasePath + img"
+                                            :alt="'Thumbnail ' + (index + 1)"
+                                            loading="lazy"
+                                            @error="onThumbnailError($event)"
+                                        />
+                                    </div>
+
+                                    <!-- Serial Image 1 -->
+                                    <div
+                                        v-if="
+                                            item.capturedImages &&
+                                            item.capturedImages.serialimg1
+                                        "
+                                        :key="'serial1'"
+                                        :class="[
+                                            'thumbnail',
+                                            'serial-thumbnail',
+                                            {
+                                                active:
+                                                    activeIndex ===
+                                                    imageList.length,
+                                            },
+                                        ]"
+                                        @click="activeIndex = imageList.length"
+                                        @mouseenter="
+                                            activeIndex = imageList.length
+                                        "
+                                    >
+                                        <img
+                                            :src="
+                                                dynamicBasePath +
+                                                item.capturedImages.serialimg1
+                                            "
+                                            alt="Serial Image 1"
+                                            loading="lazy"
+                                            @error="onThumbnailError($event)"
+                                        />
+                                    </div>
+
+                                    <!-- Serial Image 2 -->
+                                    <div
+                                        v-if="
+                                            item.capturedImages &&
+                                            item.capturedImages.serialimg2
+                                        "
+                                        :key="'serial2'"
+                                        :class="[
+                                            'thumbnail',
+                                            'serial-thumbnail',
+                                            {
+                                                active:
+                                                    activeIndex ===
+                                                    imageList.length +
+                                                        (item.capturedImages
+                                                            .serialimg1
+                                                            ? 1
+                                                            : 0),
+                                            },
+                                        ]"
+                                        @click="
+                                            activeIndex =
+                                                imageList.length +
+                                                (item.capturedImages.serialimg1
+                                                    ? 1
+                                                    : 0)
+                                        "
+                                        @mouseenter="
+                                            activeIndex =
+                                                imageList.length +
+                                                (item.capturedImages.serialimg1
+                                                    ? 1
+                                                    : 0)
+                                        "
+                                    >
+                                        <img
+                                            :src="
+                                                dynamicBasePath +
+                                                item.capturedImages.serialimg2
+                                            "
+                                            alt="Serial Image 2"
                                             loading="lazy"
                                             @error="onThumbnailError($event)"
                                         />
                                     </div>
                                 </div>
                             </div>
+
                             <Card>
                                 <template #title>
                                     <div
@@ -987,7 +1083,10 @@
             <div class="row">
                 <div class="col-md-3">
                     <div class="fnsku-image-column">
-                        <div v-if="productImages.length" class="image-display">
+                        <div
+                            v-if="allProductImages.length"
+                            class="image-display"
+                        >
                             <div class="hover-image-container">
                                 <img
                                     :src="selectedImage || mainImage"
@@ -1004,7 +1103,7 @@
 
                             <div class="thumbnail-list overflow-auto">
                                 <img
-                                    v-for="(img, index) in productImages"
+                                    v-for="(img, index) in allProductImages"
                                     :key="index"
                                     :src="img"
                                     alt="Thumbnail"
@@ -1132,10 +1231,12 @@
                     >
                         <template #image="{ data }">
                             <img
-                                :src="getImageSrc(data.ASIN, 0)"
-                                :alt="`Main image for ${data.ASIN}`"
+                                :src="getAsinImageSrc(data)"
+                                :alt="`Main image for ${
+                                    data.ASIN || 'Product'
+                                }`"
                                 class="asin-thumbnail"
-                                @error="setDefaultImage"
+                                @error="handleImageError"
                             />
                         </template>
 

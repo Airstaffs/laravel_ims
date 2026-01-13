@@ -628,11 +628,11 @@
                         <div>
                             <div
                                 class="image-section"
-                                v-show="imageList.length && imageList"
+                                v-show="capturedImageList.length"
                             >
                                 <div class="main-image">
                                     <img
-                                        :src="activeImageUrl"
+                                        :src="activeCapturedImageUrl"
                                         alt="Main Product Image"
                                         loading="lazy"
                                         @error="onImageErrorMain"
@@ -641,19 +641,25 @@
 
                                 <div class="thumbnail-carousel">
                                     <div
-                                        v-for="(img, index) in imageList"
+                                        v-for="(
+                                            img, index
+                                        ) in capturedImageList"
                                         :key="index"
                                         :class="[
                                             'thumbnail',
                                             {
-                                                active: index === activeIndex,
+                                                active:
+                                                    index ===
+                                                    activeCapturedIndex,
                                             },
                                         ]"
-                                        @click="activeIndex = index"
-                                        @mouseenter="activeIndex = index"
+                                        @click="activeCapturedIndex = index"
+                                        @mouseenter="
+                                            activeCapturedIndex = index
+                                        "
                                     >
                                         <img
-                                            :src="basePath + img"
+                                            :src="img"
                                             alt="Thumbnail"
                                             loading="lazy"
                                             @error="onThumbnailError($event)"
@@ -662,7 +668,10 @@
                                 </div>
                             </div>
 
-                            <p class="image-label text-center">
+                            <p
+                                class="image-label text-center"
+                                v-show="capturedImageList.length"
+                            >
                                 <label>
                                     <p>Images from Product</p>
                                 </label>
@@ -674,18 +683,21 @@
                         <div>
                             <div
                                 class="image-section"
-                                v-if="asinImageList.length"
+                                v-if="ASIN && asinImageList.length"
                             >
                                 <div class="main-image">
                                     <img
                                         :src="activeAsinImageUrl"
                                         alt="Main ASIN Image"
                                         loading="lazy"
-                                        @error="onImageErrorMain"
+                                        @error="handleImageError"
                                     />
                                 </div>
 
-                                <div class="thumbnail-carousel">
+                                <div
+                                    class="thumbnail-carousel"
+                                    v-if="asinImageList.length > 1"
+                                >
                                     <div
                                         v-for="(img, index) in asinImageList"
                                         :key="'asin-' + index"
@@ -700,26 +712,53 @@
                                         @mouseenter="activeAsinIndex = index"
                                     >
                                         <img
-                                            :src="asinBasePath + img"
+                                            :src="img"
                                             alt="ASIN Thumbnail"
                                             loading="lazy"
-                                            @error="onThumbnailError($event)"
+                                            @error="handleImageError"
                                         />
                                     </div>
                                 </div>
+
+                                <p class="asin-label text-center">
+                                    <label>
+                                        <p>Image from <strong>ASIN</strong></p>
+                                        <p>{{ ASIN }}</p>
+                                        <p class="fw-semibold">
+                                            {{ getDisplayTitle(item) }}
+                                        </p>
+                                    </label>
+                                </p>
                             </div>
-                            <p class="asin-label text-center" v-if="ASIN">
-                                <label>
-                                    <p>Image from <strong>ASIN</strong></p>
-                                    <p>{{ ASIN }}</p>
-                                </label>
-                            </p>
+
+                            <div class="image-section" v-else>
+                                <div class="main-image">
+                                    <img
+                                        :src="defaultImage"
+                                        alt="No ASIN Image Available"
+                                    />
+                                </div>
+                                <p class="asin-label text-center" v-if="ASIN">
+                                    <label>
+                                        <p>
+                                            No images available for
+                                            <strong>ASIN</strong>
+                                        </p>
+                                        <p>{{ ASIN }}</p>
+                                    </label>
+                                </p>
+                                <p class="asin-label text-center" v-else>
+                                    <label>
+                                        <p>No ASIN available</p>
+                                    </label>
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-10" style="font-size: 14px">
                     <div>
-                        <h3>{{ getDisplayTitle(item) }}</h3>
+                        <h3>{{ item.ProductTitle }}</h3>
                     </div>
 
                     <div class="row mt-4">

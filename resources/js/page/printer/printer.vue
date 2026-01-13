@@ -292,42 +292,44 @@ export default {
   },
   computed: {
     // Filter printers to show only unique entries (no duplicates from married pairs) - FOR MAIN PRINT TAB ONLY
-    uniquePrinters() {
-      if (!this.printers || this.printers.length === 0) {
-        return [];
-      }
+   uniquePrinters() {
+  if (!this.printers || this.printers.length === 0) {
+    return [];
+  }
 
-      const seenMarriageKeys = new Set();
-      const filtered = [];
+  const seenMarriageKeys = new Set();
+  const filtered = [];
+  
+  for (const printer of this.printers) {
+    if (printer.is_married && printer.married_printer && printer.married_printer.id) {
+      // Create a consistent marriage key using sorted printer IDs
+      const marriageIds = [printer.printerid, printer.married_printer.id].sort((a, b) => a - b);
+      const marriageKey = marriageIds.join('-');
       
-      for (const printer of this.printers) {
-        if (printer.is_married && printer.married_printer && printer.married_printer.id) {
-          // Create a consistent marriage key using sorted printer IDs
-          const marriageIds = [printer.printerid, printer.married_printer.id].sort((a, b) => a - b);
-          const marriageKey = marriageIds.join('-');
-          
-          // Only add if we haven't seen this marriage pair yet
-          if (!seenMarriageKeys.has(marriageKey)) {
-            seenMarriageKeys.add(marriageKey);
-            // Always add the printer with the smaller ID for consistency
-            if (printer.printerid === marriageIds[0]) {
-              filtered.push(printer);
-              console.log('Added married printer (primary):', printer.printername_short, '→', printer.married_printer.name);
-            }
-          }
-        } else {
-          // For non-married printers, always add them
+      // Check if we've already processed this marriage pair
+      if (!seenMarriageKeys.has(marriageKey)) {
+        // Always add the printer with the smaller ID for consistency
+        if (printer.printerid === marriageIds[0]) {
           filtered.push(printer);
-          console.log('Added single printer:', printer.printername_short);
+          seenMarriageKeys.add(marriageKey); // ✅ ONLY add to Set AFTER we add the printer
+          console.log('Added married printer (primary):', printer.printername_short, '→', printer.married_printer.name);
         }
+        // If this is the higher-ID printer, mark the marriage as seen but don't add yet
+        // The lower-ID printer will be encountered later and will be added
       }
-      
-      console.log('Total printers loaded:', this.printers.length);
-      console.log('Filtered unique printers:', filtered.length);
-      console.log('Filtered list:', filtered.map(p => `${p.printername_short}${p.is_married ? ' (Married)' : ''}`));
-      
-      return filtered;
-    },
+    } else {
+      // For non-married printers, always add them
+      filtered.push(printer);
+      console.log('Added single printer:', printer.printername_short);
+    }
+  }
+  
+  console.log('Total printers loaded:', this.printers.length);
+  console.log('Filtered unique printers:', filtered.length);
+  console.log('Filtered list:', filtered.map(p => `${p.printername_short}${p.is_married ? ' (Married)' : ''}`));
+  
+  return filtered;
+},
 
     // All individual printers for reprint dropdown - shows ALL printers individually
     allIndividualPrinters() {
@@ -478,53 +480,61 @@ export default {
   },
   
   methods: {
-    async loadPrinters() {
-      this.loadingPrinters = true;
-      try {
-        const response = await fetch('/api/printer/get-printers', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-          }
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Response error:', errorText);
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          const responseText = await response.text();
-          console.error('Non-JSON response:', responseText);
-          throw new Error('Server returned non-JSON response');
-        }
-        
-        const data = await response.json();
-        console.log('Raw API response:', data);
-        
-        if (data.success) {
-          this.printers = data.printers || [];
-          console.log('Loaded printers with marriage info:', this.printers);
-          
-          // Load saved printer selection after printers are loaded
-          this.$nextTick(() => {
-            this.loadSavedPrinter();
-          });
-        } else {
-          console.error('Failed to load printers:', data.message);
-          this.showError('Failed to load printers: ' + data.message);
-        }
-        
-      } catch (error) {
-        console.error('Error loading printers:', error);
-        this.showError('Error loading printers: ' + error.message);
-      } finally {
-        this.loadingPrinters = false;
+  async loadPrinters() {
+  this.loadingPrinters = true;
+  try {
+    console.log('🔍 Loading printers from /api/printer/get-printers');
+    
+    const response = await fetch('/api/printer/get-printers', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
       }
-    },
+    });
+    
+    console.log('📡 Response status:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('📥 Raw data:', data);
+    
+    if (data.success) {
+      this.printers = data.printers || [];
+      console.log('✅ Loaded printers:', this.printers.length);
+      
+      // DEBUG: Show each printer
+      this.printers.forEach(p => {
+        console.log(`Printer ${p.printerid}: ${p.printername_short}`, {
+          type: p.printer_type,
+          is_married: p.is_married,
+          married_to: p.married_printer?.name || 'N/A'
+        });
+      });
+      
+      // DEBUG: Check married printers
+      const married = this.printers.filter(p => p.is_married);
+      console.log(`Found ${married.length} married printers:`, married);
+      
+      this.$nextTick(() => {
+        console.log('uniquePrinters computed:', this.uniquePrinters.length);
+        this.loadSavedPrinter();
+      });
+    } else {
+      console.error('❌ API returned success: false');
+      this.showError('Failed to load printers: ' + data.message);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error:', error);
+    this.showError('Error loading printers: ' + error.message);
+  } finally {
+    this.loadingPrinters = false;
+  }
+},
     
     loadSavedPrinter() {
       // Load saved printer from localStorage for both tabs
