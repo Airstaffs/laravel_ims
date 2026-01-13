@@ -70,6 +70,8 @@ export default {
             asinImageCount: 2,
             loading: false,
             error: null,
+
+            activeCapturedIndex: 0,
         };
     },
     computed: {
@@ -150,19 +152,90 @@ export default {
                 .filter((key) => key.startsWith("img") && this.item[key])
                 .map((key) => this.item[key]);
         },
-        asinImageList() {
-            if (!this.ASIN) return [];
 
-            return Array.from(
-                { length: this.asinImageCount },
-                (_, i) => `${this.ASIN}_${i}.png`
+        asinImageList() {
+            if (!this.item || !this.item.ASIN) return [];
+
+            if (
+                this.item.asinImages &&
+                Array.isArray(this.item.asinImages) &&
+                this.item.asinImages.length > 0
+            ) {
+                return this.item.asinImages.map(
+                    (filename) => `/images/asinimg/${filename}`
+                );
+            }
+
+            const images = [];
+            for (let i = 0; i < this.asinImageCount; i++) {
+                images.push(`/images/asinimg/${this.item.ASIN}_${i}.jpg`);
+            }
+
+            return images;
+        },
+
+        activeAsinImageUrl() {
+            if (!this.asinImageList.length) return this.defaultImage;
+            return (
+                this.asinImageList[this.activeAsinIndex] || this.defaultImage
             );
         },
+
         activeImageUrl() {
             return this.basePath + this.imageList[this.activeIndex];
         },
-        activeAsinImageUrl() {
-            return this.asinBasePath + this.asinImageList[this.activeAsinIndex];
+
+        capturedImageList() {
+            if (!this.item || !this.item.capturedImages) {
+                return [this.defaultImage];
+            }
+
+            const images = [];
+            const companyFolder = this.item.company || "Airstaffs";
+            const capturedImagesObj = this.item.capturedImages;
+
+            // Add capturedimg1 through capturedimg12
+            for (let i = 1; i <= 12; i++) {
+                const fieldName = `capturedimg${i}`;
+                if (this.isValidImage(capturedImagesObj[fieldName])) {
+                    const filename = capturedImagesObj[fieldName];
+                    images.push(
+                        `/images/product_images/${companyFolder}/${filename}`
+                    );
+                }
+            }
+
+            // Add serial images
+            if (this.isValidImage(capturedImagesObj.serialimg1)) {
+                const filename = capturedImagesObj.serialimg1;
+                images.push(
+                    `/images/product_images/${companyFolder}/${filename}`
+                );
+            }
+
+            if (this.isValidImage(capturedImagesObj.serialimg2)) {
+                const filename = capturedImagesObj.serialimg2;
+                images.push(
+                    `/images/product_images/${companyFolder}/${filename}`
+                );
+            }
+
+            // ✅ Return default image if no captured images found
+            if (images.length === 0) {
+                return [this.defaultImage];
+            }
+
+            return images;
+        },
+
+        activeCapturedImageUrl() {
+            if (this.capturedImageList.length === 0) {
+                return this.defaultImage;
+            }
+            return (
+                this.capturedImageList[this.activeCapturedIndex] ||
+                this.defaultImage
+            );
         },
     },
     methods: {
@@ -514,27 +587,22 @@ export default {
                     }
                 );
 
-                console.log("API Response:", response.data); // ADD THIS
-                console.log("Data array:", response.data.data); // ADD THIS
-                console.log("Data count:", response.data.data?.length); // ADD THIS
+                console.log("API Response:", response.data);
+                console.log("First item:", response.data.data[0]);
 
-                // Process the returned data
+                // 🔍 CHECK THIS - Does capturedImages exist?
+                if (response.data.data[0]) {
+                    console.log(
+                        "First item capturedImages:",
+                        response.data.data[0].capturedImages
+                    );
+                }
+
                 this.inventory = response.data.data;
                 this.totalPages = response.data.last_page;
-
-                // Debug first item
-                if (this.inventory.length > 0) {
-                    console.log("First item structure:", this.inventory[0]);
-                    if (this.inventory[0].capturedImages) {
-                        console.log(
-                            "First item capturedImages:",
-                            this.inventory[0].capturedImages
-                        );
-                    }
-                }
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
-                console.error("Error response:", error.response); // ADD THIS
+                console.error("Error response:", error.response);
             } finally {
                 this.loading = false;
             }
@@ -768,17 +836,25 @@ export default {
         async fetchItems() {
             this.loading = true;
             try {
-                const response = await axios.get("/api/validation/products");
+                const response = await axios.get("/api/validation/products", {
+                    params: {
+                        include_images: true,
+                    },
+                });
                 const payload = response.data;
 
-                // handle both array or wrapped array
                 this.items = Array.isArray(payload)
                     ? payload
                     : payload.data || [];
-                console.log(this.items);
+
+                console.log("Fetched items:", this.items);
+                console.log(
+                    "First item capturedImages:",
+                    this.items[0]?.capturedImages
+                );
             } catch (err) {
                 console.error("Fetch failed:", err);
-                this.items = []; // fallback
+                this.items = [];
                 this.error = "Failed to load items.";
             } finally {
                 this.loading = false;
