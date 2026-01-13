@@ -1,22 +1,5 @@
 <template>
     <div class="vue-container return-module">
-        <!-- <div class="top-header">
-            <div class="header-buttons">
-                <button class="btn btn-scan" @click="openScannerModal">
-                    <i class="fas fa-barcode"></i> Scan Items
-                </button>
-            </div>
-
-            <div class="store-filter">
-                <label for="store-select">Store:</label>
-                <select id="store-select" v-model="selectedStore" @change="changeStore" class="store-select">
-                    <option value="">All Stores</option>
-                    <option v-for="store in stores" :key="store" :value="store">
-                        {{ store }}
-                    </option>
-                </select>
-            </div>
-        </div> -->
         <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
             <TitlePage title="Return Scanner Module"
                 subtitle="View and manage the status of all incoming customer product returns for processing." />
@@ -88,6 +71,95 @@
                     </div>
                 </div>
 
+                <!-- ✅ NEW: Multi-Serial Image Capture UI -->
+                <div v-if="needsImageCapture" class="multi-serial-capture-container">
+                    <!-- Progress Header -->
+                    <div class="capture-progress-header">
+                        <h4>📸 Capture Images for Each Serial</h4>
+                        <div class="progress-info">
+                            <span class="current-serial-badge">Serial {{ currentSerialIndex + 1 }} of {{ totalSerials }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Serial Cards List -->
+                    <div class="serial-cards-wrapper">
+                        <div 
+                            v-for="(serial, index) in serialsToCapture" 
+                            :key="index"
+                            class="serial-card"
+                            :class="{
+                                'active': index === currentSerialIndex,
+                                'completed': capturedImagesPerSerial[serial] && capturedImagesPerSerial[serial].length > 0,
+                                'pending': index > currentSerialIndex
+                            }"
+                        >
+                            <!-- Serial Number Display -->
+                            <div class="serial-card-header">
+                                <span class="serial-number">
+                                    <i class="fas fa-tag"></i>
+                                    Serial {{ index + 1 }}: <strong>{{ serial }}</strong>
+                                </span>
+                                <span class="serial-status">
+                                    <i 
+                                        v-if="capturedImagesPerSerial[serial] && capturedImagesPerSerial[serial].length > 0" 
+                                        class="fas fa-check-circle text-success"
+                                    ></i>
+                                    <i 
+                                        v-else-if="index === currentSerialIndex" 
+                                        class="fas fa-camera text-primary"
+                                    ></i>
+                                    <i 
+                                        v-else 
+                                        class="fas fa-clock text-muted"
+                                    ></i>
+                                </span>
+                            </div>
+
+                            <!-- Image Count Display -->
+                            <div class="serial-card-body" v-if="index === currentSerialIndex || (capturedImagesPerSerial[serial] && capturedImagesPerSerial[serial].length > 0)">
+                                <div class="image-count">
+                                    <i class="fas fa-images"></i>
+                                    <span v-if="capturedImagesPerSerial[serial]">
+                                        {{ capturedImagesPerSerial[serial].length }} image(s) captured
+                                    </span>
+                                    <span v-else class="text-muted">
+                                        0 images - Click "Done" when finished
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Current Serial Capture Instructions -->
+                    <div class="capture-instructions">
+                        <div class="instruction-banner">
+                            <i class="fas fa-info-circle"></i>
+                            <span>Currently capturing for: <strong>{{ serialsToCapture[currentSerialIndex] }}</strong></span>
+                        </div>
+                        <p class="instruction-text">
+                            Use the camera above to capture product images. Click "Done with this serial" when finished.
+                        </p>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="capture-actions">
+                        <button 
+                            @click="skipCurrentSerial" 
+                            class="btn-skip"
+                            v-if="currentSerialIndex < totalSerials - 1"
+                        >
+                            <i class="fas fa-forward"></i> Skip (No Images)
+                        </button>
+                        <button 
+                            @click="finishCurrentSerialCapture" 
+                            class="btn-done-serial"
+                        >
+                            <i class="fas fa-check"></i> 
+                            {{ currentSerialIndex < totalSerials - 1 ? 'Done with this Serial' : 'Done - Continue to Location' }}
+                        </button>
+                    </div>
+                </div>
+
                 <div class="input-group">
                     <label>Location:</label>
                     <input type="text" v-model="locationInput" placeholder="Enter Location..."
@@ -95,19 +167,6 @@
                     <div class="container-type-hint">
                         Format: L###X (e.g., L123A) or 'Floor'
                     </div>
-                </div>
-
-
-                <!-- ✅ NEW: Image capture status for multi-serial -->
-                <div v-if="capturingImages" class="image-capture-status">
-                    <div class="capture-banner">
-                        <i class="fas fa-camera"></i>
-                        <span>Capturing images for: <strong>{{ currentCapturingSerial }}</strong></span>
-                        <span class="remaining-count">{{ serialsToCapture.length }} more serial(s) after this</span>
-                    </div>
-                    <button @click="finishCurrentSerialCapture" class="finish-capture-btn">
-                        <i class="fas fa-check"></i> Done with this serial
-                    </button>
                 </div>
 
                 <!-- Submit button (only in manual mode) -->
@@ -173,7 +232,6 @@
                 </XDataTable>
             </div>
         </AnimateDiv>
-
 
         <!-- Mobile Cards View -->
         <AnimateDiv :delay="200" class="mobile-view">
@@ -273,8 +331,6 @@
             <div class="row">
                 <div class="col-md-6 mb-4">
                     <Gallery :item="item" />
-                    <!-- <TableGallery :data="item" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                        :countAdditionalImages="countAdditionalImages" /> -->
                 </div>
                 <div class="col-md-6">
                     <div class="details-container">
@@ -325,18 +381,14 @@
                 </div>
             </div>
         </Dialog>
-        <!-- Bottom pagination (also centered) -->
+
+        <!-- Bottom pagination -->
         <div class="pagination-container">
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
                     <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" size="small"
                         optionLabel="label" optionValue="value" />
-                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                            {{ option }}
-                        </option>
-                    </select> -->
                 </div>
                 <div class="pagination">
                     <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
@@ -367,7 +419,6 @@ import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 
 const TABLE_COLUMNS = [
-
     {
         header: "Gallery",
         slot: "gallery",
@@ -460,7 +511,6 @@ export default {
 .input-with-clear input {
     flex: 1;
     padding-right: 30px;
-    /* Make room for the clear button */
 }
 
 .clear-input-btn {
@@ -485,178 +535,6 @@ export default {
 .clear-input-btn:hover {
     background-color: rgba(0, 0, 0, 0.1);
     color: #333;
-}
-
-/* Image styles */
-.product-image-cell {
-    width: 80px;
-    height: 80px;
-    padding: 5px;
-}
-
-.product-image-container {
-    position: relative;
-    width: 70px;
-    height: 70px;
-    overflow: hidden;
-    border-radius: 4px;
-    cursor: pointer;
-    background-color: #f5f5f5;
-    /* Light background for image container */
-}
-
-.product-thumbnail {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.2s;
-}
-
-.product-thumbnail:hover {
-    transform: scale(1.05);
-}
-
-.image-count-badge {
-    position: absolute;
-    bottom: 5px;
-    right: 5px;
-    background-color: rgba(0, 0, 0, 0.6);
-    color: white;
-    font-size: 11px;
-    padding: 1px 5px;
-    border-radius: 8px;
-}
-
-/* Mobile image styles */
-.mobile-product-image {
-    width: 60px;
-    height: 60px;
-    overflow: hidden;
-    border-radius: 4px;
-    position: relative;
-    margin-right: 10px;
-    background-color: #f5f5f5;
-    /* Light background for image container */
-}
-
-/* Image modal styles */
-.image-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.modal-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
-}
-
-.modal-content {
-    position: relative;
-    max-width: 90%;
-    max-height: 90vh;
-    z-index: 1001;
-    background-color: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.close-button {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    font-size: 24px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    z-index: 1002;
-}
-
-.main-image-container {
-    position: relative;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.modal-main-image {
-    max-width: 100%;
-    max-height: 60vh;
-    object-fit: contain;
-}
-
-.nav-button {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    background-color: rgba(255, 255, 255, 0.5);
-    border: none;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    font-size: 20px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.nav-button.prev {
-    left: 10px;
-}
-
-.nav-button.next {
-    right: 10px;
-}
-
-.image-counter {
-    margin: 10px 0;
-    font-size: 14px;
-}
-
-.thumbnails-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 15px;
-    max-width: 100%;
-    justify-content: center;
-}
-
-.modal-thumbnail {
-    width: 60px;
-    height: 60px;
-    border-radius: 4px;
-    overflow: hidden;
-    cursor: pointer;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
-
-.modal-thumbnail.active {
-    opacity: 1;
-    border: 2px solid #0066cc;
-}
-
-.modal-thumbnail img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
 }
 
 /* Highlight effect for the second serial input when populated automatically */
@@ -733,7 +611,6 @@ export default {
     justify-content: space-between;
     border-bottom: 1px solid rgb(213, 213, 213);
     padding: 6px 0;
-
 }
 
 .search-container {
@@ -751,55 +628,241 @@ export default {
     width: 100% !important;
 }
 
-/* captured button */
-.image-capture-status {
+/* ✅ NEW: Multi-Serial Capture Styles */
+.multi-serial-capture-container {
     margin: 20px 0;
-    padding: 15px;
-    background-color: #e3f2fd;
-    border-radius: 8px;
-    border: 2px solid #2196f3;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
-.capture-banner {
+.capture-progress-header {
+    text-align: center;
+    margin-bottom: 20px;
+    color: white;
+}
+
+.capture-progress-header h4 {
+    margin: 0 0 10px 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.progress-info {
     display: flex;
-    align-items: center;
+    justify-content: center;
     gap: 10px;
-    margin-bottom: 15px;
-    font-size: 16px;
-    color: #1976d2;
 }
 
-.capture-banner i {
+.current-serial-badge {
+    background: rgba(255, 255, 255, 0.3);
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+    backdrop-filter: blur(10px);
+}
+
+.serial-cards-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.serial-card {
+    background: white;
+    border-radius: 10px;
+    padding: 15px;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.serial-card.active {
+    border-color: #4CAF50;
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.3);
+    transform: scale(1.02);
+}
+
+.serial-card.completed {
+    background: #f1f8f4;
+    border-color: #4CAF50;
+}
+
+.serial-card.pending {
+    opacity: 0.6;
+    background: #f5f5f5;
+}
+
+.serial-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.serial-number {
+    font-size: 16px;
+    color: #333;
+}
+
+.serial-number i {
+    margin-right: 8px;
+    color: #666;
+}
+
+.serial-number strong {
+    color: #1976d2;
+    font-family: 'Courier New', monospace;
+}
+
+.serial-status i {
     font-size: 24px;
 }
 
-.remaining-count {
-    margin-left: auto;
+.serial-card-body {
+    padding-top: 10px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.image-count {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 14px;
     color: #666;
 }
 
-.finish-capture-btn {
-    width: 100%;
-    padding: 12px;
-    background-color: #4caf50;
+.image-count i {
+    color: #2196F3;
+}
+
+.capture-instructions {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.instruction-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 16px;
+    color: #1976d2;
+    font-weight: 500;
+}
+
+.instruction-banner i {
+    font-size: 20px;
+}
+
+.instruction-text {
+    margin: 0;
+    font-size: 14px;
+    color: #666;
+    line-height: 1.5;
+}
+
+.capture-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.btn-skip {
+    flex: 1;
+    max-width: 200px;
+    padding: 12px 24px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.5);
     color: white;
-    border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
-.finish-capture-btn:hover {
-    background-color: #45a049;
+.btn-skip:hover {
+    background: rgba(255, 255, 255, 0.3);
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.finish-capture-btn i {
-    margin-right: 8px;
+.btn-done-serial {
+    flex: 2;
+    max-width: 400px;
+    padding: 14px 28px;
+    background: #4CAF50;
+    border: none;
+    color: white;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.btn-done-serial:hover {
+    background: #45a049;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(76, 175, 80, 0.5);
+}
+
+.btn-done-serial i {
+    font-size: 18px;
+}
+
+.text-success {
+    color: #4CAF50 !important;
+}
+
+.text-primary {
+    color: #2196F3 !important;
+}
+
+.text-muted {
+    color: #999 !important;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .multi-serial-capture-container {
+        padding: 15px;
+    }
+
+    .serial-cards-wrapper {
+        gap: 10px;
+    }
+
+    .serial-card {
+        padding: 12px;
+    }
+
+    .capture-actions {
+        flex-direction: column;
+    }
+
+    .btn-skip,
+    .btn-done-serial {
+        max-width: 100%;
+    }
+    
+    .view-details-dialog {
+        width: 95% !important;
+    }
 }
 
 @media (min-width: 768px) {

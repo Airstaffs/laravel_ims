@@ -11,7 +11,7 @@ class tblproduct extends Model
     use HasFactory;
     protected $table = 'tblproduct';
 
-    protected $primaryKey = 'itemnumber';
+    protected $primaryKey = 'ProductID';
 
     public $incrementing = false;
     public $timestamps = false;
