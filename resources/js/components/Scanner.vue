@@ -325,20 +325,26 @@ export default {
   name: 'ScannerComponent',
   mixins: [ScannerMixin],
   props: {
-    // Add a new prop to control whether the scanner button should be shown
     hideButton: {
       type: Boolean,
       default: false
+    },
+
+    // ✅ Controls capture behavior:
+    // - 'received'  => apply step rules + OCR
+    // - 'default'   => free capture
+    module: {
+      type: String,
+      default: 'default'
     }
   },
   data() {
     return {
       isProcessing: false,
       loadingMessage: 'Processing scan...',
-      // Add image preview data
       showImagePreviewModal: false,
       currentImageIndex: 0,
-      
+
       productThumbnails: [],
       showThumbnailsPanel: false,
       showProductImageModal: false,
@@ -346,71 +352,61 @@ export default {
     };
   },
   computed: {
-    // Check if the slot contains a submit button
     hasCustomSubmitButton() {
-      // This is a simplified approach - in a real app, you'd need to use refs or other methods
-      // to detect if the slot content includes a submit button
       const slotContent = this.$slots['input-fields'];
-      return slotContent && slotContent.some(node => 
-        node.tag && 
-        (node.tag.includes('button') || 
-         (node.children && node.children.some(child => 
-           child.tag && child.tag.includes('button')
-         ))
+      return slotContent && slotContent.some(node =>
+        node.tag &&
+        (node.tag.includes('button') ||
+          (node.children && node.children.some(child =>
+            child.tag && child.tag.includes('button')
+          ))
         )
       );
     },
-    
-    // Get the current image being previewed
+
     currentPreviewImage() {
-      if (this.capturedImages.length > 0 && this.currentImageIndex >= 0 && this.currentImageIndex < this.capturedImages.length) {
+      if (
+        this.capturedImages.length > 0 &&
+        this.currentImageIndex >= 0 &&
+        this.currentImageIndex < this.capturedImages.length
+      ) {
         return this.capturedImages[this.currentImageIndex];
       }
       return { data: '', timestamp: '' };
     },
 
-    // Get the current product image being previewed
     currentProductImage() {
-      if (this.productThumbnails.length > 0 && 
-          this.currentProductImageIndex >= 0 && 
-          this.currentProductImageIndex < this.productThumbnails.length) {
+      if (
+        this.productThumbnails.length > 0 &&
+        this.currentProductImageIndex >= 0 &&
+        this.currentProductImageIndex < this.productThumbnails.length
+      ) {
         return this.productThumbnails[this.currentProductImageIndex];
       }
       return { src: '', label: '' };
     }
   },
   methods: {
-    // Open scanner modal - made available for parent components
     openScannerModal() {
       this.showScannerModal = true;
       this.$emit('scanner-opened');
     },
-    
-    // Open the image preview modal
+
     openImagePreview(index) {
       this.currentImageIndex = index;
       this.showImagePreviewModal = true;
-      
-      // Prevent scrolling when modal is open
       document.body.style.overflow = 'hidden';
     },
-    
-    // Close the image preview modal
+
     closeImagePreview() {
       this.showImagePreviewModal = false;
-      
-      // Re-enable scrolling
       document.body.style.overflow = '';
     },
-    
-    // Navigate to previous image
+
     prevImage() {
-      if (this.currentImageIndex > 0) {
-        this.currentImageIndex--;
-      }
+      if (this.currentImageIndex > 0) this.currentImageIndex--;
     },
-    
-    // Navigate to next image
+
     nextImage() {
       if (this.currentImageIndex < this.capturedImages.length - 1) {
         this.currentImageIndex++;
@@ -421,189 +417,87 @@ export default {
       this.isProcessing = true;
       this.loadingMessage = message;
     },
-    
-    // Method to hide loading state
+
     hideLoadingState() {
       this.isProcessing = false;
     },
-    
-    // Exposing loading methods to parent components
+
     startLoading(message) {
       this.showLoadingState(message);
     },
-    
+
     stopLoading() {
       this.hideLoadingState();
     },
-      
-    // Delete the current image from preview
+
     deleteCurrentImage() {
       if (this.capturedImages.length > 0) {
         this.deleteImage(this.currentImageIndex);
-        
-        // Adjust index if needed
+
         if (this.currentImageIndex >= this.capturedImages.length) {
           this.currentImageIndex = Math.max(0, this.capturedImages.length - 1);
         }
-        
-        // Close modal if no images left
+
         if (this.capturedImages.length === 0) {
           this.closeImagePreview();
         }
       }
     },
 
-    // Load product,
+    // =========================
+    // ✅ FREE CAPTURE (default)
+    // =========================
+    async captureFree() {
+      const video = document.getElementById('scanner-camera-preview');
+      if (!video || !this.scannerCameraActive) return;
 
-  // Load product thumbnails based on product data
-  loadProductThumbnails(productData) {
-    this.productThumbnails = [];
-    const basePath = '/images/thumbnails/';
-    
-    // Check the product data for image fields
-    // Add each non-null image to the thumbnails array
-    const imageFields = [
-      { field: 'img1', label: 'Image 1' },
-      { field: 'img2', label: 'Image 2' },
-      { field: 'img3', label: 'Image 3' },
-      { field: 'img4', label: 'Image 4' },
-      { field: 'img5', label: 'Image 5' },
-      { field: 'img6', label: 'Image 6' },
-      { field: 'img7', label: 'Image 7' },
-      { field: 'img8', label: 'Image 8' },
-      { field: 'img9', label: 'Image 9' },
-      { field: 'img10', label: 'Image 10' },
-      { field: 'img11', label: 'Image 11' },
-      { field: 'img12', label: 'Image 12' },
-      { field: 'img13', label: 'Image 13' },
-      { field: 'img14', label: 'Image 14' },
-      { field: 'img15', label: 'Image 15' }
-    ];
-    
-    imageFields.forEach(item => {
-      if (productData && productData[item.field]) {
-        this.productThumbnails.push({
-          src: basePath + productData[item.field],
-          label: item.label
-        });
-      }
-    });
-  },
-  
-  // Open product image preview
-  openProductImagePreview(index) {
-    this.currentProductImageIndex = index;
-    this.showProductImageModal = true;
-    document.body.style.overflow = 'hidden'; // Prevent scrolling
-  },
-  
-  // Close product image preview
-  closeProductImagePreview() {
-    this.showProductImageModal = false;
-    document.body.style.overflow = ''; // Re-enable scrolling
-  },
-  
-  // Navigate to previous product image
-  prevProductImage() {
-    if (this.currentProductImageIndex > 0) {
-      this.currentProductImageIndex--;
-    }
-  },
-  
-  // Navigate to next product image
-  nextProductImage() {
-    if (this.currentProductImageIndex < this.productThumbnails.length - 1) {
-      this.currentProductImageIndex++;
-    }
-  },
-  // Method to clear product thumbnails
-  clearProductThumbnails() {
-    this.productThumbnails = [];
-    this.showProductImageModal = false;
-  },
-  
-  // Capture from the scanner camera
-  async captureFromScanner() {
-    const video = document.getElementById('scanner-camera-preview');
-    if (!video || !this.scannerCameraActive) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
 
-    const currentStep = this.$parent?.currentStep ?? 0;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // 🚫 Step 1: Not allowed
-    if (currentStep < 2) {
-      this.showScanWarning('Capture is only allowed from the product review step onward.');
-      return;
-    }
+      const timestamp = new Date().toLocaleTimeString();
+      const dataUrl = canvas.toDataURL('image/jpeg');
 
-    // 🚫 Step 5+: Not allowed anymore
-    if (currentStep >= 5) {
-      this.showScanWarning('Capture is not allowed beyond Serial number detection.');
-      return;
-    }
+      this.capturedImages.push({ data: dataUrl, timestamp });
+      this.showScanSuccess('Image captured.');
+    },
 
-    // ✅ Step 2: Product image captures (no limit yet unless you set one)
-    if (currentStep === 2 && this.capturedImages.length >= this.maxImages) {
-      this.showScanError(`Maximum of ${this.maxImages} product images allowed.`);
-      return;
-    }
-
-    // ✅ Step 3: Only one image for first serial number
-    if (currentStep === 3 && this.capturedImages.some(img => img.step === 3)) {
-      this.showScanWarning('Only one image allowed for the first serial number.');
-      return;
-    }
-
-    // ✅ Step 4: Only one image for second serial number
-    if (currentStep === 4 && this.capturedImages.some(img => img.step === 4)) {
-      this.showScanWarning('Only one image allowed for the second serial number.');
-      return;
-    }
-
-    // ✅ Capture image
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const timestamp = new Date().toLocaleTimeString();
-    const dataUrl = canvas.toDataURL('image/jpeg');
-    this.capturedImages.push({ data: dataUrl, timestamp, step: currentStep });
-    this.showScanSuccess('Image captured.');
-
-    // ✅ Serial detection for Step 3–4
-    if (currentStep === 3 || currentStep === 4) {
+    // ===================================
+    // ✅ OCR helper (used by Received only)
+    // ===================================
+    async detectSerialFromCanvas(canvas, currentStep) {
       try {
         this.showScanSuccess('Detecting serial number...');
+
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+        if (!blob) throw new Error('Failed to create image blob');
 
         const formData = new FormData();
-        formData.append("file", blob, "capture.jpg");
+        formData.append('file', blob, 'capture.jpg');
 
         const baseURL =
-          window.location.hostname === "localhost" ||
-          window.location.hostname === "127.0.0.1"
-            ? "http://127.0.0.1:8001"
-            : "/fastapi";
+          location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+            ? 'http://127.0.0.1:8001'
+            : '/fastapi';
 
         const response = await fetch(`${baseURL}/detect`, {
-          method: "POST",
-          body: formData,
+          method: 'POST',
+          body: formData
         });
 
-
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        if (!response.ok) throw new Error(`OCR request failed (${response.status})`);
 
         const result = await response.json();
-        console.log('🔍 Serial detection result:', result);
 
-        // 🧠 Ensure parent has apiResults container
+        // Ensure parent container exists
         if (this.$parent) {
           if (!this.$parent.apiResult) {
             this.$parent.apiResult = { step3: null, step4: null };
           }
 
-          // Save per-step result persistently
           if (currentStep === 3) {
             this.$parent.apiResult.step3 = result;
           } else if (currentStep === 4) {
@@ -611,31 +505,164 @@ export default {
           }
         }
 
-        // ✅ Extract and assign detected serial number
-        if (result.serials && result.serials.length > 0) {
-          const detectedSerial = result.serials[0];
-          if (currentStep === 3) {
-            this.$parent.firstSerialNumber = detectedSerial;
-            this.showScanSuccess(`✅ Serial #1 detected: ${detectedSerial}`);
-          } else if (currentStep === 4) {
-            this.$parent.secondSerialNumber = detectedSerial;
-            this.showScanSuccess(`✅ Serial #2 detected: ${detectedSerial}`);
+        const detectedSerial = result?.serials?.[0];
+
+        if (detectedSerial) {
+          if (this.$parent) {
+            if (currentStep === 3) this.$parent.firstSerialNumber = detectedSerial;
+            if (currentStep === 4) this.$parent.secondSerialNumber = detectedSerial;
           }
+
+          this.showScanSuccess(
+            currentStep === 3
+              ? `✅ Serial #1 detected: ${detectedSerial}`
+              : `✅ Serial #2 detected: ${detectedSerial}`
+          );
         } else {
-          this.showScanWarning('⚠️ No serials detected in image.');
+          this.showScanWarning('⚠️ No serial detected.');
         }
       } catch (err) {
         console.error('OCR API error:', err);
-        this.showScanError('❌ Failed to detect serial number.');
+        this.showScanError('❌ Serial detection failed.');
       }
+    },
+
+    // ==========================================
+    // ✅ Dispatcher: decides which capture to run
+    // ==========================================
+    async captureFromScanner() {
+      // Extra safety guard
+      if (!this.scannerCameraActive) return;
+
+      if (this.module === 'received') {
+        return this.captureReceived();
+      }
+      return this.captureFree();
+    },
+
+    // ============================
+    // Existing thumbnails functions
+    // ============================
+    loadProductThumbnails(productData) {
+      this.productThumbnails = [];
+      const basePath = '/images/thumbnails/';
+
+      const imageFields = [
+        { field: 'img1', label: 'Image 1' },
+        { field: 'img2', label: 'Image 2' },
+        { field: 'img3', label: 'Image 3' },
+        { field: 'img4', label: 'Image 4' },
+        { field: 'img5', label: 'Image 5' },
+        { field: 'img6', label: 'Image 6' },
+        { field: 'img7', label: 'Image 7' },
+        { field: 'img8', label: 'Image 8' },
+        { field: 'img9', label: 'Image 9' },
+        { field: 'img10', label: 'Image 10' },
+        { field: 'img11', label: 'Image 11' },
+        { field: 'img12', label: 'Image 12' },
+        { field: 'img13', label: 'Image 13' },
+        { field: 'img14', label: 'Image 14' },
+        { field: 'img15', label: 'Image 15' }
+      ];
+
+      imageFields.forEach(item => {
+        if (productData && productData[item.field]) {
+          this.productThumbnails.push({
+            src: basePath + productData[item.field],
+            label: item.label
+          });
+        }
+      });
+    },
+
+    openProductImagePreview(index) {
+      this.currentProductImageIndex = index;
+      this.showProductImageModal = true;
+      document.body.style.overflow = 'hidden';
+    },
+
+    closeProductImagePreview() {
+      this.showProductImageModal = false;
+      document.body.style.overflow = '';
+    },
+
+    prevProductImage() {
+      if (this.currentProductImageIndex > 0) this.currentProductImageIndex--;
+    },
+
+    nextProductImage() {
+      if (this.currentProductImageIndex < this.productThumbnails.length - 1) {
+        this.currentProductImageIndex++;
+      }
+    },
+
+    clearProductThumbnails() {
+      this.productThumbnails = [];
+      this.showProductImageModal = false;
+    },
+
+    // ==================================
+    // ✅ RECEIVED CAPTURE (restricted flow)
+    // ==================================
+    async captureReceived() {
+      const video = document.getElementById('scanner-camera-preview');
+      if (!video || !this.scannerCameraActive) return;
+
+      const currentStep = this.$parent?.currentStep ?? 0;
+
+      // 🚫 Step 1: Not allowed
+      if (currentStep < 2) {
+        this.showScanWarning('Capture is only allowed from the product review step onward.');
+        return;
+      }
+
+      // 🚫 Step 5+: Not allowed anymore
+      if (currentStep >= 5) {
+        this.showScanWarning('Capture is not allowed beyond Serial number detection.');
+        return;
+      }
+
+      // ✅ Step 2 limit
+      if (currentStep === 2 && this.capturedImages.length >= this.maxImages) {
+        this.showScanError(`Maximum of ${this.maxImages} product images allowed.`);
+        return;
+      }
+
+      // ✅ Step 3: only one
+      if (currentStep === 3 && this.capturedImages.some(img => img.step === 3)) {
+        this.showScanWarning('Only one image allowed for the first serial number.');
+        return;
+      }
+
+      // ✅ Step 4: only one
+      if (currentStep === 4 && this.capturedImages.some(img => img.step === 4)) {
+        this.showScanWarning('Only one image allowed for the second serial number.');
+        return;
+      }
+
+      // ✅ Capture
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const timestamp = new Date().toLocaleTimeString();
+      const dataUrl = canvas.toDataURL('image/jpeg');
+
+      this.capturedImages.push({ data: dataUrl, timestamp, step: currentStep });
+      this.showScanSuccess('Image captured.');
+
+      // ✅ Step 3–4 OCR
+      if (currentStep === 3 || currentStep === 4) {
+        await this.detectSerialFromCanvas(canvas, currentStep);
+      }
+
+      setTimeout(() => {
+        this.showSuccessNotification = false;
+      }, 2000);
     }
-
-    // 🔕 Hide success notification after short delay
-    setTimeout(() => {
-      this.showSuccessNotification = false;
-    }, 2000);
-  }
-
   }
 };
 </script>
