@@ -724,6 +724,9 @@
                                     <label>
                                         <p>Image from <strong>ASIN</strong></p>
                                         <p>{{ ASIN }}</p>
+                                        <p class="fw-semibold">
+                                            {{ getDisplayTitle(item) }}
+                                        </p>
                                     </label>
                                 </p>
                             </div>
@@ -755,7 +758,7 @@
                 </div>
                 <div class="col-md-10" style="font-size: 14px">
                     <div>
-                        <h3>{{ getDisplayTitle(item) }}</h3>
+                        <h3>{{ item.ProductTitle }}</h3>
                     </div>
 
                     <div class="row mt-4">

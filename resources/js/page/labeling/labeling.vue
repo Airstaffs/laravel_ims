@@ -85,8 +85,21 @@
                             <p style="font-size: 0.8rem">
                                 RT# {{ data.rtcounter }}
                             </p>
-                            <p class="fw-semibold">
-                                {{ getDisplayTitle(data) }}
+                            <p>
+                                <span class="fw-semibold">
+                                    External Title:
+                                </span>
+                                <span>{{ data.ProductTitle }}</span>
+                            </p>
+                            <p
+                                v-if="
+                                    data.ProductTitle !== getDisplayTitle(data)
+                                "
+                            >
+                                <span class="fw-semibold">
+                                    Internal Title:
+                                </span>
+                                <span>{{ getDisplayTitle(data) }}</span>
                             </p>
                         </div>
                     </div>
@@ -1218,10 +1231,12 @@
                     >
                         <template #image="{ data }">
                             <img
-                                :src="getImageSrc(data.ASIN, 0)"
-                                :alt="`Main image for ${data.ASIN}`"
+                                :src="getAsinImageSrc(data)"
+                                :alt="`Main image for ${
+                                    data.ASIN || 'Product'
+                                }`"
                                 class="asin-thumbnail"
-                                @error="setDefaultImage"
+                                @error="handleImageError"
                             />
                         </template>
 

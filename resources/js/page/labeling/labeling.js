@@ -2204,6 +2204,16 @@ export default {
                     });
                 });
         },
+
+        getAsinImageSrc(item) {
+            // If ASIN exists, try to load the vector image
+            if (item.ASIN) {
+                return `/images/asinvectorsimg/${item.ASIN}.png`;
+            }
+
+            // No ASIN, return default image
+            return this.defaultImage;
+        },
     },
 
     watch: {
