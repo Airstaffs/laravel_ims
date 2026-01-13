@@ -17,7 +17,7 @@
             <img
               v-for="(img, i) in cls.images.slice(0, 4)"
               :key="i"
-              :src="SITE_URL + img"
+              :src="img"
               class="w-20 h-20 object-cover rounded border border-gray-600"
             />
           </div>
@@ -64,33 +64,34 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import useTraining from '../scripts/training-script.js'
 
 const { datasetClasses, fetchClassFolders } = useTraining()
-
-const SITE_URL = window.location.origin.includes('localhost')
-  ? 'http://localhost:8001'
-  : 'https://test.techniquyality.com'
+// const SITE_URL = window.location.origin
 
 // 🪟 Modal state
 const showClassModal = ref(false)
 const selectedClassImages = ref([])
 const classCurrentIndex = ref(0)
 
+// 🔥 THIS IS THE MISSING PIECE
+onMounted(() => {
+  fetchClassFolders()
+})
+
 function openClassModal(cls) {
-  selectedClassImages.value = cls.images.map(img => SITE_URL + img)
+  selectedClassImages.value = cls.images
   classCurrentIndex.value = 0
   showClassModal.value = true
 }
 
 function nextClassImage() {
-  if (!selectedClassImages.value.length) return
-  classCurrentIndex.value = (classCurrentIndex.value + 1) % selectedClassImages.value.length
+  classCurrentIndex.value =
+    (classCurrentIndex.value + 1) % selectedClassImages.value.length
 }
 
 function prevClassImage() {
-  if (!selectedClassImages.value.length) return
   classCurrentIndex.value =
     (classCurrentIndex.value - 1 + selectedClassImages.value.length) %
     selectedClassImages.value.length
