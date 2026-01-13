@@ -55,6 +55,9 @@ Route::prefix('training')->group(function () {
     /* 📦 Upload dataset */
     Route::post('/upload-dataset', [TrainingProxyController::class, 'uploadDataset']);
 
+    Route::get('/class-image/{class}/{file}', [TrainingProxyController::class, 'classImage'])
+    ->where('file', '.*');
+
     /* 🚀 Start training */
     Route::post('/start-training', [TrainingProxyController::class, 'startTraining']);
 

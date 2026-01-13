@@ -87,7 +87,6 @@ class TrainingProxyController extends Controller
         );
     }
 
-
     /* ===============================
      | 🚀 Start training (JSON)
      =============================== */
@@ -113,32 +112,40 @@ class TrainingProxyController extends Controller
      =============================== */
     public function trainingStream(Request $request)
     {
+        // forward query params to FastAPI (model_name is required)
         $url = $this->trainingUrl('/api/training-stream') . '?' . http_build_query($request->query());
 
         return new StreamedResponse(function () use ($url) {
-            $response = Http::withOptions([
+            $res = Http::withOptions([
                 'stream'  => true,
                 'timeout' => 0,
+                'verify'  => false,
             ])->get($url);
 
-            if (!$response->ok()) {
+            if (!$res->ok()) {
                 echo "data: [ERROR] Training server unavailable\n\n";
-                flush();
+                @ob_flush(); @flush();
                 return;
             }
 
-            $body = $response->toPsrResponse()->getBody();
+            $body = $res->toPsrResponse()->getBody();
 
+            // stream raw SSE
             while (!$body->eof()) {
-                echo $body->read(1024);
-                ob_flush();
-                flush();
+                $chunk = $body->read(1024);
+                if ($chunk === '') {
+                    usleep(200000); // 0.2 sec
+                    continue;
+                }
+                echo $chunk;
+                @ob_flush();
+                @flush();
             }
         }, 200, [
-            'Content-Type'        => 'text/event-stream',
-            'Cache-Control'       => 'no-cache',
-            'Connection'          => 'keep-alive',
-            'X-Accel-Buffering'   => 'no', // 🔥 REQUIRED for Nginx SSE
+            'Content-Type'      => 'text/event-stream',
+            'Cache-Control'     => 'no-cache',
+            'Connection'        => 'keep-alive',
+            'X-Accel-Buffering' => 'no',
         ]);
     }
 

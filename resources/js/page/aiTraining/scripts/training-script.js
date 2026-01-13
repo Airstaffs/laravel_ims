@@ -1,3 +1,4 @@
+// training-script.js
 import { ref, nextTick, watch } from 'vue'
 import axios from 'axios'
 
@@ -14,7 +15,7 @@ const logContainer = ref(null)
 const showAdvancedConfig = ref(false)
 
 const config = ref({
-  modelType: 'YOLOv8-cls',   // fixed display only
+  modelType: 'YOLOv8-cls',
   epochs: 20,
   split: 80,
   modelName: 'asin_classifier',
@@ -25,7 +26,7 @@ const config = ref({
 const status = ref({
   started: false,
   finished: false,
-  canceled: false
+  canceled: false,
 })
 
 const trainingActive = ref(false)
@@ -33,6 +34,121 @@ const autoScroll = ref(true)
 const datasetClasses = ref([])
 
 let eventSource = null
+let reconnectTimer = null
+let reconnectAttempts = 0
+const MAX_RECONNECT = 30 // 30 tries * 3s = 90s window
+
+// ========================
+// Helpers
+// ========================
+function pushLog(line) {
+  if (!line) return
+  logs.value.push(line)
+}
+
+function closeStream() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
+  }
+}
+
+function markFinished() {
+  trainingActive.value = false
+  status.value.started = false
+  status.value.finished = true
+  status.value.canceled = false
+  pushLog('✅ Training finished')
+  closeStream()
+}
+
+function markStopped(canceled = false) {
+  trainingActive.value = false
+  status.value.started = false
+  status.value.finished = false
+  status.value.canceled = canceled
+  closeStream()
+}
+
+// Detect end of training from logs
+function isTrainingDoneLine(line) {
+  // ultralytics often prints these near the end
+  return (
+    line.includes('Results saved to') ||
+    line.includes('epochs completed') ||
+    line.includes('Validation') && line.includes('weights') ||
+    line.includes('[DONE]')
+  )
+}
+
+// ========================
+// SSE Connect (with retry)
+// ========================
+function connectStream(modelName) {
+  // guard
+  if (!modelName) return
+
+  closeStream()
+  reconnectAttempts = 0
+
+  const url = `${API_BASE}/training-stream?model_name=${encodeURIComponent(modelName)}`
+  pushLog('📡 Training stream connected')
+
+  const open = () => {
+    eventSource = new EventSource(url)
+
+    eventSource.onmessage = (e) => {
+      const line = (e?.data ?? '').toString()
+
+      // Filter any accidental HTML
+      if (line.trim().startsWith('<!DOCTYPE') || line.trim().startsWith('<html')) {
+        pushLog('⚠️ Stream proxy returned HTML; retrying...')
+        eventSource?.close()
+        scheduleReconnect(modelName)
+        return
+      }
+
+      pushLog(line)
+
+      if (isTrainingDoneLine(line)) {
+        markFinished()
+      }
+    }
+
+    eventSource.onerror = () => {
+      // Do NOT treat as fatal. Reconnect.
+      if (!trainingActive.value) {
+        closeStream()
+        return
+      }
+
+      pushLog('⚠️ Stream disconnected, retrying...')
+      eventSource?.close()
+      scheduleReconnect(modelName)
+    }
+  }
+
+  const scheduleReconnect = (mn) => {
+    if (reconnectAttempts >= MAX_RECONNECT) {
+      pushLog('❌ Stream unstable too long. Training may still be running. Click "Start" again to reattach.')
+      // keep trainingActive true? better to keep true so UI shows cancel
+      // but stream is dead; user can refresh or reattach
+      closeStream()
+      return
+    }
+
+    reconnectAttempts += 1
+    reconnectTimer = setTimeout(() => {
+      if (trainingActive.value) open()
+    }, 3000)
+  }
+
+  open()
+}
 
 // ========================
 // Load dataset classes
@@ -58,23 +174,19 @@ async function uploadDataset(file, split = 80) {
     uploading.value = true
     uploadProgress.value = 0
 
-    const res = await axios.post(
-      `${API_BASE}/upload-dataset`,
-      formData,
-      {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress(e) {
-          if (e.total) {
-            uploadProgress.value = Math.round((e.loaded * 100) / e.total)
-          }
+    const res = await axios.post(`${API_BASE}/upload-dataset`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress(e) {
+        if (e.total) {
+          uploadProgress.value = Math.round((e.loaded * 100) / e.total)
         }
-      }
-    )
+      },
+    })
 
-    logs.value.push('📁 Dataset uploaded')
+    pushLog('📁 Dataset uploaded')
     return res.data
   } catch (err) {
-    logs.value.push('❌ Upload failed')
+    pushLog('❌ Upload failed')
     console.error(err)
   } finally {
     uploading.value = false
@@ -82,39 +194,81 @@ async function uploadDataset(file, split = 80) {
 }
 
 // ========================
-// Start training (SSE)
+// Start training
 // ========================
-function startTraining() {
-  logs.value.push('🚀 Training started')
-  trainingActive.value = true
+async function startTraining() {
+  if (trainingActive.value) return
 
-  axios.post(`${API_BASE}/start-training`, {
-      model_type: config.value.modelType,
+  if (!datasetClasses.value.length) {
+    pushLog('❌ No dataset found. Upload dataset first.')
+    return
+  }
+
+  const modelName = config.value.modelName
+
+  try {
+    trainingActive.value = true
+    status.value.started = true
+    status.value.finished = false
+    status.value.canceled = false
+
+    pushLog('🚀 Training started')
+
+    // Start training backend (Laravel -> FastAPI)
+    await axios.post(`${API_BASE}/start-training`, {
       epochs: config.value.epochs,
-      split: config.value.split,
-      model_name: config.value.modelName,
+      model_name: modelName,
       auto_replace: config.value.autoReplace,
       use_gpu: config.value.useGPU,
+      // optional
+      imgsz: 224,
+      batch: 8,
     })
 
-
-  eventSource = new EventSource(`${API_BASE}/training-stream`)
-
-  eventSource.onmessage = (e) => {
-    logs.value.push(e.data)
-
-    if (e.data.includes('[DONE]')) {
-      trainingActive.value = false
-      status.value.finished = true
-      eventSource.close()
-    }
+    // Attach SSE stream AFTER successful start
+    connectStream(modelName)
+  } catch (err) {
+    console.error(err)
+    pushLog('❌ Failed to start training')
+    markStopped(false)
   }
+}
 
-  eventSource.onerror = () => {
-    logs.value.push('❌ Training stream closed')
-    trainingActive.value = false
-    eventSource.close()
-  }
+// ========================
+// Cancel training (optional endpoint)
+// ========================
+async function cancelTraining() {
+  if (!trainingActive.value) return
+
+  pushLog('❌ Training canceled by user')
+
+  try {
+    // If you don’t have this endpoint yet, it will just fail silently
+    await axios.post(`${API_BASE}/cancel-training`, {
+      model_name: config.value.modelName,
+    })
+  } catch (_) {}
+
+  markStopped(true)
+}
+
+// ========================
+// Update / Retrain
+// ========================
+async function updateModel() {
+  pushLog('🧠 Updating model...')
+
+  await axios.post(`${API_BASE}/update-model`, {
+    model_name: config.value.modelName,
+  })
+
+  pushLog('✅ Model updated')
+}
+
+function retrainModel() {
+  pushLog('🔁 Retraining started')
+  status.value.finished = false
+  startTraining()
 }
 
 // ========================
@@ -128,20 +282,20 @@ watch(logs, async () => {
 })
 
 // ========================
-// Handle dataset files from UploadDataset.vue
+// Handle dataset files
 // ========================
 async function handleDatasetFiles(files) {
   if (!files || !files.length) return
-
   const file = files[0]
+  pushLog(`📦 Uploading ${file.name}...`)
 
-  logs.value.push(`📦 Uploading ${file.name}...`)
-  await uploadDataset(file)
-
-  // Refresh class folders after upload
+  await uploadDataset(file, config.value.split)
   await fetchClassFolders()
 }
 
+// ========================
+// Export composable
+// ========================
 export default function useTraining() {
   return {
     logs,
@@ -158,6 +312,10 @@ export default function useTraining() {
     fetchClassFolders,
     uploadDataset,
     handleDatasetFiles,
+
     startTraining,
+    cancelTraining,
+    updateModel,
+    retrainModel,
   }
 }
