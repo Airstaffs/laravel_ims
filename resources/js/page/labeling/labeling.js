@@ -112,9 +112,56 @@ export default {
                 .filter((key) => key.startsWith("img") && this.item[key])
                 .map((key) => this.item[key]);
         },
+
+        hasSerialImages() {
+            return (
+                this.item.capturedImages &&
+                (this.item.capturedImages.serialimg1 ||
+                    this.item.capturedImages.serialimg2)
+            );
+        },
+
+        dynamicBasePath() {
+            const company =
+                this.item?.company || this.product?.company || "Airstaffs";
+            return `/images/product_images/${company}/`;
+        },
+
         activeImageUrl() {
-            const img = this.imageList?.[this.activeIndex];
-            return img ? this.basePath + img : this.defaultImage;
+            const totalRegularImages = this.imageList.length;
+
+            // If activeIndex is within regular images
+            if (this.activeIndex < totalRegularImages) {
+                return this.dynamicBasePath + this.imageList[this.activeIndex];
+            }
+
+            // If activeIndex points to serialimg1
+            if (
+                this.activeIndex === totalRegularImages &&
+                this.item.capturedImages &&
+                this.item.capturedImages.serialimg1
+            ) {
+                return (
+                    this.dynamicBasePath + this.item.capturedImages.serialimg1
+                );
+            }
+
+            // If activeIndex points to serialimg2
+            const serialimg1Offset = this.item.capturedImages?.serialimg1
+                ? 1
+                : 0;
+            if (
+                this.activeIndex === totalRegularImages + serialimg1Offset &&
+                this.item.capturedImages &&
+                this.item.capturedImages.serialimg2
+            ) {
+                return (
+                    this.dynamicBasePath + this.item.capturedImages.serialimg2
+                );
+            }
+
+            // Fallback to first image
+            return this.dynamicBasePath + this.imageList[0];
         },
 
         serialKeys() {
@@ -149,6 +196,7 @@ export default {
             }
             return images;
         },
+
         mainImage() {
             return this.productImages.length > 0 ? this.productImages[0] : null;
         },
@@ -589,14 +637,6 @@ export default {
             this.loading = true;
 
             try {
-                console.log("Fetching inventory with params:", {
-                    search: this.searchQuery,
-                    page: this.currentPage,
-                    per_page: this.perPage,
-                    location: "Labeling",
-                    include_images: true,
-                });
-
                 const response = await axios.get(
                     `${API_BASE_URL}/api/labeling/products`,
                     {
@@ -610,27 +650,41 @@ export default {
                     }
                 );
 
-                console.log("API Response:", response.data);
-
-                // Process the returned data
+                // Use data as-is from backend (no transformation needed)
                 this.inventory = response.data.data;
                 this.totalPages = response.data.last_page;
 
-                // Debug first item to see structure
-                if (this.inventory.length > 0) {
-                    console.log("First item structure:", this.inventory[0]);
-                    if (this.inventory[0].capturedImages) {
-                        console.log(
-                            "First item capturedImages:",
-                            this.inventory[0].capturedImages
-                        );
-                    }
-                }
+                console.log("Inventory loaded:", {
+                    totalItems: this.inventory.length,
+                    firstItem: this.inventory[0],
+                });
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
+
+                if (error.response) {
+                    console.error("Error response:", {
+                        status: error.response.status,
+                        data: error.response.data,
+                    });
+                }
+
+                alert("Failed to fetch inventory data. Please try again.");
+                this.inventory = [];
+                this.totalPages = 0;
             } finally {
                 this.loading = false;
             }
+        },
+
+        debugImagePath(item, imageName) {
+            const fullPath = this.basePath + imageName;
+            console.log("Image path debug:", {
+                ProductID: item.ProductID,
+                imageName: imageName,
+                basePath: this.basePath,
+                fullPath: fullPath,
+            });
+            return fullPath;
         },
 
         changePerPage() {

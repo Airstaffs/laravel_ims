@@ -8,7 +8,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 class LabelingController extends BasetablesController
@@ -49,31 +48,62 @@ class LabelingController extends BasetablesController
             $location = $request->input('location', 'Labeling');
             $includeImages = $request->boolean('include_images', false);
 
-            // UPDATED: Build query with proper joins to include ASIN and metakeyword in search
+            // Build base select array
+            $selectColumns = [
+                'prod.*',
+                'fnsku.ASIN',
+                'fnsku.MSKU',
+                'fnsku.grading',
+                'fnsku.storename',
+                DB::raw("COALESCE(
+                NULLIF(TRIM(asin.system_title), ''), 
+                NULLIF(TRIM(asin.internal), ''), 
+                NULLIF(TRIM(prod.ProductTitle), '')
+            ) as AStitle"),
+                'asin.internal',
+                'asin.system_title',
+                'asin.metakeyword',
+            ];
+
+            // Add image columns if requested
+            if ($includeImages) {
+                $selectColumns = array_merge($selectColumns, [
+                    'img.id as img_id', // Add this to verify the join is working
+                    'img.ProductID as img_ProductID', // Add this too
+                    'img.capturedimg1',
+                    'img.capturedimg2',
+                    'img.capturedimg3',
+                    'img.capturedimg4',
+                    'img.capturedimg5',
+                    'img.capturedimg6',
+                    'img.capturedimg7',
+                    'img.capturedimg8',
+                    'img.capturedimg9',
+                    'img.capturedimg10',
+                    'img.capturedimg11',
+                    'img.capturedimg12',
+                    'img.serialimg1',
+                    'img.serialimg2',
+                ]);
+            }
+
+            // Build query with proper joins including tblcapturedimages
             $productsQuery = DB::table($this->productTable.' as prod')
                 ->leftJoin($this->fnskuTable.' as fnsku', function ($join) {
                     $join->on(DB::raw("CASE 
-                        WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
-                        THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
-                        ELSE prod.FNSKUviewer 
-                    END"), '=', 'fnsku.FNSKU');
+                    WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
+                    THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
+                    ELSE prod.FNSKUviewer 
+                END"), '=', 'fnsku.FNSKU');
                 })
-                ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->select([
-                    'prod.*',
-                    'fnsku.ASIN',
-                    'fnsku.MSKU',
-                    'fnsku.grading',
-                    'fnsku.storename',
-                    DB::raw("COALESCE(
-                        NULLIF(TRIM(asin.system_title), ''), 
-                        NULLIF(TRIM(asin.internal), ''), 
-                        NULLIF(TRIM(prod.ProductTitle), '')
-                    ) as AStitle"),
-                    'asin.internal',
-                    'asin.system_title',
-                    'asin.metakeyword',
-                ])
+                ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN');
+
+            // Only join images table if images are requested
+            if ($includeImages) {
+                $productsQuery->leftJoin($this->capturedImagesTable.' as img', 'prod.ProductID', '=', 'img.ProductID');
+            }
+
+            $productsQuery->select($selectColumns)
                 ->where('prod.ProductModuleLoc', $location);
 
             // Apply comprehensive search including ASIN and metakeyword
@@ -94,113 +124,95 @@ class LabelingController extends BasetablesController
                         ->orWhere('asin.internal', 'like', "%{$search}%")
                         ->orWhere('asin.system_title', 'like', "%{$search}%")
                         ->orWhere('asin.metakeyword', 'like', "%{$search}%");
-
                 });
             }
 
             $products = $productsQuery->paginate($perPage);
             Log::info('Products fetched successfully with joins', ['count' => $products->count()]);
 
-            // Transform products to ensure proper FNSKU display
-            $products->getCollection()->transform(function ($product) {
+            // Debug first product to see raw join data
+            if ($includeImages && $products->count() > 0) {
+                $firstProduct = $products->first();
+                Log::info('First product raw data:', [
+                    'ProductID' => $firstProduct->ProductID,
+                    'img_id' => $firstProduct->img_id ?? 'NULL',
+                    'img_ProductID' => $firstProduct->img_ProductID ?? 'NULL',
+                    'serialimg1_raw' => $firstProduct->serialimg1 ?? 'NULL',
+                    'serialimg2_raw' => $firstProduct->serialimg2 ?? 'NULL',
+                    'capturedimg1_raw' => $firstProduct->capturedimg1 ?? 'NULL',
+                ]);
+            }
+
+            // Transform products to organize data properly
+            $products->getCollection()->transform(function ($product) use ($includeImages) {
                 // Keep the original FNSKU as displayed (with prefix if it exists)
                 $product->FNSKU = $product->FNSKUviewer;
 
                 // Ensure we have the company for proper path construction
                 $product->company = $this->company;
 
+                // Organize captured images into an object if images were requested
+                if ($includeImages) {
+                    $capturedImages = (object) [];
+
+                    // Log raw values before processing
+                    Log::info('Processing images for ProductID '.$product->ProductID, [
+                        'serialimg1_before' => $product->serialimg1 ?? 'NULL',
+                        'serialimg2_before' => $product->serialimg2 ?? 'NULL',
+                    ]);
+
+                    for ($i = 1; $i <= 12; $i++) {
+                        $imgKey = "capturedimg{$i}";
+                        if (! empty($product->$imgKey)) {
+                            $capturedImages->$imgKey = $product->$imgKey;
+                        }
+                        // Remove from main product object to keep it clean
+                        unset($product->$imgKey);
+                    }
+
+                    // Handle serial images
+                    if (! empty($product->serialimg1)) {
+                        $capturedImages->serialimg1 = $product->serialimg1;
+                        Log::info('Set serialimg1', ['value' => $product->serialimg1]);
+                    } else {
+                        Log::info('serialimg1 is empty for ProductID '.$product->ProductID);
+                    }
+
+                    if (! empty($product->serialimg2)) {
+                        $capturedImages->serialimg2 = $product->serialimg2;
+                        Log::info('Set serialimg2', ['value' => $product->serialimg2]);
+                    } else {
+                        Log::info('serialimg2 is empty for ProductID '.$product->ProductID);
+                    }
+
+                    // Clean up temporary debug fields
+                    unset($product->img_id);
+                    unset($product->img_ProductID);
+                    unset($product->serialimg1);
+                    unset($product->serialimg2);
+
+                    $product->capturedImages = $capturedImages;
+
+                    // Set img1 directly for the main thumbnail display if capturedimg1 exists
+                    if (! empty($capturedImages->capturedimg1)) {
+                        $product->img1 = $capturedImages->capturedimg1;
+                    }
+
+                    Log::info('Final captured images for ProductID '.$product->ProductID, [
+                        'capturedImagesCount' => count((array) $capturedImages),
+                        'hasImg1' => ! empty($product->img1),
+                        'hasSerialimg1' => ! empty($capturedImages->serialimg1),
+                        'hasSerialimg2' => ! empty($capturedImages->serialimg2),
+                        'serialimg1Value' => $capturedImages->serialimg1 ?? 'NOT SET',
+                        'serialimg2Value' => $capturedImages->serialimg2 ?? 'NOT SET',
+                    ]);
+                } else {
+                    // Initialize empty capturedImages if not requested
+                    $product->capturedImages = (object) [];
+                }
+
                 return $product;
             });
-
-            // If images are requested, fetch them for each product
-            if ($includeImages) {
-                try {
-                    $productIds = $products->pluck('ProductID')->toArray();
-                    Log::info('Product IDs for image fetch', ['count' => count($productIds), 'ids' => $productIds]);
-
-                    $capturedImagesTableName = $this->capturedImagesTable;
-
-                    Log::info('Checking table existence', [
-                        'table' => $capturedImagesTableName,
-                    ]);
-
-                    if (! Schema::hasTable($capturedImagesTableName)) {
-                        Log::warning('Captured images table does not exist', [
-                            'table' => $capturedImagesTableName,
-                        ]);
-
-                        // Add empty capturedImages object to prevent JS errors
-                        $products->getCollection()->transform(function ($product) {
-                            $product->capturedImages = (object) [];
-
-                            return $product;
-                        });
-                    } else {
-                        Log::info('Captured images table exists', ['table' => $capturedImagesTableName]);
-
-                        // Fetch all captured images for these products
-                        $capturedImages = DB::table($capturedImagesTableName)
-                            ->whereIn('ProductID', $productIds)
-                            ->get();
-
-                        Log::info('Captured images fetched', [
-                            'count' => $capturedImages->count(),
-                            'sample' => $capturedImages->take(1),
-                        ]);
-
-                        // Create a lookup by ProductID for efficient access
-                        $imagesByProductId = [];
-                        foreach ($capturedImages as $img) {
-                            $imagesByProductId[$img->ProductID] = $img;
-                        }
-
-                        // Add capturedImages data to each product
-                        $products->getCollection()->transform(function ($product) use ($imagesByProductId) {
-                            // Check if we have image data for this product
-                            if (isset($imagesByProductId[$product->ProductID])) {
-                                $product->capturedImages = $imagesByProductId[$product->ProductID];
-
-                                // Set img1 directly for the main thumbnail display if not already set
-                                if (empty($product->img1) && ! empty($product->capturedImages->capturedimg1)) {
-                                    $product->img1 = $product->capturedImages->capturedimg1;
-                                }
-
-                                Log::info('Added captured images to product', [
-                                    'ProductID' => $product->ProductID,
-                                    'capturedImages' => json_encode($product->capturedImages),
-                                ]);
-                            } else {
-                                Log::info('No captured images found for product', [
-                                    'ProductID' => $product->ProductID,
-                                ]);
-
-                                $product->capturedImages = (object) [];
-                            }
-
-                            return $product;
-                        });
-                    }
-                } catch (\Exception $e) {
-                    Log::error('Error fetching images', [
-                        'message' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString(),
-                    ]);
-
-                    // Continue without images but add empty capturedImages object
-                    $products->getCollection()->transform(function ($product) {
-                        $product->capturedImages = (object) [];
-
-                        return $product;
-                    });
-                }
-            } else {
-                // Even if images are not requested, initialize empty capturedImages
-                $products->getCollection()->transform(function ($product) {
-                    $product->capturedImages = (object) [];
-
-                    return $product;
-                });
-            }
 
             return response()->json($products);
         } catch (\Exception $e) {
