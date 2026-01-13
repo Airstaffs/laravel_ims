@@ -1484,13 +1484,6 @@
                                 optionLabel="label"
                                 optionValue="value"
                             />
-                            <!-- <select v-model="pageSize" @change="changePageSize" class="form-select form-select-sm"
-                                style="width: 80px">
-                                <option value="5">5</option>
-                                <option value="10">10</option>
-                                <option value="25">25</option>
-                                <option value="50">50</option>
-                            </select> -->
 
                             <nav>
                                 <ul class="pagination pagination-sm mb-0">
@@ -1499,7 +1492,7 @@
                                         :class="{ disabled: currentPage === 1 }"
                                     >
                                         <Button
-                                            @click="prevPage"
+                                            @click="prevFnskuPage"
                                             :disabled="currentPage === 1"
                                             size="small"
                                             label="Previous"
@@ -1517,7 +1510,7 @@
                                         :class="{ disabled: !hasMorePages }"
                                     >
                                         <Button
-                                            @click="nextPage"
+                                            @click="nextFnskuPage"
                                             :disabled="!hasMorePages"
                                             size="small"
                                             severity="info"
