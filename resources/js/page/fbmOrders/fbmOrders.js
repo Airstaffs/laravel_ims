@@ -84,12 +84,24 @@ export default {
             dispenseItemsSelected: [],
 
             // for shipment-label modal
+            rateFetchAttemptedByOrderId: {},
             showShipmentLabelModal: false,
             selectedShipmentData: null,
             rateResultsByOrderId: {}, // { [platform_order_id]: ShippingServiceList[] }
             selectedCarriers: {}, // { [platform_order_id]: "serviceId" }
             showCarrierModal: false,
             carrierModalOrder: null,
+            carrierModalTab: "eligible", // "eligible" or "rejected"
+            rejectedRatesByOrderId: {},
+            selectedCarrierRateByOrderId: {},
+
+            // for get rates
+            forms: {}, // holds forms[orderId]
+            rateResults: [], // results of getRates
+
+            // for purchase shipping label
+            purchasingLabelByOrderId: {}, // { [orderId]: true/false }
+            purchaseResultsByOrderId: {}, // store API results per order
 
             // for workHistory modal
             showWorkHistoryModal: false,
@@ -129,11 +141,6 @@ export default {
             // for manualshipmentlabel
             manualShipmentLabelVisible: false,
 
-            // for get rates
-            forms: {}, // holds forms[orderId]
-            rateResults: [], // results of getRates
-            selectedCarriers: {}, // selectedCarriers[orderId]
-
             suppressDispenseSelectionSync: false,
         };
     },
@@ -146,6 +153,37 @@ export default {
         // Check if any orders are selected
         hasSelectedOrders() {
             return this.persistentSelectedOrderIds.length > 0;
+        },
+
+        selectedCountAcrossAllPages() {
+            // what you show beside "order selected across all pages"
+            return this.persistentSelectedOrderIds?.length || 0;
+        },
+
+        allOrdersHaveCarrier() {
+            const orders = this.selectedShipmentData || [];
+            if (!orders.length) return false;
+
+            return orders.every((o) => {
+                const oid = o.platform_order_id;
+                const selected = this.selectedCarriers?.[oid];
+                return !!(selected && selected.ShippingServiceId); // must exist
+            });
+        },
+
+        canBuyShipment() {
+            return this.validateOrdersBeforePurchase().ok;
+        },
+        buyShipmentDisabledReason() {
+            const r = this.validateOrdersBeforePurchase();
+            return r.ok ? "" : r.msg;
+        },
+
+        hasAnySelection() {
+            return (
+                (this.persistentSelectedOrderIds?.length || 0) > 0 ||
+                (this.dispenseItemsSelected?.length || 0) > 0
+            );
         },
 
         // Form validation for processing
@@ -244,6 +282,15 @@ export default {
             if (!this.forms) this.forms = {};
             if (!this.selectedCarriers) this.selectedCarriers = {};
             if (!this.rateResultsByOrderId) this.rateResultsByOrderId = {};
+            if (!this.rejectedRatesByOrderId) this.rejectedRatesByOrderId = {};
+            if (!this.rateFetchAttemptedByOrderId)
+                this.rateFetchAttemptedByOrderId = {}; // ✅ NEW
+
+            this.selectedCarriers = {};
+            this.rateResultsByOrderId = {};
+            this.rejectedRatesByOrderId = {};
+            this.selectedCarrierRateByOrderId = {};
+            this.rateFetchAttemptedByOrderId = {};
 
             (this.selectedShipmentData || []).forEach((order) => {
                 const orderId = order.platform_order_id;
@@ -258,8 +305,9 @@ export default {
                         height: "",
                         dimensionUnit: "inches",
                         weight: "",
-                        weightUnit: "pounds",
+                        weightUnit: "pound",
                         carrier_description: "",
+                        shipBy: new Date().toISOString(), // or your preferred default
                     };
                 }
 
@@ -269,6 +317,16 @@ export default {
 
                 if (!this.rateResultsByOrderId[orderId]) {
                     this.rateResultsByOrderId[orderId] = [];
+                }
+
+                if (!this.rejectedRatesByOrderId[orderId]) {
+                    // ✅ NEW (safe default)
+                    this.rejectedRatesByOrderId[orderId] = [];
+                }
+
+                if (this.rateFetchAttemptedByOrderId[orderId] === undefined) {
+                    // ✅ NEW
+                    this.rateFetchAttemptedByOrderId[orderId] = false;
                 }
             });
         },
@@ -283,6 +341,12 @@ export default {
                     alert("No selected orders.");
                     return;
                 }
+
+                // ✅ NEW: mark "attempted" BEFORE validation returns
+                (this.selectedShipmentData || []).forEach((o) => {
+                    const oid = o.platform_order_id;
+                    if (oid) this.rateFetchAttemptedByOrderId[oid] = true;
+                });
 
                 // validate forms...
                 for (const order of this.selectedShipmentData) {
@@ -319,17 +383,20 @@ export default {
 
                 // ✅ normalize into a map
                 const results = res.data?.results || [];
-                const map = {};
+                const eligibleMap = {};
+                const rejectedMap = {};
+
                 results.forEach((row) => {
                     const oid = row.platform_order_id;
-                    const list =
-                        row?.rates?.payload?.ShippingServiceList ||
-                        row?.rates?.ShippingServiceList ||
-                        [];
-                    map[oid] = list;
+
+                    const payload = row?.rates?.payload || row?.rates || {};
+                    eligibleMap[oid] = payload.ShippingServiceList || [];
+                    rejectedMap[oid] =
+                        payload.RejectedShippingServiceList || [];
                 });
 
-                this.rateResultsByOrderId = map;
+                this.rateResultsByOrderId = eligibleMap;
+                this.rejectedRatesByOrderId = rejectedMap;
 
                 // reset carrier selections (since rates changed)
                 this.selectedCarriers = {};
@@ -341,12 +408,58 @@ export default {
                 console.error(err);
                 alert("Get Rates failed. Check console/network.");
             }
+
+            // console.log("rateResultsByOrderId", this.rateResultsByOrderId);
+            // console.log("rejectedRatesByOrderId", this.rejectedRatesByOrderId);
         },
 
         // select carrier modal
         openCarrierModal(order) {
             this.carrierModalOrder = order;
+            this.carrierModalTab = "eligible";
             this.showCarrierModal = true;
+
+            // quick debug
+            const id = order.platform_order_id;
+            // console.log("OPEN CARRIER MODAL:", id, {
+            //     eligible: this.getEligibleRatesForOrder(id),
+            //     rejected: this.getRejectedRatesForOrder(id),
+            // });
+        },
+
+        getEligibleRatesForOrder(orderId) {
+            return this.rateResultsByOrderId?.[orderId] || [];
+        },
+
+        getRejectedRatesForOrder(orderId) {
+            return this.rejectedRatesByOrderId?.[orderId] || [];
+        },
+
+        getRateAmount(rate) {
+            if (!rate) return "N/A";
+
+            // Most common shape
+            const amt = rate?.Rate?.Amount;
+
+            // Some APIs/carriers return other shapes (optional fallback)
+            const fallback =
+                rate?.ShippingServiceCost?.Amount ||
+                rate?.TotalCharge?.Amount ||
+                rate?.rate?.amount;
+
+            const value = amt ?? fallback;
+
+            return value != null && value !== "" ? value : "N/A";
+        },
+
+        hasEligibleRates(orderId) {
+            return (this.rateResultsByOrderId?.[orderId] || []).length > 0;
+        },
+        hasAnyRates(orderId) {
+            return (
+                (this.rateResultsByOrderId?.[orderId] || []).length > 0 ||
+                (this.rejectedRatesByOrderId?.[orderId] || []).length > 0
+            );
         },
 
         closeCarrierModal() {
@@ -354,10 +467,208 @@ export default {
             this.carrierModalOrder = null;
         },
 
-        handleCarrierSelected(rate) {
-            const orderId = this.carrierModalOrder.platform_order_id;
-            this.selectedCarriers[orderId] = rate;
+        async handleCarrierSelected(rate) {
+            const orderId = this.carrierModalOrder?.platform_order_id;
+            if (!orderId) return;
+
+            // Save selected carrier (full rate object)
+            this.selectedCarriers = {
+                ...this.selectedCarriers,
+                [orderId]: rate,
+            };
+
+            this.selectedCarrierRateByOrderId = {
+                ...this.selectedCarrierRateByOrderId,
+                [orderId]: rate,
+            };
+
             this.closeCarrierModal();
+
+            // ✅ Auto buy shipment label for THIS order
+            // await this.buyShipmentLabelForOrder(orderId);
+        },
+
+        hasAnyRateData(orderId) {
+            return (
+                (this.rateResultsByOrderId?.[orderId] || []).length > 0 ||
+                (this.rejectedRatesByOrderId?.[orderId] || []).length > 0
+            );
+        },
+
+        formatDatetext(date) {
+            if (!date) return "N/A";
+
+            try {
+                return new Date(date).toLocaleString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                });
+            } catch (e) {
+                return "N/A";
+            }
+        },
+
+        validateOrdersBeforePurchase() {
+            const orders = this.selectedShipmentData || [];
+            if (!orders.length)
+                return { ok: false, msg: "No selected orders." };
+
+            // Require carrier per order + required fields per order
+            const requiredFields = [
+                "length",
+                "width",
+                "height",
+                "dimensionUnit",
+                "weight",
+                "weightUnit",
+                "deliveryExperience",
+                "shipBy", // you are sending this to backend
+                // "deliverBy", // only if you truly require it
+                // "currency",  // only if you truly require it
+            ];
+
+            for (const o of orders) {
+                const oid = o.platform_order_id;
+                if (!oid)
+                    return {
+                        ok: false,
+                        msg: "A selected order is missing platform_order_id.",
+                    };
+
+                // 1) carrier selected
+                const carrier = this.selectedCarriers?.[oid];
+                if (!carrier || !carrier.ShippingServiceId) {
+                    return {
+                        ok: false,
+                        msg: `Select a carrier for order ${oid}.`,
+                    };
+                }
+
+                // 2) required fields filled
+                const f = this.forms?.[oid];
+                if (!f)
+                    return {
+                        ok: false,
+                        msg: `Missing form data for order ${oid}.`,
+                    };
+
+                for (const k of requiredFields) {
+                    const v = f?.[k];
+
+                    // treat empty string / null / undefined as missing
+                    if (
+                        v === undefined ||
+                        v === null ||
+                        String(v).trim() === ""
+                    ) {
+                        return {
+                            ok: false,
+                            msg: `Please fill ${k} for order ${oid}.`,
+                        };
+                    }
+                }
+
+                // 3) numeric sanity checks (common failure)
+                const nums = ["length", "width", "height", "weight"];
+                for (const n of nums) {
+                    const val = Number(f[n]);
+                    if (!Number.isFinite(val) || val <= 0) {
+                        return {
+                            ok: false,
+                            msg: `${n} must be a valid number > 0 for order ${oid}.`,
+                        };
+                    }
+                }
+
+                // 4) unit checks (common failure)
+                const dimUnit = String(f.dimensionUnit).toLowerCase();
+                const weightUnit = String(f.weightUnit).toLowerCase();
+                const okDim = [
+                    "inches",
+                    "inch",
+                    "cm",
+                    "centimeters",
+                    "centimetres",
+                ].includes(dimUnit);
+                const okW = [
+                    "pound",
+                    "lb",
+                    "lbs",
+                    "kilogram",
+                    "kg",
+                    "grams",
+                    "gram",
+                    "g",
+                    "ounces",
+                    "ounce",
+                    "oz",
+                ].includes(weightUnit);
+
+                if (!okDim)
+                    return {
+                        ok: false,
+                        msg: `Invalid dimensionUnit for order ${oid}.`,
+                    };
+                if (!okW)
+                    return {
+                        ok: false,
+                        msg: `Invalid weightUnit for order ${oid}.`,
+                    };
+            }
+
+            return { ok: true };
+        },
+
+        async buyShipmentLabel() {
+            const check = this.validateOrdersBeforePurchase();
+            if (!check.ok) {
+                alert(check.msg);
+                return;
+            }
+
+            const ordersWithCarrier = (this.selectedShipmentData || []).map(
+                (o) => ({
+                    ...o,
+                    selectedCarrier: this.selectedCarriers[o.platform_order_id],
+                })
+            );
+
+            const payload = {
+                orders: ordersWithCarrier,
+                forms: this.forms,
+                destinationMarketplace: "ATVPDKIKX0DER",
+                nextToken: null,
+            };
+
+            try {
+                const res = await axios.post(
+                    "/amzn/fbm-orders/purchase-label/createshipment",
+                    payload
+                );
+
+                // handle response success/errors per order
+                const results = res.data?.results || [];
+                const failed = results.filter(
+                    (r) => r.error || r.exception || r.status >= 400
+                );
+
+                if (failed.length) {
+                    console.log("purchase failed items:", failed);
+                    alert(
+                        `Some labels failed: ${failed.length}. Check console for details.`
+                    );
+                    return;
+                }
+
+                alert("Shipment labels purchased successfully.");
+                // (Optional) refresh orders / clear selections
+            } catch (err) {
+                console.error(err);
+                alert("Purchase failed. Check console/network.");
+            }
         },
 
         openWorkHistoryModal() {
@@ -1462,75 +1773,47 @@ export default {
         },
 
         clearAllSelections() {
-            console.log("🧹 Starting clearAllSelections...");
+            console.log("🧹 Clearing ALL selections (orders + items)");
 
-            // STEP 1: Clear all arrays FIRST
+            // 1️⃣ Clear order-level selection
             this.persistentSelectedOrderIds = [];
-            this.dispenseItemsSelected = [];
             this.selectAll = false;
 
-            // STEP 2: Create completely new orders array with checked = false
-            // This forces Vue to see it as a new array and re-render everything
-            const clearedOrders = [];
-            this.orders.forEach((order) => {
-                clearedOrders.push({
-                    ...order,
-                    checked: false, // Force unchecked
-                });
-            });
-            this.orders = clearedOrders;
+            // 2️⃣ Clear item-level selection (THIS IS THE MISSING PART)
+            this.dispenseItemsSelected = [];
 
-            // STEP 3: Force Vue to update immediately
-            this.$forceUpdate();
+            // 3️⃣ Reset checked state on orders
+            this.orders = this.orders.map((order) => ({
+                ...order,
+                checked: false,
+            }));
 
-            // STEP 4: Handle DOM checkboxes after Vue updates
+            // 4️⃣ Force Vue + DOM checkbox cleanup
             this.$nextTick(() => {
-                // Wait a bit more for PrimeVue to finish rendering
-                setTimeout(() => {
-                    // Uncheck ALL checkboxes in the entire document
-                    const allCheckboxes = document.querySelectorAll(
-                        'input[type="checkbox"]'
-                    );
-                    allCheckboxes.forEach((checkbox) => {
-                        checkbox.checked = false;
-                    });
+                // Uncheck ALL checkboxes (order + item)
+                document
+                    .querySelectorAll('input[type="checkbox"]')
+                    .forEach((cb) => (cb.checked = false));
 
-                    // Remove PrimeVue checkbox highlight classes
-                    const primeCheckboxes = document.querySelectorAll(
-                        ".p-checkbox-box, .p-checkbox"
-                    );
-                    primeCheckboxes.forEach((element) => {
-                        element.classList.remove(
+                // Remove PrimeVue / UI highlight classes
+                document
+                    .querySelectorAll(
+                        ".p-checkbox-box, .p-checkbox, .p-highlight, .p-checked"
+                    )
+                    .forEach((el) =>
+                        el.classList.remove(
                             "p-highlight",
                             "p-checked",
                             "p-focus"
-                        );
-                    });
+                        )
+                    );
 
-                    // Remove row selection classes from table rows
-                    const selectedRows = document.querySelectorAll(
-                        ".p-selectable-row.p-highlight"
-                    );
-                    selectedRows.forEach((row) => {
-                        row.classList.remove("p-highlight");
-                    });
-
-                    console.log("✅ All selections cleared successfully");
-                    console.log(
-                        "Persistent IDs:",
-                        this.persistentSelectedOrderIds
-                    );
-                    console.log("Dispense Items:", this.dispenseItemsSelected);
-                    console.log(
-                        "Orders checked status:",
-                        this.orders.map((o) => ({
-                            id: o.outboundorderid,
-                            checked: o.checked,
-                        }))
-                    );
-                }, 100); // Small delay to ensure PrimeVue has finished rendering
+                console.log("✅ All selections cleared");
+                console.log("Orders:", this.persistentSelectedOrderIds);
+                console.log("Items:", this.dispenseItemsSelected);
             });
         },
+
         // Sorting method
         sortBy(column) {
             if (this.sortColumn === column) {

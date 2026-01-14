@@ -344,6 +344,8 @@ foreach ($stores as $store) {
         } else {
             echo "<br>No summaries available for SKU: " . ($pta['sku'] ?? 'Unknown SKU') . "<br>";
         }
+
+        
     }
 }
 
