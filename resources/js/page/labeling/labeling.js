@@ -963,20 +963,19 @@ export default {
             }
         },
 
-        nextPage() {
+        nextFnskuPage() {
             if (this.hasMorePages) {
                 this.goToPage(this.currentPage + 1);
             }
         },
 
-        prevPage() {
+        prevFnskuPage() {
             if (this.currentPage > 1) {
                 this.goToPage(this.currentPage - 1);
             }
         },
 
-        changePageSize() {
-            // Reset to page 1 when changing page size
+        changeFnskuPageSize() {
             this.currentPage = 1;
             this.filterFnskuList(1);
         },
@@ -2203,6 +2202,16 @@ export default {
                         confirmButtonText: "OK",
                     });
                 });
+        },
+
+        getAsinImageSrc(item) {
+            // If ASIN exists, try to load the vector image
+            if (item.ASIN) {
+                return `/images/asinvectorsimg/${item.ASIN}.png`;
+            }
+
+            // No ASIN, return default image
+            return this.defaultImage;
         },
     },
 

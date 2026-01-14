@@ -40,5 +40,10 @@ return [
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
+    // config/services.php
+    'training' => [
+        'url' => env('TRAINING_SERVER_URL'),
+    ],
+
 
 ];
