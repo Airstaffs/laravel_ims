@@ -150,9 +150,13 @@
                         <div v-for="(subdata, index) in data.items" :key="index"
                             class="mb-4 d-flex align-items-start gap-2 border-bottom pb-2">
                             <div class="checkbox-disabled-tooltip">
-                                <input type="checkbox"
+                                <!-- <input type="checkbox"
                                     :value="`${data.platform_order_id}|${subdata.outboundorderitemid}`"
-                                    v-model="dispenseItemsSelected" />
+                                    v-model="dispenseItemsSelected" /> -->
+
+                                <input type="checkbox" :value="subdata.outboundorderitemid
+                                    " v-model="dispenseItemsSelected" class="item-dispense-checkbox" :disabled="!isItemDispensed(subdata)
+                                        " />
                             </div>
                             <div class="d-flex flex-column gap-2"
                                 style="word-break: break-word; white-space: normal; overflow-wrap: break-word; border-bottom: none;">
@@ -1121,47 +1125,65 @@ dispensedProduct, dpIndex
 
                                     <hr>
 
-                                    <li v-if="!selectedCarriers?.[order.platform_order_id]">
-                                        <button v-if="getRatesForOrder(order.platform_order_id).length"
-                                            @click="openCarrierModal(order)" class="btn btn-carrier">
-                                            Select Carrier Option
-                                        </button>
+                                    <div class="carrier-box">
+                                        <div class="carrier-header">
+                                            <strong>Carrier</strong>
 
-                                        <div v-else class="alert alert-danger m-0">
-                                            <p>
-                                                <strong class="d-flex flex-column">
-                                                    <span>No rates available.</span>
-                                                    <span>Please click "Get Rates" after filling out the form.</span>
-                                                </strong>
-                                            </p>
+                                            <!-- Button -->
+                                            <button class="btn btn-outline-primary btn-sm carrier-btn" type="button"
+                                                @click="openCarrierModal(order)">
+                                                Select Carrier Option
+                                            </button>
+
+                                            <span v-if="selectedCarriers?.[order.platform_order_id]"
+                                                class="carrier-pill ok">
+                                                Selected
+                                            </span>
+
+                                            <span v-else-if="hasEligibleRates(order.platform_order_id)"
+                                                class="carrier-pill warning">
+                                                {{ (rateResultsByOrderId?.[order.platform_order_id] || []).length }}
+                                                rates
+                                            </span>
+
+                                            <span v-else class="carrier-pill muted">
+                                                Not loaded
+                                            </span>
                                         </div>
-                                    </li>
 
-                                    <li v-if="selectedCarriers?.[order.platform_order_id]">
-                                        <ul class="list-unstyled m-0 selected-carrier">
-                                            <li>
-                                                <strong>Selected Carrier: </strong>
+
+
+                                        <!-- ✅ SELECTED CARRIER SUMMARY -->
+                                        <div v-if="selectedCarriers?.[order.platform_order_id]"
+                                            class="selected-carrier-summary">
+                                            <div>
+                                                <strong>Service:</strong>
                                                 {{ selectedCarriers[order.platform_order_id].ShippingServiceName }}
-                                            </li>
-                                            <li>
-                                                <strong>Rate: </strong>
-                                                ${{ selectedCarriers[order.platform_order_id].Rate.Amount }}
-                                            </li>
-                                            <li>
-                                                <strong>Ship Date: </strong>
+                                            </div>
+
+                                            <div>
+                                                <strong>Rate:</strong>
+                                                ${{ getRateAmount(selectedCarriers[order.platform_order_id]) }}
+                                            </div>
+
+                                            <div>
+                                                <strong>Ship Date:</strong>
                                                 {{ formatDatetext(selectedCarriers[order.platform_order_id].ShipDate) }}
-                                            </li>
-                                            <li>
-                                                <strong>Estimated Delivery: </strong>
+                                            </div>
+
+                                            <div>
+                                                <strong>ETA:</strong>
                                                 {{
                                                     formatDatetext(selectedCarriers[order.platform_order_id].EarliestEstimatedDeliveryDate)
-                                                }} –
+                                                }}
+                                                –
                                                 {{
                                                     formatDatetext(selectedCarriers[order.platform_order_id].LatestEstimatedDeliveryDate)
                                                 }}
-                                            </li>
-                                        </ul>
-                                    </li>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                 </ul>
                             </div>
                         </div>
@@ -1216,17 +1238,17 @@ dispensedProduct, dpIndex
                                 <fieldset>
                                     <label>Weight Unit</label>
                                     <select class="form-control" v-model="forms[order.platform_order_id].weightUnit">
-                                        <option value="pound">Pound</option>
+                                        <option value="pound" default>Pound</option>
                                         <option value="grams">Grams</option>
                                         <option value="ounces">Ounces</option>
                                     </select>
                                 </fieldset>
 
-                                <fieldset>
+                                <!-- <fieldset>
                                     <label>Currency Code</label>
                                     <input class="form-control" v-model="forms[order.platform_order_id].currency"
                                         placeholder="Optional" />
-                                </fieldset>
+                                </fieldset> -->
 
                                 <fieldset>
                                     <label>Ship By</label>
@@ -1246,7 +1268,10 @@ dispensedProduct, dpIndex
 
                 <div class="modal-footer">
                     <button @click="getRates">Get Rates</button>
-                    <button @click="buyShipment" :disabled="!hasValidShipments">Buy Shipment</button>
+                    <button class="btn btn-primary" :disabled="!canBuyShipment" :title="buyShipmentDisabledReason"
+                        @click="buyShipmentLabel">
+                        Buy Shipment
+                    </button>
                     <button @click="manualShipment">Manual Shipment</button>
                 </div>
             </div>
@@ -1626,6 +1651,14 @@ dispensedProduct, dpIndex
 
         <ScrollTop />
     </div>
+
+    <CarrierModal :visible="showCarrierModal" :order="carrierModalOrder"
+        :eligible-rates="getEligibleRatesForOrder(carrierModalOrder?.platform_order_id)"
+        :rejected-rates="getRejectedRatesForOrder(carrierModalOrder?.platform_order_id)"
+        :selected-rate="selectedCarrierRateByOrderId?.[carrierModalOrder?.platform_order_id] || null"
+        @close="closeCarrierModal" @select="handleCarrierSelected" />
+
+
 </template>
 
 <script>
