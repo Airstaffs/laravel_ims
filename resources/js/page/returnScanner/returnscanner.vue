@@ -14,166 +14,110 @@
             @scanner-opened="handleScannerOpened" @scanner-closed="handleScannerClosed"
             @scanner-reset="handleScannerReset" @mode-changed="handleModeChange" ref="scanner">
             <!-- Define custom input fields for Return Scanner module -->
-            <template #input-fields>
-                <!-- ReturnID toggle button -->
-                <div class="toggle-container">
-                    <button type="button" class="toggle-return-id" @click="toggleReturnIdField"
-                        :class="{ 'return-id-active': showReturnIdField }">
-                        <i :class="[
-                            'fas',
-                            showReturnIdField ? 'fa-eye-slash' : 'fa-eye',
-                        ]"></i>
-                        {{
-                            showReturnIdField
-                                ? "Hide Return ID"
-                                : "Show Return ID"
-                        }}
-                    </button>
-                </div>
+      <template #input-fields>
+    <!-- ReturnID toggle button -->
+    <div class="toggle-container">
+        <button type="button" class="toggle-return-id" @click="toggleReturnIdField"
+            :class="{ 'return-id-active': showReturnIdField }">
+            <i :class="['fas', showReturnIdField ? 'fa-eye-slash' : 'fa-eye']"></i>
+            {{ showReturnIdField ? "Hide Return ID" : "Show Return ID" }}
+        </button>
+    </div>
 
-                <!-- ReturnID field (optional) -->
-                <div class="input-group" v-if="showReturnIdField">
-                    <label>Return ID:</label>
-                    <input type="text" v-model="returnId" placeholder="Enter Return ID..." @input="handleReturnIdInput"
-                        @keyup.enter="
-                            showManualInput
-                                ? focusNextField('serialNumberInput')
-                                : processScan()
-                            " ref="returnIdInput" />
-                </div>
+    <!-- ReturnID field (optional) -->
+    <div class="input-group" v-if="showReturnIdField">
+        <label>Return ID:</label>
+        <input type="text" v-model="returnId" placeholder="Enter Return ID..."
+            @input="handleReturnIdInput"
+            @keyup.enter="showManualInput ? focusNextField('serialNumberInput') : processScan()"
+            ref="returnIdInput" />
+    </div>
 
-                <div class="input-group">
-                    <label>Serial Number:</label>
-                    <input type="text" v-model="serialNumber" placeholder="Enter Serial Number..."
-                        @input="handleSerialInput" @keyup.enter="
-                            dualSerialProduct && showSecondSerialInput
-                                ? focusNextField('secondSerialInput')
-                                : showManualInput
-                                    ? focusNextField('locationInput')
-                                    : processScan()
-                            " ref="serialNumberInput" />
-                </div>
+    <!-- Serial Number Input -->
+    <div class="input-group">
+        <label>Serial Number:</label>
+        <input type="text" v-model="serialNumber" placeholder="Enter Serial Number..."
+            @input="handleSerialInput"
+            @keyup.enter="dualSerialProduct && showSecondSerialInput ? focusNextField('secondSerialInput') : showManualInput ? proceedToImageCapture(1) : processScan()"
+            ref="serialNumberInput" />
+    </div>
 
-                <!-- Second Serial Number field (appears when a dual serial product is detected) -->
-                <div class="input-group" v-if="dualSerialProduct && showSecondSerialInput">
-                    <label>{{ secondSerialLabel || "Second Serial" }}:</label>
-                    <div class="input-with-clear">
-                        <input type="text" v-model="secondSerialNumber" placeholder="Enter Second Serial Number..."
-                            @input="handleSecondSerialInput" @keyup.enter="
-                                showManualInput
-                                    ? focusNextField('locationInput')
-                                    : processScan()
-                                " ref="secondSerialInput" />
-                        <button type="button" class="clear-input-btn" @click="hideSecondSerial"
-                            title="Remove second serial">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                </div>
+    <!-- ✅ NEW: Image Capture for First Serial -->
+    <div v-if="currentCaptureStep === 1" class="image-capture-section">
+        <div class="capture-header">
+            <h4>📸 Capture Images for Serial: <strong>{{ serialNumber }}</strong></h4>
+            <p class="capture-instruction">Take up to 12 photos of the item</p>
+        </div>
+        
+        <div class="capture-count-badge" v-if="capturedImagesForSerial1.length > 0">
+            {{ capturedImagesForSerial1.length }} / 12 images captured
+        </div>
 
-                <!-- ✅ NEW: Multi-Serial Image Capture UI -->
-                <div v-if="needsImageCapture" class="multi-serial-capture-container">
-                    <!-- Progress Header -->
-                    <div class="capture-progress-header">
-                        <h4>📸 Capture Images for Each Serial</h4>
-                        <div class="progress-info">
-                            <span class="current-serial-badge">Serial {{ currentSerialIndex + 1 }} of {{ totalSerials }}</span>
-                        </div>
-                    </div>
+        <div class="capture-actions">
+            <button @click="skipImageCapture(1)" class="btn-skip-images">
+                <i class="fas fa-forward"></i> Skip (No Images)
+            </button>
+            <button @click="finishImageCapture(1)" class="btn-done-images">
+                <i class="fas fa-check"></i> 
+                {{ dualSerialProduct && showSecondSerialInput ? 'Done - Next Serial' : 'Done - Continue to Location' }}
+            </button>
+        </div>
+    </div>
 
-                    <!-- Serial Cards List -->
-                    <div class="serial-cards-wrapper">
-                        <div 
-                            v-for="(serial, index) in serialsToCapture" 
-                            :key="index"
-                            class="serial-card"
-                            :class="{
-                                'active': index === currentSerialIndex,
-                                'completed': capturedImagesPerSerial[serial] && capturedImagesPerSerial[serial].length > 0,
-                                'pending': index > currentSerialIndex
-                            }"
-                        >
-                            <!-- Serial Number Display -->
-                            <div class="serial-card-header">
-                                <span class="serial-number">
-                                    <i class="fas fa-tag"></i>
-                                    Serial {{ index + 1 }}: <strong>{{ serial }}</strong>
-                                </span>
-                                <span class="serial-status">
-                                    <i 
-                                        v-if="capturedImagesPerSerial[serial] && capturedImagesPerSerial[serial].length > 0" 
-                                        class="fas fa-check-circle text-success"
-                                    ></i>
-                                    <i 
-                                        v-else-if="index === currentSerialIndex" 
-                                        class="fas fa-camera text-primary"
-                                    ></i>
-                                    <i 
-                                        v-else 
-                                        class="fas fa-clock text-muted"
-                                    ></i>
-                                </span>
-                            </div>
+    <!-- Second Serial Number field -->
+    <div class="input-group" v-if="dualSerialProduct && showSecondSerialInput && currentCaptureStep === 0">
+        <label>{{ secondSerialLabel || "Second Serial" }}:</label>
+        <div class="input-with-clear">
+            <input type="text" v-model="secondSerialNumber"
+                placeholder="Enter Second Serial Number..."
+                @input="handleSecondSerialInput"
+                @keyup.enter="showManualInput ? proceedToImageCapture(2) : processScan()"
+                ref="secondSerialInput" />
+            <button type="button" class="clear-input-btn" @click="hideSecondSerial"
+                title="Remove second serial">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
 
-                            <!-- Image Count Display -->
-                            <div class="serial-card-body" v-if="index === currentSerialIndex || (capturedImagesPerSerial[serial] && capturedImagesPerSerial[serial].length > 0)">
-                                <div class="image-count">
-                                    <i class="fas fa-images"></i>
-                                    <span v-if="capturedImagesPerSerial[serial]">
-                                        {{ capturedImagesPerSerial[serial].length }} image(s) captured
-                                    </span>
-                                    <span v-else class="text-muted">
-                                        0 images - Click "Done" when finished
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    <!-- ✅ NEW: Image Capture for Second Serial -->
+    <div v-if="currentCaptureStep === 2" class="image-capture-section">
+        <div class="capture-header">
+            <h4>📸 Capture Images for Second Serial: <strong>{{ secondSerialNumber }}</strong></h4>
+            <p class="capture-instruction">Take up to 12 photos of the item</p>
+        </div>
+        
+        <div class="capture-count-badge" v-if="capturedImagesForSerial2.length > 0">
+            {{ capturedImagesForSerial2.length }} / 12 images captured
+        </div>
 
-                    <!-- Current Serial Capture Instructions -->
-                    <div class="capture-instructions">
-                        <div class="instruction-banner">
-                            <i class="fas fa-info-circle"></i>
-                            <span>Currently capturing for: <strong>{{ serialsToCapture[currentSerialIndex] }}</strong></span>
-                        </div>
-                        <p class="instruction-text">
-                            Use the camera above to capture product images. Click "Done with this serial" when finished.
-                        </p>
-                    </div>
+        <div class="capture-actions">
+            <button @click="skipImageCapture(2)" class="btn-skip-images">
+                <i class="fas fa-forward"></i> Skip (No Images)
+            </button>
+            <button @click="finishImageCapture(2)" class="btn-done-images">
+                <i class="fas fa-check"></i> Done - Continue to Location
+            </button>
+        </div>
+    </div>
 
-                    <!-- Action Buttons -->
-                    <div class="capture-actions">
-                        <button 
-                            @click="skipCurrentSerial" 
-                            class="btn-skip"
-                            v-if="currentSerialIndex < totalSerials - 1"
-                        >
-                            <i class="fas fa-forward"></i> Skip (No Images)
-                        </button>
-                        <button 
-                            @click="finishCurrentSerialCapture" 
-                            class="btn-done-serial"
-                        >
-                            <i class="fas fa-check"></i> 
-                            {{ currentSerialIndex < totalSerials - 1 ? 'Done with this Serial' : 'Done - Continue to Location' }}
-                        </button>
-                    </div>
-                </div>
+    <!-- Location Input -->
+    <div class="input-group" v-if="currentCaptureStep === 0">
+        <label>Location:</label>
+        <input type="text" v-model="locationInput" placeholder="Enter Location..."
+            @input="handleLocationInput"
+            @keyup.enter="processScan()"
+            ref="locationInput" />
+        <div class="container-type-hint">
+            Format: L###X (e.g., L123A) or 'Floor'
+        </div>
+    </div>
 
-                <div class="input-group">
-                    <label>Location:</label>
-                    <input type="text" v-model="locationInput" placeholder="Enter Location..."
-                        @input="handleLocationInput" @keyup.enter="processScan()" ref="locationInput" />
-                    <div class="container-type-hint">
-                        Format: L###X (e.g., L123A) or 'Floor'
-                    </div>
-                </div>
-
-                <!-- Submit button (only in manual mode) -->
-                <button v-if="showManualInput" @click="processScan()" class="submit-button">
-                    Submit
-                </button>
-            </template>
+    <!-- Submit button (only in manual mode) -->
+    <button v-if="showManualInput && currentCaptureStep === 0" @click="processScan()" class="submit-button">
+        Submit
+    </button>
+</template>
         </scanner-component>
 
         <!-- Returns History Table -->

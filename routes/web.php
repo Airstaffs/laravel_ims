@@ -601,6 +601,8 @@ Route::prefix('api/asinlist')->group(function () {
     Route::post('bulk-upload-instruction-cards', [ASINlistController::class, 'bulkUploadInstructionCards']);
 
     Route::post('update-quantity-inside', [ASINlistController::class, 'updateQuantityInside']);
+
+    Route::post('update-color', [ASINlistController::class, 'updateColor']);
 });
 
 // Routes for Houseage Function

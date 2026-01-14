@@ -46,6 +46,7 @@ class ASINlistController extends BasetablesController
                     'asin.asinimg',
                     'asin.vectorimage',
                     'asin.TRANSPARENCY_QR_STATUS',
+                    'asin.color',
                     'asin.QuantityInside',
                     // Amazon dimensions (read-only)
                     'asin.dimension_length',
@@ -100,6 +101,7 @@ class ASINlistController extends BasetablesController
                 'asin.asinimg',
                 'asin.vectorimage',
                 'asin.TRANSPARENCY_QR_STATUS',
+                'asin.color',
                 'asin.QuantityInside',
                 'asin.dimension_length',
                 'asin.dimension_width',
@@ -1407,7 +1409,51 @@ class ASINlistController extends BasetablesController
     }
 
 
+   /**
+     * Update Color for a specific ASIN
+     */
+    public function updateColor(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'asin' => 'required|string',
+                'color' => 'nullable|string|in:Black,White,Gray,Blue,Green,Red,Yellow'
+            ]);
 
+            $asin = DB::table($this->asinTable)
+                ->where('ASIN', $validated['asin'])
+                ->first();
+
+            if (!$asin) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ASIN not found'
+                ], 404);
+            }
+
+            DB::table($this->asinTable)
+                ->where('ASIN', $validated['asin'])
+                ->update(['color' => $validated['color']]);
+
+            Log::info("Color updated for: {$validated['asin']}", [
+                'color' => $validated['color']
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Color updated successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error updating Color: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while updating Color',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 
     /**
      * Update Quantity Inside for a specific ASIN

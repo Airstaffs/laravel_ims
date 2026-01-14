@@ -147,7 +147,7 @@ class ReturnScannerController extends BasetablesController
                     $query->where('serialnumber', $serial)
                         ->orWhere('serialnumberb', $serial);
                 })
-                ->whereIn('ProductModuleLoc', ['Stockroom', 'Shipment', 'Soldlist'])
+                ->whereIn('ProductModuleLoc', ['Stockroom', 'Shipment', 'Soldlist','Returnlist'])
                 ->first();
             
             if (!$product) {
@@ -156,8 +156,12 @@ class ReturnScannerController extends BasetablesController
                     'message' => 'Serial number not found or not in a valid location'
                 ]);
             }
+           // ✅ FIXED: Check if serialnumberb is valid (not empty, not null, not "N/A")
+            $isValidSecondSerial = !empty($product->serialnumberb) && 
+                              trim($product->serialnumberb) !== '' &&
+                              strtoupper(trim($product->serialnumberb)) !== 'N/A';
             
-            $isDualSerial = !empty($product->serialnumberb);
+            $isDualSerial = $isValidSecondSerial;
             $secondSerial = null;
             $scannedSerialPosition = null;
             
@@ -212,7 +216,11 @@ class ReturnScannerController extends BasetablesController
                 'FNSKUviewer' => 'nullable|string',
                 'ScannedSerialPosition' => 'nullable|string',
                 'ScannedPrimarySerial' => 'nullable|string',
-                'ScannedSecondarySerial' => 'nullable|string'
+                'ScannedSecondarySerial' => 'nullable|string',
+                'Images' => 'nullable|array', // ✅ Accept images array
+                'Images.*.data' => 'nullable|string',
+                'Images.*.serialIndex' => 'nullable|integer',
+                'Images.*.serial' => 'nullable|string',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
@@ -232,11 +240,13 @@ class ReturnScannerController extends BasetablesController
         $productId = $request->input('ProductID');
         $fnsku = $request->input('FNSKUviewer');
         $scannedSerialPosition = $request->input('ScannedSerialPosition');
+        $images = $request->input('Images', []); // ✅ Get images
 
         Log::info("Processing return scan", [
             'serial' => $serial,
             'secondSerial' => $secondSerial,
-            'location' => $location
+            'location' => $location,
+            'imagesCount' => count($images)
         ]);
 
         if (empty($serial)) {
@@ -422,32 +432,37 @@ class ReturnScannerController extends BasetablesController
             $dbSerial1 = $existingItem->serialnumber;
             $dbSerial2 = $existingItem->serialnumberb;
             
-            if (empty($secondSerial)) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This is a dual-serial product. Second serial number is required.',
-                    'reason' => 'missing_second_serial',
-                    'secondSerialLabel' => 'Second Serial',
-                    'isDualSerial' => true,
-                    'secondSerial' => $serial === $dbSerial1 ? $dbSerial2 : $dbSerial1
-                ]);
-            }
-            
-            $anySerialMatches = in_array($serial, [$dbSerial1, $dbSerial2]) || 
-                                in_array($secondSerial, [$dbSerial1, $dbSerial2]);
-            
-            if (!$anySerialMatches) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'The provided serial numbers do not match the product record.',
-                    'reason' => 'serial_mismatch',
-                    'correctSerials' => [
-                        'serial1' => $dbSerial1,
-                        'serial2' => $dbSerial2
-                    ]
-                ]);
+            // ✅ Check if serialnumberb is valid (not "N/A")
+            if (strtoupper(trim($dbSerial2)) === 'N/A') {
+                // Treat as single serial
+            } else {
+                if (empty($secondSerial)) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'This is a dual-serial product. Second serial number is required.',
+                        'reason' => 'missing_second_serial',
+                        'secondSerialLabel' => 'Second Serial',
+                        'isDualSerial' => true,
+                        'secondSerial' => $serial === $dbSerial1 ? $dbSerial2 : $dbSerial1
+                    ]);
+                }
+                
+                $anySerialMatches = in_array($serial, [$dbSerial1, $dbSerial2]) || 
+                                    in_array($secondSerial, [$dbSerial1, $dbSerial2]);
+                
+                if (!$anySerialMatches) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'The provided serial numbers do not match the product record.',
+                        'reason' => 'serial_mismatch',
+                        'correctSerials' => [
+                            'serial1' => $dbSerial1,
+                            'serial2' => $dbSerial2
+                        ]
+                    ]);
+                }
             }
         }
 
@@ -500,7 +515,6 @@ class ReturnScannerController extends BasetablesController
                 if ($originalFnsku) {
                     $baseFnsku = $this->extractBaseFnsku($originalFnsku);
                     
-                    // ✅ Get FNSKU info WITH quantityinside and color
                     $fnskuInfo = DB::table($this->fnskuTable . ' as fnsku')
                         ->select('fnsku.*', 'asin.quantityinside', 'asin.color')
                         ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
@@ -513,7 +527,6 @@ class ReturnScannerController extends BasetablesController
                         $storename = $fnskuInfo->storename ?? null;
                         $OriginalFnskuUnitCount = $fnskuInfo->Units ?? 0;
                         
-                        // ✅ Get quantityinside and color from database
                         $quantityInside = $fnskuInfo->quantityinside ?? 1;
                         $color = $fnskuInfo->color ?? null;
                         
@@ -525,11 +538,9 @@ class ReturnScannerController extends BasetablesController
                             'condition' => $condition
                         ]);
                         
-                        // ✅ PACK DETECTION using quantityinside column
                         if ($quantityInside > 1) {
                             Log::info("Pack detected: ASIN {$asinToUse} has {$quantityInside} items inside");
                             
-                            // Find single-unit equivalent
                             $query = DB::table($this->fnskuTable . ' as fnsku')
                                 ->select('fnsku.*')
                                 ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
@@ -538,15 +549,13 @@ class ReturnScannerController extends BasetablesController
                                 ->where('fnsku.LimitStatus', 'False')
                                 ->where('fnsku.grading', $condition)
                                 ->where('fnsku.Units', '>', 0)
-                                ->where('asin.quantityinside', 1); // ✅ Single units only
+                                ->where('asin.quantityinside', 1);
                             
-                            // ✅ Match color if exists
                             if ($color) {
                                 $query->where('asin.color', $color);
                                 Log::info("Filtering by color: {$color}");
                             }
                             
-                            // Try same ASIN base
                             $asinBase = preg_replace('/-pack\d*$/i', '', $asinToUse);
                             $asinBase = preg_replace('/-\d+$/i', '', $asinBase);
                             $query->where('fnsku.ASIN', 'LIKE', $asinBase . '%');
@@ -560,7 +569,6 @@ class ReturnScannerController extends BasetablesController
                                 $storename = $singleItem->storename;
                                 Log::info("✅ Found single-unit FNSKU: {$baseFnskuToUse}");
                             } else {
-                                // Fallback: any single unit with same condition/color
                                 $fallbackQuery = DB::table($this->fnskuTable . ' as fnsku')
                                     ->select('fnsku.*')
                                     ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
@@ -588,13 +596,11 @@ class ReturnScannerController extends BasetablesController
                                 }
                             }
                         } else {
-                            // ✅ SINGLE UNIT PRODUCT
                             if (strtolower($fnskuInfo->fnsku_status ?? '') == 'available' && ($OriginalFnskuUnitCount > 0)) {
                                 $baseFnskuToUse = $fnskuInfo->FNSKU;
                                 $storename = $fnskuInfo->storename;
                                 Log::info("Using original FNSKU {$baseFnskuToUse}");
                             } else {
-                                // Find alternative
                                 $alternativeQuery = DB::table($this->fnskuTable)
                                     ->where('ASIN', $asinToUse)
                                     ->where('grading', $condition)
@@ -629,7 +635,6 @@ class ReturnScannerController extends BasetablesController
                     }
                 }
                 
-                // Fallback if no FNSKU found yet
                 if (!$baseFnskuToUse && $asinToUse) {
                     $query = DB::table($this->fnskuTable . ' as fnsku')
                         ->select('fnsku.*')
@@ -670,7 +675,6 @@ class ReturnScannerController extends BasetablesController
                     }
                 }
                 
-                // Generic FNSKU for unknown serials
                 if (!$isSerialKnown && !$baseFnskuToUse) {
                     $genericFnsku = DB::table($this->fnskuTable)
                         ->where('fnsku_status', 'available')
@@ -687,7 +691,6 @@ class ReturnScannerController extends BasetablesController
                     }
                 }
                 
-                // ✅ GENERATE PREFIXED FNSKU
                 if ($baseFnskuToUse) {
                     $fnskuGenerationInfo = $this->getNextAvailableFnsku(
                         $baseFnskuToUse,
@@ -719,7 +722,7 @@ class ReturnScannerController extends BasetablesController
                         'price' => $price,
                         'lpnID' => $currentLpnId,
                         'warehouselocation' => $location,
-                        'FNSKUviewer' => $actualFnskuToUse, // ✅ Prefixed FNSKU
+                        'FNSKUviewer' => $actualFnskuToUse,
                         'stockroom_insert_date' => $insertedDate,
                         'validation_status' => 'validated'
                     ]);
@@ -732,7 +735,6 @@ class ReturnScannerController extends BasetablesController
                         'Action' => 'Scanned and insert to ' . $modulelocation
                     ]);
                     
-                    // ✅ UPDATE FNSKU UNITS
                     $becameUnavailable = $this->updateFnskuUnits(
                         $baseFnskuToUse,
                         $asinToUse,
@@ -740,6 +742,7 @@ class ReturnScannerController extends BasetablesController
                         $storename
                     );
                     
+                    // ✅ Add created item to array with serial info
                     $createdItems[] = [
                         'id' => $newItemId,
                         'serial' => $currentSerial,
@@ -812,10 +815,7 @@ class ReturnScannerController extends BasetablesController
 
                 if ($originalFnsku) {
                     $baseFnsku = $this->extractBaseFnsku($originalFnsku);
-                    
-                    // ✅ Restore units using helper method
                     $this->returnFnskuUnits($baseFnsku);
-                    
                     Log::info("Restored units to original FNSKU {$baseFnsku}");
                 }
                 
@@ -850,6 +850,7 @@ class ReturnScannerController extends BasetablesController
                 $successMessage .= " (Switcheru detected)";
             }
             
+            // ✅ Return created items for image upload
             return response()->json([
                 'success' => true,
                 'message' => $successMessage,
@@ -864,10 +865,11 @@ class ReturnScannerController extends BasetablesController
                     'single_serial_mode' => $singleSerialMode && !empty($existingItem->serialnumberb),
                     'fnsku' => $originalFnsku,
                     'product_id' => $existingItem->ProductID,
-                    'created_items' => $createdItems,
                     'switcheru_found' => $switcheruFound,
                     'is_serial_known' => $isSerialKnown
-                ]
+                ],
+                'createdItems' => $createdItems, // ✅ Include created items for frontend
+                'imagesReceived' => count($images) // ✅ For debugging
             ]);
         } else {
             DB::rollBack();

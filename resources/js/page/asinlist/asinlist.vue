@@ -96,7 +96,23 @@
                     </div>
                 </template>
 
-
+                <!-- Color Column -->
+                <template #color="{ data }">
+                    <div class="color-cell">
+                        <Select 
+                            v-model="data.color" 
+                            :options="colorOptions"
+                            @change="updateColor(data)" 
+                            :disabled="savingColorFor === data.ASIN"
+                            :placeholder="data.color || 'Set color'"
+                            :pt="{
+                                root: { style: 'width: 120px; font-size: 14px;' }
+                            }" 
+                        />
+                        <i v-if="savingColorFor === data.ASIN" class="pi pi-spin pi-spinner"
+                            style="margin-left: 8px; color: #007bff;"></i>
+                    </div>
+                </template>
 
                 <!-- ADD THIS NEW TEMPLATE SLOT -->
                 <template #quantityInside="{ data }">
@@ -1855,6 +1871,11 @@ const TABLE_COLUMNS = [
     {
         header: "Related ASINs",
         slot: "relatedAsins",
+        bodyStyle: "font-size: 14px"
+    },
+  {
+        header: "Color",
+        slot: "color",
         bodyStyle: "font-size: 14px"
     },
     {
@@ -4216,6 +4237,56 @@ export default {
     font-size: 18px;
     margin-bottom: 8px;
     display: block;
+}
+
+
+.color-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.quantity-inside-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Optional: Color-specific styling for dropdown options */
+.p-dropdown-item[data-value="Black"] {
+    color: #000;
+    font-weight: 600;
+}
+
+.p-dropdown-item[data-value="White"] {
+    color: #333;
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+
+.p-dropdown-item[data-value="Gray"] {
+    color: #6c757d;
+    font-weight: 600;
+}
+
+.p-dropdown-item[data-value="Blue"] {
+    color: #007bff;
+    font-weight: 600;
+}
+
+.p-dropdown-item[data-value="Green"] {
+    color: #28a745;
+    font-weight: 600;
+}
+
+.p-dropdown-item[data-value="Red"] {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+.p-dropdown-item[data-value="Yellow"] {
+    color: #ffc107;
+    font-weight: 600;
 }
 
 /* Mobile responsiveness for new design */

@@ -20,6 +20,17 @@ export default {
             stores: [],
             selectedStore: "",
 
+            // Color options
+            colorOptions: [
+                'Black',
+                'White',
+                'Gray',
+                'Blue',
+                'Green',
+                'Red',
+                'Yellow'
+            ],
+
             // For ASIN details modal
             showAsinDetailsModal: false,
             selectedAsin: null,
@@ -33,6 +44,7 @@ export default {
 
             // Quantity Inside
              savingQuantityFor: null,
+             savingColorFor: null,
 
             // For bulk instruction card upload modal
             showBulkInstructionCardModal: false,
@@ -1352,6 +1364,41 @@ export default {
             this.imageCacheBuster = {};
             this.$forceUpdate();
         },
+
+            async updateColor(item) {
+        const originalValue = item.color;
+        this.savingColorFor = item.ASIN; // Show loading
+        
+        try {
+            const response = await axios.post(
+                `${API_BASE_URL}/api/asinlist/update-color`,
+                {
+                    asin: item.ASIN,
+                    color: item.color || null,
+                },
+                {
+                    withCredentials: true,
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                    },
+                }
+            );
+
+            if (response.data.success) {
+                console.log(`✓ Color updated for ${item.ASIN}: ${item.color}`);
+            } else {
+                throw new Error(response.data.message || "Failed to update color");
+            }
+        } catch (error) {
+            console.error("Error updating Color:", error);
+            item.color = originalValue;
+            this.$forceUpdate();
+            alert("Failed to update Color: " + (error.response?.data?.message || error.message));
+        } finally {
+            this.savingColorFor = null; // Hide loading
+        }
+    },
 
         async updateQuantityInside(item) {
             const originalValue = item.QuantityInside;
