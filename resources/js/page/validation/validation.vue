@@ -228,12 +228,54 @@
                         <div class="mobile-checkbox">
                             <input type="checkbox" v-model="item.checked" />
                         </div>
-                        <TableGallery
-                            :data="item"
-                            :openImageModal="openImageModal"
-                            :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages"
-                        />
+                        <!-- Updated mobile gallery with captured images support -->
+                        <div class="mobile-product-image clickable">
+                            <!-- Show captured image if available -->
+                            <div
+                                v-if="
+                                    item.capturedImages &&
+                                    item.capturedImages.capturedimg1
+                                "
+                                class="gallery-thumbnail position-relative"
+                                @click="openImageModal(item)"
+                                style="cursor: pointer"
+                            >
+                                <img
+                                    :src="`/images/product_images/${
+                                        item.company || 'Airstaffs'
+                                    }/${item.capturedImages.capturedimg1}`"
+                                    :alt="getDisplayTitle(item)"
+                                    class="product-thumbnail clickable-image"
+                                    @error="handleImageError"
+                                />
+                                <div
+                                    class="image-count-badge"
+                                    v-if="countCapturedImages(item) > 1"
+                                >
+                                    +{{ countCapturedImages(item) - 1 }}
+                                </div>
+                            </div>
+
+                            <!-- Fallback to regular product image -->
+                            <div
+                                v-else
+                                @click="openImageModal(item)"
+                                style="cursor: pointer"
+                            >
+                                <img
+                                    :src="'/images/thumbnails/' + item.img1"
+                                    :alt="getDisplayTitle(item)"
+                                    class="product-thumbnail clickable-image"
+                                    @error="handleImageError($event)"
+                                />
+                                <div
+                                    class="image-count-badge"
+                                    v-if="countAllImages(item) > 0"
+                                >
+                                    +{{ countAllImages(item) }}
+                                </div>
+                            </div>
+                        </div>
                         <div class="mobile-product-info">
                             <div class="mobile-product-name clickable">
                                 <p>
