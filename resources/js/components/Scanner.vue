@@ -321,6 +321,8 @@
 <script>
 import ScannerMixin from './ScannerMixin.js';
 
+const FREE_CAPTURE_LIMIT = 12;
+
 export default {
   name: 'ScannerComponent',
   mixins: [ScannerMixin],
