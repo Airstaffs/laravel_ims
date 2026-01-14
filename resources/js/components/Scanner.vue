@@ -451,6 +451,12 @@ export default {
       const video = document.getElementById('scanner-camera-preview');
       if (!video || !this.scannerCameraActive) return;
 
+      // 🚫 Limit free capture to 12 images
+      if (this.capturedImages.length >= FREE_CAPTURE_LIMIT) {
+        this.showScanWarning(`Maximum of ${FREE_CAPTURE_LIMIT} images allowed.`);
+        return;
+      }
+
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -461,7 +467,11 @@ export default {
       const timestamp = new Date().toLocaleTimeString();
       const dataUrl = canvas.toDataURL('image/jpeg');
 
-      this.capturedImages.push({ data: dataUrl, timestamp });
+      this.capturedImages.push({
+        data: dataUrl,
+        timestamp
+      });
+
       this.showScanSuccess('Image captured.');
     },
 

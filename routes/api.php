@@ -65,7 +65,7 @@ Route::prefix('training')->group(function () {
     Route::get('/training-stream', [TrainingProxyController::class, 'trainingStream']);
 
     /* 🖼 Training images */
-    Route::get('/training-images/{model}', [TrainingProxyController::class, 'trainingImages']);
+    // Route::get('/training-images/{model}', [TrainingProxyController::class, 'trainingImages']);
 
     Route::get('/training-image/{model}/{file}', [TrainingProxyController::class, 'trainingImage'])
         ->where('file', '.*');
