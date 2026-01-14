@@ -215,82 +215,85 @@ class HouseageController extends BasetablesController
         }
     }
 
-    public function store(Request $request)
-    {
-        $table = (new tblproduct)->getTable();
+   public function store(Request $request)
+{
+    $table = (new tblproduct)->getTable();
 
-        if ($request->has('serialnumber')) {
-            $sn = Str::upper(trim((string) $request->input('serialnumber')));
-            $request->merge(['serialnumber' => $sn !== '' ? $sn : null]);
-        }
-
-        $validated = $request->validate([
-            'ProductID' => 'required|integer',
-            'itemnumber' => 'required|string|max:255',
-            'ProductTitle' => 'nullable|string|max:255',
-            'rtid' => 'nullable|string|max:255',
-            'orderdate' => 'nullable|date',
-            'paymentdate' => 'nullable|date',
-            'shipdate' => 'nullable|date',
-            'datedelivered' => 'nullable|date',
-            'seller' => 'nullable|string|max:255',
-            'materialtype' => 'nullable|string|max:255',
-            'sourceType' => 'nullable|string|max:255',
-            'carrier' => 'nullable|string|max:255',
-            'listedcondition' => 'nullable|string|max:255',
-            'paymentmethod' => 'nullable|string|max:255',
-            'quantity' => 'nullable|numeric',
-            'Discount' => 'nullable|numeric',
-            'tax' => 'nullable|numeric',
-            'priceshipping' => 'nullable|numeric',
-            'refund' => 'nullable|numeric',
-            'description' => 'nullable|string',
-            'supplierNotes' => 'nullable|string',
-            'employeeNotes' => 'nullable|string',
-            'serialnumber' => 'nullable|string|max:255',
-            'serialnumberb' => 'nullable|string|max:255',
-            'serialnumberc' => 'nullable|string|max:255',
-            'serialnumberd' => 'nullable|string|max:255',
-            'trackingnumber' => 'nullable|string|max:255',
-            'trackingnumber2' => 'nullable|string|max:255',
-            'trackingnumber3' => 'nullable|string|max:255',
-            'trackingnumber4' => 'nullable|string|max:255',
-            'trackingnumber5' => 'nullable|string|max:255',
-            'validation' => 'nullable|string|max:255',
-            'price' => 'nullable|numeric',
-            'RPN' => 'nullable|string',
-            'PRD' => 'nullable|string',
-            'PCN' => 'nullable|string',
-            'basketnumber' => 'nullable|string',
-        ]);
-
-        $validated['validation'] = $validated['validation'] ?? 'unvalidated';
-
-        if (! empty($validated['serialnumber'])) {
-            $exists = \App\Models\tblproduct::where('serialnumber', $validated['serialnumber'])
-                ->where('itemnumber', '<>', $validated['itemnumber'])
-                ->exists();
-
-            if ($exists) {
-                return response()->json([
-                    'success' => false,
-                    'message' => "Serial Number '{$validated['serialnumber']}' is already assigned to another product.",
-                ], 422);
-            }
-        }
-
-        // Proceed with insert/update
-        $product = \App\Models\tblproduct::updateOrCreate(
-            ['itemnumber' => $validated['itemnumber']],
-            $validated
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Houseage product saved successfully',
-            'product' => $product,
-        ]);
+    if ($request->has('serialnumber')) {
+        $sn = Str::upper(trim((string) $request->input('serialnumber')));
+        $request->merge(['serialnumber' => $sn !== '' ? $sn : null]);
     }
+
+    $validated = $request->validate([
+        'ProductID' => 'required|integer|exists:' . $this->productTable . ',ProductID',
+        'itemnumber' => 'required|string|max:255',
+        'ProductTitle' => 'nullable|string|max:255',
+        'rtid' => 'nullable|string|max:255',
+        'orderdate' => 'nullable|date',
+        'paymentdate' => 'nullable|date',
+        'shipdate' => 'nullable|date',
+        'datedelivered' => 'nullable|date',
+        'seller' => 'nullable|string|max:255',
+        'materialtype' => 'nullable|string|max:255',
+        'sourceType' => 'nullable|string|max:255',
+        'carrier' => 'nullable|string|max:255',
+        'listedcondition' => 'nullable|string|max:255',
+        'paymentmethod' => 'nullable|string|max:255',
+        'quantity' => 'nullable|numeric',
+        'Discount' => 'nullable|numeric',
+        'tax' => 'nullable|numeric',
+        'priceshipping' => 'nullable|numeric',
+        'refund' => 'nullable|numeric',
+        'description' => 'nullable|string',
+        'supplierNotes' => 'nullable|string',
+        'employeeNotes' => 'nullable|string',
+        'serialnumber' => 'nullable|string|max:255',
+        'serialnumberb' => 'nullable|string|max:255',
+        'serialnumberc' => 'nullable|string|max:255',
+        'serialnumberd' => 'nullable|string|max:255',
+        'trackingnumber' => 'nullable|string|max:255',
+        'trackingnumber2' => 'nullable|string|max:255',
+        'trackingnumber3' => 'nullable|string|max:255',
+        'trackingnumber4' => 'nullable|string|max:255',
+        'trackingnumber5' => 'nullable|string|max:255',
+        'validation' => 'nullable|string|max:255',
+        'price' => 'nullable|numeric',
+        'RPN' => 'nullable|string',
+        'PRD' => 'nullable|string',
+        'PCN' => 'nullable|string',
+        'basketnumber' => 'nullable|string',
+    ]);
+
+    $validated['validation'] = $validated['validation'] ?? 'unvalidated';
+
+    // Extract ProductID and remove it from update data
+    $productId = $validated['ProductID'];
+    unset($validated['ProductID']);
+
+    // Check for duplicate serial number
+    if (!empty($validated['serialnumber'])) {
+        $exists = \App\Models\tblproduct::where('serialnumber', $validated['serialnumber'])
+            ->where('ProductID', '<>', $productId)
+            ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'success' => false,
+                'message' => "Serial Number '{$validated['serialnumber']}' is already assigned to another product.",
+            ], 422);
+        }
+    }
+
+    // Find the product by ProductID and update it
+    $product = \App\Models\tblproduct::findOrFail($productId);
+    $product->update($validated);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Houseage product updated successfully',
+        'product' => $product->fresh(),
+    ]);
+}
 
     public function checkDuplicateSerial(Request $request)
     {

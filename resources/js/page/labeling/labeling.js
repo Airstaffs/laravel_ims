@@ -963,20 +963,19 @@ export default {
             }
         },
 
-        nextPage() {
+        nextFnskuPage() {
             if (this.hasMorePages) {
                 this.goToPage(this.currentPage + 1);
             }
         },
 
-        prevPage() {
+        prevFnskuPage() {
             if (this.currentPage > 1) {
                 this.goToPage(this.currentPage - 1);
             }
         },
 
-        changePageSize() {
-            // Reset to page 1 when changing page size
+        changeFnskuPageSize() {
             this.currentPage = 1;
             this.filterFnskuList(1);
         },
