@@ -549,6 +549,10 @@ export default {
       if (this.module === 'received') {
         return this.captureReceived();
       }
+
+      if (this.module === 'returnscanner') {
+         return this.captureReturnScanner();
+  }
       return this.captureFree();
     },
 
@@ -674,7 +678,69 @@ export default {
       setTimeout(() => {
         this.showSuccessNotification = false;
       }, 2000);
+    },
+    
+   //return scanner condition 
+    async captureReturnScanner() {
+    const video = document.getElementById('scanner-camera-preview');
+    if (!video || !this.scannerCameraActive) return;
+
+    // Get the capture step from parent
+    const currentCaptureStep = this.$parent?.currentCaptureStep ?? 0;
+    
+    console.log('📸 Return Scanner Capture:', {
+        currentCaptureStep,
+        capturedImagesLength: this.capturedImages.length
+    });
+
+    // Limit to 12 images per serial
+    if (this.capturedImages.length >= 12) {
+        this.showScanWarning('Maximum of 12 images per serial allowed.');
+        return;
     }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const timestamp = new Date().toLocaleTimeString();
+    const dataUrl = canvas.toDataURL('image/jpeg');
+
+    // ✅ CRITICAL: Store with captureStep AND the actual serial number
+    const captureData = {
+        data: dataUrl,
+        timestamp,
+        captureStep: currentCaptureStep
+    };
+
+    // ✅ Add the serial number based on which step we're on
+    if (currentCaptureStep === 1 && this.$parent.serialNumber) {
+        captureData.serial = this.$parent.serialNumber;
+        captureData.serialIndex = 1;
+    } else if (currentCaptureStep === 2 && this.$parent.secondSerialNumber) {
+        captureData.serial = this.$parent.secondSerialNumber;
+        captureData.serialIndex = 2;
+    }
+
+    this.capturedImages.push(captureData);
+
+    console.log(`✅ Image captured for Return Scanner (Step ${currentCaptureStep})`, {
+        totalImages: this.capturedImages.length,
+        serial: captureData.serial,
+        serialIndex: captureData.serialIndex
+    });
+
+    this.showScanSuccess(`Image ${this.capturedImages.length} captured.`);
+
+    setTimeout(() => {
+        this.showSuccessNotification = false;
+    }, 2000);
+}
+
+    
   }
 };
 </script>

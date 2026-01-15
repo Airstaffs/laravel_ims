@@ -242,18 +242,45 @@ export default {
         },
 
         // Hide the second serial input and focus on location field
-        hideSecondSerial() {
-            this.secondSerialNumber = "";
-            this.showSecondSerialInput = false;
+  hideSecondSerial() {
+    console.log('\n❌ ========== HIDE SECOND SERIAL (X button clicked) ==========');
+    console.log('User clicked X to skip second serial');
+    
+    // Clear second serial number
+    this.secondSerialNumber = "";
+    
+    // Clear any captured images for serial 2
+    this.capturedImagesForSerial2 = [];
+    
+    // Hide the second serial input
+    this.showSecondSerialInput = false;
+    
+    // ✅ CRITICAL: Set currentCaptureStep to 0 to show location input
+    this.currentCaptureStep = 0;
+    
+    console.log('✅ Second serial cleared, moving to location input');
+    console.log('Current state:', {
+        currentCaptureStep: this.currentCaptureStep,
+        showSecondSerialInput: this.showSecondSerialInput,
+        serial1Images: this.capturedImagesForSerial1.length,
+        serial2Images: this.capturedImagesForSerial2.length
+    });
+    
+    // Focus on the location input
+    this.$nextTick(() => {
+        if (this.$refs.locationInput) {
+            this.$refs.locationInput.focus();
+            console.log('✅ Focused on location input');
+        }
+    });
 
-            // Focus on the location input
-            this.focusNextField("locationInput");
-
-            // Play success sound
-            if (SoundService && SoundService.success) {
-                SoundService.success();
-            }
-        },
+    // Play success sound
+    if (SoundService && SoundService.success) {
+        SoundService.success();
+    }
+    
+    console.log('========== END HIDE SECOND SERIAL ==========\n');
+},
 
         // Format date for display
         formatDate(dateString) {
@@ -650,115 +677,273 @@ export default {
 
 
             // ✅ NEW: Proceed to image capture step
-    proceedToImageCapture(serialNumber) {
-        if (serialNumber === 1) {
-            if (!this.serialNumber.trim()) {
-                this.$refs.scanner.showScanError("Please enter a serial number first");
+proceedToImageCapture(serialNumber) {
+    if (serialNumber === 1) {
+        if (!this.serialNumber.trim()) {
+            this.$refs.scanner.showScanError("Please enter a serial number first");
+            if (SoundService && SoundService.error) {
                 SoundService.error();
-                return;
             }
-            this.currentCaptureStep = 1;
-            SoundService.success();
-        } else if (serialNumber === 2) {
-            if (!this.secondSerialNumber.trim()) {
-                this.$refs.scanner.showScanError("Please enter second serial number first");
-                SoundService.error();
-                return;
-            }
-            this.currentCaptureStep = 2;
+            return;
+        }
+        console.log('🎬 Starting capture for Serial 1');
+        this.currentCaptureStep = 1;
+        if (SoundService && SoundService.success) {
             SoundService.success();
         }
-    },
+    } else if (serialNumber === 2) {
+        if (!this.secondSerialNumber.trim()) {
+            this.$refs.scanner.showScanError("Please enter second serial number first");
+            if (SoundService && SoundService.error) {
+                SoundService.error();
+            }
+            return;
+        }
+        console.log('🎬 Starting capture for Serial 2');
+        this.currentCaptureStep = 2; // ✅ Set to 2 for second serial
+        if (SoundService && SoundService.success) {
+            SoundService.success();
+        }
+    }
+},
 
     // ✅ NEW: Skip image capture for a serial
-    skipImageCapture(serialNumber) {
-        if (serialNumber === 1) {
-            this.capturedImagesForSerial1 = [];
+skipImageCapture(serialNumber) {
+    console.log(`\n⏭️ ========== SKIP IMAGE CAPTURE: Serial ${serialNumber} ==========`);
+    
+    if (serialNumber === 1) {
+        console.log('⏭️ Skipping images for Serial 1');
+        
+        // Clear any captured images for serial 1
+        this.capturedImagesForSerial1 = [];
+        
+        // Also clear scanner images
+        if (this.$refs.scanner) {
+            this.$refs.scanner.capturedImages = [];
+        }
+        
+        // If dual serial, move to second serial input
+        if (this.dualSerialProduct && this.showSecondSerialInput) {
+            this.currentCaptureStep = -1; // Special state for second serial input
             
-            // If dual serial, go to second serial input
-            if (this.dualSerialProduct && this.showSecondSerialInput) {
-                this.currentCaptureStep = 0;
-                this.$nextTick(() => {
-                    if (this.$refs.secondSerialInput) {
-                        this.$refs.secondSerialInput.focus();
-                    }
-                });
-            } else {
-                // Go to location
-                this.currentCaptureStep = 0;
-                this.$nextTick(() => {
-                    if (this.$refs.locationInput) {
-                        this.$refs.locationInput.focus();
-                    }
-                });
+            if (this.$refs.scanner) {
+                this.$refs.scanner.showScanSuccess('Skipped images for first serial');
             }
-        } else if (serialNumber === 2) {
-            this.capturedImagesForSerial2 = [];
+            console.log('➡️ Moving to second serial input (currentCaptureStep = -1)');
+            
+            setTimeout(() => {
+                if (this.$refs.secondSerialInput) {
+                    this.$refs.secondSerialInput.focus();
+                    // ✅ Select all text so user can scan over it
+                    this.$refs.secondSerialInput.select();
+                    console.log('✅ Focused and selected text in second serial input');
+                }
+            }, 100);
+        } else {
+            // Single serial - go to location
             this.currentCaptureStep = 0;
+            
+            if (this.$refs.scanner) {
+                this.$refs.scanner.showScanSuccess('Skipped images');
+            }
+            console.log('➡️ Moving to location input (currentCaptureStep = 0)');
+            
             this.$nextTick(() => {
                 if (this.$refs.locationInput) {
                     this.$refs.locationInput.focus();
+                    console.log('✅ Focused on location input');
                 }
             });
         }
         
+    } else if (serialNumber === 2) {
+        console.log('⏭️ Skipping images for Serial 2');
+        
+        // Clear any captured images for serial 2
+        this.capturedImagesForSerial2 = [];
+        
+        // Clear scanner images
+        if (this.$refs.scanner) {
+            this.$refs.scanner.capturedImages = [];
+        }
+        
+        // Always go to location after serial 2
+        this.currentCaptureStep = 0;
+        
+        if (this.$refs.scanner) {
+            this.$refs.scanner.showScanSuccess('Skipped images for second serial');
+        }
+        console.log('➡️ Moving to location input (currentCaptureStep = 0)');
+        
+        this.$nextTick(() => {
+            if (this.$refs.locationInput) {
+                this.$refs.locationInput.focus();
+                console.log('✅ Focused on location input');
+            }
+        });
+    }
+    
+    console.log('📊 State after skip:', {
+        currentCaptureStep: this.currentCaptureStep,
+        serial1Images: this.capturedImagesForSerial1.length,
+        serial2Images: this.capturedImagesForSerial2.length
+    });
+    console.log('========== END SKIP IMAGE CAPTURE ==========\n');
+    
+    if (SoundService && SoundService.success) {
         SoundService.success();
-    },
+    }
+},
 
-    // ✅ NEW: Finish image capture for a serial
-    finishImageCapture(serialNumber) {
-        if (serialNumber === 1) {
-            // Store captured images from scanner
-            this.capturedImagesForSerial1 = this.$refs.scanner.capturedImages
-                .map(img => ({ ...img, serialIndex: 1 }));
-            
-            // Clear scanner images
-            this.$refs.scanner.capturedImages = [];
-            
-            // If dual serial, go to second serial input
-            if (this.dualSerialProduct && this.showSecondSerialInput) {
-                this.currentCaptureStep = 0;
-                this.$refs.scanner.showScanSuccess(
-                    `${this.capturedImagesForSerial1.length} images captured for first serial`
-                );
-                this.$nextTick(() => {
-                    if (this.$refs.secondSerialInput) {
-                        this.$refs.secondSerialInput.focus();
-                    }
+    
+
+finishImageCapture(serialNumber) {
+    console.log(`\n🎬 ========== FINISH IMAGE CAPTURE: Serial ${serialNumber} ==========`);
+    console.log(`Scanner has ${this.$refs.scanner.capturedImages.length} images BEFORE processing`);
+    console.log(`Current state: currentCaptureStep=${this.currentCaptureStep}, dualSerial=${this.dualSerialProduct}`);
+    
+    if (serialNumber === 1) {
+        // Store the first serial number
+        const firstSerial = this.serialNumber;
+        console.log(`📌 Processing Serial 1: "${firstSerial}"`);
+        
+        // ✅ FIXED: Handle case where no images were captured
+        if (this.$refs.scanner.capturedImages.length === 0) {
+            console.log('⚠️ No images captured for Serial 1');
+            this.capturedImagesForSerial1 = [];
+        } else {
+            // Map images and ensure serial is set
+            this.capturedImagesForSerial1 = this.$refs.scanner.capturedImages.map((img, idx) => {
+                console.log(`  Processing Scanner Image ${idx + 1}:`, {
+                    hasData: !!img.data,
+                    dataLength: img.data ? img.data.length : 0,
+                    existingSerial: img.serial,
+                    usingSerial: img.serial || firstSerial
                 });
-            } else {
-                // Go to location
-                this.currentCaptureStep = 0;
-                this.$refs.scanner.showScanSuccess(
-                    `${this.capturedImagesForSerial1.length} images captured`
-                );
-                this.$nextTick(() => {
-                    if (this.$refs.locationInput) {
-                        this.$refs.locationInput.focus();
-                    }
-                });
-            }
-        } else if (serialNumber === 2) {
-            // Store captured images from scanner
-            this.capturedImagesForSerial2 = this.$refs.scanner.capturedImages
-                .map(img => ({ ...img, serialIndex: 2 }));
+                
+                return { 
+                    ...img, 
+                    serialIndex: 1,
+                    serial: img.serial || firstSerial
+                };
+            });
             
-            // Clear scanner images
-            this.$refs.scanner.capturedImages = [];
+            console.log('✅ Stored images for Serial 1:', {
+                serial: firstSerial,
+                count: this.capturedImagesForSerial1.length
+            });
+        }
+        
+        // Clear scanner images
+        this.$refs.scanner.capturedImages = [];
+        console.log('🧹 Cleared scanner images');
+        
+        // ✅ Move to appropriate next step
+        if (this.dualSerialProduct && this.showSecondSerialInput) {
+            this.currentCaptureStep = -1; // Special state: waiting for second serial capture to start
             
+            const message = this.capturedImagesForSerial1.length > 0
+                ? `${this.capturedImagesForSerial1.length} images captured for first serial.`
+                : 'No images captured for first serial. Moving to second serial.';
+            
+            this.$refs.scanner.showScanSuccess(message);
+            console.log('➡️ Moving to second serial input (currentCaptureStep = -1)');
+            
+            // Focus on second serial input after a short delay
+            setTimeout(() => {
+                if (this.$refs.secondSerialInput) {
+                    this.$refs.secondSerialInput.focus();
+                    // ✅ Select all text so user can easily scan over it or change it
+                    this.$refs.secondSerialInput.select();
+                    console.log('✅ Focused and selected text in second serial input');
+                }
+            }, 150);
+        } else {
+            // Single serial mode - reset to 0 and go to location
             this.currentCaptureStep = 0;
-            this.$refs.scanner.showScanSuccess(
-                `${this.capturedImagesForSerial2.length} images captured for second serial`
-            );
+            
+            const message = this.capturedImagesForSerial1.length > 0
+                ? `${this.capturedImagesForSerial1.length} images captured`
+                : 'No images captured. Moving to location.';
+            
+            this.$refs.scanner.showScanSuccess(message);
+            console.log('➡️ Moving to location input (currentCaptureStep = 0, single serial mode)');
+            
             this.$nextTick(() => {
                 if (this.$refs.locationInput) {
                     this.$refs.locationInput.focus();
+                    console.log('✅ Focused on location input');
                 }
             });
         }
         
+    } else if (serialNumber === 2) {
+        // ✅ Store the second serial number FIRST
+        const secondSerial = this.secondSerialNumber;
+        console.log(`📌 Processing Serial 2: "${secondSerial}"`);
+        console.log(`📸 Scanner has ${this.$refs.scanner.capturedImages.length} images to process`);
+        
+        // ✅ FIXED: Handle case where no images were captured
+        if (this.$refs.scanner.capturedImages.length === 0) {
+            console.log('⚠️ No images captured for Serial 2');
+            this.capturedImagesForSerial2 = [];
+        } else {
+            // Map images and ensure serial is set
+            this.capturedImagesForSerial2 = this.$refs.scanner.capturedImages.map((img, idx) => {
+                console.log(`  Processing Scanner Image ${idx + 1} for Serial 2:`, {
+                    hasData: !!img.data,
+                    dataLength: img.data ? img.data.length : 0,
+                    existingSerial: img.serial,
+                    usingSerial: img.serial || secondSerial
+                });
+                
+                return { 
+                    ...img, 
+                    serialIndex: 2,
+                    serial: img.serial || secondSerial
+                };
+            });
+            
+            console.log('✅ Stored images for Serial 2:', {
+                serial: secondSerial,
+                count: this.capturedImagesForSerial2.length
+            });
+        }
+        
+        // Clear scanner images AFTER processing
+        this.$refs.scanner.capturedImages = [];
+        console.log('🧹 Cleared scanner images');
+        
+        // ✅ NOW reset currentCaptureStep to 0 and navigate to location
+        this.currentCaptureStep = 0;
+        
+        const message = this.capturedImagesForSerial2.length > 0
+            ? `${this.capturedImagesForSerial2.length} images captured for second serial`
+            : 'No images captured for second serial. Moving to location.';
+        
+        this.$refs.scanner.showScanSuccess(message);
+        console.log('➡️ Moving to location input (currentCaptureStep = 0)');
+        
+        this.$nextTick(() => {
+            if (this.$refs.locationInput) {
+                this.$refs.locationInput.focus();
+                console.log('✅ Focused on location input');
+            }
+        });
+    }
+    
+    console.log('========== END FINISH IMAGE CAPTURE ==========\n');
+    console.log('📊 Current State:', {
+        serial1ImagesCount: this.capturedImagesForSerial1.length,
+        serial2ImagesCount: this.capturedImagesForSerial2.length,
+        scannerImagesCount: this.$refs.scanner.capturedImages.length,
+        currentCaptureStep: this.currentCaptureStep
+    });
+    
+    if (SoundService && SoundService.success) {
         SoundService.success();
-    },
+    }
+},
 
          async handleSerialInput() {
         const isValid = /^[a-zA-Z0-9-]+$/.test(this.serialNumber.trim());
@@ -891,6 +1076,28 @@ export default {
         // Process scan with validation
 
         async processScan(scannedCode = null) {
+             console.log('\n🚀 ========== PROCESS SCAN STARTED ==========');
+    console.log('Current State Before Processing:', {
+        serialNumber: this.serialNumber,
+        secondSerialNumber: this.secondSerialNumber,
+        locationInput: this.locationInput,
+        dualSerialProduct: this.dualSerialProduct,
+        capturedImagesForSerial1Length: this.capturedImagesForSerial1.length,
+        capturedImagesForSerial2Length: this.capturedImagesForSerial2.length,
+        capturedImagesForSerial1Data: this.capturedImagesForSerial1.map((img, i) => ({
+            index: i + 1,
+            serial: img.serial,
+            hasData: !!img.data,
+            dataLength: img.data ? img.data.length : 0
+        })),
+        capturedImagesForSerial2Data: this.capturedImagesForSerial2.map((img, i) => ({
+            index: i + 1,
+            serial: img.serial,
+            hasData: !!img.data,
+            dataLength: img.data ? img.data.length : 0
+        }))
+    });
+
     try {
         // Use either the scanned code or input fields
         let scanSerial, scanSecondSerial, scanLocation, scanReturnId;
@@ -1019,34 +1226,77 @@ export default {
             return;
         }
 
-        // ✅ Prepare images data with serial index mapping
-        const imageData = [];
-        
-        // Add images for first serial
-        this.capturedImagesForSerial1.forEach(img => {
-            imageData.push({
-                data: img.data,
-                serialIndex: 1,
-                serial: scanSerial
+    // ✅ Prepare images data with serial index mapping
+          const imageData = [];
+
+            console.log('🎬 ========== IMAGE DATA PREPARATION ==========');
+            console.log('📦 Preparing images:', {
+                serial1Count: this.capturedImagesForSerial1.length,
+                serial2Count: this.capturedImagesForSerial2.length,
+                scanSerial: scanSerial,
+                scanSecondSerial: scanSecondSerial
             });
-        });
-        
-        // Add images for second serial (if exists)
-        if (scanSecondSerial && scanSecondSerial !== "N/A") {
-            this.capturedImagesForSerial2.forEach(img => {
-                imageData.push({
-                    data: img.data,
-                    serialIndex: 2,
-                    serial: scanSecondSerial
+
+            console.log('📸 capturedImagesForSerial1:', this.capturedImagesForSerial1);
+            console.log('📸 capturedImagesForSerial2:', this.capturedImagesForSerial2);
+
+            // ✅ Add images for first serial
+            if (this.capturedImagesForSerial1.length > 0) {
+                console.log(`Processing ${this.capturedImagesForSerial1.length} images for Serial 1: "${scanSerial}"`);
+                
+                this.capturedImagesForSerial1.forEach((img, index) => {
+                    const imageEntry = {
+                        data: img.data,
+                        serialIndex: 1,
+                        serial: scanSerial // Use the scanSerial from processScan
+                    };
+                    imageData.push(imageEntry);
+                    console.log(`  ✅ Image ${index + 1} added for Serial 1 (${scanSerial}):`, {
+                        hasData: !!imageEntry.data,
+                        dataLength: imageEntry.data ? imageEntry.data.length : 0
+                    });
                 });
+            } else {
+                console.log('⚠️ No images for Serial 1');
+            }
+
+            // ✅ Add images for second serial (if exists)
+            if (scanSecondSerial && scanSecondSerial !== "N/A" && scanSecondSerial.trim() !== "") {
+                if (this.capturedImagesForSerial2.length > 0) {
+                    console.log(`Processing ${this.capturedImagesForSerial2.length} images for Serial 2: "${scanSecondSerial}"`);
+                    
+                    this.capturedImagesForSerial2.forEach((img, index) => {
+                        const imageEntry = {
+                            data: img.data,
+                            serialIndex: 2,
+                            serial: scanSecondSerial // Use the scanSecondSerial from processScan
+                        };
+                        imageData.push(imageEntry);
+                        console.log(`  ✅ Image ${index + 1} added for Serial 2 (${scanSecondSerial}):`, {
+                            hasData: !!imageEntry.data,
+                            dataLength: imageEntry.data ? imageEntry.data.length : 0
+                        });
+                    });
+                } else {
+                    console.warn('⚠️ No images captured for Serial 2 despite being dual serial');
+                }
+            } else {
+                console.log('ℹ️ No second serial to process');
+            }
+
+            console.log('📊 Final Image Data Summary:', {
+                totalImagesInArray: imageData.length,
+                serial1Count: imageData.filter(i => i.serialIndex === 1).length,
+                serial2Count: imageData.filter(i => i.serialIndex === 2).length,
+                imagesBreakdown: imageData.map((img, i) => ({
+                    index: i + 1,
+                    serial: img.serial,
+                    serialIndex: img.serialIndex,
+                    hasData: !!img.data,
+                    dataPreview: img.data ? img.data.substring(0, 50) + '...' : 'NO DATA'
+                }))
             });
-        }
-
-        console.log(`📸 Prepared ${imageData.length} images for upload:`, {
-            serial1Images: this.capturedImagesForSerial1.length,
-            serial2Images: this.capturedImagesForSerial2.length
-        });
-
+            console.log('========== END IMAGE DATA PREPARATION ==========\n');
         // Show loading state
         this.$refs.scanner.startLoading("Processing Return Scan");
 
@@ -1276,32 +1526,84 @@ export default {
 },
 
 // ✅ NEW: Upload images to created products
+// ✅ ENHANCED: Upload images to created products with detailed logging
 async uploadImagesToProducts(createdItems, imageData) {
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
     
-    for (const item of createdItems) {
+    console.log('🚀 ========== STARTING IMAGE UPLOAD ==========');
+    console.log('📋 Upload Summary:', {
+        totalCreatedItems: createdItems.length,
+        totalImageData: imageData.length,
+        csrfTokenExists: !!csrfToken
+    });
+    
+    console.log('📦 Created Items Details:');
+    createdItems.forEach((item, idx) => {
+        console.log(`  Item ${idx + 1}:`, {
+            id: item.id,
+            serial: item.serial,
+            rt: item.rt,
+            location: item.location
+        });
+    });
+    
+    console.log('🖼️ Image Data Details:');
+    imageData.forEach((img, idx) => {
+        console.log(`  Image ${idx + 1}:`, {
+            serial: img.serial,
+            serialIndex: img.serialIndex,
+            dataLength: img.data ? img.data.substring(0, 50) + '...' : 'NO DATA'
+        });
+    });
+    
+    // Process each created item
+    for (let itemIdx = 0; itemIdx < createdItems.length; itemIdx++) {
+        const item = createdItems[itemIdx];
+        
+        console.log(`\n🔍 ========== Processing Item ${itemIdx + 1}/${createdItems.length} ==========`);
+        console.log(`ProductID: ${item.id}, Serial: ${item.serial}`);
+        
         // Filter images for this specific serial
-        const itemImages = imageData.filter(img => img.serial === item.serial);
+        const itemImages = imageData.filter(img => {
+            const serialMatch = img.serial === item.serial;
+            console.log(`  Comparing: img.serial="${img.serial}" vs item.serial="${item.serial}" = ${serialMatch}`);
+            return serialMatch;
+        });
+        
+        console.log(`✅ Found ${itemImages.length} images for ProductID ${item.id} (Serial: ${item.serial})`);
         
         if (itemImages.length === 0) {
-            console.log(`No images for serial ${item.serial}`);
+            console.warn(`⚠️ SKIPPING: No images found for ProductID ${item.id} with serial "${item.serial}"`);
             continue;
         }
         
-        console.log(`📤 Uploading ${itemImages.length} images to ProductID ${item.id} (Serial: ${item.serial})`);
+        console.log(`📤 Starting upload of ${itemImages.length} images to ProductID ${item.id}`);
         
+        // Upload each image for this item
         for (let i = 0; i < Math.min(itemImages.length, 12); i++) {
+            console.log(`\n  📸 Uploading Image ${i + 1}/${itemImages.length} to ProductID ${item.id}`);
+            
             try {
+                const uploadPayload = {
+                    _token: csrfToken,
+                    productId: item.id,
+                    imageIndex: i,
+                    imageData: itemImages[i].data,
+                    isSerial: false,
+                    serialIndex: 0
+                };
+                
+                console.log(`  📤 Upload payload:`, {
+                    productId: uploadPayload.productId,
+                    imageIndex: uploadPayload.imageIndex,
+                    isSerial: uploadPayload.isSerial,
+                    serialIndex: uploadPayload.serialIndex,
+                    dataLength: uploadPayload.imageData ? uploadPayload.imageData.substring(0, 50) + '...' : 'NO DATA'
+                });
+                
                 const imageResponse = await axios.post(
                     `${API_BASE_URL}/api/images/upload`,
-                    {
-                        _token: csrfToken,
-                        productId: item.id,
-                        imageIndex: i,
-                        imageData: itemImages[i].data,
-                        isSerial: false, // Product images, not serial detection images
-                        serialIndex: 0
-                    },
+                    uploadPayload,
                     {
                         withCredentials: true,
                         headers: {
@@ -1312,67 +1614,25 @@ async uploadImagesToProducts(createdItems, imageData) {
                     }
                 );
 
-                console.log(`✅ Image ${i + 1}/${itemImages.length} uploaded to ProductID ${item.id}:`, imageResponse.data);
+                console.log(`  ✅ SUCCESS: Image ${i + 1} uploaded to ProductID ${item.id}:`, imageResponse.data);
                 
             } catch (imageError) {
-                console.error(`❌ Failed to upload image ${i + 1} to ProductID ${item.id}:`, 
-                    imageError.response?.data || imageError.message
-                );
+                console.error(`  ❌ FAILED: Image ${i + 1} upload to ProductID ${item.id} failed:`, {
+                    error: imageError.message,
+                    response: imageError.response?.data,
+                    status: imageError.response?.status
+                });
                 // Continue with next image even if one fails
             }
         }
+        
+        console.log(`✅ Completed processing ProductID ${item.id}`);
     }
-},
-
-
-async uploadImagesToProducts(createdItems, imageData) {
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
     
-    for (const item of createdItems) {
-        // Filter images for this specific serial
-        const itemImages = imageData.filter(img => img.serial === item.serial);
-        
-        if (itemImages.length === 0) {
-            console.log(`No images for serial ${item.serial}`);
-            continue;
-        }
-        
-        console.log(`📤 Uploading ${itemImages.length} images to ProductID ${item.id} (Serial: ${item.serial})`);
-        
-        for (let i = 0; i < Math.min(itemImages.length, 12); i++) {
-            try {
-                const imageResponse = await axios.post(
-                    `${API_BASE_URL}/api/images/upload`,
-                    {
-                        _token: csrfToken,
-                        productId: item.id,
-                        imageIndex: i,
-                        imageData: itemImages[i].data,
-                        isSerial: false, // Product images, not serial detection images
-                        serialIndex: 0
-                    },
-                    {
-                        withCredentials: true,
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            "X-CSRF-TOKEN": csrfToken,
-                        },
-                    }
-                );
-
-                console.log(`✅ Image ${i + 1}/${itemImages.length} uploaded to ProductID ${item.id}:`, imageResponse.data);
-                
-            } catch (imageError) {
-                console.error(`❌ Failed to upload image ${i + 1} to ProductID ${item.id}:`, 
-                    imageError.response?.data || imageError.message
-                );
-                // Continue with next image even if one fails
-            }
-        }
-    }
+    console.log('\n✅ ========== ALL IMAGE UPLOADS COMPLETED ==========\n');
 },
-        // Clear scan fields
+
+// Clear scan fields
         clearScanFields() {
             this.returnId = "";
             this.serialNumber = "";
@@ -1385,6 +1645,15 @@ async uploadImagesToProducts(createdItems, imageData) {
             this.asin = "";
             this.originalProductLocation = "";
             this.scannedSerialPosition = null;
+
+            this.capturedImagesForSerial1 = [];
+            this.capturedImagesForSerial2 = [];
+            this.currentCaptureStep = 0;
+            
+            // ✅ FIXED: Clear scanner images
+            if (this.$refs.scanner) {
+                this.$refs.scanner.capturedImages = [];
+            }
         },
 
         // Scanner event handlers
