@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\tblproduct;
+use App\Traits\TracksHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -15,6 +16,8 @@ use Illuminate\Validation\Rule;
 
 class HouseageController extends BasetablesController
 {
+    use TracksHistory;
+
     /**
      * Extract base FNSKU from prefixed FNSKU (same as StockroomController)
      */
@@ -81,16 +84,14 @@ class HouseageController extends BasetablesController
                         ->orWhere('prod.ProductTitle', 'like', "%{$search}%")
                         ->orWhere('prod.rtid', 'like', "%{$search}%")
                         ->orWhere('prod.itemnumber', 'like', "%{$search}%")
-                        ->orWhere('prod.trackingnumber', 'like', '%'.substr($search, -12).'%') // ✅ Fixed: added 'prod.' prefix
+                        ->orWhere('prod.trackingnumber', 'like', '%'.substr($search, -12).'%')
                         ->orWhere('prod.PCN', 'like', "%{$search}%")
                         ->orWhere('prod.RPN', 'like', "%{$search}%")
                         ->orWhere('prod.PRD', 'like', "%{$search}%")
                         ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
                         ->orWhere('prod.rtcounter', 'like', "%{$search}%")
-                        // Add FNSKU table search
                         ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
                         ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
-                        // Add ASIN table search
                         ->orWhere('asin.internal', 'like', "%{$search}%")
                         ->orWhere('asin.system_title', 'like', "%{$search}%")
                         ->orWhere('asin.metakeyword', 'like', "%{$search}%");
@@ -102,10 +103,7 @@ class HouseageController extends BasetablesController
 
             // Transform products to ensure proper FNSKU display and add missing data
             $products->getCollection()->transform(function ($product) {
-                // Keep the original FNSKU as displayed (with prefix if it exists)
                 $product->FNSKU = $product->FNSKUviewer;
-
-                // Ensure we have the company for proper path construction
                 $product->company = $this->company;
 
                 return $product;
@@ -128,7 +126,6 @@ class HouseageController extends BasetablesController
                             'table' => $capturedImagesTableName,
                         ]);
 
-                        // Add empty capturedImages object to prevent JS errors
                         $products->getCollection()->transform(function ($product) {
                             $product->capturedImages = (object) [];
 
@@ -137,7 +134,6 @@ class HouseageController extends BasetablesController
                     } else {
                         Log::info('Captured images table exists', ['table' => $capturedImagesTableName]);
 
-                        // Fetch all captured images for these products
                         $capturedImages = DB::table($capturedImagesTableName)
                             ->whereIn('ProductID', $productIds)
                             ->get();
@@ -147,19 +143,15 @@ class HouseageController extends BasetablesController
                             'sample' => $capturedImages->take(1),
                         ]);
 
-                        // Create a lookup by ProductID for efficient access
                         $imagesByProductId = [];
                         foreach ($capturedImages as $img) {
                             $imagesByProductId[$img->ProductID] = $img;
                         }
 
-                        // Add capturedImages data to each product
                         $products->getCollection()->transform(function ($product) use ($imagesByProductId) {
-                            // Check if we have image data for this product
                             if (isset($imagesByProductId[$product->ProductID])) {
                                 $product->capturedImages = $imagesByProductId[$product->ProductID];
 
-                                // Set img1 directly for the main thumbnail display if not already set
                                 if (empty($product->img1) && ! empty($product->capturedImages->capturedimg1)) {
                                     $product->img1 = $product->capturedImages->capturedimg1;
                                 }
@@ -185,7 +177,6 @@ class HouseageController extends BasetablesController
                         'trace' => $e->getTraceAsString(),
                     ]);
 
-                    // Continue without images but add empty capturedImages object
                     $products->getCollection()->transform(function ($product) {
                         $product->capturedImages = (object) [];
 
@@ -193,7 +184,6 @@ class HouseageController extends BasetablesController
                     });
                 }
             } else {
-                // Even if images are not requested, initialize empty capturedImages
                 $products->getCollection()->transform(function ($product) {
                     $product->capturedImages = (object) [];
 
@@ -215,85 +205,258 @@ class HouseageController extends BasetablesController
         }
     }
 
-   public function store(Request $request)
-{
-    $table = (new tblproduct)->getTable();
+    public function store(Request $request)
+    {
+        if ($request->has('serialnumber')) {
+            $sn = Str::upper(trim((string) $request->input('serialnumber')));
+            $request->merge(['serialnumber' => $sn !== '' ? $sn : null]);
+        }
 
-    if ($request->has('serialnumber')) {
-        $sn = Str::upper(trim((string) $request->input('serialnumber')));
-        $request->merge(['serialnumber' => $sn !== '' ? $sn : null]);
+        $validated = $request->validate([
+            'itemnumber' => 'required|string|max:255|unique:'.$this->productTable.',itemnumber',
+            'ProductTitle' => 'nullable|string|max:255',
+            'rtid' => 'nullable|string|max:255',
+            'orderdate' => 'nullable|date',
+            'paymentdate' => 'nullable|date',
+            'shipdate' => 'nullable|date',
+            'datedelivered' => 'nullable|date',
+            'seller' => 'nullable|string|max:255',
+            'materialtype' => 'nullable|string|max:255',
+            'sourceType' => 'nullable|string|max:255',
+            'carrier' => 'nullable|string|max:255',
+            'listedcondition' => 'nullable|string|max:255',
+            'paymentmethod' => 'nullable|string|max:255',
+            'quantity' => 'nullable|numeric',
+            'Discount' => 'nullable|numeric',
+            'tax' => 'nullable|numeric',
+            'priceshipping' => 'nullable|numeric',
+            'refund' => 'nullable|numeric',
+            'description' => 'nullable|string',
+            'supplierNotes' => 'nullable|string',
+            'employeeNotes' => 'nullable|string',
+            'serialnumber' => 'nullable|string|max:255',
+            'serialnumberb' => 'nullable|string|max:255',
+            'serialnumberc' => 'nullable|string|max:255',
+            'serialnumberd' => 'nullable|string|max:255',
+            'trackingnumber' => 'nullable|string|max:255',
+            'trackingnumber2' => 'nullable|string|max:255',
+            'trackingnumber3' => 'nullable|string|max:255',
+            'trackingnumber4' => 'nullable|string|max:255',
+            'trackingnumber5' => 'nullable|string|max:255',
+            'validation' => 'nullable|string|max:255',
+            'price' => 'nullable|numeric',
+            'RPN' => 'nullable|string',
+            'PRD' => 'nullable|string',
+            'PCN' => 'nullable|string',
+            'basketnumber' => 'nullable|string',
+        ]);
+
+        $validated['validation'] = $validated['validation'] ?? 'unvalidated';
+
+        // Check for duplicate serial number
+        if (! empty($validated['serialnumber'])) {
+            $exists = \App\Models\tblproduct::where('serialnumber', $validated['serialnumber'])
+                ->exists();
+
+            if ($exists) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Serial Number '{$validated['serialnumber']}' is already assigned to another product.",
+                ], 422);
+            }
+        }
+
+        // Create new product
+        $product = \App\Models\tblproduct::create($validated);
+
+        // 🔥 TRACK CREATION
+        $employeeName = auth()->user()->name ?? 'System';
+        $identifier = "Item #{$validated['itemnumber']}".
+                      (! empty($validated['ProductTitle']) ? " - {$validated['ProductTitle']}" : '');
+
+        $this->trackCreate(
+            'Houseage',
+            $identifier,
+            $employeeName
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Houseage product created successfully',
+            'product' => $product,
+        ]);
     }
 
-    $validated = $request->validate([
-        'ProductID' => 'required|integer|exists:' . $this->productTable . ',ProductID',
-        'itemnumber' => 'required|string|max:255',
-        'ProductTitle' => 'nullable|string|max:255',
-        'rtid' => 'nullable|string|max:255',
-        'orderdate' => 'nullable|date',
-        'paymentdate' => 'nullable|date',
-        'shipdate' => 'nullable|date',
-        'datedelivered' => 'nullable|date',
-        'seller' => 'nullable|string|max:255',
-        'materialtype' => 'nullable|string|max:255',
-        'sourceType' => 'nullable|string|max:255',
-        'carrier' => 'nullable|string|max:255',
-        'listedcondition' => 'nullable|string|max:255',
-        'paymentmethod' => 'nullable|string|max:255',
-        'quantity' => 'nullable|numeric',
-        'Discount' => 'nullable|numeric',
-        'tax' => 'nullable|numeric',
-        'priceshipping' => 'nullable|numeric',
-        'refund' => 'nullable|numeric',
-        'description' => 'nullable|string',
-        'supplierNotes' => 'nullable|string',
-        'employeeNotes' => 'nullable|string',
-        'serialnumber' => 'nullable|string|max:255',
-        'serialnumberb' => 'nullable|string|max:255',
-        'serialnumberc' => 'nullable|string|max:255',
-        'serialnumberd' => 'nullable|string|max:255',
-        'trackingnumber' => 'nullable|string|max:255',
-        'trackingnumber2' => 'nullable|string|max:255',
-        'trackingnumber3' => 'nullable|string|max:255',
-        'trackingnumber4' => 'nullable|string|max:255',
-        'trackingnumber5' => 'nullable|string|max:255',
-        'validation' => 'nullable|string|max:255',
-        'price' => 'nullable|numeric',
-        'RPN' => 'nullable|string',
-        'PRD' => 'nullable|string',
-        'PCN' => 'nullable|string',
-        'basketnumber' => 'nullable|string',
-    ]);
+    public function update(Request $request, $id)
+    {
+        try {
 
-    $validated['validation'] = $validated['validation'] ?? 'unvalidated';
+            // Find the product
+            $product = \App\Models\tblproduct::find($id);
 
-    // Extract ProductID and remove it from update data
-    $productId = $validated['ProductID'];
-    unset($validated['ProductID']);
+            if (! $product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found',
+                ], 404);
+            }
 
-    // Check for duplicate serial number
-    if (!empty($validated['serialnumber'])) {
-        $exists = \App\Models\tblproduct::where('serialnumber', $validated['serialnumber'])
-            ->where('ProductID', '<>', $productId)
-            ->exists();
+            // Sanitize serial numbers
+            if ($request->has('serialnumber')) {
+                $sn = Str::upper(trim((string) $request->input('serialnumber')));
+                $request->merge(['serialnumber' => $sn !== '' ? $sn : null]);
+            }
+            if ($request->has('serialnumberb')) {
+                $snb = Str::upper(trim((string) $request->input('serialnumberb')));
+                $request->merge(['serialnumberb' => $snb !== '' ? $snb : null]);
+            }
+            if ($request->has('serialnumberc')) {
+                $snc = Str::upper(trim((string) $request->input('serialnumberc')));
+                $request->merge(['serialnumberc' => $snc !== '' ? $snc : null]);
+            }
+            if ($request->has('serialnumberd')) {
+                $snd = Str::upper(trim((string) $request->input('serialnumberd')));
+                $request->merge(['serialnumberd' => $snd !== '' ? $snd : null]);
+            }
 
-        if ($exists) {
+            $validated = $request->validate([
+                'itemnumber' => 'sometimes|required|string|max:255',
+                'ProductTitle' => 'nullable|string|max:255',
+                'rtid' => 'nullable|string|max:255',
+                'orderdate' => 'nullable|date',
+                'paymentdate' => 'nullable|date',
+                'shipdate' => 'nullable|date',
+                'datedelivered' => 'nullable|date',
+                'seller' => 'nullable|string|max:255',
+                'materialtype' => 'nullable|string|max:255',
+                'sourceType' => 'nullable|string|max:255',
+                'carrier' => 'nullable|string|max:255',
+                'listedcondition' => 'nullable|string|max:255',
+                'paymentmethod' => 'nullable|string|max:255',
+                'quantity' => 'nullable|numeric',
+                'Discount' => 'nullable|numeric',
+                'tax' => 'nullable|numeric',
+                'priceshipping' => 'nullable|numeric',
+                'refund' => 'nullable|numeric',
+                'description' => 'nullable|string',
+                'supplierNotes' => 'nullable|string',
+                'employeeNotes' => 'nullable|string',
+                'serialnumber' => 'nullable|string|max:255',
+                'serialnumberb' => 'nullable|string|max:255',
+                'serialnumberc' => 'nullable|string|max:255',
+                'serialnumberd' => 'nullable|string|max:255',
+                'trackingnumber' => 'nullable|string|max:255',
+                'trackingnumber2' => 'nullable|string|max:255',
+                'trackingnumber3' => 'nullable|string|max:255',
+                'trackingnumber4' => 'nullable|string|max:255',
+                'trackingnumber5' => 'nullable|string|max:255',
+                'validation' => 'nullable|string|max:255',
+                'price' => 'nullable|numeric',
+                'RPN' => 'nullable|string',
+                'PRD' => 'nullable|string',
+                'PCN' => 'nullable|string',
+                'basketnumber' => 'nullable|string',
+            ]);
+
+            // 🔥 FIX: Check each serial number field separately, only if it's being changed
+            $serialFields = ['serialnumber', 'serialnumberb', 'serialnumberc', 'serialnumberd'];
+
+            foreach ($serialFields as $field) {
+                if (! empty($validated[$field]) && $validated[$field] !== $product->$field) {
+                    // Check if this serial number exists on ANY product except this one
+                    $exists = \App\Models\tblproduct::where(function ($query) use ($serialFields, $validated, $field) {
+                        foreach ($serialFields as $checkField) {
+                            $query->orWhere($checkField, $validated[$field]);
+                        }
+                    })
+                        ->where('ProductID', '<>', $id)
+                        ->exists();
+
+                    if ($exists) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Serial Number '{$validated[$field]}' is already assigned to another product.",
+                        ], 422);
+                    }
+                }
+            }
+
+            // 🔥 TRACK WHAT CHANGED
+            $changes = [];
+            foreach ($validated as $key => $value) {
+                // Skip if value hasn't changed
+                if (! isset($product->$key) || $value == $product->$key) {
+                    continue;
+                }
+
+                $oldVal = $product->$key ?? 'null';
+                $newVal = $value ?? 'null';
+
+                // Format dates nicely
+                if (in_array($key, ['orderdate', 'paymentdate', 'shipdate', 'datedelivered'])) {
+                    $oldDisplay = ($oldVal !== 'null' && $oldVal) ? date('Y-m-d', strtotime($oldVal)) : 'null';
+                    $newDisplay = ($newVal !== 'null' && $newVal) ? date('Y-m-d', strtotime($newVal)) : 'null';
+                    $changes[] = "$key: $oldDisplay → $newDisplay";
+                }
+                // Format numeric values
+                elseif (in_array($key, ['price', 'quantity', 'Discount', 'tax', 'priceshipping', 'refund'])) {
+                    $changes[] = "$key: $oldVal → $newVal";
+                }
+                // Truncate long text values
+                else {
+                    $oldDisplay = (strlen($oldVal) > 30) ? substr($oldVal, 0, 27).'...' : $oldVal;
+                    $newDisplay = (strlen($newVal) > 30) ? substr($newVal, 0, 27).'...' : $newVal;
+                    $changes[] = "$key: $oldDisplay → $newDisplay";
+                }
+            }
+
+            // Update the product
+            $product->update($validated);
+
+            // 🔥 ADD HISTORY TRACKING
+            if (! empty($changes)) {
+                $employeeName = auth()->user()->username ?? 'System';
+                $identifier = "Item #{$product->itemnumber}".
+                              (! empty($product->ProductTitle) ? " - {$product->ProductTitle}" : '');
+
+                // Log up to 5 changes, show count if more
+                $changeCount = count($changes);
+                $changesToLog = array_slice($changes, 0, 5);
+                $changeDescription = implode(', ', $changesToLog);
+
+                if ($changeCount > 5) {
+                    $changeDescription .= ' (+'.($changeCount - 5).' more)';
+                }
+
+                $this->trackUpdate(
+                    'Houseage',
+                    $identifier,
+                    $changeDescription,
+                    null,
+                    $employeeName
+                );
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Houseage product updated successfully',
+                'product' => $product->fresh(),
+                'changes_made' => count($changes),
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error updating Houseage product', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => "Serial Number '{$validated['serialnumber']}' is already assigned to another product.",
-            ], 422);
+                'error' => 'Failed to update product',
+                'message' => $e->getMessage(),
+            ], 500);
         }
     }
-
-    // Find the product by ProductID and update it
-    $product = \App\Models\tblproduct::findOrFail($productId);
-    $product->update($validated);
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Houseage product updated successfully',
-        'product' => $product->fresh(),
-    ]);
-}
 
     public function checkDuplicateSerial(Request $request)
     {
@@ -334,7 +497,7 @@ class HouseageController extends BasetablesController
             'image' => 'required|image|mimes:jpeg,jpg,png,webp,avif|max:5120',
             'product_id' => 'nullable|integer',
             'old_path' => 'nullable|string',
-            'serial_number' => 'required|string', // keep: serial is required
+            'serial_number' => 'required|string',
         ]);
 
         if ($validator->fails()) {
@@ -400,6 +563,24 @@ class HouseageController extends BasetablesController
                 }
             }
         }
+
+        // 🔥 ADD HISTORY TRACKING
+        $employeeName = auth()->user()->name ?? 'System';
+        $productInfo = '';
+        if ($request->filled('product_id')) {
+            $prod = tblproduct::find((int) $request->product_id);
+            if ($prod) {
+                $productInfo = " for Item #{$prod->itemnumber}";
+            }
+        }
+
+        $this->trackUpdate(
+            'Houseage',
+            "Serial: {$serialSan}{$productInfo}",
+            'Uploaded serial image',
+            $filename,
+            $employeeName
+        );
 
         return response()->json([
             'message' => 'Uploaded',

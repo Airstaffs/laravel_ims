@@ -8,6 +8,7 @@ use App\Http\Controllers\ASINlistController;
 use App\Http\Controllers\AsinMappingController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AwsInventoryController;
+use App\Http\Controllers\CleaningController;
 use App\Http\Controllers\Ebay\EbayController;
 use App\Http\Controllers\EmployeeClockController;
 use App\Http\Controllers\FbmOrderController;
@@ -35,10 +36,12 @@ use App\Http\Controllers\ProductionAreaController;
 use App\Http\Controllers\ReceivedController;
 use App\Http\Controllers\ReturnScannerController;
 use App\Http\Controllers\RTSController;
+use App\Http\Controllers\SoldlistController;
 use App\Http\Controllers\StockroomController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\SystemDesignController;
 use App\Http\Controllers\tblproductController;
+use App\Http\Controllers\TestingController;
 use App\Http\Controllers\TestTableController;
 use App\Http\Controllers\UnreceivedController;
 use App\Http\Controllers\UPSController;
@@ -48,11 +51,6 @@ use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Middleware\PreventBackHistory;
-use App\Http\Controllers\TestingController;
-use App\Http\Controllers\CleaningController;
-use App\Http\Controllers\SoldlistController;
-
-
 use App\Http\Models\Store;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -557,11 +555,10 @@ Route::prefix('api/notfound')->group(function () {
     Route::post('move-to-stockroom', [notfoundController::class, 'moveToStockroom']);
 });
 
-// Routes for Soldlist 
+// Routes for Soldlist
 Route::prefix('api/soldlist')->middleware(['auth'])->group(function () {
     Route::get('products', [SoldlistController::class, 'index']);
 });
-
 
 // Routes for ASIN List Function
 Route::prefix('api/asinlist')->group(function () {
@@ -606,9 +603,10 @@ Route::prefix('api/asinlist')->group(function () {
 });
 
 // Routes for Houseage Function
-Route::prefix('api/houseage')->group(function () {
+Route::prefix('api/houseage')->middleware('auth')->group(function () {
     Route::get('products', [HouseageController::class, 'index']);
     Route::post('products', [HouseageController::class, 'store']);
+    Route::put('products/{id}', [HouseageController::class, 'update']);
     Route::post('check-duplicate-serial', [HouseageController::class, 'checkDuplicateSerial']);
 
     Route::post('serial-image', [HouseageController::class, 'uploadSerialNumber'])
@@ -620,7 +618,7 @@ Route::prefix('api/houseage')->group(function () {
 // Testing module routes
 Route::middleware(['auth'])->prefix('api/testing')->group(function () {
     Route::get('products', [TestingController::class, 'index']);
-    
+
     // Item condition routes
     Route::get('condition/{itemNumber}', [TestingController::class, 'getCondition']);
     Route::post('condition', [TestingController::class, 'saveCondition']);
@@ -629,10 +627,8 @@ Route::middleware(['auth'])->prefix('api/testing')->group(function () {
     Route::get('testing-overview', [TestingController::class, 'getTestingOverview']);
     Route::delete('condition/{id}', [TestingController::class, 'deleteCondition']);
 
-     Route::post('/move-to-cleaning', [TestingController::class, 'moveToCleaning']);
+    Route::post('/move-to-cleaning', [TestingController::class, 'moveToCleaning']);
 });
-
-
 
 // Cleaning module routes
 Route::middleware(['auth'])->prefix('api/cleaning')->group(function () {

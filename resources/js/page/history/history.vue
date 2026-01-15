@@ -389,6 +389,7 @@ const moduleOptions = [
     { label: "Validation", value: "Validation" },
     { label: "Stockroom", value: "Stockroom" },
     { label: "FBM Orders", value: "FBM Orders" },
+    { label: "Houseage", value: "Houseage" },
 ];
 
 const actionOptions = [
