@@ -13,6 +13,7 @@ export default {
     },
     data() {
         return {
+            currentUser: null,
             inventory: [],
             currentPage: 1,
             totalPages: 1,
@@ -1043,62 +1044,61 @@ export default {
                 return;
             }
 
-            // Normalize and duplicate-check serial number
-            if (this.item.serialnumber != null) {
-                this.item.serialnumber =
-                    String(this.item.serialnumber).toUpperCase().trim() || null;
-            }
-
-            if (this.item.serialnumber) {
-                const sn = this.item.serialnumber;
-                const dup = this.items.find(
-                    (p) =>
-                        (p.serialnumber || "").toUpperCase().trim() === sn &&
-                        p.itemnumber !== this.item.itemnumber
-                );
-                if (dup) {
-                    this.loading = false;
-                    await Swal.fire({
-                        icon: "error",
-                        title: "Duplicate Serial Number",
-                        text: `The serial number "${sn}" is already used by another product.`,
-                        confirmButtonText: "OK",
-                    });
-                    return;
+            // Normalize all serial number fields
+            [
+                "serialnumber",
+                "serialnumberb",
+                "serialnumberc",
+                "serialnumberd",
+            ].forEach((field) => {
+                if (this.item[field] != null) {
+                    this.item[field] =
+                        String(this.item[field]).toUpperCase().trim() || null;
                 }
-            }
+            });
 
             try {
-                // 🔼 NEW: If user selected a serial image, upload it first.
+                // 🔼 If user selected a serial image, upload it first.
                 if (this.serialImageFile && !this.serialImageUploading) {
                     await this.uploadSerialImage();
 
-                    // If the upload function set an error, abort the save.
                     if (this.serialImageError) {
                         this.loading = false;
-                        return; // The uploadSerialImage already showed an alert.
+                        return;
                     }
                 }
 
                 const payload = {
                     ...this.item,
-                    // Optional: include the stored path from the upload (rename to what your API expects)
+                    _employee_name:
+                        this.currentUser?.name ||
+                        window.Laravel?.user?.name ||
+                        "System",
                     ...(this.serialImagePath
                         ? { serial_image: this.serialImagePath }
                         : {}),
-                    _token: document
-                        .querySelector('meta[name="csrf-token"]')
-                        .getAttribute("content"),
                 };
 
-                const response = await axios.post(
-                    "/api/houseage/products",
-                    payload
+                // 🔥 CHANGED: Use PUT method and include ProductID in URL
+                const response = await axios.put(
+                    `/api/houseage/products/${this.item.ProductID}`,
+                    payload,
+                    {
+                        headers: {
+                            "X-CSRF-TOKEN": document
+                                .querySelector('meta[name="csrf-token"]')
+                                .getAttribute("content"),
+                            Accept: "application/json",
+                            "Content-Type": "application/json",
+                        },
+                        withCredentials: true,
+                    }
                 );
+
                 const updated = response.data.product;
 
                 const index = this.items.findIndex(
-                    (p) => p.itemnumber === updated.itemnumber
+                    (p) => p.ProductID === updated.ProductID
                 );
 
                 if (index !== -1) {
@@ -1110,9 +1110,17 @@ export default {
                 await Swal.fire({
                     icon: "success",
                     title: "Saved!",
-                    text:
-                        response.data.message ||
-                        "The houseage product has been saved successfully.",
+                    html: `
+                <p>${
+                    response.data.message ||
+                    "The houseage product has been updated successfully."
+                }</p>
+                ${
+                    response.data.changes_made
+                        ? `<p class="text-muted mt-2"><small>${response.data.changes_made} field(s) changed</small></p>`
+                        : ""
+                }
+            `,
                     confirmButtonText: "OK",
                 });
 
@@ -1130,15 +1138,33 @@ export default {
 
                 if (error.response?.status === 422) {
                     const err = error.response.data;
-                    if (err?.errors?.serialnumber?.length) {
-                        message = err.errors.serialnumber.join("\n");
-                    } else if (
-                        typeof err?.message === "string" &&
-                        err.message
+
+                    // Check all serial number fields for errors
+                    const serialFields = [
+                        "serialnumber",
+                        "serialnumberb",
+                        "serialnumberc",
+                        "serialnumberd",
+                    ];
+                    for (const field of serialFields) {
+                        if (err?.errors?.[field]?.length) {
+                            message = err.errors[field].join("\n");
+                            break;
+                        }
+                    }
+
+                    // If no serial errors, check for general message or other errors
+                    if (
+                        message ===
+                        "An error occurred while saving. Please check the input or try again later."
                     ) {
-                        message = err.message;
-                    } else if (err?.errors) {
-                        message = Object.values(err.errors).flat().join("\n");
+                        if (typeof err?.message === "string" && err.message) {
+                            message = err.message;
+                        } else if (err?.errors) {
+                            message = Object.values(err.errors)
+                                .flat()
+                                .join("\n");
+                        }
                     }
                 } else if (error.response?.data?.message) {
                     message = error.response.data.message;
@@ -1408,6 +1434,8 @@ export default {
     },
 
     mounted() {
+        this.currentUser = window.Laravel?.user || null;
+
         this.fetchInventory();
 
         // Handle keyboard navigation for the modal
