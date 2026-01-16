@@ -51,14 +51,14 @@ class HouseageController extends BasetablesController
             $search = $request->input('search', '');
             $includeImages = $request->boolean('include_images', false);
 
-            // UPDATED: Build query with proper joins to include ASIN and metakeyword in search
+            // Build query with proper joins
             $productsQuery = DB::table($this->productTable.' as prod')
                 ->leftJoin($this->fnskuTable.' as fnsku', function ($join) {
                     $join->on(DB::raw("CASE 
-                    WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
-                    THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
-                    ELSE prod.FNSKUviewer 
-                END"), '=', 'fnsku.FNSKU');
+                WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
+                THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
+                ELSE prod.FNSKUviewer 
+            END"), '=', 'fnsku.FNSKU');
                 })
                 ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                 ->select([
@@ -77,7 +77,7 @@ class HouseageController extends BasetablesController
                     'asin.metakeyword',
                 ]);
 
-            // Apply comprehensive search including ASIN and metakeyword
+            // Apply comprehensive search
             if (! empty($search)) {
                 $productsQuery->where(function ($q) use ($search) {
                     $q->where('prod.serialnumber', 'like', "%{$search}%")
@@ -109,17 +109,13 @@ class HouseageController extends BasetablesController
                 return $product;
             });
 
-            // If images are requested, fetch them for each product
+            // ✅ If images are requested, fetch them for each product CORRECTLY
             if ($includeImages) {
                 try {
                     $productIds = $products->pluck('ProductID')->toArray();
                     Log::info('Product IDs for image fetch', ['count' => count($productIds), 'ids' => $productIds]);
 
                     $capturedImagesTableName = $this->capturedImagesTable;
-
-                    Log::info('Checking table existence', [
-                        'table' => $capturedImagesTableName,
-                    ]);
 
                     if (! Schema::hasTable($capturedImagesTableName)) {
                         Log::warning('Captured images table does not exist', [
@@ -134,31 +130,61 @@ class HouseageController extends BasetablesController
                     } else {
                         Log::info('Captured images table exists', ['table' => $capturedImagesTableName]);
 
+                        // ✅ Fetch ALL captured images at once
                         $capturedImages = DB::table($capturedImagesTableName)
                             ->whereIn('ProductID', $productIds)
                             ->get();
 
                         Log::info('Captured images fetched', [
                             'count' => $capturedImages->count(),
-                            'sample' => $capturedImages->take(1),
+                            'sample' => $capturedImages->take(3),
                         ]);
 
+                        // ✅ Create a proper mapping by ProductID
                         $imagesByProductId = [];
                         foreach ($capturedImages as $img) {
                             $imagesByProductId[$img->ProductID] = $img;
                         }
 
+                        Log::info('Images mapped by ProductID', [
+                            'productIds' => array_keys($imagesByProductId),
+                            'count' => count($imagesByProductId),
+                        ]);
+
+                        // ✅ Attach the correct capturedImages to each product
                         $products->getCollection()->transform(function ($product) use ($imagesByProductId) {
                             if (isset($imagesByProductId[$product->ProductID])) {
-                                $product->capturedImages = $imagesByProductId[$product->ProductID];
+                                $capturedImg = $imagesByProductId[$product->ProductID];
 
-                                if (empty($product->img1) && ! empty($product->capturedImages->capturedimg1)) {
-                                    $product->img1 = $product->capturedImages->capturedimg1;
+                                // ✅ Create a clean capturedImages object
+                                $capturedImagesObj = [];
+
+                                // Add capturedimg1-12
+                                for ($i = 1; $i <= 12; $i++) {
+                                    $field = "capturedimg{$i}";
+                                    if (! empty($capturedImg->$field)) {
+                                        $capturedImagesObj[$field] = $capturedImg->$field;
+                                    }
+                                }
+
+                                // Add serialimg1 and serialimg2
+                                if (! empty($capturedImg->serialimg1)) {
+                                    $capturedImagesObj['serialimg1'] = $capturedImg->serialimg1;
+                                }
+                                if (! empty($capturedImg->serialimg2)) {
+                                    $capturedImagesObj['serialimg2'] = $capturedImg->serialimg2;
+                                }
+
+                                $product->capturedImages = (object) $capturedImagesObj;
+
+                                // Fallback for img1 if empty
+                                if (empty($product->img1) && ! empty($capturedImg->capturedimg1)) {
+                                    $product->img1 = $capturedImg->capturedimg1;
                                 }
 
                                 Log::info('Added captured images to product', [
                                     'ProductID' => $product->ProductID,
-                                    'capturedImages' => json_encode($product->capturedImages),
+                                    'capturedImagesCount' => count($capturedImagesObj),
                                 ]);
                             } else {
                                 Log::info('No captured images found for product', [
@@ -290,7 +316,6 @@ class HouseageController extends BasetablesController
     public function update(Request $request, $id)
     {
         try {
-
             // Find the product
             $product = \App\Models\tblproduct::find($id);
 
@@ -302,21 +327,13 @@ class HouseageController extends BasetablesController
             }
 
             // Sanitize serial numbers
-            if ($request->has('serialnumber')) {
-                $sn = Str::upper(trim((string) $request->input('serialnumber')));
-                $request->merge(['serialnumber' => $sn !== '' ? $sn : null]);
-            }
-            if ($request->has('serialnumberb')) {
-                $snb = Str::upper(trim((string) $request->input('serialnumberb')));
-                $request->merge(['serialnumberb' => $snb !== '' ? $snb : null]);
-            }
-            if ($request->has('serialnumberc')) {
-                $snc = Str::upper(trim((string) $request->input('serialnumberc')));
-                $request->merge(['serialnumberc' => $snc !== '' ? $snc : null]);
-            }
-            if ($request->has('serialnumberd')) {
-                $snd = Str::upper(trim((string) $request->input('serialnumberd')));
-                $request->merge(['serialnumberd' => $snd !== '' ? $snd : null]);
+            $serialFields = ['serialnumber', 'serialnumberb', 'serialnumberc', 'serialnumberd'];
+
+            foreach ($serialFields as $field) {
+                if ($request->has($field)) {
+                    $value = Str::upper(trim((string) $request->input($field)));
+                    $request->merge([$field => $value !== '' ? $value : null]);
+                }
             }
 
             $validated = $request->validate([
@@ -358,39 +375,64 @@ class HouseageController extends BasetablesController
                 'basketnumber' => 'nullable|string',
             ]);
 
-            // 🔥 FIX: Check each serial number field separately, only if it's being changed
-            $serialFields = ['serialnumber', 'serialnumberb', 'serialnumberc', 'serialnumberd'];
-
+            // Check each serial number field separately, only if it's being changed
             foreach ($serialFields as $field) {
-                if (! empty($validated[$field]) && $validated[$field] !== $product->$field) {
-                    // Check if this serial number exists on ANY product except this one
-                    $exists = \App\Models\tblproduct::where(function ($query) use ($serialFields, $validated, $field) {
+                // Skip if field is not in validated data or is empty
+                if (! array_key_exists($field, $validated) || empty($validated[$field])) {
+                    continue;
+                }
+
+                // Normalize both values for comparison
+                $newSerial = Str::upper(trim($validated[$field]));
+                $oldSerial = Str::upper(trim($product->$field ?? ''));
+
+                // Only check for duplicates if the serial number is actually being changed
+                if ($newSerial !== '' && $newSerial !== $oldSerial) {
+                    // Check if this serial number exists on ANY other product
+                    $duplicate = \App\Models\tblproduct::where(function ($query) use ($serialFields, $newSerial) {
                         foreach ($serialFields as $checkField) {
-                            $query->orWhere($checkField, $validated[$field]);
+                            $query->orWhere($checkField, $newSerial);
                         }
                     })
-                        ->where('ProductID', '<>', $id)
-                        ->exists();
+                        ->where('ProductID', '!=', $id)
+                        ->first();
 
-                    if ($exists) {
+                    if ($duplicate) {
                         return response()->json([
                             'success' => false,
-                            'message' => "Serial Number '{$validated[$field]}' is already assigned to another product.",
+                            'message' => "Serial Number '{$newSerial}' is already assigned to another product.",
+                            'duplicate_product' => [
+                                'ProductID' => $duplicate->ProductID,
+                                'ProductTitle' => $duplicate->ProductTitle,
+                                'rtcounter' => $duplicate->rtcounter,
+                                'serialnumber' => $duplicate->serialnumber,
+                                'itemnumber' => $duplicate->itemnumber,
+                            ],
                         ], 422);
                     }
                 }
             }
 
-            // 🔥 TRACK WHAT CHANGED
+            // Track what changed
             $changes = [];
             foreach ($validated as $key => $value) {
+                // Normalize values for comparison
+                $oldValue = $product->$key ?? null;
+                $newValue = $value ?? null;
+
+                // For strings, normalize whitespace and case for serial numbers
+                if (in_array($key, $serialFields)) {
+                    $oldValue = $oldValue ? Str::upper(trim($oldValue)) : null;
+                    $newValue = $newValue ? Str::upper(trim($newValue)) : null;
+                }
+
                 // Skip if value hasn't changed
-                if (! isset($product->$key) || $value == $product->$key) {
+                if ($oldValue == $newValue) {
                     continue;
                 }
 
-                $oldVal = $product->$key ?? 'null';
-                $newVal = $value ?? 'null';
+                $oldVal = $oldValue ?? 'null';
+                $newVal = $newValue ?? 'null';
 
                 // Format dates nicely
                 if (in_array($key, ['orderdate', 'paymentdate', 'shipdate', 'datedelivered'])) {
@@ -413,7 +455,53 @@ class HouseageController extends BasetablesController
             // Update the product
             $product->update($validated);
 
-            // 🔥 ADD HISTORY TRACKING
+            // ✅ Reload the product with capturedImages
+            $updatedProduct = DB::table($this->productTable.' as prod')
+                ->leftJoin($this->capturedImagesTable.' as ci', 'prod.ProductID', '=', 'ci.ProductID')
+                ->where('prod.ProductID', $id)
+                ->select([
+                    'prod.*',
+                    'ci.capturedimg1',
+                    'ci.capturedimg2',
+                    'ci.capturedimg3',
+                    'ci.capturedimg4',
+                    'ci.capturedimg5',
+                    'ci.capturedimg6',
+                    'ci.capturedimg7',
+                    'ci.capturedimg8',
+                    'ci.capturedimg9',
+                    'ci.capturedimg10',
+                    'ci.capturedimg11',
+                    'ci.capturedimg12',
+                    'ci.serialimg1',
+                    'ci.serialimg2',
+                ])
+                ->first();
+
+            // ✅ Format capturedImages as an object
+            if ($updatedProduct) {
+                $capturedImages = [];
+
+                for ($i = 1; $i <= 12; $i++) {
+                    $field = "capturedimg{$i}";
+                    if (! empty($updatedProduct->$field)) {
+                        $capturedImages[$field] = $updatedProduct->$field;
+                    }
+                }
+
+                if (! empty($updatedProduct->serialimg1)) {
+                    $capturedImages['serialimg1'] = $updatedProduct->serialimg1;
+                }
+
+                if (! empty($updatedProduct->serialimg2)) {
+                    $capturedImages['serialimg2'] = $updatedProduct->serialimg2;
+                }
+
+                $updatedProduct->capturedImages = (object) $capturedImages;
+                $updatedProduct->company = $this->company;
+            }
+
+            // Add history tracking
             if (! empty($changes)) {
                 $employeeName = auth()->user()->username ?? 'System';
                 $identifier = "Item #{$product->itemnumber}".
@@ -440,7 +528,7 @@ class HouseageController extends BasetablesController
             return response()->json([
                 'success' => true,
                 'message' => 'Houseage product updated successfully',
-                'product' => $product->fresh(),
+                'product' => $updatedProduct, // ✅ Return with capturedImages
                 'changes_made' => count($changes),
             ]);
 

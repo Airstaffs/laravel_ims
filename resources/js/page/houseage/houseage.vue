@@ -422,7 +422,11 @@
                                         @mouseenter="activeIndex = index"
                                     >
                                         <img
-                                            :src="basePath + img"
+                                            :src="
+                                                img.startsWith('/images/')
+                                                    ? img
+                                                    : basePath + img
+                                            "
                                             alt="Thumbnail"
                                             loading="lazy"
                                             @error="onThumbnailError($event)"
@@ -455,6 +459,17 @@
                                                 width="100%"
                                                 @error="onSerialImgError"
                                             />
+
+                                            <!-- Show indicator if there's a new image selected -->
+                                            <div
+                                                v-if="serialImageFile"
+                                                class="replace-indicator"
+                                            >
+                                                <small class="text-success">
+                                                    ✓ New image selected - will
+                                                    be saved when you click Save
+                                                </small>
+                                            </div>
 
                                             <div
                                                 v-if="serialImageUploading"

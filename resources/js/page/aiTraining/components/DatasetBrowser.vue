@@ -17,7 +17,7 @@
             <img
               v-for="(img, i) in cls.images.slice(0, 4)"
               :key="i"
-              :src="img"
+              :src="classImageUrl(cls.className, img)"
               class="w-20 h-20 object-cover rounded border border-gray-600"
             />
           </div>
@@ -44,10 +44,13 @@
       </button>
 
       <img
-        :src="selectedClassImages[classCurrentIndex]"
+        v-if="selectedClass"
+        :src="classImageUrl(
+          selectedClass.className,
+          selectedClassImages[classCurrentIndex]
+        )"
         class="max-h-[85vh] rounded border border-gray-600 shadow-lg transition"
       />
-
       <!-- Next -->
       <button
         @click.stop="nextClassImage"
@@ -67,7 +70,7 @@
 import { ref, onMounted } from 'vue'
 import useTraining from '../scripts/training-script.js'
 
-const { datasetClasses, fetchClassFolders } = useTraining()
+const { datasetClasses, fetchClassFolders, classImageUrl } = useTraining()
 // const SITE_URL = window.location.origin
 
 // 🪟 Modal state
@@ -80,7 +83,10 @@ onMounted(() => {
   fetchClassFolders()
 })
 
+const selectedClass = ref(null)
+
 function openClassModal(cls) {
+  selectedClass.value = cls
   selectedClassImages.value = cls.images
   classCurrentIndex.value = 0
   showClassModal.value = true

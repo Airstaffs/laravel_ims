@@ -125,12 +125,44 @@ export default {
         },
 
         imageList() {
+            const images = [];
+            const companyFolder = this.item.company || "Airstaffs";
+
+            // First, check for captured images (capturedimg1-12)
+            if (this.item.capturedImages) {
+                for (let i = 1; i <= 12; i++) {
+                    const fieldName = `capturedimg${i}`;
+                    if (
+                        this.isValidImage(this.item.capturedImages[fieldName])
+                    ) {
+                        // Use full path for captured images
+                        images.push(
+                            `/images/product_images/${companyFolder}/${this.item.capturedImages[fieldName]}`
+                        );
+                    }
+                }
+            }
+
+            // If we have captured images, return them
+            if (images.length > 0) {
+                return images;
+            }
+
+            // Otherwise, fall back to regular product images (img1-15)
             return Object.keys(this.item)
                 .filter((key) => key.startsWith("img") && this.item[key])
                 .map((key) => this.item[key]);
         },
         activeImageUrl() {
-            return this.basePath + this.imageList[this.activeIndex];
+            const currentImage = this.imageList[this.activeIndex];
+
+            // Check if it's already a full path (captured images)
+            if (currentImage && currentImage.startsWith("/images/")) {
+                return currentImage;
+            }
+
+            // Otherwise, use basePath for regular images
+            return this.basePath + currentImage;
         },
 
         serialKeys() {
@@ -251,16 +283,45 @@ export default {
         },
 
         displaySerialImage() {
-            // priority: local preview -> server path -> default
-            return (
-                this.serialImageUrl ||
-                this.serialImagePath ||
-                this.defaultSerialImage
-            );
+            // Priority: local preview -> captured serial images -> server path -> default
+            if (this.serialImageUrl) {
+                console.log("📸 Displaying local preview");
+                return this.serialImageUrl;
+            }
+
+            // Check for serialimg1 or serialimg2 from capturedImages
+            if (this.item && this.item.capturedImages) {
+                const companyFolder = this.item.company || "Airstaffs";
+
+                if (this.isValidImage(this.item.capturedImages.serialimg1)) {
+                    const path = `/images/product_images/${companyFolder}/${this.item.capturedImages.serialimg1}`;
+                    console.log("📸 Displaying serialimg1:", path);
+                    return path;
+                }
+
+                if (this.isValidImage(this.item.capturedImages.serialimg2)) {
+                    const path = `/images/product_images/${companyFolder}/${this.item.capturedImages.serialimg2}`;
+                    console.log("📸 Displaying serialimg2:", path);
+                    return path;
+                }
+            }
+
+            console.log("📸 No serial image found, using default");
+            // Fallback to server path or default
+            return this.serialImagePath || this.defaultSerialImage;
         },
     },
 
     methods: {
+        hasSerialImages() {
+            if (!this.item.capturedImages) return false;
+
+            return (
+                this.isValidImage(this.item.capturedImages.serialimg1) ||
+                this.isValidImage(this.item.capturedImages.serialimg2)
+            );
+        },
+
         openCopyDetailsModal(item) {
             if (!item) {
                 console.warn("No item provided to copy details modal");
@@ -314,6 +375,7 @@ export default {
             let count = 0;
             for (let i = start; i <= end; i++) {
                 const fieldName = `${prefix}${i}`;
+
                 if (this.isValidImage(source[fieldName])) {
                     count++;
                 }
@@ -330,11 +392,6 @@ export default {
         countCapturedImages(item) {
             if (!item || !item.capturedImages) return 0;
 
-            console.log("🔍 Counting captured images for item:", {
-                ProductID: item.ProductID,
-                capturedImages: item.capturedImages,
-            });
-
             let count = 0;
             const capturedImagesObj = item.capturedImages;
 
@@ -350,7 +407,6 @@ export default {
             if (this.isValidImage(capturedImagesObj.serialimg1)) count++;
             if (this.isValidImage(capturedImagesObj.serialimg2)) count++;
 
-            console.log("🔍 Total captured images found:", count);
             return count;
         },
 
@@ -612,22 +668,9 @@ export default {
                     }
                 );
 
-                console.log("API Response:", response.data);
-
                 // Process the returned data
                 this.inventory = response.data.data;
                 this.totalPages = response.data.last_page;
-
-                // Debug first item to see structure
-                if (this.inventory.length > 0) {
-                    console.log("First item structure:", this.inventory[0]);
-                    if (this.inventory[0].capturedImages) {
-                        console.log(
-                            "First item capturedImages:",
-                            this.inventory[0].capturedImages
-                        );
-                    }
-                }
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
             } finally {
@@ -932,31 +975,29 @@ export default {
         async openEditModal(item) {
             if (!item) return;
 
-            const freshItem = this.items.find(
-                (i) => i.itemnumber === item.itemnumber
-            );
-            this.item = { ...(freshItem || item) };
+            // ✅ Simply use the item directly from inventory (it already has capturedImages loaded)
+            this.item = JSON.parse(JSON.stringify(item)); // Deep clone to avoid mutations
 
-            // Reset image state when opening
-            this.resetSerialImage({ clearServer: true });
+            // Reset image state when opening (but preserve server images)
+            this.resetSerialImage({ clearServer: false });
 
             this.showEditModal = true;
             document.body.style.overflow = "hidden";
 
-            // If you want to proactively load any existing serial image for this item:
             await this.$nextTick();
-            await this.fetchSerialImageIfAny?.(); // safe if you added this earlier
         },
 
         closeEditModal() {
             this.showEditModal = false;
 
-            // Reset image state on close too
+            // Reset image state on close
             this.resetSerialImage({ clearServer: true });
 
+            // Clear the item after animation
             setTimeout(() => {
+                this.item = {};
                 document.body.style.overflow = "auto";
-            }, 300); // match your animation
+            }, 300);
         },
 
         onImageErrorMain(event) {
@@ -1058,7 +1099,7 @@ export default {
             });
 
             try {
-                // 🔼 If user selected a serial image, upload it first.
+                // If user selected a serial image, upload it first
                 if (this.serialImageFile && !this.serialImageUploading) {
                     await this.uploadSerialImage();
 
@@ -1074,12 +1115,14 @@ export default {
                         this.currentUser?.name ||
                         window.Laravel?.user?.name ||
                         "System",
-                    ...(this.serialImagePath
-                        ? { serial_image: this.serialImagePath }
-                        : {}),
+                    product_id: this.item.ProductID,
                 };
 
-                // 🔥 CHANGED: Use PUT method and include ProductID in URL
+                // Include the updated serial image info if available
+                if (this.item.capturedImages?.serialimg1) {
+                    payload.serial_image = this.item.capturedImages.serialimg1;
+                }
+
                 const response = await axios.put(
                     `/api/houseage/products/${this.item.ProductID}`,
                     payload,
@@ -1097,6 +1140,7 @@ export default {
 
                 const updated = response.data.product;
 
+                // ✅ Update the item in the items array with fresh data
                 const index = this.items.findIndex(
                     (p) => p.ProductID === updated.ProductID
                 );
@@ -1120,11 +1164,18 @@ export default {
                         ? `<p class="text-muted mt-2"><small>${response.data.changes_made} field(s) changed</small></p>`
                         : ""
                 }
+                ${
+                    this.serialImageFile
+                        ? '<p class="text-success mt-2"><small>✓ Serial image uploaded successfully</small></p>'
+                        : ""
+                }
             `,
                     confirmButtonText: "OK",
                 });
 
                 this.closeEditModal();
+
+                // ✅ Refresh inventory to get updated capturedImages
                 await this.fetchInventory();
             } catch (error) {
                 console.error("Save failed:", {
@@ -1135,47 +1186,118 @@ export default {
 
                 let message =
                     "An error occurred while saving. Please check the input or try again later.";
+                let title = "Save Failed";
 
                 if (error.response?.status === 422) {
                     const err = error.response.data;
 
-                    // Check all serial number fields for errors
-                    const serialFields = [
-                        "serialnumber",
-                        "serialnumberb",
-                        "serialnumberc",
-                        "serialnumberd",
-                    ];
-                    for (const field of serialFields) {
-                        if (err?.errors?.[field]?.length) {
-                            message = err.errors[field].join("\n");
-                            break;
-                        }
-                    }
+                    // Check for duplicate serial number error
+                    if (err?.message?.includes("already assigned")) {
+                        title = "Duplicate Serial Number";
 
-                    // If no serial errors, check for general message or other errors
-                    if (
-                        message ===
-                        "An error occurred while saving. Please check the input or try again later."
-                    ) {
-                        if (typeof err?.message === "string" && err.message) {
+                        if (err.duplicate_product) {
+                            message = `
+                        <div style="text-align: left;">
+                            <p><strong>${err.message}</strong></p>
+                            <hr>
+                            <p><strong>Existing Product Details:</strong></p>
+                            <ul style="list-style: none; padding-left: 0;">
+                                <li>📦 <strong>RT Counter:</strong> ${
+                                    err.duplicate_product.rtcounter || "N/A"
+                                }</li>
+                                <li>🏷️ <strong>Item Number:</strong> ${
+                                    err.duplicate_product.itemnumber || "N/A"
+                                }</li>
+                                <li>📋 <strong>Title:</strong> ${
+                                    err.duplicate_product.ProductTitle || "N/A"
+                                }</li>
+                                <li>🔢 <strong>Serial:</strong> ${
+                                    err.duplicate_product.serialnumber || "N/A"
+                                }</li>
+                            </ul>
+                        </div>
+                    `;
+                        } else {
                             message = err.message;
-                        } else if (err?.errors) {
-                            message = Object.values(err.errors)
-                                .flat()
-                                .join("\n");
+                        }
+                    } else {
+                        // Check serial field errors
+                        const serialFields = [
+                            "serialnumber",
+                            "serialnumberb",
+                            "serialnumberc",
+                            "serialnumberd",
+                        ];
+
+                        for (const field of serialFields) {
+                            if (err?.errors?.[field]?.length) {
+                                message = err.errors[field].join("\n");
+                                break;
+                            }
+                        }
+
+                        // General error handling
+                        if (
+                            message ===
+                            "An error occurred while saving. Please check the input or try again later."
+                        ) {
+                            if (
+                                typeof err?.message === "string" &&
+                                err.message
+                            ) {
+                                message = err.message;
+                            } else if (err?.errors) {
+                                message = Object.values(err.errors)
+                                    .flat()
+                                    .join("\n");
+                            }
                         }
                     }
                 } else if (error.response?.data?.message) {
                     message = error.response.data.message;
                 }
 
-                await Swal.fire({
+                // Show error with option to view duplicate
+                const swalOptions = {
                     icon: "error",
-                    title: "Save Failed",
-                    text: message,
+                    title: title,
+                    html: message,
                     confirmButtonText: "OK",
-                });
+                };
+
+                // Add "View Duplicate" button if duplicate exists
+                if (
+                    error.response?.status === 422 &&
+                    error.response?.data?.duplicate_product
+                ) {
+                    swalOptions.showCancelButton = true;
+                    swalOptions.cancelButtonText = "View Duplicate";
+                    swalOptions.cancelButtonColor = "#3085d6";
+                }
+
+                const result = await Swal.fire(swalOptions);
+
+                // If user clicks "View Duplicate", search for it
+                if (
+                    result.dismiss === Swal.DismissReason.cancel &&
+                    error.response?.data?.duplicate_product
+                ) {
+                    const duplicateSerial =
+                        error.response.data.duplicate_product.serialnumber;
+
+                    this.closeEditModal();
+
+                    setTimeout(() => {
+                        const searchInput =
+                            document.querySelector("#appsearch input");
+                        if (searchInput) {
+                            searchInput.value = duplicateSerial;
+                            searchInput.dispatchEvent(
+                                new Event("input", { bubbles: true })
+                            );
+                        }
+                    }, 500);
+                }
             } finally {
                 this.loading = false;
             }
