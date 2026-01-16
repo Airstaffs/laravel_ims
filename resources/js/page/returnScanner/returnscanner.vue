@@ -8,13 +8,13 @@
         </div>
 
         <!-- Scanner Component (with hideButton prop to hide the scanner button) -->
-        <scanner-component scanner-title="Return Scanner" storage-prefix="returnscanner" :enable-camera="true"
+        <scanner-component scanner-title="Return Scanner" storage-prefix="returnscanner" :enable-camera="true" module="returnscanner"
             :display-fields="['ReturnID', 'Serial', 'Location']" :api-endpoint="'/api/returns/process-scan'"
             :hide-button="true" @process-scan="handleScanProcess" @hardware-scan="handleHardwareScan"
             @scanner-opened="handleScannerOpened" @scanner-closed="handleScannerClosed"
             @scanner-reset="handleScannerReset" @mode-changed="handleModeChange" ref="scanner">
             <!-- Define custom input fields for Return Scanner module -->
-      <template #input-fields>
+<template #input-fields>
     <!-- ReturnID toggle button -->
     <div class="toggle-container">
         <button type="button" class="toggle-return-id" @click="toggleReturnIdField"
@@ -33,8 +33,8 @@
             ref="returnIdInput" />
     </div>
 
-    <!-- Serial Number Input -->
-    <div class="input-group">
+    <!-- Serial Number Input - Only show when NOT in any capture mode -->
+    <div class="input-group" v-if="currentCaptureStep === 0 || currentCaptureStep === undefined">
         <label>Serial Number:</label>
         <input type="text" v-model="serialNumber" placeholder="Enter Serial Number..."
             @input="handleSerialInput"
@@ -42,7 +42,7 @@
             ref="serialNumberInput" />
     </div>
 
-    <!-- ✅ NEW: Image Capture for First Serial -->
+    <!-- ✅ Image Capture for First Serial -->
     <div v-if="currentCaptureStep === 1" class="image-capture-section">
         <div class="capture-header">
             <h4>📸 Capture Images for Serial: <strong>{{ serialNumber }}</strong></h4>
@@ -64,23 +64,29 @@
         </div>
     </div>
 
-    <!-- Second Serial Number field -->
-    <div class="input-group" v-if="dualSerialProduct && showSecondSerialInput && currentCaptureStep === 0">
+    <!-- Second Serial Number field - Show when in "between captures" state OR initial state with dual serial -->
+    <div class="input-group" v-if="dualSerialProduct && showSecondSerialInput && (currentCaptureStep === -1 || (currentCaptureStep === 0 && capturedImagesForSerial1.length > 0))">
         <label>{{ secondSerialLabel || "Second Serial" }}:</label>
         <div class="input-with-clear">
             <input type="text" v-model="secondSerialNumber"
                 placeholder="Enter Second Serial Number..."
                 @input="handleSecondSerialInput"
-                @keyup.enter="showManualInput ? proceedToImageCapture(2) : processScan()"
                 ref="secondSerialInput" />
-            <button type="button" class="clear-input-btn" @click="hideSecondSerial"
-                title="Remove second serial">
+            <button type="button" class="clear-input-btn" @click="hideSecondSerial" title="Skip second serial and proceed to location">
                 <i class="fas fa-times"></i>
             </button>
         </div>
+        <!-- Button to start capturing for serial 2 -->
+        <button 
+            v-if="secondSerialNumber && secondSerialNumber.trim() !== ''" 
+            @click="proceedToImageCapture(2)" 
+            class="start-capture-btn" 
+            style="margin-top: 10px; padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-camera"></i> Start Capturing Images for Second Serial
+        </button>
     </div>
 
-    <!-- ✅ NEW: Image Capture for Second Serial -->
+    <!-- ✅ Image Capture for Second Serial -->
     <div v-if="currentCaptureStep === 2" class="image-capture-section">
         <div class="capture-header">
             <h4>📸 Capture Images for Second Serial: <strong>{{ secondSerialNumber }}</strong></h4>
@@ -101,8 +107,8 @@
         </div>
     </div>
 
-    <!-- Location Input -->
-    <div class="input-group" v-if="currentCaptureStep === 0">
+    <!-- Location Input - Show when ready (step 0 or -1, but NOT when second serial should show) -->
+    <div class="input-group" v-if="currentCaptureStep === 0 && !(dualSerialProduct && showSecondSerialInput && capturedImagesForSerial1.length > 0 && currentCaptureStep !== 0)">
         <label>Location:</label>
         <input type="text" v-model="locationInput" placeholder="Enter Location..."
             @input="handleLocationInput"
@@ -113,8 +119,8 @@
         </div>
     </div>
 
-    <!-- Submit button (only in manual mode) -->
-    <button v-if="showManualInput && currentCaptureStep === 0" @click="processScan()" class="submit-button">
+    <!-- Submit button (only in manual mode and when ready) -->
+    <button v-if="showManualInput && currentCaptureStep === 0 && locationInput" @click="processScan()" class="submit-button">
         Submit
     </button>
 </template>

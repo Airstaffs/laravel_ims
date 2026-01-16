@@ -38,6 +38,17 @@ let reconnectTimer = null
 let reconnectAttempts = 0
 const MAX_RECONNECT = 30 // 30 tries * 3s = 90s window
 
+function normalizeImageName(img) {
+  if (!img) return ''
+  return img.split('/').pop() // removes "/image_xxx.jpg"
+}
+
+function classImageUrl(className, fileName) {
+  const cleanFile = normalizeImageName(fileName)
+
+  return `${API_BASE}/class-image/${encodeURIComponent(className)}/${encodeURIComponent(cleanFile)}`
+}
+
 // ========================
 // Helpers
 // ========================
@@ -317,5 +328,6 @@ export default function useTraining() {
     cancelTraining,
     updateModel,
     retrainModel,
+    classImageUrl,
   }
 }
