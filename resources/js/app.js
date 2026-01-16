@@ -562,6 +562,9 @@ import Training from "./page/aiTraining/training.vue";
 import History from "./page/history/history.vue";
 import Soldlist from "./page/soldlist/soldlist.vue";
 import Returnedlist from "./page/returnlist/returnlist.vue";
+import AuxiliaryLabel from "./page/auxiliary/auxiliary.vue";
+
+
 
 import FbaInboundShipment from "./components/Stockroom/fba_inbound/fba_inbound_shipment.vue";
 import Navbar from "./components/Navbar/Navbar.vue";
@@ -627,6 +630,7 @@ const componentMapping = {
     History: "history",
     "Sold Items": "soldlist",
     "Returned Items": "returnlist",
+    "Auxiliary Label": "auxiliary",
 };
 
 // ============================================
@@ -948,6 +952,7 @@ const app = createApp({
         history: History,
         soldlist: Soldlist,
         returnlist: Returnedlist,
+        auxiliary: AuxiliaryLabel,
     },
 });
 

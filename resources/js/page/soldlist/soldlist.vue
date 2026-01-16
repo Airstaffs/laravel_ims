@@ -2,7 +2,7 @@
     <div class="vue-container soldlist-module">
         <TitlePage
             title="Soldlist Module"
-            subtitle="Track and manage products through the internal assembly, manufacturing, or customization process before final staging."
+            subtitle="View and manage all sold products, sales history, and completed transactions"
         />
         <!-- Desktop Table Container -->
         <AnimateDiv :delay="200" class="p-4">

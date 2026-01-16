@@ -2089,6 +2089,7 @@ export default {
                 { label: "Sold Items", value: "soldlist" },
                 { label: "Not Found", value: "notfound" },
                 { label: "Houseage", value: "houseage" },
+                { label: "Auxiliary Label", value: "auxiliary" },
             ],
             subModules: [
                 { label: "Human Resource", value: "humanresource" },
@@ -2113,6 +2114,7 @@ export default {
                 { label: "Houseage", value: "houseage" },
                 { label: "Printer", value: "printer" },
                 { label: "Announcement", value: "announcement" },
+                { label: "Auxiliary Label", value: "auxiliary" },
             ],
             userStores: [],
             isSavingPrivileges: false,
