@@ -604,15 +604,24 @@ Route::prefix('api/asinlist')->group(function () {
     Route::post('update-color', [ASINlistController::class, 'updateColor']);
 });
 
-// Routes for Houseage Function
+// AFTER - Add rate limiting
 Route::prefix('api/houseage')->middleware('auth')->group(function () {
     Route::get('products', [HouseageController::class, 'index']);
-    Route::post('products', [HouseageController::class, 'store']);
-    Route::put('products/{id}', [HouseageController::class, 'update']);
-    Route::post('check-duplicate-serial', [HouseageController::class, 'checkDuplicateSerial']);
 
+    // ✅ Rate limit write operations
+    Route::post('products', [HouseageController::class, 'store'])
+        ->middleware('throttle:30,1'); // 30 requests per minute
+
+    Route::put('products/{id}', [HouseageController::class, 'update'])
+        ->middleware('throttle:30,1');
+
+    Route::post('check-duplicate-serial', [HouseageController::class, 'checkDuplicateSerial'])
+        ->middleware('throttle:60,1'); // Allow more checks
+
+    // ✅ Strict rate limit for uploads
     Route::post('serial-image', [HouseageController::class, 'uploadSerialNumber'])
-        ->name('houseage.serial-image');
+        ->name('houseage.serial-image')
+        ->middleware('throttle:10,1'); // Only 10 uploads per minute
 
     Route::get('serial-image', [HouseageController::class, 'getSerialImage']);
 });
