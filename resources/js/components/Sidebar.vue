@@ -62,8 +62,6 @@
 import { Drawer, Divider, Avatar } from "primevue";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import soldlist from "../page/soldlist/soldlist";
-import returnlist from "../page/returnlist/returnlist";
 
 const router = useRouter();
 
@@ -111,6 +109,7 @@ const modules = ref({
     // asinlist: 'ASIN List',
     // fnsku: 'FNSKU',
     printer: "Printer",
+    auxiliary: "Auxillary Label",
 });
 
 // Icons for each module
@@ -135,6 +134,7 @@ const moduleIcons = {
     asinlist: "pi-list",
     fnsku: "pi-barcode",
     printer: "pi-print",
+    auxiliary: "pi-print",
 };
 
 // Computed: exclude main module

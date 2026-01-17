@@ -111,6 +111,7 @@
                     'houseage',
                     'asinlist',
                     'printer',
+                    'auxiliary',
                 ];
 
                 foreach ($moduleColumns as $column) {
@@ -152,6 +153,7 @@
                 'notfound' => 'Not Found',
                 'houseage' => 'Houseage',
                 'printer' => 'Printer',
+                'axuxillary' => 'Auxillary Label',
             ];
 
             function hasAccess($module, $mainModule, $subModules): bool

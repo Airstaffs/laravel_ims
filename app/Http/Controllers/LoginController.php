@@ -380,6 +380,7 @@ class LoginController extends Controller
             'rts',
             'returnscanner',
             'fbmorder',
+            'soldlist',
             'notfound',
             'asinoption',
             'houseage',
@@ -387,6 +388,7 @@ class LoginController extends Controller
             'printer',
             'humanresource',
             'announcement',
+            'auxiliary',
         ];
 
         $activeSubModules = array_filter($subModules, function ($module) use ($user) {

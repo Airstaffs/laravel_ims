@@ -49,7 +49,8 @@ class UserSessionController extends Controller
             if ($user->houseage) $subModules[] = 'houseage';
             if ($user->asinlist) $subModules[] = 'asinlist';
             if ($user->humanresource) $subModules[] = 'humanresource';
-            if ($user->announcement) $subModules[] = 'announcement';
+            if ($user->soldlist) $subModules[] = 'soldlist';
+            if ($user->auxiliary) $subModules[] = 'auxiliary';
               // 🔴 ADDED: Check printer module explicitly
             if ($user->printer) {
                 $subModules[] = 'printer';
@@ -109,11 +110,13 @@ class UserSessionController extends Controller
                     'rts'=>'RTS',
                     'returnscanner' => 'Return Scanner',
                     'fbmorder' => 'FBM Order',
+                    'soldlist' => 'Sold Items',
                     'notfound' => 'Not Found',
                     'asinoption' => 'ASIN Option',
                     'houseage'=> 'Houseage',
                     'asinlist' => 'ASIN List',
                     'printer' => 'Printer',
+                    'auxiliary' => 'Auxiliary Label',
                     'announcement' => 'Announcement',
                      
                 ]

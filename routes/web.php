@@ -50,6 +50,8 @@ use App\Http\Controllers\UserLogsController;
 use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
+use App\Http\Controllers\AuxiliaryController;
+
 use App\Http\Middleware\PreventBackHistory;
 use App\Http\Models\Store;
 use App\Models\User;
@@ -688,6 +690,23 @@ Route::prefix('api/printer-management')->middleware(['auth'])->group(function ()
     Route::post('marry-printers', [PrinterManagementController::class, 'marryPrinters']);
     Route::get('get-married-printers', [PrinterManagementController::class, 'getMarriedPrinters']);
     Route::delete('divorce-printers/{id}', [PrinterManagementController::class, 'divorcePrinters']);
+});
+
+
+// Auxiliary Label Management Routes
+Route::prefix('api/auxiliary')->middleware(['auth'])->group(function () {
+    // Get all auxiliaries (with optional search)
+    Route::get('get-auxiliaries', [AuxiliaryController::class, 'index']);    
+    // Get available printers (small label type only, no married)
+    Route::get('get-printers', [AuxiliaryController::class, 'getPrinters']); 
+    // Upload new auxiliary
+    Route::post('add-auxiliary', [AuxiliaryController::class, 'upload']);   
+    // Update auxiliary
+    Route::post('update-auxiliary/{id}', [AuxiliaryController::class, 'update']);   
+    // Delete auxiliary
+    Route::delete('delete-auxiliary/{id}', [AuxiliaryController::class, 'delete']);
+    // Print auxiliary labels
+    Route::post('print-auxiliary', [AuxiliaryController::class, 'print']);
 });
 
 Route::get('/_debug/php', function () {
