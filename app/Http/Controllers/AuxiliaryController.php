@@ -196,75 +196,120 @@ class AuxiliaryController extends Controller
     /**
      * Update an auxiliary item
      */
-    public function update(Request $request, $id)
-    {
-        try {
-            $request->validate([
-                'auxname' => 'required|string|max:255',
-                'auxcode' => 'required|string|max:50'
-            ]);
+   public function update(Request $request, $id)
+{
+    try {
+        $request->validate([
+            'auxname' => 'required|string|max:255',
+            'auxcode' => 'required|string|max:50',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:10240'
+        ]);
 
-            $auxname = trim($request->auxname);
-            $auxcode = trim($request->auxcode);
+        $auxname = trim($request->auxname);
+        $auxcode = trim($request->auxcode);
 
-            // Check if record exists
-            $auxiliary = DB::table($this->auxiliaryTable)->where('id', $id)->first();
-            
-            if (!$auxiliary) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Auxiliary not found'
-                ], 404);
-            }
+        // Check if record exists
+        $auxiliary = DB::table($this->auxiliaryTable)->where('id', $id)->first();
+        
+        if (!$auxiliary) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Auxiliary not found'
+            ], 404);
+        }
 
-            // Check for duplicates (excluding current record)
-            $duplicate = DB::table($this->auxiliaryTable)
+        // Check for duplicates (excluding current record)
+        $duplicate = DB::table($this->auxiliaryTable)
+            ->where('id', '!=', $id)
+            ->where(function($q) use ($auxname, $auxcode) {
+                $q->where('auxname', $auxname)
+                  ->orWhere('auxcode', $auxcode);
+            })
+            ->exists();
+
+        if ($duplicate) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Duplicate entry: Aux Name or Code already exists.'
+            ], 400);
+        }
+
+        // Prepare update data
+        $updateData = [
+            'auxname' => $auxname,
+            'auxcode' => $auxcode,
+            'updated_at' => now()
+        ];
+
+        // Handle image update if provided
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $fileName = $image->getClientOriginalName();
+
+            // Check if new image name conflicts with existing images (excluding current)
+            $imageExists = DB::table($this->auxiliaryTable)
                 ->where('id', '!=', $id)
-                ->where(function($q) use ($auxname, $auxcode) {
-                    $q->where('auxname', $auxname)
-                      ->orWhere('auxcode', $auxcode);
-                })
+                ->where('auximgname', $fileName)
                 ->exists();
 
-            if ($duplicate) {
+            if ($imageExists) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Duplicate entry: Aux Name or Code already exists.'
+                    'message' => 'An auxiliary with this image name already exists.'
                 ], 400);
             }
 
-            // Update the record
-            DB::table($this->auxiliaryTable)
-                ->where('id', $id)
-                ->update([
-                    'auxname' => $auxname,
-                    'auxcode' => $auxcode,
-                    'updated_at' => now()
-                ]);
+            // Store the new image
+            $targetDir = public_path('images/auxiliary');
+            if (!file_exists($targetDir)) {
+                mkdir($targetDir, 0755, true);
+            }
 
-            Log::info('Auxiliary updated successfully:', [
-                'id' => $id,
-                'auxname' => $auxname,
-                'auxcode' => $auxcode
-            ]);
+            $image->move($targetDir, $fileName);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Auxiliary updated successfully!'
-            ]);
+            // Delete old image if it exists and is different
+            if ($auxiliary->auximgname && $auxiliary->auximgname !== $fileName) {
+                $oldImagePath = public_path('images/auxiliary/' . $auxiliary->auximgname);
+                if (file_exists($oldImagePath)) {
+                    unlink($oldImagePath);
+                    Log::info('Deleted old auxiliary image:', ['filename' => $auxiliary->auximgname]);
+                }
+            }
 
-        } catch (Exception $e) {
-            Log::error('Error updating auxiliary:', [
-                'error' => $e->getMessage(),
-                'id' => $id
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update auxiliary: ' . $e->getMessage()
-            ], 500);
+            // Add new image name to update data
+            $updateData['auximgname'] = $fileName;
         }
+
+        // Update the record
+        DB::table($this->auxiliaryTable)
+            ->where('id', $id)
+            ->update($updateData);
+
+        Log::info('Auxiliary updated successfully:', [
+            'id' => $id,
+            'auxname' => $auxname,
+            'auxcode' => $auxcode,
+            'image_updated' => $request->hasFile('image')
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Auxiliary updated successfully!'
+        ]);
+
+    } catch (Exception $e) {
+        Log::error('Error updating auxiliary:', [
+            'error' => $e->getMessage(),
+            'id' => $id,
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to update auxiliary: ' . $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Delete an auxiliary item

@@ -34,8 +34,11 @@ export default {
             editForm: {
                 id: null,
                 auxname: '',
-                auxcode: ''
+                auxcode: '',
+                image: null,
+                currentImage: ''
             },
+            editImagePreview: null,
             // Edit validation warnings
             editWarnings: {
                 nameExists: false,
@@ -605,8 +608,11 @@ export default {
             this.editForm = {
                 id: aux.id,
                 auxname: aux.auxname,
-                auxcode: aux.auxcode
+                auxcode: aux.auxcode,
+                image: null,
+                currentImage: aux.auximgname
             };
+            this.editImagePreview = this.getImageUrl(aux.auximgname);
             this.editWarnings = {
                 nameExists: false,
                 codeExists: false
@@ -622,8 +628,11 @@ export default {
             this.editForm = {
                 id: null,
                 auxname: '',
-                auxcode: ''
+                auxcode: '',
+                image: null,
+                currentImage: ''
             };
+            this.editImagePreview = null;
             this.editWarnings = {
                 nameExists: false,
                 codeExists: false
@@ -632,6 +641,31 @@ export default {
             // Clear timeouts
             clearTimeout(this.editNameTimeout);
             clearTimeout(this.editCodeTimeout);
+            
+            // Reset file input if exists
+            if (this.$refs.editFileInput) {
+                this.$refs.editFileInput.value = '';
+            }
+        },
+
+        /**
+         * Handle edit file selection
+         */
+        handleEditFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                this.editForm.image = file;
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.editImagePreview = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                this.editForm.image = null;
+                // Restore original image preview
+                this.editImagePreview = this.getImageUrl(this.editForm.currentImage);
+            }
         },
 
         /**
@@ -666,13 +700,35 @@ export default {
             this.updating = true;
 
             try {
-                const response = await axios.post(
-                    `${API_BASE_URL}/api/auxiliary/update-auxiliary/${this.editForm.id}`,
-                    {
-                        auxname: this.editForm.auxname,
-                        auxcode: this.editForm.auxcode
-                    }
-                );
+                // Use FormData if image is being updated
+                let response;
+                
+                if (this.editForm.image) {
+                    // Update with new image
+                    const formData = new FormData();
+                    formData.append('auxname', this.editForm.auxname);
+                    formData.append('auxcode', this.editForm.auxcode);
+                    formData.append('image', this.editForm.image);
+
+                    response = await axios.post(
+                        `${API_BASE_URL}/api/auxiliary/update-auxiliary/${this.editForm.id}`,
+                        formData,
+                        {
+                            headers: {
+                                'Content-Type': 'multipart/form-data'
+                            }
+                        }
+                    );
+                } else {
+                    // Update without image
+                    response = await axios.post(
+                        `${API_BASE_URL}/api/auxiliary/update-auxiliary/${this.editForm.id}`,
+                        {
+                            auxname: this.editForm.auxname,
+                            auxcode: this.editForm.auxcode
+                        }
+                    );
+                }
 
                 if (response.data.success) {
                     Swal.fire({
@@ -747,6 +803,7 @@ export default {
          * Print auxiliary labels
          */
         async printAuxiliary() {
+            console.log('🖨️ Starting print process...');
             this.printing = true;
 
             // Find the auxiliary being printed and set its printing state
@@ -755,6 +812,16 @@ export default {
                 aux.isPrinting = true;
             }
 
+            // Store values BEFORE closing modal
+            const quantity = this.printForm.quantity;
+            const printerName = this.printForm.printerName;
+
+            console.log('Print data:', {
+                image_name: this.printForm.auximgname,
+                quantity: this.printForm.quantity,
+                printer_id: this.printForm.printerId
+            });
+
             try {
                 const response = await axios.post(`${API_BASE_URL}/api/auxiliary/print-auxiliary`, {
                     image_name: this.printForm.auximgname,
@@ -762,9 +829,13 @@ export default {
                     printer_id: this.printForm.printerId
                 });
 
+                console.log('✅ Print response:', response.data);
+
                 if (response.data.success) {
-                    // Close modal first
+                    // Close modal
                     this.closePrintModal();
+                    
+                    console.log('🎉 Showing success alert...');
                     
                     // Show SweetAlert success
                     Swal.fire({
@@ -773,28 +844,33 @@ export default {
                         html: `
                             <div style="text-align: center;">
                                 <p style="font-size: 18px; margin: 10px 0;">
-                                    <strong>${this.printForm.quantity}</strong> label(s) sent to printer
+                                    <strong>${quantity}</strong> label(s) sent to printer
                                 </p>
                                 <p style="color: #6c757d; margin: 5px 0;">
-                                    ${this.printForm.printerName}
+                                    ${printerName}
                                 </p>
                             </div>
                         `,
                         timer: 3000,
                         timerProgressBar: true,
-                        showConfirmButton: false,
-                        customClass: {
-                            popup: 'animated-popup'
-                        }
+                        showConfirmButton: false
                     });
                 } else {
                     throw new Error(response.data.message || 'Print failed');
                 }
             } catch (err) {
-                console.error('Print error:', err);
+                console.error('❌ Print error:', err);
+                console.error('Full error object:', err);
+                console.error('Error response:', err.response);
+                
+                const errorMessage = err.response?.data?.message || err.message || 'Failed to send print job';
+                
+                console.log('💥 Error message:', errorMessage);
                 
                 // Close modal
                 this.closePrintModal();
+                
+                console.log('🚨 Showing error alert...');
                 
                 // Show SweetAlert error
                 Swal.fire({
@@ -803,7 +879,7 @@ export default {
                     html: `
                         <div style="text-align: center;">
                             <p style="font-size: 16px; margin: 10px 0;">
-                                ${err.response?.data?.message || 'Failed to send print job'}
+                                ${errorMessage}
                             </p>
                             <p style="color: #6c757d; font-size: 14px; margin: 5px 0;">
                                 Please check your printer connection and try again
@@ -814,6 +890,7 @@ export default {
                     confirmButtonColor: '#dc3545'
                 });
             } finally {
+                console.log('🏁 Print process completed');
                 this.printing = false;
                 if (aux) {
                     aux.isPrinting = false;

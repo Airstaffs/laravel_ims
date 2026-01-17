@@ -1839,196 +1839,236 @@ async fetchAvailablePrinters() {
   },
 
         // Updated mergeSelectedItems function with correct API URL format
-        async mergeSelectedItems() {
-            if (this.selectedItems.length < 2) {
-                alert("Please select at least two items to merge.");
-                return;
-            }
+async mergeSelectedItems() {
+    if (this.selectedItems.length < 2) {
+        alert("Please select at least two items to merge.");
+        return;
+    }
 
-            // When merging from process modal, we know all items belong to the same product
-            // Make sure to get the title directly from the modal item
-            let productTitle = "";
-            let productAsin = "";
-            let productStore = "";
-            let selectedSerials = [];
-            let selectedFnsku = ""; // Add variable for FNSKU
+    let productTitle = "";
+    let productAsin = "";
+    let productStore = "";
+    let selectedSerials = [];
+    let selectedFnsku = ""; // Add variable for FNSKU
 
-            if (this.currentProcessItem) {
-                // We're in the process modal, so use the title from the current process item
-                productTitle = this.currentProcessItem.AStitle || "";
-                productAsin = this.currentProcessItem.ASIN || "";
-                productStore = this.currentProcessItem.storename || "";
+    if (this.currentProcessItem) {
+        productTitle = this.currentProcessItem.AStitle || "";
+        productAsin = this.currentProcessItem.ASIN || "";
+        productStore = this.currentProcessItem.storename || "";
 
-                console.log("Using process modal title:", productTitle);
+        console.log("Using process modal title:", productTitle);
 
-                // Get just the serial numbers of selected items
-                selectedSerials = this.currentProcessItem.serials
-                    .filter((serial) =>
-                        this.selectedItems.includes(serial.ProductID)
-                    )
-                    .map((serial) => serial.serialnumber);
+        selectedSerials = this.currentProcessItem.serials
+            .filter((serial) =>
+                this.selectedItems.includes(serial.ProductID)
+            )
+            .map((serial) => serial.serialnumber);
 
-                // Get the first available FNSKU for this product if any
-                if (
-                    this.currentProcessItem.fnskus &&
-                    this.currentProcessItem.fnskus.length > 0
-                ) {
+        // Get the first available FNSKU for this product if any
+        if (
+            this.currentProcessItem.fnskus &&
+            this.currentProcessItem.fnskus.length > 0
+        ) {
+            let rawFnsku =
+                this.currentProcessItem.fnskus[0].FNSKU ||
+                this.currentProcessItem.fnskus[0];
+            selectedFnsku = this.normalizeFnsku(rawFnsku);
+            console.log(
+                "Using normalized FNSKU from current process item:",
+                selectedFnsku
+            );
+        }
+    } else {
+        const firstSelectedId = this.selectedItems[0];
+        for (const item of this.inventory) {
+            if (
+                item.serials &&
+                item.serials.some(
+                    (serial) => serial.ProductID === firstSelectedId
+                )
+            ) {
+                productTitle = item.AStitle || "";
+                productAsin = item.ASIN || "";
+                productStore = item.storename || "";
+
+                if (item.fnskus && item.fnskus.length > 0) {
                     let rawFnsku =
-                        this.currentProcessItem.fnskus[0].FNSKU ||
-                        this.currentProcessItem.fnskus[0];
+                        item.fnskus[0].FNSKU || item.fnskus[0];
                     selectedFnsku = this.normalizeFnsku(rawFnsku);
                     console.log(
-                        "Using normalized FNSKU from current process item:",
+                        "Found normalized FNSKU from inventory:",
                         selectedFnsku
                     );
                 }
-            } else {
-                // If not in process modal, find the product information
-                const firstSelectedId = this.selectedItems[0];
-                for (const item of this.inventory) {
-                    if (
-                        item.serials &&
-                        item.serials.some(
-                            (serial) => serial.ProductID === firstSelectedId
-                        )
-                    ) {
-                        productTitle = item.AStitle || "";
-                        productAsin = item.ASIN || "";
-                        productStore = item.storename || "";
 
-                        // Get the first available FNSKU for this product if any
-                        if (item.fnskus && item.fnskus.length > 0) {
-                            let rawFnsku =
-                                item.fnskus[0].FNSKU || item.fnskus[0];
-                            selectedFnsku = this.normalizeFnsku(rawFnsku);
-                            console.log(
-                                "Found normalized FNSKU from inventory:",
-                                selectedFnsku
-                            );
-                        }
-
-                        console.log(
-                            "Found title from inventory:",
-                            productTitle
-                        );
-                        break;
-                    }
-                }
-
-                // Get serial numbers from the inventory
-                for (const id of this.selectedItems) {
-                    for (const item of this.inventory) {
-                        if (item.serials) {
-                            const serial = item.serials.find(
-                                (s) => s.ProductID === id
-                            );
-                            if (serial) {
-                                selectedSerials.push(serial.serialnumber);
-                            }
-                        }
-                    }
-                }
+                console.log(
+                    "Found title from inventory:",
+                    productTitle
+                );
+                break;
             }
+        }
 
-            if (!productTitle) {
-                alert("Could not determine product title for merging.");
-                return;
-            }
-
-            console.log("Final title being sent:", productTitle);
-            console.log(
-                "Number of items being merged:",
-                this.selectedItems.length
-            );
-            console.log("FNSKU being sent:", selectedFnsku);
-
-            if (
-                confirm(
-                    `Are you sure you want to merge ${this.selectedItems.length} items of "${productTitle}"?`
-                )
-            ) {
-                try {
-                    // Start loading state
-                    this.isProcessing = true;
-
-                    // Prepare merge data with all required information
-                    const mergeData = {
-                        items: this.selectedItems,
-                        title: productTitle,
-                        asin: productAsin,
-                        store: productStore,
-                        serialNumbers: selectedSerials,
-                        fnsku: selectedFnsku, // Add FNSKU to merge data
-                    };
-
-                    console.log("Sending merge data:", mergeData);
-
-                    // Send to API using the correct API_BASE_URL format
-                    const response = await axios.post(
-                        `${API_BASE_URL}/api/stockroom/merge-items`,
-                        mergeData,
-                        {
-                            withCredentials: true,
-                            headers: {
-                                "Content-Type": "application/json",
-                                Accept: "application/json",
-                                "X-CSRF-TOKEN": document.querySelector(
-                                    'meta[name="csrf-token"]'
-                                )?.content,
-                            },
-                        }
+        for (const id of this.selectedItems) {
+            for (const item of this.inventory) {
+                if (item.serials) {
+                    const serial = item.serials.find(
+                        (s) => s.ProductID === id
                     );
-
-                    if (response.data.success) {
-                        // Show success message with new RT number
-                        const newRtNumber = response.data.newrt;
-                        const productId = response.data.productid;
-                        const mergedTitle = response.data.title || productTitle;
-                        const mergedFnsku =
-                            response.data.fnsku || selectedFnsku;
-
-                        // Format the RT number based on the store
-                        let storeNameForRt =
-                            response.data.store || productStore;
-                        const formattedRt = this.formatRTNumber(
-                            newRtNumber,
-                            storeNameForRt
-                        );
-
-                        // Show success alert with details
-                        alert(
-                            `Items successfully merged into new item ${formattedRt}: ${mergedTitle}${
-                                mergedFnsku ? ` (FNSKU: ${mergedFnsku})` : ""
-                            }`
-                        );
-
-                        // Ask if user wants to print the new label
-                        if (
-                            confirm(
-                                "Do you want to print a label for the newly created item?"
-                            )
-                        ) {
-                            await this.printLabel(productId);
-                        }
-
-                        this.closeProcessModal();
-                        // Refresh inventory
-                        this.fetchInventory();
-                    } else {
-                        alert(
-                            `Error: ${
-                                response.data.message || "Failed to merge items"
-                            }`
-                        );
+                    if (serial) {
+                        selectedSerials.push(serial.serialnumber);
                     }
-                } catch (error) {
-                    console.error("Error merging items:", error);
-                    alert("Failed to merge items. Please try again.");
-                } finally {
-                    this.isProcessing = false;
                 }
             }
-        },
+        }
+    }
+
+    if (!productTitle) {
+        alert("Could not determine product title for merging.");
+        return;
+    }
+
+    console.log("Final title being sent:", productTitle);
+    console.log(
+        "Number of items being merged:",
+        this.selectedItems.length
+    );
+    console.log("FNSKU being sent:", selectedFnsku);
+
+    if (
+        confirm(
+            `Are you sure you want to merge ${this.selectedItems.length} items of "${productTitle}"?`
+        )
+    ) {
+        try {
+            this.isProcessing = true;
+
+            // Prepare merge data
+            const mergeData = {
+                items: this.selectedItems,
+                title: productTitle,
+                asin: productAsin,
+                store: productStore,
+                serialNumbers: selectedSerials,
+            };
+
+            // ✅ ONLY ADD FNSKU IF IT HAS A VALUE
+            if (selectedFnsku && selectedFnsku.trim() !== '') {
+                mergeData.fnsku = selectedFnsku;
+                console.log("Adding FNSKU to merge data:", selectedFnsku);
+            } else {
+                console.log("No FNSKU provided, skipping");
+            }
+
+            console.log("Sending merge data:", mergeData);
+
+            const response = await axios.post(
+                `${API_BASE_URL}/api/stockroom/merge-items`,
+                mergeData,
+                {
+                    withCredentials: true,
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                        "X-CSRF-TOKEN": document.querySelector(
+                            'meta[name="csrf-token"]'
+                        )?.content,
+                    },
+                }
+            );
+
+            if (response.data.success) {
+                const newRtNumber = response.data.newrt;
+                const productId = response.data.productid;
+                const mergedTitle = response.data.title || productTitle;
+                const mergedFnsku =
+                    response.data.fnsku || selectedFnsku;
+
+                let storeNameForRt =
+                    response.data.store || productStore;
+                const formattedRt = this.formatRTNumber(
+                    newRtNumber,
+                    storeNameForRt
+                );
+
+                alert(
+                    `Items successfully merged into new item ${formattedRt}: ${mergedTitle}${
+                        mergedFnsku ? ` (FNSKU: ${mergedFnsku})` : ""
+                    }`
+                );
+
+                if (
+                    confirm(
+                        "Do you want to print a label for the newly created item?"
+                    )
+                ) {
+                    await this.printLabel(productId);
+                }
+
+                this.closeProcessModal();
+                this.fetchInventory();
+            } else {
+                alert(
+                    `Error: ${
+                        response.data.message || "Failed to merge items"
+                    }`
+                );
+            }
+        } catch (error) {
+            console.error("Error merging items:", error);
+            
+            // Handle validation errors
+            if (error.response?.data?.reason === 'incompatible_items') {
+                const errorData = error.response.data;
+                const incompatibleItems = errorData.incompatible_items || [];
+                
+                console.log("Incompatible items detected:", incompatibleItems);
+                
+                let errorMessage = "❌ Cannot merge items - Incompatible products detected:\n\n";
+                
+                const errorsBySerial = {};
+                incompatibleItems.forEach(issue => {
+                    if (!errorsBySerial[issue.serial]) {
+                        errorsBySerial[issue.serial] = [];
+                    }
+                    errorsBySerial[issue.serial].push(issue);
+                });
+                
+                for (const [serial, issues] of Object.entries(errorsBySerial)) {
+                    errorMessage += `📦 Serial: ${serial}\n`;
+                    issues.forEach(issue => {
+                        errorMessage += `   • ${issue.reason}: Expected "${issue.expected}", Got "${issue.actual}"\n`;
+                    });
+                    errorMessage += "\n";
+                }
+                
+                errorMessage += "💡 Tip: You can only merge items with the same ASIN, Color, and QuantityInside.";
+                
+                alert(errorMessage);
+                
+                console.warn("Merge validation failed:", {
+                    message: errorData.message,
+                    incompatible_items: incompatibleItems
+                });
+                
+            } else if (error.response?.data?.message) {
+                alert(`Error: ${error.response.data.message}`);
+            } else if (error.response?.data?.errors) {
+                // Laravel validation errors
+                const errors = error.response.data.errors;
+                let errorMsg = "Validation errors:\n";
+                for (const [field, messages] of Object.entries(errors)) {
+                    errorMsg += `${field}: ${messages.join(', ')}\n`;
+                }
+                alert(errorMsg);
+            } else {
+                alert("Failed to merge items. Please try again.");
+            }
+        } finally {
+            this.isProcessing = false;
+        }
+    }
+},
 
         // Print label method
         async printLabel(productId) {
