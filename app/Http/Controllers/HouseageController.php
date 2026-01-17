@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class HouseageController extends BasetablesController
 {
@@ -54,11 +53,14 @@ class HouseageController extends BasetablesController
             // Build query with proper joins
             $productsQuery = DB::table($this->productTable.' as prod')
                 ->leftJoin($this->fnskuTable.' as fnsku', function ($join) {
-                    $join->on(DB::raw("CASE 
-                WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
-                THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
-                ELSE prod.FNSKUviewer 
-            END"), '=', 'fnsku.FNSKU');
+                    $join->whereRaw(
+                        'fnsku.FNSKU = CASE 
+                            WHEN prod.FNSKUviewer REGEXP ? 
+                            THEN REGEXP_REPLACE(prod.FNSKUviewer, ?, ?)
+                            ELSE prod.FNSKUviewer 
+                        END',
+                        ['^C[0-9]+', '^C[0-9]+', '']
+                    );
                 })
                 ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                 ->select([
@@ -68,10 +70,10 @@ class HouseageController extends BasetablesController
                     'fnsku.grading',
                     'fnsku.storename',
                     DB::raw("COALESCE(
-                    NULLIF(TRIM(asin.system_title), ''), 
-                    NULLIF(TRIM(asin.internal), ''), 
-                    NULLIF(TRIM(prod.ProductTitle), '')
-                ) as AStitle"),
+                                NULLIF(TRIM(asin.system_title), ''), 
+                                NULLIF(TRIM(asin.internal), ''), 
+                                NULLIF(TRIM(prod.ProductTitle), '')
+                            ) as AStitle"),
                     'asin.internal',
                     'asin.system_title',
                     'asin.metakeyword',
@@ -217,6 +219,12 @@ class HouseageController extends BasetablesController
                 });
             }
 
+            Log::info('Returning products', [
+                'count' => $products->count(),
+                'total' => $products->total(),
+                'page' => $products->currentPage(),
+            ]);
+
             return response()->json($products);
         } catch (\Exception $e) {
             Log::error('Error in HouseageController index', [
@@ -225,92 +233,222 @@ class HouseageController extends BasetablesController
             ]);
 
             return response()->json([
-                'error' => 'An error occurred while fetching products',
-                'message' => $e->getMessage(),
+                'error' => true,
+                'message' => 'An error occurred while fetching products',
+                'details' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
 
     public function store(Request $request)
     {
-        if ($request->has('serialnumber')) {
-            $sn = Str::upper(trim((string) $request->input('serialnumber')));
-            $request->merge(['serialnumber' => $sn !== '' ? $sn : null]);
-        }
-
-        $validated = $request->validate([
-            'itemnumber' => 'required|string|max:255|unique:'.$this->productTable.',itemnumber',
-            'ProductTitle' => 'nullable|string|max:255',
-            'rtid' => 'nullable|string|max:255',
-            'orderdate' => 'nullable|date',
-            'paymentdate' => 'nullable|date',
-            'shipdate' => 'nullable|date',
-            'datedelivered' => 'nullable|date',
-            'seller' => 'nullable|string|max:255',
-            'materialtype' => 'nullable|string|max:255',
-            'sourceType' => 'nullable|string|max:255',
-            'carrier' => 'nullable|string|max:255',
-            'listedcondition' => 'nullable|string|max:255',
-            'paymentmethod' => 'nullable|string|max:255',
-            'quantity' => 'nullable|numeric',
-            'Discount' => 'nullable|numeric',
-            'tax' => 'nullable|numeric',
-            'priceshipping' => 'nullable|numeric',
-            'refund' => 'nullable|numeric',
-            'description' => 'nullable|string',
-            'supplierNotes' => 'nullable|string',
-            'employeeNotes' => 'nullable|string',
-            'serialnumber' => 'nullable|string|max:255',
-            'serialnumberb' => 'nullable|string|max:255',
-            'serialnumberc' => 'nullable|string|max:255',
-            'serialnumberd' => 'nullable|string|max:255',
-            'trackingnumber' => 'nullable|string|max:255',
-            'trackingnumber2' => 'nullable|string|max:255',
-            'trackingnumber3' => 'nullable|string|max:255',
-            'trackingnumber4' => 'nullable|string|max:255',
-            'trackingnumber5' => 'nullable|string|max:255',
-            'validation' => 'nullable|string|max:255',
-            'price' => 'nullable|numeric',
-            'RPN' => 'nullable|string',
-            'PRD' => 'nullable|string',
-            'PCN' => 'nullable|string',
-            'basketnumber' => 'nullable|string',
-        ]);
-
-        $validated['validation'] = $validated['validation'] ?? 'unvalidated';
-
-        // Check for duplicate serial number
-        if (! empty($validated['serialnumber'])) {
-            $exists = \App\Models\tblproduct::where('serialnumber', $validated['serialnumber'])
-                ->exists();
-
-            if ($exists) {
-                return response()->json([
-                    'success' => false,
-                    'message' => "Serial Number '{$validated['serialnumber']}' is already assigned to another product.",
-                ], 422);
+        try {
+            // Sanitize serial number before validation
+            if ($request->has('serialnumber')) {
+                $sn = Str::upper(trim((string) $request->input('serialnumber')));
+                $request->merge(['serialnumber' => $sn !== '' ? $sn : null]);
             }
+
+            // Sanitize other serial number fields
+            $serialFields = ['serialnumberb', 'serialnumberc', 'serialnumberd'];
+            foreach ($serialFields as $field) {
+                if ($request->has($field)) {
+                    $value = Str::upper(trim((string) $request->input($field)));
+                    $request->merge([$field => $value !== '' ? $value : null]);
+                }
+            }
+
+            $validated = $request->validate([
+                'itemnumber' => 'required|string|max:255|unique:'.$this->productTable.',itemnumber',
+                'ProductTitle' => 'nullable|string|max:255',
+                'rtid' => 'nullable|string|max:255',
+                'orderdate' => 'nullable|date',
+                'paymentdate' => 'nullable|date',
+                'shipdate' => 'nullable|date',
+                'datedelivered' => 'nullable|date',
+                'seller' => 'nullable|string|max:255',
+                'materialtype' => 'nullable|string|max:255',
+                'sourceType' => 'nullable|string|max:255',
+                'carrier' => 'nullable|string|max:255',
+                'listedcondition' => 'nullable|string|max:255',
+                'paymentmethod' => 'nullable|string|max:255',
+                'quantity' => 'nullable|numeric',
+                'Discount' => 'nullable|numeric',
+                'tax' => 'nullable|numeric',
+                'priceshipping' => 'nullable|numeric',
+                'refund' => 'nullable|numeric',
+                'description' => 'nullable|string',
+                'supplierNotes' => 'nullable|string',
+                'employeeNotes' => 'nullable|string',
+                'serialnumber' => 'nullable|string|max:255',
+                'serialnumberb' => 'nullable|string|max:255',
+                'serialnumberc' => 'nullable|string|max:255',
+                'serialnumberd' => 'nullable|string|max:255',
+                'trackingnumber' => 'nullable|string|max:255',
+                'trackingnumber2' => 'nullable|string|max:255',
+                'trackingnumber3' => 'nullable|string|max:255',
+                'trackingnumber4' => 'nullable|string|max:255',
+                'trackingnumber5' => 'nullable|string|max:255',
+                'validation' => 'nullable|string|max:255',
+                'price' => 'nullable|numeric',
+                'RPN' => 'nullable|string',
+                'PRD' => 'nullable|string',
+                'PCN' => 'nullable|string',
+                'basketnumber' => 'nullable|string',
+            ]);
+
+            // Set default validation status if not provided
+            $validated['validation'] = $validated['validation'] ?? 'unvalidated';
+
+            // Check for duplicate serial number across all serial fields
+            $allSerialFields = ['serialnumber', 'serialnumberb', 'serialnumberc', 'serialnumberd'];
+
+            foreach ($allSerialFields as $field) {
+                if (! empty($validated[$field])) {
+                    $serialValue = Str::upper(trim($validated[$field]));
+
+                    // Check if this serial exists in ANY serial field of ANY product
+                    $exists = \App\Models\tblproduct::where(function ($query) use ($allSerialFields, $serialValue) {
+                        foreach ($allSerialFields as $checkField) {
+                            $query->orWhere($checkField, $serialValue);
+                        }
+                    })->first();
+
+                    if ($exists) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Serial Number '{$serialValue}' is already assigned to another product.",
+                            'duplicate_product' => [
+                                'ProductID' => $exists->ProductID,
+                                'ProductTitle' => $exists->ProductTitle,
+                                'rtcounter' => $exists->rtcounter,
+                                'serialnumber' => $exists->serialnumber,
+                                'itemnumber' => $exists->itemnumber,
+                            ],
+                        ], 422);
+                    }
+                }
+            }
+
+            // Create new product
+            $product = \App\Models\tblproduct::create($validated);
+
+            // Reload the product with all relationships
+            $createdProduct = DB::table($this->productTable.' as prod')
+                ->leftJoin($this->fnskuTable.' as fnsku', function ($join) {
+                    $join->whereRaw(
+                        'fnsku.FNSKU = CASE 
+                        WHEN prod.FNSKUviewer REGEXP ? 
+                        THEN REGEXP_REPLACE(prod.FNSKUviewer, ?, ?)
+                        ELSE prod.FNSKUviewer 
+                    END',
+                        ['^C[0-9]+', '^C[0-9]+', '']
+                    );
+                })
+                ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->leftJoin($this->capturedImagesTable.' as ci', 'prod.ProductID', '=', 'ci.ProductID')
+                ->where('prod.ProductID', $product->ProductID)
+                ->select([
+                    'prod.*',
+                    'fnsku.ASIN',
+                    'fnsku.MSKU',
+                    'fnsku.grading',
+                    'fnsku.storename',
+                    DB::raw("COALESCE(
+                    NULLIF(TRIM(asin.system_title), ''), 
+                    NULLIF(TRIM(asin.internal), ''), 
+                    NULLIF(TRIM(prod.ProductTitle), '')
+                ) as AStitle"),
+                    'asin.internal',
+                    'asin.system_title',
+                    'asin.metakeyword',
+                    'ci.capturedimg1',
+                    'ci.capturedimg2',
+                    'ci.capturedimg3',
+                    'ci.capturedimg4',
+                    'ci.capturedimg5',
+                    'ci.capturedimg6',
+                    'ci.capturedimg7',
+                    'ci.capturedimg8',
+                    'ci.capturedimg9',
+                    'ci.capturedimg10',
+                    'ci.capturedimg11',
+                    'ci.capturedimg12',
+                    'ci.serialimg1',
+                    'ci.serialimg2',
+                ])
+                ->first();
+
+            // Format capturedImages as an object
+            if ($createdProduct) {
+                $capturedImages = [];
+
+                for ($i = 1; $i <= 12; $i++) {
+                    $field = "capturedimg{$i}";
+                    if (! empty($createdProduct->$field)) {
+                        $capturedImages[$field] = $createdProduct->$field;
+                    }
+                }
+
+                if (! empty($createdProduct->serialimg1)) {
+                    $capturedImages['serialimg1'] = $createdProduct->serialimg1;
+                }
+
+                if (! empty($createdProduct->serialimg2)) {
+                    $capturedImages['serialimg2'] = $createdProduct->serialimg2;
+                }
+
+                $createdProduct->capturedImages = (object) $capturedImages;
+                $createdProduct->FNSKU = $createdProduct->FNSKUviewer;
+                $createdProduct->company = $this->company;
+            }
+
+            // 🔥 TRACK CREATION
+            $employeeName = auth()->user()->username ?? 'System';
+            $identifier = "Item #{$validated['itemnumber']}".
+                          (! empty($validated['ProductTitle']) ? " - {$validated['ProductTitle']}" : '');
+
+            $this->trackCreate(
+                'Houseage',
+                $identifier,
+                $employeeName
+            );
+
+            Log::info('Product created successfully', [
+                'ProductID' => $product->ProductID,
+                'itemnumber' => $validated['itemnumber'],
+                'employee' => $employeeName,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Houseage product created successfully',
+                'product' => $createdProduct ?? $product,
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::warning('Validation failed during product creation', [
+                'errors' => $e->errors(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+
+        } catch (\Exception $e) {
+            Log::error('Error creating Houseage product', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to create product',
+                'message' => $e->getMessage(),
+            ], 500);
         }
-
-        // Create new product
-        $product = \App\Models\tblproduct::create($validated);
-
-        // 🔥 TRACK CREATION
-        $employeeName = auth()->user()->name ?? 'System';
-        $identifier = "Item #{$validated['itemnumber']}".
-                      (! empty($validated['ProductTitle']) ? " - {$validated['ProductTitle']}" : '');
-
-        $this->trackCreate(
-            'Houseage',
-            $identifier,
-            $employeeName
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Houseage product created successfully',
-            'product' => $product,
-        ]);
     }
 
     public function update(Request $request, $id)
@@ -457,10 +595,33 @@ class HouseageController extends BasetablesController
 
             // ✅ Reload the product with capturedImages
             $updatedProduct = DB::table($this->productTable.' as prod')
+                ->leftJoin($this->fnskuTable.' as fnsku', function ($join) {
+                    $join->whereRaw(
+                        'fnsku.FNSKU = CASE 
+                        WHEN prod.FNSKUviewer REGEXP ? 
+                        THEN REGEXP_REPLACE(prod.FNSKUviewer, ?, ?)
+                        ELSE prod.FNSKUviewer 
+                    END',
+                        ['^C[0-9]+', '^C[0-9]+', '']
+                    );
+                })
+                ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                 ->leftJoin($this->capturedImagesTable.' as ci', 'prod.ProductID', '=', 'ci.ProductID')
                 ->where('prod.ProductID', $id)
                 ->select([
                     'prod.*',
+                    'fnsku.ASIN',
+                    'fnsku.MSKU',
+                    'fnsku.grading',
+                    'fnsku.storename',
+                    DB::raw("COALESCE(
+                    NULLIF(TRIM(asin.system_title), ''), 
+                    NULLIF(TRIM(asin.internal), ''), 
+                    NULLIF(TRIM(prod.ProductTitle), '')
+                ) as AStitle"),
+                    'asin.internal',
+                    'asin.system_title',
+                    'asin.metakeyword',
                     'ci.capturedimg1',
                     'ci.capturedimg2',
                     'ci.capturedimg3',
@@ -498,6 +659,7 @@ class HouseageController extends BasetablesController
                 }
 
                 $updatedProduct->capturedImages = (object) $capturedImages;
+                $updatedProduct->FNSKU = $updatedProduct->FNSKUviewer;
                 $updatedProduct->company = $this->company;
             }
 
@@ -528,12 +690,19 @@ class HouseageController extends BasetablesController
             return response()->json([
                 'success' => true,
                 'message' => 'Houseage product updated successfully',
-                'product' => $updatedProduct, // ✅ Return with capturedImages
+                'product' => $updatedProduct,
                 'changes_made' => count($changes),
-            ]);
+            ], 200);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
         } catch (\Exception $e) {
             Log::error('Error updating Houseage product', [
+                'ProductID' => $id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -581,11 +750,13 @@ class HouseageController extends BasetablesController
 
     public function uploadSerialNumber(Request $request)
     {
+        // Enhanced validation
         $validator = Validator::make($request->all(), [
             'image' => 'required|image|mimes:jpeg,jpg,png,webp,avif|max:5120',
-            'product_id' => 'nullable|integer',
+            'product_id' => 'required|integer',
             'old_path' => 'nullable|string',
-            'serial_number' => 'required|string',
+            'serial_number' => 'required|string|max:255',
+            'company' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -597,75 +768,180 @@ class HouseageController extends BasetablesController
 
         $file = $request->file('image');
 
-        $targetDir = public_path('images/serimg');
+        // Verify file extension is in allowed list
+        $ext = strtolower($file->getClientOriginalExtension() ?: $file->extension());
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'avif'];
+
+        if (! in_array($ext, $allowedExtensions)) {
+            return response()->json([
+                'message' => 'Invalid file type.',
+                'errors' => ['image' => ['Only '.implode(', ', $allowedExtensions).' files are allowed.']],
+            ], 422);
+        }
+
+        // Get company folder
+        $company = $request->input('company', $this->company ?? 'Airstaffs');
+        $targetDir = public_path('images/product_images/'.$company);
+
         if (! File::exists($targetDir)) {
             File::makeDirectory($targetDir, 0755, true);
         }
 
-        // sanitize serial
-        $serialRaw = trim((string) $request->input('serial_number'));
-        $serialSan = preg_replace('/[^A-Za-z0-9._-]+/', '_', $serialRaw);
-        $serialSan = ltrim($serialSan, '.');
-        $serialSan = Str::limit($serialSan, 120, '');
-        if ($serialSan === '') {
+        // Get product ID for filename
+        $productId = (int) $request->input('product_id');
+
+        // Verify product exists
+        if (! class_exists(tblproduct::class)) {
             return response()->json([
-                'message' => 'Serial number is invalid after sanitization.',
-            ], 422);
+                'message' => 'Product model not found.',
+            ], 500);
         }
 
-        $ext = strtolower($file->getClientOriginalExtension() ?: $file->extension());
-        $filename = "{$serialSan}.{$ext}";
+        $product = tblproduct::find($productId);
+        if (! $product) {
+            return response()->json([
+                'message' => 'Product not found.',
+                'errors' => ['product_id' => ['Invalid product ID.']],
+            ], 404);
+        }
+
+        // Check capturedImages table to determine serial number (serial1 or serial2)
+        $capturedImagesTable = $this->capturedImagesTable ?? 'tblcapturedimages';
+        $serialNumber = 1; // Default to serial1
+
+        if (Schema::hasTable($capturedImagesTable)) {
+            $capturedImage = DB::table($capturedImagesTable)
+                ->where('ProductID', $productId)
+                ->first();
+
+            if ($capturedImage) {
+                // If serialimg1 is empty, use serial1
+                if (empty($capturedImage->serialimg1)) {
+                    $serialNumber = 1;
+                }
+                // If serialimg1 exists but serialimg2 is empty, use serial2
+                elseif (empty($capturedImage->serialimg2)) {
+                    $serialNumber = 2;
+                }
+                // If both exist, replace serial1
+                else {
+                    $serialNumber = 1;
+                }
+            }
+        }
+
+        // Generate filename as ProductID_serial1.png or ProductID_serial2.png
+        $filename = "{$productId}_serial{$serialNumber}.{$ext}";
         $absPath = $targetDir.DIRECTORY_SEPARATOR.$filename;
 
-        // ensure we don't collide — replace any existing file with the same name
-        if (File::exists($absPath)) {
+        // Check if file already exists and log it
+        $isReplacement = File::exists($absPath);
+        if ($isReplacement) {
+            Log::info('Replacing existing serial image', [
+                'product_id' => $productId,
+                'filename' => $filename,
+                'company' => $company,
+                'serial_number' => $serialNumber,
+            ]);
             @File::delete($absPath);
         }
 
-        // move uploaded file
-        $file->move($targetDir, $filename);
+        // Move uploaded file
+        try {
+            $file->move($targetDir, $filename);
+        } catch (\Exception $e) {
+            Log::error('Failed to move uploaded file', [
+                'error' => $e->getMessage(),
+                'product_id' => $productId,
+                'company' => $company,
+            ]);
 
-        $relativePath = 'images/serimg/'.$filename;
+            return response()->json([
+                'message' => 'Failed to save image file.',
+                'errors' => ['image' => ['Could not save the uploaded image.']],
+            ], 500);
+        }
+
+        // Use new path structure
+        $relativePath = 'images/product_images/'.$company.'/'.$filename;
         $url = asset($relativePath);
 
-        // optional: delete any specifically provided old file (your existing rule)
+        // Delete old files with different naming patterns
         if ($request->filled('old_path')) {
             $oldInput = (string) $request->old_path;
             $oldPath = ltrim(parse_url($oldInput, PHP_URL_PATH) ?: $oldInput, '/');
-            if (str_starts_with($oldPath, 'images/serimg/')) {
-                $oldAbs = public_path($oldPath);
-                if (File::exists($oldAbs)) {
-                    @File::delete($oldAbs);
+
+            $oldAbs = public_path($oldPath);
+            if (File::exists($oldAbs) && $oldAbs !== $absPath) {
+                @File::delete($oldAbs);
+                Log::info('Deleted old serial image', ['path' => $oldPath]);
+            }
+        }
+
+        // Also clean up any old serial-number-based filenames for this product
+        $serialRaw = trim((string) $request->input('serial_number'));
+        $serialSan = preg_replace('/[^A-Za-z0-9._-]+/', '_', $serialRaw);
+        $serialSan = ltrim($serialSan, '.');
+
+        if ($serialSan !== '') {
+            $oldSerialPatterns = [
+                "images/serimg/{$serialSan}.*",
+                "images/product_images/{$company}/{$serialSan}.*",
+            ];
+
+            foreach ($oldSerialPatterns as $pattern) {
+                foreach (glob(public_path($pattern)) as $oldFile) {
+                    if ($oldFile !== $absPath) {
+                        @File::delete($oldFile);
+                        Log::info('Cleaned up old serial-based filename', ['file' => $oldFile]);
+                    }
                 }
             }
         }
 
-        // optional: persist to product column if present
-        if ($request->filled('product_id') && class_exists(tblproduct::class)) {
-            $product = tblproduct::find((int) $request->product_id);
-            if ($product) {
-                $table = $product->getTable();
-                if (Schema::hasColumn($table, 'serial_number_image')) {
-                    $product->serial_number_image = $relativePath;
-                    $product->save();
-                }
+        // ✅ FIXED: Update capturedImages table without timestamps
+        if (Schema::hasTable($capturedImagesTable)) {
+            $capturedImage = DB::table($capturedImagesTable)
+                ->where('ProductID', $productId)
+                ->first();
+
+            $fieldToUpdate = "serialimg{$serialNumber}";
+
+            if ($capturedImage) {
+                DB::table($capturedImagesTable)
+                    ->where('ProductID', $productId)
+                    ->update([
+                        $fieldToUpdate => $filename,
+                    ]);
+
+                Log::info('Updated serial image in capturedImages table', [
+                    'ProductID' => $productId,
+                    'field' => $fieldToUpdate,
+                    'filename' => $filename,
+                ]);
+            } else {
+                DB::table($capturedImagesTable)->insert([
+                    'ProductID' => $productId,
+                    $fieldToUpdate => $filename,
+                ]);
+
+                Log::info('Created new record in capturedImages table', [
+                    'ProductID' => $productId,
+                    'field' => $fieldToUpdate,
+                    'filename' => $filename,
+                ]);
             }
         }
 
-        // 🔥 ADD HISTORY TRACKING
-        $employeeName = auth()->user()->name ?? 'System';
-        $productInfo = '';
-        if ($request->filled('product_id')) {
-            $prod = tblproduct::find((int) $request->product_id);
-            if ($prod) {
-                $productInfo = " for Item #{$prod->itemnumber}";
-            }
-        }
+        // History tracking
+        $employeeName = auth()->user()->username ?? 'System';
+        $productInfo = " for Item #{$product->itemnumber}";
+        $actionDescription = $isReplacement ? 'Replaced serial image' : 'Uploaded serial image';
 
         $this->trackUpdate(
             'Houseage',
-            "Serial: {$serialSan}{$productInfo}",
-            'Uploaded serial image',
+            "Product ID: {$productId}{$productInfo}",
+            "{$actionDescription} (serial{$serialNumber})",
             $filename,
             $employeeName
         );
@@ -674,49 +950,67 @@ class HouseageController extends BasetablesController
             'message' => 'Uploaded',
             'path' => $relativePath,
             'url' => $url,
-            'serial_number' => $serialSan,
+            'product_id' => $productId,
+            'serial_number' => $serialNumber,
             'filename' => $filename,
+            'company' => $company,
+            'replaced' => $isReplacement,
         ]);
     }
 
     public function getSerialImage(Request $request)
     {
         $request->validate([
-            'serial_number' => 'required|string',
+            'product_id' => 'required|integer',
+            'company' => 'nullable|string',
         ]);
 
-        // Reuse same sanitization you used in uploadSerialNumber()
-        $serialRaw = trim((string) $request->input('serial_number'));
-        $serialSan = preg_replace('/[^A-Za-z0-9._-]+/', '_', $serialRaw);
-        $serialSan = ltrim($serialSan, '.');
-        $serialSan = \Illuminate\Support\Str::limit($serialSan, 120, '');
+        $productId = (int) $request->input('product_id');
+        $company = $request->input('company', $this->company ?? 'Airstaffs');
 
-        if ($serialSan === '') {
-            return response()->json(['exists' => false]);
-        }
+        // ✅ Check for ProductID_serial1.* and ProductID_serial2.* files
+        $dir = public_path('images/product_images/'.$company);
 
-        $dir = public_path('images/serimg');
-        $candidates = [
-            "{$dir}/{$serialSan}.jpg",
-            "{$dir}/{$serialSan}.jpeg",
-            "{$dir}/{$serialSan}.png",
-            "{$dir}/{$serialSan}.webp",
-            "{$dir}/{$serialSan}.avif",
-        ];
+        $serialImages = [];
 
-        foreach ($candidates as $abs) {
-            if (\Illuminate\Support\Facades\File::exists($abs)) {
-                // Build the public URL
-                $rel = 'images/serimg/'.basename($abs);
+        // Check for serial1 and serial2
+        foreach ([1, 2] as $serialNum) {
+            $candidates = [
+                "{$dir}/{$productId}_serial{$serialNum}.jpg",
+                "{$dir}/{$productId}_serial{$serialNum}.jpeg",
+                "{$dir}/{$productId}_serial{$serialNum}.png",
+                "{$dir}/{$productId}_serial{$serialNum}.webp",
+                "{$dir}/{$productId}_serial{$serialNum}.avif",
+            ];
 
-                return response()->json([
-                    'exists' => true,
-                    'url' => asset($rel),
-                    'path' => $rel,
-                    'serial_number' => $serialSan,
-                ]);
+            foreach ($candidates as $abs) {
+                if (File::exists($abs)) {
+                    $rel = 'images/product_images/'.$company.'/'.basename($abs);
+                    $serialImages["serial{$serialNum}"] = [
+                        'url' => asset($rel),
+                        'path' => $rel,
+                        'filename' => basename($abs),
+                    ];
+                    break; // Found this serial image, move to next
+                }
             }
         }
+
+        if (! empty($serialImages)) {
+            return response()->json([
+                'exists' => true,
+                'product_id' => $productId,
+                'company' => $company,
+                'images' => $serialImages,
+                // Return primary image (serial1 if exists, otherwise serial2)
+                'url' => $serialImages['serial1']['url'] ?? $serialImages['serial2']['url'] ?? null,
+                'path' => $serialImages['serial1']['path'] ?? $serialImages['serial2']['path'] ?? null,
+            ]);
+        }
+
+        // ✅ Fallback: Check old serial-number-based naming (for backward compatibility)
+        // This would require the serial_number parameter, so we'll skip this for now
+        // or you can add it as optional parameter if needed
 
         return response()->json(['exists' => false]);
     }

@@ -104,9 +104,16 @@ export default {
 
         // Sort the filtered inventory
         sortedInventory() {
-            const itemsToSort = this.filteredInventory; // Use filtered inventory instead of this.inventory
+            const itemsToSort = this.filteredInventory;
 
-            if (!this.sortColumn) return itemsToSort;
+            console.log("🔍 Computing sortedInventory:", {
+                filteredCount: itemsToSort.length,
+                sortColumn: this.sortColumn,
+            });
+
+            if (!this.sortColumn) {
+                return itemsToSort;
+            }
 
             return [...itemsToSort].sort((a, b) => {
                 const valueA = a[this.sortColumn];
@@ -294,12 +301,14 @@ export default {
                 const companyFolder = this.item.company || "Airstaffs";
 
                 if (this.isValidImage(this.item.capturedImages.serialimg1)) {
+                    // ✅ UPDATED: Use new path structure
                     const path = `/images/product_images/${companyFolder}/${this.item.capturedImages.serialimg1}`;
                     console.log("📸 Displaying serialimg1:", path);
                     return path;
                 }
 
                 if (this.isValidImage(this.item.capturedImages.serialimg2)) {
+                    // ✅ UPDATED: Use new path structure
                     const path = `/images/product_images/${companyFolder}/${this.item.capturedImages.serialimg2}`;
                     console.log("📸 Displaying serialimg2:", path);
                     return path;
@@ -307,7 +316,6 @@ export default {
             }
 
             console.log("📸 No serial image found, using default");
-            // Fallback to server path or default
             return this.serialImagePath || this.defaultSerialImage;
         },
     },
@@ -367,76 +375,106 @@ export default {
         },
 
         // Generic image counter for any image type
-        countImages(item, prefix, start, end, container = null) {
+        countImages(item, type = "all") {
             if (!item) return 0;
-            const source = container ? item[container] : item;
-            if (!source) return 0;
+
+            switch (type) {
+                case "captured":
+                    return this._countCapturedImages(item);
+
+                case "regular":
+                    return this._countRegularImages(item);
+
+                case "serial":
+                    return this._countSerialImages(item);
+
+                case "all":
+                default:
+                    // Prioritize captured images
+                    const capturedCount = this._countCapturedImages(item);
+                    if (capturedCount > 0) return capturedCount;
+
+                    // Fallback to regular images
+                    return this._countRegularImages(item);
+            }
+        },
+
+        /**
+         * Internal: Count regular product images (img1-15)
+         */
+        _countRegularImages(item) {
+            if (!item) return 0;
 
             let count = 0;
-            for (let i = start; i <= end; i++) {
-                const fieldName = `${prefix}${i}`;
-
-                if (this.isValidImage(source[fieldName])) {
+            for (let i = 1; i <= 15; i++) {
+                if (this.isValidImage(item[`img${i}`])) {
                     count++;
                 }
             }
             return count;
         },
 
-        // Count regular images (img2 - img15)
-        countRegularImages(item) {
-            return this.countImages(item, "img", 2, 15);
-        },
-
-        // Count captured images (capturedimg1 - capturedimg12)
-        countCapturedImages(item) {
-            if (!item || !item.capturedImages) return 0;
+        /**
+         * Internal: Count captured images (capturedimg1-12)
+         */
+        _countCapturedImages(item) {
+            if (!item?.capturedImages) return 0;
 
             let count = 0;
             const capturedImagesObj = item.capturedImages;
 
-            // Check both capturedimg1-12 AND serialimg1-2
+            // Count capturedimg1-12
             for (let i = 1; i <= 12; i++) {
-                const fieldName = `capturedimg${i}`;
-                if (this.isValidImage(capturedImagesObj[fieldName])) {
+                if (this.isValidImage(capturedImagesObj[`capturedimg${i}`])) {
                     count++;
                 }
             }
 
-            // Also check serial images
-            if (this.isValidImage(capturedImagesObj.serialimg1)) count++;
-            if (this.isValidImage(capturedImagesObj.serialimg2)) count++;
+            return count;
+        },
+
+        /**
+         * Internal: Count serial images
+         */
+        _countSerialImages(item) {
+            if (!item?.capturedImages) return 0;
+
+            let count = 0;
+            if (this.isValidImage(item.capturedImages.serialimg1)) count++;
+            if (this.isValidImage(item.capturedImages.serialimg2)) count++;
 
             return count;
         },
 
-        // Count all images (regular + captured)
+        /**
+         * Count all images including serial images
+         */
         countAllImages(item) {
-            if (!item) {
-                return 0;
+            const captured = this._countCapturedImages(item);
+            const serial = this._countSerialImages(item);
+            const regular = this._countRegularImages(item);
+
+            // Return captured + serial if any captured images exist
+            if (captured > 0) {
+                return captured + serial;
             }
 
-            // If captured images exist, count them
-            if (item.capturedImages) {
-                let capturedCount = 0;
-                const capturedImagesObj = item.capturedImages;
+            // Otherwise return regular images
+            return regular;
+        },
 
-                // Count capturedimg1-12
-                for (let i = 1; i <= 12; i++) {
-                    const fieldName = `capturedimg${i}`;
-                    if (this.isValidImage(capturedImagesObj[fieldName])) {
-                        capturedCount++;
-                    }
-                }
+        /**
+         * For backward compatibility - use in templates
+         */
+        countCapturedImages(item) {
+            return (
+                this.countImages(item, "captured") +
+                this._countSerialImages(item)
+            );
+        },
 
-                // If we have captured images, return that count
-                if (capturedCount > 0) {
-                    return capturedCount;
-                }
-            }
-
-            // Otherwise count regular product images (fallback)
-            return this.countRegularImages(item);
+        countRegularImages(item) {
+            return this.countImages(item, "regular");
         },
 
         transformDataForGallery(data) {
@@ -645,6 +683,7 @@ export default {
         // Fetch inventory data from the API
         async fetchInventory() {
             this.loading = true;
+            this.error = null; // Clear any previous errors
 
             try {
                 console.log("Fetching inventory with params:", {
@@ -665,16 +704,73 @@ export default {
                             location: "Houseage",
                             include_images: true,
                         },
+                        timeout: 30000, // 30 second timeout
                     }
                 );
 
-                // Process the returned data
-                this.inventory = response.data.data;
-                this.totalPages = response.data.last_page;
+                console.log("✅ Response received:", {
+                    status: response.status,
+                    dataCount: response.data?.data?.length,
+                    totalPages: response.data?.last_page,
+                });
+
+                // ✅ Validate response structure
+                if (!response.data) {
+                    throw new Error("Invalid response: No data received");
+                }
+
+                // ✅ Handle different response structures
+                if (Array.isArray(response.data)) {
+                    // Direct array response
+                    this.inventory = response.data;
+                    this.totalPages = 1;
+                } else if (
+                    response.data.data &&
+                    Array.isArray(response.data.data)
+                ) {
+                    // Paginated response
+                    this.inventory = response.data.data;
+                    this.totalPages = response.data.last_page || 1;
+                    this.currentPage =
+                        response.data.current_page || this.currentPage;
+                } else {
+                    throw new Error("Invalid response structure");
+                }
+
+                console.log("✅ Inventory updated:", {
+                    count: this.inventory.length,
+                    totalPages: this.totalPages,
+                });
+
+                // ✅ Force Vue to recognize the data change
+                this.$forceUpdate();
             } catch (error) {
-                console.error("Error fetching inventory data:", error);
+                console.error("❌ Error fetching inventory data:", {
+                    message: error.message,
+                    response: error.response?.data,
+                    status: error.response?.status,
+                });
+
+                this.error = error.message || "Failed to load inventory";
+                this.inventory = []; // Clear inventory on error
+
+                // Show error to user
+                if (error.response?.status === 500) {
+                    await Swal.fire({
+                        icon: "error",
+                        title: "Server Error",
+                        text: "Unable to load inventory. Please contact support.",
+                    });
+                } else if (error.code === "ECONNABORTED") {
+                    await Swal.fire({
+                        icon: "error",
+                        title: "Request Timeout",
+                        text: "The request took too long. Please try again.",
+                    });
+                }
             } finally {
                 this.loading = false;
+                console.log("✅ Loading state set to false");
             }
         },
 
@@ -1050,7 +1146,7 @@ export default {
         async saveEditModal() {
             this.loading = true;
 
-            // Validate required prefixes if not blank
+            // ✅ Step 1: Validate form fields first
             const errors = [];
 
             if (this.item.RPN && !/^RPN\d+$/i.test(this.item.RPN)) {
@@ -1074,6 +1170,7 @@ export default {
                 );
             }
 
+            // ✅ Stop execution if validation fails
             if (errors.length > 0) {
                 this.loading = false;
                 await Swal.fire({
@@ -1098,22 +1195,37 @@ export default {
                 }
             });
 
-            try {
-                // If user selected a serial image, upload it first
-                if (this.serialImageFile && !this.serialImageUploading) {
+            // ✅ Step 2: Handle serial image upload if needed
+            if (this.serialImageFile && !this.serialImageUploading) {
+                try {
                     await this.uploadSerialImage();
 
+                    // Check if upload had errors
                     if (this.serialImageError) {
                         this.loading = false;
                         return;
                     }
-                }
+                } catch (uploadError) {
+                    console.error("Serial image upload failed:", uploadError);
+                    this.loading = false;
 
+                    await Swal.fire({
+                        icon: "error",
+                        title: "Serial Image Upload Failed",
+                        text: "Could not upload serial image. Please try again.",
+                    });
+
+                    return;
+                }
+            }
+
+            // ✅ Step 3: Save the product data
+            try {
                 const payload = {
                     ...this.item,
                     _employee_name:
-                        this.currentUser?.name ||
-                        window.Laravel?.user?.name ||
+                        this.currentUser?.username ||
+                        window.Laravel?.user?.username ||
                         "System",
                     product_id: this.item.ProductID,
                 };
@@ -1122,6 +1234,10 @@ export default {
                 if (this.item.capturedImages?.serialimg1) {
                     payload.serial_image = this.item.capturedImages.serialimg1;
                 }
+
+                console.log("📤 Sending update request:", {
+                    ProductID: this.item.ProductID,
+                });
 
                 const response = await axios.put(
                     `/api/houseage/products/${this.item.ProductID}`,
@@ -1138,19 +1254,49 @@ export default {
                     }
                 );
 
+                console.log("✅ Update response:", response.data);
+
+                // ✅ Check if response indicates success
+                if (response.data.success === false) {
+                    throw new Error(response.data.message || "Update failed");
+                }
+
                 const updated = response.data.product;
 
-                // ✅ Update the item in the items array with fresh data
+                // ✅ Validate that we got the product data back
+                if (!updated || !updated.ProductID) {
+                    console.error(
+                        "❌ Invalid response structure:",
+                        response.data
+                    );
+                    throw new Error("Invalid response from server");
+                }
+
+                // ✅ FIXED: Update items array (Vue 3 compatible)
                 const index = this.items.findIndex(
                     (p) => p.ProductID === updated.ProductID
                 );
 
                 if (index !== -1) {
-                    this.items.splice(index, 1, updated);
+                    // Vue 3: Direct array assignment is reactive
+                    this.items[index] = updated;
                 } else {
                     this.items.unshift(updated);
                 }
 
+                // ✅ FIXED: Update inventory array (Vue 3 compatible)
+                const invIndex = this.inventory.findIndex(
+                    (p) => p.ProductID === updated.ProductID
+                );
+
+                if (invIndex !== -1) {
+                    // Vue 3: Direct array assignment is reactive
+                    this.inventory[invIndex] = updated;
+                } else {
+                    this.inventory.unshift(updated);
+                }
+
+                // ✅ Show success message
                 await Swal.fire({
                     icon: "success",
                     title: "Saved!",
@@ -1175,86 +1321,117 @@ export default {
 
                 this.closeEditModal();
 
-                // ✅ Refresh inventory to get updated capturedImages
+                // Refresh inventory to get updated capturedImages
                 await this.fetchInventory();
             } catch (error) {
-                console.error("Save failed:", {
+                console.error("❌ Save failed:", {
                     message: error.message,
                     status: error.response?.status,
                     data: error.response?.data,
+                    fullError: error,
                 });
 
                 let message =
                     "An error occurred while saving. Please check the input or try again later.";
                 let title = "Save Failed";
 
-                if (error.response?.status === 422) {
+                // ✅ Check if it's an Axios error with response
+                if (error.response) {
+                    const status = error.response.status;
                     const err = error.response.data;
 
-                    // Check for duplicate serial number error
-                    if (err?.message?.includes("already assigned")) {
-                        title = "Duplicate Serial Number";
+                    console.log("📋 Error response data:", err);
 
-                        if (err.duplicate_product) {
-                            message = `
-                        <div style="text-align: left;">
-                            <p><strong>${err.message}</strong></p>
-                            <hr>
-                            <p><strong>Existing Product Details:</strong></p>
-                            <ul style="list-style: none; padding-left: 0;">
-                                <li>📦 <strong>RT Counter:</strong> ${
-                                    err.duplicate_product.rtcounter || "N/A"
-                                }</li>
-                                <li>🏷️ <strong>Item Number:</strong> ${
-                                    err.duplicate_product.itemnumber || "N/A"
-                                }</li>
-                                <li>📋 <strong>Title:</strong> ${
-                                    err.duplicate_product.ProductTitle || "N/A"
-                                }</li>
-                                <li>🔢 <strong>Serial:</strong> ${
-                                    err.duplicate_product.serialnumber || "N/A"
-                                }</li>
-                            </ul>
-                        </div>
-                    `;
-                        } else {
-                            message = err.message;
-                        }
-                    } else {
-                        // Check serial field errors
-                        const serialFields = [
-                            "serialnumber",
-                            "serialnumberb",
-                            "serialnumberc",
-                            "serialnumberd",
-                        ];
+                    if (status === 422) {
+                        // Validation errors
+                        if (err?.message?.includes("already assigned")) {
+                            title = "Duplicate Serial Number";
 
-                        for (const field of serialFields) {
-                            if (err?.errors?.[field]?.length) {
-                                message = err.errors[field].join("\n");
-                                break;
-                            }
-                        }
-
-                        // General error handling
-                        if (
-                            message ===
-                            "An error occurred while saving. Please check the input or try again later."
-                        ) {
-                            if (
-                                typeof err?.message === "string" &&
-                                err.message
-                            ) {
+                            if (err.duplicate_product) {
+                                message = `
+                            <div style="text-align: left;">
+                                <p><strong>${err.message}</strong></p>
+                                <hr>
+                                <p><strong>Existing Product Details:</strong></p>
+                                <ul style="list-style: none; padding-left: 0;">
+                                    <li>📦 <strong>RT Counter:</strong> ${
+                                        err.duplicate_product.rtcounter || "N/A"
+                                    }</li>
+                                    <li>🏷️ <strong>Item Number:</strong> ${
+                                        err.duplicate_product.itemnumber ||
+                                        "N/A"
+                                    }</li>
+                                    <li>📋 <strong>Title:</strong> ${
+                                        err.duplicate_product.ProductTitle ||
+                                        "N/A"
+                                    }</li>
+                                    <li>🔢 <strong>Serial:</strong> ${
+                                        err.duplicate_product.serialnumber ||
+                                        "N/A"
+                                    }</li>
+                                </ul>
+                            </div>
+                        `;
+                            } else {
                                 message = err.message;
-                            } else if (err?.errors) {
-                                message = Object.values(err.errors)
-                                    .flat()
-                                    .join("\n");
+                            }
+                        } else {
+                            // Check serial field errors
+                            const serialFields = [
+                                "serialnumber",
+                                "serialnumberb",
+                                "serialnumberc",
+                                "serialnumberd",
+                            ];
+
+                            for (const field of serialFields) {
+                                if (err?.errors?.[field]?.length) {
+                                    message = err.errors[field].join("<br>");
+                                    break;
+                                }
+                            }
+
+                            // General validation error handling
+                            if (
+                                message ===
+                                "An error occurred while saving. Please check the input or try again later."
+                            ) {
+                                if (
+                                    typeof err?.message === "string" &&
+                                    err.message
+                                ) {
+                                    message = err.message;
+                                } else if (err?.errors) {
+                                    message = Object.values(err.errors)
+                                        .flat()
+                                        .join("<br>");
+                                }
                             }
                         }
+                    } else if (status === 500) {
+                        // Server errors
+                        title = "Server Error";
+                        message =
+                            err?.message ||
+                            "A server error occurred. Please try again or contact support.";
+                    } else if (status === 404) {
+                        // Not found
+                        title = "Product Not Found";
+                        message =
+                            "The product could not be found. It may have been deleted.";
+                    } else {
+                        // Other HTTP errors
+                        message =
+                            err?.message || `Server returned error ${status}`;
                     }
-                } else if (error.response?.data?.message) {
-                    message = error.response.data.message;
+                } else if (error.request) {
+                    // ✅ Request was made but no response received
+                    title = "Network Error";
+                    message =
+                        "Could not connect to the server. Please check your internet connection.";
+                } else {
+                    // ✅ Something else happened
+                    message = error.message || "An unexpected error occurred.";
                 }
 
                 // Show error with option to view duplicate
@@ -1390,24 +1567,6 @@ export default {
                 : (this.item[this.serialKeys[i]] ?? "").toString().trim();
         },
 
-        async fetchSerialImageIfAny() {
-            const serial = this.getFirstNonEmptySerial();
-            if (!serial) {
-                this.serialImagePath = "";
-                return;
-            }
-
-            try {
-                const { data } = await axios.get("/api/houseage/serial-image", {
-                    params: { serial_number: serial },
-                });
-                this.serialImagePath =
-                    data?.exists && data?.url ? data.url : "";
-            } catch (e) {
-                this.serialImagePath = ""; // fail closed and let default render
-            }
-        },
-
         onSerialImgError() {
             // If the <img> fails to load for any reason, fall back to default
             this.serialImageUrl = "";
@@ -1446,7 +1605,17 @@ export default {
         async uploadSerialImage() {
             if (!this.serialImageFile) return;
 
-            // require a serial number (first non-empty serial key)
+            // Check for product ID (required now)
+            if (!this.item?.ProductID) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Product ID required",
+                    text: "Cannot upload serial image without a valid product ID.",
+                });
+                return;
+            }
+
+            // Serial number still required for validation
             const idx = Array.isArray(this.serialKeys)
                 ? this.serialKeys.findIndex(
                       (k) => (this.item[k] ?? "").toString().trim() !== ""
@@ -1468,9 +1637,11 @@ export default {
 
             this.serialImageUploading = true;
             this.serialImageError = "";
+            this.uploadProgress = 0;
 
             Swal.fire({
                 title: "Uploading…",
+                html: '<div class="progress" style="height: 20px;"><div id="upload-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div></div>',
                 didOpen: () => Swal.showLoading(),
                 allowOutsideClick: false,
                 allowEscapeKey: false,
@@ -1480,49 +1651,202 @@ export default {
             try {
                 const form = new FormData();
                 form.append("image", this.serialImageFile);
-                form.append("serial_number", serial); // no iteration sent
+                form.append("serial_number", serial);
 
-                if (this.product?.id)
-                    form.append("product_id", this.product.id);
-                if (this.serialImagePath)
+                form.append("product_id", this.item.ProductID);
+                const company = this.item?.company || "Airstaffs";
+                form.append("company", company);
+
+                if (this.serialImagePath) {
                     form.append("old_path", this.serialImagePath);
+                }
 
                 const { data } = await axios.post(
                     "/api/houseage/serial-image",
                     form,
-                    { headers: { "Content-Type": "multipart/form-data" } }
+                    {
+                        headers: { "Content-Type": "multipart/form-data" },
+                        onUploadProgress: (progressEvent) => {
+                            if (progressEvent.total) {
+                                this.uploadProgress = Math.round(
+                                    (progressEvent.loaded * 100) /
+                                        progressEvent.total
+                                );
+
+                                const progressBar = document.getElementById(
+                                    "upload-progress-bar"
+                                );
+                                if (progressBar) {
+                                    progressBar.style.width =
+                                        this.uploadProgress + "%";
+                                    progressBar.textContent =
+                                        this.uploadProgress + "%";
+                                }
+                            }
+                        },
+                    }
                 );
 
+                // ✅ Update the serial image path immediately
                 this.serialImagePath = data.url || data.path;
 
-                if (Array.isArray(this.imageList)) {
-                    if (data.path) this.imageList.unshift(data.path);
-                    else if (data.url) this.imageList.unshift(data.url);
-                    this.activeIndex = 0;
+                // ✅ Update the captured images object with the new serial image
+                if (!this.item.capturedImages) {
+                    this.item.capturedImages = {};
                 }
 
+                const filename = data.filename;
+                const serialNumber = data.serial_number || 1;
+
+                if (serialNumber === 1) {
+                    this.item.capturedImages.serialimg1 = filename;
+                } else if (serialNumber === 2) {
+                    this.item.capturedImages.serialimg2 = filename;
+                }
+
+                // ✅ NEW: Refetch the complete product data from server
+                await this.refetchProductData(this.item.ProductID);
+
+                // Clear the file input and local preview
                 this.serialImageFile = null;
                 this.serialImageUrl = "";
+
+                if (this.$refs.serialInput) {
+                    this.$refs.serialInput.value = "";
+                }
+
                 this.$emit("serial-image-updated", this.serialImagePath);
 
                 Swal.close();
+
                 await Swal.fire({
                     icon: "success",
                     title: "Serial image uploaded successfully",
-                    // text: `Saved as ${data.filename || "your image"}`,
                     confirmButtonText: "OK",
                 });
             } catch (err) {
                 this.serialImageError =
-                    err?.response?.data?.message || "Upload failed.";
+                    err?.response?.data?.message ||
+                    err?.response?.data?.errors?.image?.[0] ||
+                    "Upload failed.";
+
                 Swal.close();
+
                 await Swal.fire({
                     icon: "error",
                     title: "Upload failed",
-                    text: this.serialImageError,
+                    html: `
+                <p>${this.serialImageError}</p>
+                ${
+                    err?.response?.data?.errors
+                        ? '<p class="text-muted mt-2"><small>' +
+                          Object.values(err.response.data.errors)
+                              .flat()
+                              .join("<br>") +
+                          "</small></p>"
+                        : ""
+                }
+            `,
                 });
             } finally {
                 this.serialImageUploading = false;
+                this.uploadProgress = 0;
+            }
+        },
+
+        /**
+         * ✅ Refetch single product data from server
+         */
+        async refetchProductData(productId) {
+            if (!productId) return;
+
+            try {
+                console.log(
+                    "🔄 Refetching product data for ProductID:",
+                    productId
+                );
+
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/houseage/products/${productId}`,
+                    {
+                        params: {
+                            include_images: true,
+                        },
+                    }
+                );
+
+                const updatedProduct = response.data;
+
+                console.log("✅ Product data refetched:", updatedProduct);
+
+                // ✅ Update the current item in the modal
+                if (updatedProduct) {
+                    // Preserve the current item structure but update with fresh data
+                    Object.assign(this.item, updatedProduct);
+
+                    // ✅ FIXED: Update in the inventory array (Vue 3 compatible)
+                    const index = this.inventory.findIndex(
+                        (p) => p.ProductID === productId
+                    );
+
+                    if (index !== -1) {
+                        this.inventory[index] = updatedProduct; // Direct assignment
+                        console.log("✅ Updated product in inventory array");
+                    }
+
+                    // Force Vue to update (not usually needed in Vue 3, but doesn't hurt)
+                    this.$forceUpdate();
+                }
+
+                return updatedProduct;
+            } catch (error) {
+                console.error("❌ Error refetching product data:", error);
+                // Don't show error to user, just log it
+            }
+        },
+
+        // ✅ UPDATE: fetchSerialImageIfAny to use product_id instead of serial_number
+        async fetchSerialImageIfAny() {
+            // ✅ Check for product ID first
+            if (!this.item?.ProductID) {
+                this.serialImagePath = "";
+                return;
+            }
+
+            try {
+                const company = this.item?.company || "Airstaffs";
+
+                const { data } = await axios.get("/api/houseage/serial-image", {
+                    params: {
+                        product_id: this.item.ProductID, // ✅ Changed from serial_number
+                        company: company,
+                    },
+                });
+
+                if (data?.exists) {
+                    this.serialImagePath = data.url;
+
+                    // ✅ Update capturedImages object with all found serial images
+                    if (data.images) {
+                        if (!this.item.capturedImages) {
+                            this.item.capturedImages = {};
+                        }
+
+                        if (data.images.serial1) {
+                            this.item.capturedImages.serialimg1 =
+                                data.images.serial1.filename;
+                        }
+                        if (data.images.serial2) {
+                            this.item.capturedImages.serialimg2 =
+                                data.images.serial2.filename;
+                        }
+                    }
+                } else {
+                    this.serialImagePath = "";
+                }
+            } catch (e) {
+                console.error("Error fetching serial image:", e);
+                this.serialImagePath = "";
             }
         },
 
@@ -1552,6 +1876,27 @@ export default {
             handler() {
                 this.fetchSerialImageIfAny();
             },
+        },
+
+        loading(newVal, oldVal) {
+            console.log("🔄 Loading state changed:", {
+                from: oldVal,
+                to: newVal,
+            });
+        },
+
+        inventory(newVal, oldVal) {
+            console.log("📦 Inventory changed:", {
+                oldCount: oldVal?.length || 0,
+                newCount: newVal?.length || 0,
+            });
+        },
+
+        sortedInventory(newVal, oldVal) {
+            console.log("📊 Sorted inventory changed:", {
+                oldCount: oldVal?.length || 0,
+                newCount: newVal?.length || 0,
+            });
         },
     },
 
@@ -1591,10 +1936,40 @@ export default {
         this.fetchSerialImageIfAny();
     },
 
-    beforeDestroy() {
+    beforeUnmount() {
+        // Use beforeUnmount for Vue 3, beforeDestroy for Vue 2
         // Clean up keyboard event listener
         if (this.handleKeyDown) {
             window.removeEventListener("keydown", this.handleKeyDown);
+            this.handleKeyDown = null;
         }
+
+        // ✅ Ensure modals are closed
+        this.showImageModal = false;
+        this.showEditModal = false;
+        this.showCopyDetailsModal = false;
+        this.isFnskuModalVisible = false;
+
+        // ✅ Restore body scroll
+        document.body.style.overflow = "auto";
+
+        // ✅ Clear any pending timers or intervals
+        if (this.searchTimeout) {
+            clearTimeout(this.searchTimeout);
+            this.searchTimeout = null;
+        }
+
+        // ✅ Revoke object URLs to prevent memory leaks
+        if (this.serialImageUrl && this.serialImageUrl.startsWith("blob:")) {
+            URL.revokeObjectURL(this.serialImageUrl);
+        }
+
+        // ✅ Clear large data structures
+        this.inventory = [];
+        this.fnskuList = [];
+        this.filteredFnskuList = [];
+        this.regularImages = [];
+        this.capturedImages = [];
+        this.currentImageSet = [];
     },
 };

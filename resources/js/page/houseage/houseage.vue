@@ -21,6 +21,7 @@
                     />
                 </fieldset>
             </div>
+
             <XDataTable
                 :value="sortedInventory"
                 :loading="loading"
@@ -459,31 +460,6 @@
                                                 width="100%"
                                                 @error="onSerialImgError"
                                             />
-
-                                            <!-- Show indicator if there's a new image selected -->
-                                            <div
-                                                v-if="serialImageFile"
-                                                class="replace-indicator"
-                                            >
-                                                <small class="text-success">
-                                                    ✓ New image selected - will
-                                                    be saved when you click Save
-                                                </small>
-                                            </div>
-
-                                            <div
-                                                v-if="serialImageUploading"
-                                                class="progress"
-                                            >
-                                                <div
-                                                    class="bar"
-                                                    :style="{
-                                                        width:
-                                                            uploadProgress +
-                                                            '%',
-                                                    }"
-                                                ></div>
-                                            </div>
                                         </div>
                                     </div>
                                 </fieldset>
@@ -1362,72 +1338,6 @@ export default {
                     value: module,
                 })),
             ];
-        },
-    },
-    methods: {
-        transformDataForGallery(data) {
-            // Safety check
-            if (!data) {
-                return {};
-            }
-
-            // If captured images exist, use them with full path
-            if (data.capturedImages && data.capturedImages.capturedimg1) {
-                const transformedData = { ...data };
-
-                // Map capturedimg1-12 to img1-12 with full path
-                for (let i = 1; i <= 12; i++) {
-                    const capturedImg = data.capturedImages[`capturedimg${i}`];
-                    if (capturedImg) {
-                        // Add full path: /images/product_images/Airstaffs/
-                        transformedData[
-                            `img${i}`
-                        ] = `/images/product_images/Airstaffs/${capturedImg}`;
-                    } else {
-                        transformedData[`img${i}`] = null;
-                    }
-                }
-
-                // Clear img13-15 since captured images only go up to 12
-                for (let i = 13; i <= 15; i++) {
-                    transformedData[`img${i}`] = null;
-                }
-
-                return transformedData;
-            }
-
-            // Return original data if no captured images exist (fallback to product images)
-            return data;
-        },
-
-        countAllImages(data) {
-            // Safety check
-            if (!data) {
-                return 0;
-            }
-
-            // If captured images exist, count them
-            if (data.capturedImages) {
-                let count = 0;
-                for (let i = 1; i <= 12; i++) {
-                    if (data.capturedImages[`capturedimg${i}`]) {
-                        count++;
-                    }
-                }
-                // Return count if captured images exist
-                if (count > 0) {
-                    return count;
-                }
-            }
-
-            // Otherwise count product images (fallback)
-            let count = 0;
-            for (let i = 1; i <= 15; i++) {
-                if (data[`img${i}`]) {
-                    count++;
-                }
-            }
-            return count;
         },
     },
 };
