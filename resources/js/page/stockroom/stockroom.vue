@@ -417,11 +417,7 @@
                         <div v-for="serial in currentProcessItem.serials" :key="serial.ProductID"
                             class="process-item-row">
                             <label class="process-item-checkbox">
-                                <input 
-                                    type="checkbox" 
-                                    v-model="selectedItems" 
-                                    :value="serial.ProductID" 
-                                />
+                                <input type="checkbox" v-model="selectedItems" :value="serial.ProductID" />
                                 <span>
                                     [{{ serial.storename }}] 
                                     {{ formatRTNumber(serial.rtcounter, serial.storename) }} 
@@ -429,7 +425,7 @@
                                     - {{ serial.FNSKUviewer }} 
                                     - {{ serial.display_grading || getDisplayGrading(serial, serial.storename) }}
                                     - {{ serial.warehouselocation || 'No Location' }}
-                                    <span v-if="isItemMerged(serial)" class="merged-badge">🔗 MERGED</span>
+                                    <span v-if="serial.mergeID" class="merged-badge">🔗 MERGED</span>
                                 </span>
                             </label>
                         </div>

@@ -270,24 +270,49 @@ export default {
             },
 
 
-       hasSelectedMergedItem() {
-        if (!this.currentProcessItem || this.selectedItems.length === 0) {
+                isMergedItem() {
+        if (!this.currentProcessItem) {
+            console.log("No current process item");
             return false;
         }
         
-        // Check if any selected item has mergeID
-        return this.currentProcessItem.serials?.some(serial => {
-            if (this.selectedItems.includes(serial.ProductID)) {
-                return this.isItemMerged(serial);
-            }
-            return false;
-        });
+        console.log("Checking if merged item:", this.currentProcessItem);
+        
+        // Check multiple possible locations for mergeID
+        // 1. Check at item level
+        if (this.currentProcessItem.mergeID) {
+            console.log("Found mergeID at item level:", this.currentProcessItem.mergeID);
+            return true;
+        }
+        
+        // 2. Check in serials array
+        if (this.currentProcessItem.serials && this.currentProcessItem.serials.length > 0) {
+            const hasMergeID = this.currentProcessItem.serials.some(serial => {
+                const has = serial.mergeID !== null && 
+                           serial.mergeID !== undefined && 
+                           serial.mergeID !== 0;
+                if (has) {
+                    console.log("Found mergeID in serial:", serial.ProductID, "mergeID:", serial.mergeID);
+                }
+                return has;
+            });
+            
+            if (hasMergeID) return true;
+        }
+        
+        console.log("No mergeID found - not a merged item");
+        return false;
     },
     
-    // Check if only one merged item is selected
+    // Check if only one item is selected and it's merged
     canUnmerge() {
-        return this.selectedItems.length === 1 && this.hasSelectedMergedItem;
-    },
+        const can = this.selectedItems.length === 1 && this.isMergedItem;
+        console.log("Can unmerge?", can, {
+            selectedCount: this.selectedItems.length,
+            isMerged: this.isMergedItem
+        });
+        return can;
+    }
      
     },
     methods: {
@@ -863,30 +888,6 @@ export default {
                 this.sortOrder = "asc";
             }
         },
-
-
-  /**
-     * Check if a specific item is merged (based on mergeID only)
-     * @param {Object} serial - The serial/item object to check
-     * @returns {boolean}
-     */
-    isItemMerged(serial) {
-        if (!serial) return false;
-        
-        // ONLY CHECK mergeID - not null, not undefined, not 0
-        const hasMergeID = serial.mergeID && 
-                          serial.mergeID !== null && 
-                          serial.mergeID !== undefined && 
-                          serial.mergeID !== 0;
-        
-        console.log("Checking if merged:", {
-            ProductID: serial.ProductID,
-            mergeID: serial.mergeID,
-            isMerged: hasMergeID
-        });
-        
-        return hasMergeID;
-    },
 
         // Process modal functions
         openProcessModal(item) {
