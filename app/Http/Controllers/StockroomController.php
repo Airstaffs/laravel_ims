@@ -237,7 +237,8 @@ class StockroomController extends BasetablesController
                 'prod.Outbound',
                 'prod.Inbound',
                 'prod.Unfulfillable',
-                'prod.Reserved'
+                'prod.Reserved',
+                'prod.mergeID',  
             ])
             ->where('prod.ProductModuleLoc', 'Stockroom');
 
@@ -447,7 +448,8 @@ class StockroomController extends BasetablesController
                     'FNSKUviewer' => $product->FNSKUviewer,
                     'MSKU' => $fnskuRecord->MSKU ?? '',
                     'grading' => $fnskuRecord->grading ?? '',
-                    'storename' => $fnskuRecord->storename ?? ''
+                    'storename' => $fnskuRecord->storename ?? '',
+                    'mergeID' => $product->mergeID ?? null,
                 ];
             })->toArray();
 
@@ -2268,5 +2270,160 @@ private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
             ], 500);
         }
     }
+
+
+    public function unmergeItem(Request $request)
+{
+    $validated = $request->validate([
+        'productId' => 'required|integer'
+    ]);
+
+    try {
+        DB::beginTransaction();
+
+        $mergedItem = DB::table($this->productTable)
+            ->where('ProductID', $validated['productId'])
+            ->where('ProductModuleLoc', 'Stockroom')
+            ->first();
+
+        if (!$mergedItem) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Item not found or not in Stockroom'
+            ]);
+        }
+
+        if (empty($mergedItem->mergeID)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This item is not a merged item'
+            ]);
+        }
+
+        $mergeId = $mergedItem->mergeID;
+        $rtCounter = $mergedItem->rtcounter;
+
+        // Find all original items that were merged into this item
+        $originalItems = DB::table($this->productTable)
+            ->where('mergedTO', $rtCounter)
+            ->where('ProductModuleLoc', 'Merged')
+            ->get();
+
+        if ($originalItems->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No original items found to restore'
+            ]);
+        }
+
+        $california_timezone = new DateTimeZone('America/Los_Angeles');
+        $currentDatetime = new DateTime('now', $california_timezone);
+        $currentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
+        $user = $this->getCurrentUserName();
+
+        // Restore original items back to Stockroom
+        $restoredCount = 0;
+        foreach ($originalItems as $item) {
+            DB::table($this->productTable)
+                ->where('ProductID', $item->ProductID)
+                ->update([
+                    'ProductModuleLoc' => 'Stockroom',
+                    'mergedTO' => null,
+                    'stockroom_insert_date' => $currentDatetimeString
+                ]);
+
+            // Log history
+            DB::table($this->itemProcessHistoryTable)->insert([
+                'rtcounter' => $item->rtcounter,
+                'employeeName' => $user,
+                'editDate' => $currentDatetimeString,
+                'Module' => 'Stockroom',
+                'Action' => 'Unmerged - Restored to Stockroom'
+            ]);
+
+            $restoredCount++;
+        }
+
+        // Return FNSKU units if the merged item used one
+        if (!empty($mergedItem->FNSKUviewer)) {
+            $baseFnsku = $this->extractBaseFnsku($mergedItem->FNSKUviewer);
+            $this->returnFnskuUnits($baseFnsku);
+            Log::info("Returned FNSKU units after unmerge", [
+                'fnsku' => $baseFnsku
+            ]);
+        }
+
+        // Delete the merged item
+        DB::table($this->productTable)
+            ->where('ProductID', $validated['productId'])
+            ->delete();
+
+        // Log the unmerge action
+        DB::table($this->itemProcessHistoryTable)->insert([
+            'rtcounter' => $rtCounter,
+            'employeeName' => $user,
+            'editDate' => $currentDatetimeString,
+            'Module' => 'Stockroom',
+            'Action' => "Unmerged - Deleted merged item, restored {$restoredCount} original items"
+        ]);
+
+        // Delete merge record
+        DB::table('tblmigrateditem')
+            ->where('migrateID', $mergeId)
+            ->delete();
+
+        DB::commit();
+
+        return response()->json([
+            'success' => true,
+            'message' => "Successfully unmerged item. Restored {$restoredCount} original items to Stockroom.",
+            'restored_count' => $restoredCount
+        ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Error unmerging item: ' . $e->getMessage());
+        Log::error($e->getTraceAsString());
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Error unmerging item: ' . $e->getMessage()
+        ], 500);
+    }
+ }
+
+ /**
+ * Return FNSKU units (increment by 1) - helper for unmerge
+ */
+private function returnFnskuUnits($fnskuViewer)
+{
+    try {
+        $baseFnsku = $this->extractBaseFnsku($fnskuViewer);
+
+        $fnskuRecord = DB::table($this->fnskuTable)
+            ->where('FNSKU', $baseFnsku)
+            ->first();
+
+        if (!$fnskuRecord) {
+            return false;
+        }
+
+        $currentUnits = $fnskuRecord->Units ?? 0;
+        $newUnits = $currentUnits + 1;
+
+        DB::table($this->fnskuTable)
+            ->where('FNSKU', $baseFnsku)
+            ->update([
+                'Units' => $newUnits,
+                'fnsku_status' => 'available'
+            ]);
+
+        return true;
+
+    } catch (\Exception $e) {
+        Log::error("Error returning FNSKU units: " . $e->getMessage());
+        return false;
+    }
+}
 
 }

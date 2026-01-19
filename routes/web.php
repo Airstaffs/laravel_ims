@@ -451,6 +451,8 @@ Route::prefix('api/stockroom')->group(function () {
     Route::get('new-scanned-items', [StockroomController::class, 'getNewScannedItems']);
     Route::post('update-fbm-status', [StockroomController::class, 'updateFbmStatus']);
 
+    Route::post('unmerge-item', [StockroomController::class, 'unmergeItem']);
+
 });
 
 // Routes for Unreceived scanner

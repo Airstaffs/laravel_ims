@@ -405,6 +405,7 @@
                     <InputText type="text" v-model="processLocation" placeholder="e.g., L123A or Floor" size="small" />
                 </div>
             </div>
+            
             <div class="process-item-list">
                 <h3>Items to Process</h3>
                 <div class="process-item-selector">
@@ -416,19 +417,20 @@
                         <div v-for="serial in currentProcessItem.serials" :key="serial.ProductID"
                             class="process-item-row">
                             <label class="process-item-checkbox">
-                                <input type="checkbox" v-model="selectedItems" :value="serial.ProductID" />
-                                <span>[{{ serial.storename }}] {{
-                                    formatRTNumber(
-                                        serial.rtcounter,
-                                        serial.storename
-                                    )
-                                }} - {{ serial.serialnumber }} - {{ serial.FNSKUviewer }} - {{
-                                        serial.display_grading ||
-                                        getDisplayGrading(
-                                            serial,
-                                            serial.storename
-                                        )
-                                    }}</span>
+                                <input 
+                                    type="checkbox" 
+                                    v-model="selectedItems" 
+                                    :value="serial.ProductID" 
+                                />
+                                <span>
+                                    [{{ serial.storename }}] 
+                                    {{ formatRTNumber(serial.rtcounter, serial.storename) }} 
+                                    - {{ serial.serialnumber }} 
+                                    - {{ serial.FNSKUviewer }} 
+                                    - {{ serial.display_grading || getDisplayGrading(serial, serial.storename) }}
+                                    - {{ serial.warehouselocation || 'No Location' }}
+                                    <span v-if="isItemMerged(serial)" class="merged-badge">🔗 MERGED</span>
+                                </span>
                             </label>
                         </div>
                     </div>
@@ -444,6 +446,15 @@
                 <div class="flex-shrink-0"> <Button @click="mergeSelectedItems" :disabled="selectedItems.length < 2"
                         label="Merge Items" icon="pi pi-arrow-down-left-and-arrow-up-right-to-center" size="small"
                         severity="info" /></div>
+             
+                 <!-- NEW: Unmerge Button -->
+                <div class="flex-shrink-0" v-if="isMergedItem">
+                    <Button @click="unmergeItem" :disabled="!canUnmerge || isUnmerging"
+                        :label="isUnmerging ? 'Unmerging...' : 'Unmerge Item'"
+                        icon="pi pi-times-circle" size="small" severity="danger" />
+                </div>
+    
+
                 <div class="flex-shrink-0"> <Button @click="submitProcess" :disabled="!isProcessFormValid"
                         label="Submit Process" icon="pi pi-check" size="small" severity="help" /></div>
                 <div class="flex-shrink-0"> <Button @click="openPostAmazonModal" :disabled="!hasSelectedItems"

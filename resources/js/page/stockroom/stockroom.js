@@ -120,6 +120,7 @@ export default {
 
             // FNSKU Table
             fnskuSummaries: {},
+            isUnmerging: false,
         };
     },
     computed: {
@@ -267,6 +268,27 @@ export default {
                 
                 return groups;
             },
+
+
+       hasSelectedMergedItem() {
+        if (!this.currentProcessItem || this.selectedItems.length === 0) {
+            return false;
+        }
+        
+        // Check if any selected item has mergeID
+        return this.currentProcessItem.serials?.some(serial => {
+            if (this.selectedItems.includes(serial.ProductID)) {
+                return this.isItemMerged(serial);
+            }
+            return false;
+        });
+    },
+    
+    // Check if only one merged item is selected
+    canUnmerge() {
+        return this.selectedItems.length === 1 && this.hasSelectedMergedItem;
+    },
+     
     },
     methods: {
         setupDailyReset() {
@@ -842,10 +864,46 @@ export default {
             }
         },
 
+
+  /**
+     * Check if a specific item is merged (based on mergeID only)
+     * @param {Object} serial - The serial/item object to check
+     * @returns {boolean}
+     */
+    isItemMerged(serial) {
+        if (!serial) return false;
+        
+        // ONLY CHECK mergeID - not null, not undefined, not 0
+        const hasMergeID = serial.mergeID && 
+                          serial.mergeID !== null && 
+                          serial.mergeID !== undefined && 
+                          serial.mergeID !== 0;
+        
+        console.log("Checking if merged:", {
+            ProductID: serial.ProductID,
+            mergeID: serial.mergeID,
+            isMerged: hasMergeID
+        });
+        
+        return hasMergeID;
+    },
+
         // Process modal functions
         openProcessModal(item) {
             const processedItem = this.applyGradeConversion([item])[0];
             this.currentProcessItem = processedItem;
+
+
+             // DEBUG: Log the item structure
+                console.log("Opening process modal for item:", processedItem);
+                console.log("Item serials:", processedItem.serials);
+                console.log("Checking for mergeID in serials:", 
+                    processedItem.serials?.map(s => ({ 
+                        ProductID: s.ProductID, 
+                        mergeID: s.mergeID,
+                        rtcounter: s.rtcounter
+                    }))
+                );
 
             this.showProcessModal = true;
             this.processShipmentType = "For Dispense";
@@ -2069,6 +2127,89 @@ async mergeSelectedItems() {
         }
     }
 },
+
+/**
+     * Unmerge a merged item
+     */
+    async unmergeItem() {
+        if (!this.canUnmerge) {
+            alert("Please select exactly one merged item to unmerge.");
+            return;
+        }
+
+        const selectedProductId = this.selectedItems[0];
+        
+        // Find the selected serial to get info
+        const selectedSerial = this.currentProcessItem.serials.find(
+            serial => serial.ProductID === selectedProductId
+        );
+
+        if (!selectedSerial) {
+            alert("Could not find selected item information.");
+            return;
+        }
+
+        const rtNumber = this.formatRTNumber(
+            selectedSerial.rtcounter,
+            selectedSerial.storename
+        );
+
+        if (!confirm(
+            `Are you sure you want to unmerge item ${rtNumber}?\n\n` +
+            `This will:\n` +
+            `• Delete the merged item\n` +
+            `• Restore all original items back to Stockroom\n` +
+            `• Return FNSKU units\n\n` +
+            `This action cannot be undone.`
+        )) {
+            return;
+        }
+
+        try {
+            this.isUnmerging = true;
+
+            const response = await axios.post(
+                `${API_BASE_URL}/api/stockroom/unmerge-item`,
+                {
+                    productId: selectedProductId
+                },
+                {
+                    withCredentials: true,
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                        "X-CSRF-TOKEN": document.querySelector(
+                            'meta[name="csrf-token"]'
+                        )?.content,
+                    },
+                }
+            );
+
+            if (response.data.success) {
+                alert(
+                    `✅ ${response.data.message}\n\n` +
+                    `${response.data.restored_count} original items have been restored to Stockroom.`
+                );
+
+                // Close modal and refresh inventory
+                this.closeProcessModal();
+                this.fetchInventory();
+            } else {
+                alert(`Error: ${response.data.message}`);
+            }
+
+        } catch (error) {
+            console.error("Error unmerging item:", error);
+            
+            if (error.response?.data?.message) {
+                alert(`Error: ${error.response.data.message}`);
+            } else {
+                alert("Failed to unmerge item. Please try again.");
+            }
+        } finally {
+            this.isUnmerging = false;
+        }
+    },
 
         // Print label method
         async printLabel(productId) {
