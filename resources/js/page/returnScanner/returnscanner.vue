@@ -1,186 +1,410 @@
 <template>
     <div class="vue-container return-module">
-        <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
-            <TitlePage title="Return Scanner Module"
-                subtitle="View and manage the status of all incoming customer product returns for processing." />
-            <Button class="mx-4" @click="openScannerModal" severity="secondary" outlined label="Scan Items" size="small"
-                icon="pi pi-barcode" />
+        <div
+            class="d-flex align-items-center justify-content-between flex-wrap mb-4"
+        >
+            <TitlePage
+                title="Return Scanner Module"
+                subtitle="View and manage the status of all incoming customer product returns for processing."
+            />
+            <Button
+                class="mx-4"
+                @click="openScannerModal"
+                severity="secondary"
+                outlined
+                label="Scan Items"
+                size="small"
+                icon="pi pi-barcode"
+            />
         </div>
 
         <!-- Scanner Component (with hideButton prop to hide the scanner button) -->
-        <scanner-component scanner-title="Return Scanner" storage-prefix="returnscanner" :enable-camera="true" module="returnscanner"
-            :display-fields="['ReturnID', 'Serial', 'Location']" :api-endpoint="'/api/returns/process-scan'"
-            :hide-button="true" @process-scan="handleScanProcess" @hardware-scan="handleHardwareScan"
-            @scanner-opened="handleScannerOpened" @scanner-closed="handleScannerClosed"
-            @scanner-reset="handleScannerReset" @mode-changed="handleModeChange" ref="scanner">
+        <scanner-component
+            scanner-title="Return Scanner"
+            storage-prefix="returnscanner"
+            :enable-camera="true"
+            module="returnscanner"
+            :display-fields="['ReturnID', 'Serial', 'Location']"
+            :api-endpoint="'/api/returns/process-scan'"
+            :hide-button="true"
+            @process-scan="handleScanProcess"
+            @hardware-scan="handleHardwareScan"
+            @scanner-opened="handleScannerOpened"
+            @scanner-closed="handleScannerClosed"
+            @scanner-reset="handleScannerReset"
+            @mode-changed="handleModeChange"
+            ref="scanner"
+        >
             <!-- Define custom input fields for Return Scanner module -->
-<template #input-fields>
-    <!-- ReturnID toggle button -->
-    <div class="toggle-container">
-        <button type="button" class="toggle-return-id" @click="toggleReturnIdField"
-            :class="{ 'return-id-active': showReturnIdField }">
-            <i :class="['fas', showReturnIdField ? 'fa-eye-slash' : 'fa-eye']"></i>
-            {{ showReturnIdField ? "Hide Return ID" : "Show Return ID" }}
-        </button>
-    </div>
+            <template #input-fields>
+                <!-- ReturnID toggle button -->
+                <div class="toggle-container">
+                    <button
+                        type="button"
+                        class="toggle-return-id"
+                        @click="toggleReturnIdField"
+                        :class="{ 'return-id-active': showReturnIdField }"
+                    >
+                        <i
+                            :class="[
+                                'fas',
+                                showReturnIdField ? 'fa-eye-slash' : 'fa-eye',
+                            ]"
+                        ></i>
+                        {{
+                            showReturnIdField
+                                ? "Hide Return ID"
+                                : "Show Return ID"
+                        }}
+                    </button>
+                </div>
 
-    <!-- ReturnID field (optional) -->
-    <div class="input-group" v-if="showReturnIdField">
-        <label>Return ID:</label>
-        <input type="text" v-model="returnId" placeholder="Enter Return ID..."
-            @input="handleReturnIdInput"
-            @keyup.enter="showManualInput ? focusNextField('serialNumberInput') : processScan()"
-            ref="returnIdInput" />
-    </div>
+                <!-- ReturnID field (optional) -->
+                <div class="input-group" v-if="showReturnIdField">
+                    <label>Return ID:</label>
+                    <input
+                        type="text"
+                        v-model="returnId"
+                        placeholder="Enter Return ID..."
+                        @input="handleReturnIdInput"
+                        @keyup.enter="
+                            showManualInput
+                                ? focusNextField('serialNumberInput')
+                                : processScan()
+                        "
+                        ref="returnIdInput"
+                    />
+                </div>
 
-    <!-- Serial Number Input - Only show when NOT in any capture mode -->
-    <div class="input-group" v-if="currentCaptureStep === 0 || currentCaptureStep === undefined">
-        <label>Serial Number:</label>
-        <input type="text" v-model="serialNumber" placeholder="Enter Serial Number..."
-            @input="handleSerialInput"
-            @keyup.enter="dualSerialProduct && showSecondSerialInput ? focusNextField('secondSerialInput') : showManualInput ? proceedToImageCapture(1) : processScan()"
-            ref="serialNumberInput" />
-    </div>
+                <!-- Serial Number Input - Only show when NOT in any capture mode -->
+                <div
+                    class="input-group"
+                    v-if="
+                        currentCaptureStep === 0 ||
+                        currentCaptureStep === undefined
+                    "
+                >
+                    <label>Serial Number:</label>
+                    <input
+                        type="text"
+                        v-model="serialNumber"
+                        placeholder="Enter Serial Number..."
+                        @input="handleSerialInput"
+                        @keyup.enter="
+                            dualSerialProduct && showSecondSerialInput
+                                ? focusNextField('secondSerialInput')
+                                : showManualInput
+                                  ? proceedToImageCapture(1)
+                                  : processScan()
+                        "
+                        ref="serialNumberInput"
+                    />
+                </div>
 
-    <!-- ✅ Image Capture for First Serial -->
-    <div v-if="currentCaptureStep === 1" class="image-capture-section">
-        <div class="capture-header">
-            <h4>📸 Capture Images for Serial: <strong>{{ serialNumber }}</strong></h4>
-            <p class="capture-instruction">Take up to 12 photos of the item</p>
-        </div>
-        
-        <div class="capture-count-badge" v-if="capturedImagesForSerial1.length > 0">
-            {{ capturedImagesForSerial1.length }} / 12 images captured
-        </div>
+                <!-- ✅ Image Capture for First Serial -->
+                <div
+                    v-if="currentCaptureStep === 1"
+                    class="image-capture-section"
+                >
+                    <div class="capture-header">
+                        <h4>
+                            📸 Capture Images for Serial:
+                            <strong>{{ serialNumber }}</strong>
+                        </h4>
+                        <p class="capture-instruction">
+                            Take up to 12 photos of the item
+                        </p>
+                    </div>
 
-        <div class="capture-actions">
-            <button @click="skipImageCapture(1)" class="btn-skip-images">
-                <i class="fas fa-forward"></i> Skip (No Images)
-            </button>
-            <button @click="finishImageCapture(1)" class="btn-done-images">
-                <i class="fas fa-check"></i> 
-                {{ dualSerialProduct && showSecondSerialInput ? 'Done - Next Serial' : 'Done - Continue to Location' }}
-            </button>
-        </div>
-    </div>
+                    <div
+                        class="capture-count-badge"
+                        v-if="capturedImagesForSerial1.length > 0"
+                    >
+                        {{ capturedImagesForSerial1.length }} / 12 images
+                        captured
+                    </div>
 
-    <!-- Second Serial Number field - Show when in "between captures" state OR initial state with dual serial -->
-    <div class="input-group" v-if="dualSerialProduct && showSecondSerialInput && (currentCaptureStep === -1 || (currentCaptureStep === 0 && capturedImagesForSerial1.length > 0))">
-        <label>{{ secondSerialLabel || "Second Serial" }}:</label>
-        <div class="input-with-clear">
-            <input type="text" v-model="secondSerialNumber"
-                placeholder="Enter Second Serial Number..."
-                @input="handleSecondSerialInput"
-                ref="secondSerialInput" />
-            <button type="button" class="clear-input-btn" @click="hideSecondSerial" title="Skip second serial and proceed to location">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <!-- Button to start capturing for serial 2 -->
-        <button 
-            v-if="secondSerialNumber && secondSerialNumber.trim() !== ''" 
-            @click="proceedToImageCapture(2)" 
-            class="start-capture-btn" 
-            style="margin-top: 10px; padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-            <i class="fas fa-camera"></i> Start Capturing Images for Second Serial
-        </button>
-    </div>
+                    <div class="capture-actions">
+                        <button
+                            @click="skipImageCapture(1)"
+                            class="btn-skip-images"
+                        >
+                            <i class="fas fa-forward"></i> Skip (No Images)
+                        </button>
+                        <button
+                            @click="finishImageCapture(1)"
+                            class="btn-done-images"
+                        >
+                            <i class="fas fa-check"></i>
+                            {{
+                                dualSerialProduct && showSecondSerialInput
+                                    ? "Done - Next Serial"
+                                    : "Done - Continue to Location"
+                            }}
+                        </button>
+                    </div>
+                </div>
 
-    <!-- ✅ Image Capture for Second Serial -->
-    <div v-if="currentCaptureStep === 2" class="image-capture-section">
-        <div class="capture-header">
-            <h4>📸 Capture Images for Second Serial: <strong>{{ secondSerialNumber }}</strong></h4>
-            <p class="capture-instruction">Take up to 12 photos of the item</p>
-        </div>
-        
-        <div class="capture-count-badge" v-if="capturedImagesForSerial2.length > 0">
-            {{ capturedImagesForSerial2.length }} / 12 images captured
-        </div>
+                <!-- Second Serial Number field - Show when in "between captures" state OR initial state with dual serial -->
+                <div
+                    class="input-group"
+                    v-if="
+                        dualSerialProduct &&
+                        showSecondSerialInput &&
+                        (currentCaptureStep === -1 ||
+                            (currentCaptureStep === 0 &&
+                                capturedImagesForSerial1.length > 0))
+                    "
+                >
+                    <label>{{ secondSerialLabel || "Second Serial" }}:</label>
+                    <div class="input-with-clear">
+                        <input
+                            type="text"
+                            v-model="secondSerialNumber"
+                            placeholder="Enter Second Serial Number..."
+                            @input="handleSecondSerialInput"
+                            ref="secondSerialInput"
+                        />
+                        <button
+                            type="button"
+                            class="clear-input-btn"
+                            @click="hideSecondSerial"
+                            title="Skip second serial and proceed to location"
+                        >
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <!-- Button to start capturing for serial 2 -->
+                    <button
+                        v-if="
+                            secondSerialNumber &&
+                            secondSerialNumber.trim() !== ''
+                        "
+                        @click="proceedToImageCapture(2)"
+                        class="start-capture-btn"
+                        style="
+                            margin-top: 10px;
+                            padding: 10px 20px;
+                            background: #4caf50;
+                            color: white;
+                            border: none;
+                            border-radius: 5px;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+                        "
+                    >
+                        <i class="fas fa-camera"></i> Start Capturing Images for
+                        Second Serial
+                    </button>
+                </div>
 
-        <div class="capture-actions">
-            <button @click="skipImageCapture(2)" class="btn-skip-images">
-                <i class="fas fa-forward"></i> Skip (No Images)
-            </button>
-            <button @click="finishImageCapture(2)" class="btn-done-images">
-                <i class="fas fa-check"></i> Done - Continue to Location
-            </button>
-        </div>
-    </div>
+                <!-- ✅ Image Capture for Second Serial -->
+                <div
+                    v-if="currentCaptureStep === 2"
+                    class="image-capture-section"
+                >
+                    <div class="capture-header">
+                        <h4>
+                            📸 Capture Images for Second Serial:
+                            <strong>{{ secondSerialNumber }}</strong>
+                        </h4>
+                        <p class="capture-instruction">
+                            Take up to 12 photos of the item
+                        </p>
+                    </div>
 
-    <!-- Location Input - Show when ready (step 0 or -1, but NOT when second serial should show) -->
-    <div class="input-group" v-if="currentCaptureStep === 0 && !(dualSerialProduct && showSecondSerialInput && capturedImagesForSerial1.length > 0 && currentCaptureStep !== 0)">
-        <label>Location:</label>
-        <input type="text" v-model="locationInput" placeholder="Enter Location..."
-            @input="handleLocationInput"
-            @keyup.enter="processScan()"
-            ref="locationInput" />
-        <div class="container-type-hint">
-            Format: L###X (e.g., L123A) or 'Floor'
-        </div>
-    </div>
+                    <div
+                        class="capture-count-badge"
+                        v-if="capturedImagesForSerial2.length > 0"
+                    >
+                        {{ capturedImagesForSerial2.length }} / 12 images
+                        captured
+                    </div>
 
-    <!-- Submit button (only in manual mode and when ready) -->
-    <button v-if="showManualInput && currentCaptureStep === 0 && locationInput" @click="processScan()" class="submit-button">
-        Submit
-    </button>
-</template>
+                    <div class="capture-actions">
+                        <button
+                            @click="skipImageCapture(2)"
+                            class="btn-skip-images"
+                        >
+                            <i class="fas fa-forward"></i> Skip (No Images)
+                        </button>
+                        <button
+                            @click="finishImageCapture(2)"
+                            class="btn-done-images"
+                        >
+                            <i class="fas fa-check"></i> Done - Continue to
+                            Location
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Location Input - Show when ready (step 0 or -1, but NOT when second serial should show) -->
+                <div
+                    class="input-group"
+                    v-if="
+                        currentCaptureStep === 0 &&
+                        !(
+                            dualSerialProduct &&
+                            showSecondSerialInput &&
+                            capturedImagesForSerial1.length > 0 &&
+                            currentCaptureStep !== 0
+                        )
+                    "
+                >
+                    <label>Location:</label>
+                    <input
+                        type="text"
+                        v-model="locationInput"
+                        placeholder="Enter Location..."
+                        @input="handleLocationInput"
+                        @keyup.enter="processScan()"
+                        ref="locationInput"
+                    />
+                    <div class="container-type-hint">
+                        Format: L###X (e.g., L123A) or 'Floor'
+                    </div>
+                </div>
+
+                <!-- Submit button (only in manual mode and when ready) -->
+                <button
+                    v-if="
+                        showManualInput &&
+                        currentCaptureStep === 0 &&
+                        locationInput
+                    "
+                    @click="processScan()"
+                    class="submit-button"
+                >
+                    Submit
+                </button>
+            </template>
         </scanner-component>
 
         <!-- Returns History Table -->
-        <AnimateDiv :delay="200" class=" px-4">
+        <AnimateDiv :delay="200" class="px-4">
             <div class="search-container px-4">
                 <fieldset class="d-flex align-items-center gap-1">
                     <label for="store-select">Store:</label>
-                    <Select :options="storeOptions" optionLabel="label" optionValue="value" size="small"
-                        class="select-form" v-model="selectedStore" @change="changeStore"
-                        placeholder="Select a Store" />
+                    <Select
+                        :options="storeOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                        size="small"
+                        class="select-form"
+                        v-model="selectedStore"
+                        @change="changeStore"
+                        placeholder="Select a Store"
+                    />
                 </fieldset>
             </div>
-            <div class="desktop-view">
-                <XDataTable :value="returnHistory" :columns="columns" :paginator="false" selectionMode="multiple"
-                    dataKey="ProductID" :loading="loading">
-                    <template #gallery="{ data }">
-                        <div class="d-flex justify-content-center align-items-center">
-                            <TableGallery :data="data" :openImageModal="openImageModal"
-                                :handleImageError="handleImageError" :countAdditionalImages="countAdditionalImages" />
+            <XDataTable
+                :value="returnHistory"
+                :loading="loading"
+                :columns="columns"
+                :paginator="false"
+                tableClass="desktop-view"
+                selectionMode="multiple"
+                dataKey="ProductID"
+            >
+                <template #gallery="{ data }">
+                    <div
+                        class="d-flex justify-content-center align-items-center"
+                    >
+                        <!-- Use custom image display for captured images -->
+                        <div
+                            v-if="
+                                data.capturedImages &&
+                                data.capturedImages.capturedimg1
+                            "
+                            class="gallery-thumbnail position-relative"
+                            @click="openImageModal(data)"
+                            style="cursor: pointer"
+                        >
+                            <img
+                                :src="`/images/product_images/${
+                                    data.company || 'Airstaffs'
+                                }/${data.capturedImages.capturedimg1}`"
+                                :alt="getDisplayTitle(data)"
+                                style="
+                                    width: 50px;
+                                    height: 50px;
+                                    object-fit: cover;
+                                    border-radius: 4px;
+                                "
+                                @error="handleImageError"
+                            />
+                            <span
+                                v-if="countCapturedImages(data) > 1"
+                                class="position-absolute bg-primary text-white rounded-circle"
+                                style="
+                                    top: -5px;
+                                    right: -5px;
+                                    min-width: 20px;
+                                    height: 20px;
+                                    font-size: 0.65rem;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    padding: 0 4px;
+                                "
+                            >
+                                +{{ countCapturedImages(data) - 1 }}
+                            </span>
                         </div>
-                    </template>
-                    <template #date="{ data }">
-                        <p>{{ formatDate(data.LPNDATE) }}</p>
-                    </template>
-                    <template #returnId="{ data }">
-                        {{ data.LPN || "N/A" }}
-                    </template>
-                    <template #rtNumber="{ data }">
-                        {{
-                            formatRTNumber(
-                                data.rtcounter,
-                                data.storename
-                            )
-                        }}
-                    </template>
-                    <template #serialnumberb="{ data }">
-                        <p>{{ data.serialnumberb || "-" }}</p>
-                    </template>
-                    <template #status="{ data }">
-                        <Tag :value="data.returnstatus"
-                            :severity="data.returnstatus === 'Returned' ? 'success' : 'secondary'" />
-                    </template>
-                    <template #buyer="{ data }">
-                        <p>{{
-                            data.BuyerName ||
-                            data.costumer_name ||
-                            "Unknown"
-                            }}</p>
-                    </template>
-                    <template #actions="{ data }">
-                        <div>
-                            <Button label="More Details" severity="contrast" icon="pi pi-info-circle" variant="text"
-                                class="text-primary" size="small" @click="handleShowDetailsModal(data)" />
-                        </div>
-                    </template>
-                </XDataTable>
-            </div>
+
+                        <!-- Use TableGallery for regular product images -->
+                        <TableGallery
+                            v-else
+                            :data="data"
+                            :openImageModal="openImageModal"
+                            :handleImageError="handleImageError"
+                            :countAdditionalImages="countAllImages"
+                        />
+                    </div>
+                </template>
+                <template #date="{ data }">
+                    <p>{{ formatDate(data.LPNDATE) }}</p>
+                </template>
+                <template #returnId="{ data }">
+                    {{ data.LPN || "N/A" }}
+                </template>
+                <template #rtNumber="{ data }">
+                    {{ formatRTNumber(data.rtcounter, data.storename) }}
+                </template>
+                <template #serialnumberb="{ data }">
+                    <p>{{ data.serialnumberb || "-" }}</p>
+                </template>
+                <template #status="{ data }">
+                    <Tag
+                        :value="data.returnstatus"
+                        :severity="
+                            data.returnstatus === 'Returned'
+                                ? 'success'
+                                : 'secondary'
+                        "
+                    />
+                </template>
+                <template #buyer="{ data }">
+                    <p>
+                        {{ data.BuyerName || data.costumer_name || "Unknown" }}
+                    </p>
+                </template>
+                <template #actions="{ data }">
+                    <div>
+                        <Button
+                            label="More Details"
+                            severity="contrast"
+                            icon="pi pi-info-circle"
+                            variant="text"
+                            class="text-primary"
+                            size="small"
+                            @click="handleShowDetailsModal(data)"
+                        />
+                    </div>
+                </template>
+            </XDataTable>
         </AnimateDiv>
 
         <!-- Mobile Cards View -->
@@ -190,20 +414,76 @@
                     <i class="fas fa-spinner fa-spin"></i>
                     Loading...
                 </div>
-                <div v-else-if="sortedInventory.length === 0" class="no-data-mobile">
+                <div
+                    v-else-if="sortedInventory.length === 0"
+                    class="no-data-mobile"
+                >
                     No data found
                 </div>
-                <AnimateDiv v-else v-for="(item, index) in returnHistory" :key="index" class="mobile-card"
-                    :delay="index * 100">
+                <AnimateDiv
+                    v-else
+                    v-for="(item, index) in returnHistory"
+                    :key="index"
+                    class="mobile-card"
+                    :delay="index * 100"
+                >
                     <div class="mobile-card-header">
-                        <TableGallery :data="item" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages" />
+                        <!-- Updated mobile gallery with captured images support -->
+                        <div class="mobile-product-image clickable">
+                            <!-- Show captured image if available -->
+                            <div
+                                v-if="
+                                    item.capturedImages &&
+                                    item.capturedImages.capturedimg1
+                                "
+                                class="gallery-thumbnail position-relative"
+                                @click="openImageModal(item)"
+                                style="cursor: pointer"
+                            >
+                                <img
+                                    :src="`/images/product_images/${
+                                        item.company || 'Airstaffs'
+                                    }/${item.capturedImages.capturedimg1}`"
+                                    :alt="getDisplayTitle(item)"
+                                    class="product-thumbnail clickable-image"
+                                    @error="handleImageError"
+                                />
+                                <div
+                                    class="image-count-badge"
+                                    v-if="countCapturedImages(item) > 1"
+                                >
+                                    +{{ countCapturedImages(item) - 1 }}
+                                </div>
+                            </div>
+
+                            <!-- Fallback to regular product image -->
+                            <div
+                                v-else
+                                @click="openImageModal(item)"
+                                style="cursor: pointer"
+                            >
+                                <img
+                                    :src="'/images/thumbnails/' + item.img1"
+                                    :alt="getDisplayTitle(item)"
+                                    class="product-thumbnail clickable-image"
+                                    @error="handleImageError($event)"
+                                />
+                                <div
+                                    class="image-count-badge"
+                                    v-if="countAllImages(item) > 0"
+                                >
+                                    +{{ countAllImages(item) }}
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="mobile-return-info">
                             <h5 class="mobile-return-title">
-                                Return {{
+                                Return
+                                {{
                                     formatRTNumber(
                                         item.rtcounter,
-                                        item.storename
+                                        item.storename,
                                     )
                                 }}
                             </h5>
@@ -213,38 +493,46 @@
                         </div>
                     </div>
                     <Divider />
-                    <div class="mobile-card-details" :style="{ fontSize: '14px' }">
+                    <div
+                        class="mobile-card-details"
+                        :style="{ fontSize: '14px' }"
+                    >
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">RT#:</span>
                             <span class="mobile-detail-value">{{
                                 formatRTNumber(item.rtcounter, item.storename)
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Serial:</span>
                             <span class="mobile-detail-value">{{
                                 item.serialnumber
-                                }}</span>
+                            }}</span>
                         </div>
-                        <div v-if="item.serialnumberb" class="mobile-detail-row">
+                        <div
+                            v-if="item.serialnumberb"
+                            class="mobile-detail-row"
+                        >
                             <span class="fw-semibold">Second Serial:</span>
                             <span class="mobile-detail-value">{{
                                 item.serialnumberb
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Location:</span>
                             <span class="mobile-detail-value">{{
                                 item.warehouselocation || "Floor"
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Status:</span>
-                            <span :class="[
-                                'mobile-detail-value',
-                                'status-badge',
-                                'status-' + item.returnstatus,
-                            ]">
+                            <span
+                                :class="[
+                                    'mobile-detail-value',
+                                    'status-badge',
+                                    'status-' + item.returnstatus,
+                                ]"
+                            >
                                 {{ formatStatus(item.returnstatus) }}
                             </span>
                         </div>
@@ -254,13 +542,17 @@
                                 item.BuyerName ||
                                 item.costumer_name ||
                                 "Unknown"
-                                }}</span>
+                            }}</span>
                         </div>
                     </div>
                     <Divider />
                     <div class="mobile-card-actions">
-                        <Button @click="handleShowDetailsModal(item)" icon="pi pi-info-circle" label="More Details"
-                            size="small" />
+                        <Button
+                            @click="handleShowDetailsModal(item)"
+                            icon="pi pi-info-circle"
+                            label="More Details"
+                            size="small"
+                        />
                     </div>
                 </AnimateDiv>
 
@@ -275,9 +567,16 @@
         </AnimateDiv>
 
         <!---DETAILS MODAL--->
-        <Dialog v-model:visible="viewDetailsModal" modal header="Product Details" class="view-details-dialog" :pt="{
-            root: { class: 'mobile-fullscreen-dialog' }
-        }" style="width: 50%;">
+        <Dialog
+            v-model:visible="viewDetailsModal"
+            modal
+            header="Product Details"
+            class="view-details-dialog"
+            :pt="{
+                root: { class: 'mobile-fullscreen-dialog' },
+            }"
+            style="width: 50%"
+        >
             <div class="row">
                 <div class="col-md-6 mb-4">
                     <Gallery :item="item" />
@@ -286,9 +585,14 @@
                     <div class="details-container">
                         <div class="item-container">
                             <span>RT#: </span>
-                            <span>{{ item.rtcounter
-                                ? this.formatRTNumber(item.rtcounter, item.storename || "")
-                                : "N/A" }}</span>
+                            <span>{{
+                                item.rtcounter
+                                    ? this.formatRTNumber(
+                                          item.rtcounter,
+                                          item.storename || "",
+                                      )
+                                    : "N/A"
+                            }}</span>
                         </div>
                         <div class="item-container">
                             <span>Return ID: </span>
@@ -312,8 +616,14 @@
                         </div>
                         <div class="item-container">
                             <span>Status: </span>
-                            <Tag :value="item.returnstatus"
-                                :severity="item.returnstatus === 'Returned' ? 'success' : 'secondary'" />
+                            <Tag
+                                :value="item.returnstatus"
+                                :severity="
+                                    item.returnstatus === 'Returned'
+                                        ? 'success'
+                                        : 'secondary'
+                                "
+                            />
                         </div>
                         <div class="item-container">
                             <span>FNSKU: </span>
@@ -325,7 +635,11 @@
                         </div>
                         <div class="item-container">
                             <span>Buyer: </span>
-                            <span>{{ item.BuyerName || item.costumer_name || "Unknown" }}</span>
+                            <span>{{
+                                item.BuyerName ||
+                                item.costumer_name ||
+                                "Unknown"
+                            }}</span>
                         </div>
                     </div>
                 </div>
@@ -337,88 +651,116 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" size="small"
-                        optionLabel="label" optionValue="value" />
+                    <Select
+                        v-model="perPage"
+                        @change="changePerPage"
+                        :options="rowsPerPage"
+                        size="small"
+                        optionLabel="label"
+                        optionValue="value"
+                    />
                 </div>
                 <div class="pagination">
-                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
-                        icon="pi pi-angle-left" size="small" severity="info" />
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
-                        label="Next" icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
+                    <Button
+                        @click="prevPage"
+                        :disabled="currentPage === 1"
+                        class="pagination-button"
+                        label="Back"
+                        icon="pi pi-angle-left"
+                        size="small"
+                        severity="info"
+                    />
+                    <span class="pagination-info"
+                        >Page {{ currentPage }} of {{ totalPages }}</span
+                    >
+                    <Button
+                        @click="nextPage"
+                        :disabled="currentPage === totalPages"
+                        class="pagination-button"
+                        label="Next"
+                        icon="pi pi-angle-right"
+                        size="small"
+                        severity="info"
+                        iconPos="right"
+                    />
                 </div>
             </div>
         </div>
 
-        <!-- Image Modal -->
-        <ViewImageModal v-model:visible="showImageModal" :title="'Images'" :imageList="modalImages" :basePath="basePath"
-            :onImageErrorMain="handleImageError" :onThumbnailError="onThumbnailError" @close="closeImageModal" />
-
+        <!-- Image Modal with Tabs -->
+        <ViewImageGalleryModal
+            :showImageModal="showImageModal"
+            :closeImageModal="closeImageModal"
+            :ProductTitle="ProductTitle"
+            :regularImages="regularImages"
+            :capturedImages="capturedImages"
+            :handleImageError="handleImageError"
+        />
     </div>
 </template>
 
 <script>
 import returnsScanner from "./returnscanner.js";
-import TableGallery from '../../components/Gallery/tableGallery.vue'
+import TableGallery from "../../components/Gallery/tableGallery.vue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import Gallery from "../../components/Gallery/gallery.vue";
 import { Button, Dialog, Divider, Select, Tag } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
-import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
+import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 
 const TABLE_COLUMNS = [
     {
         header: "Gallery",
         slot: "gallery",
-        style: { width: "4rem", minWidth: "4rem" }
+        style: { width: "4rem", minWidth: "4rem" },
     },
     {
         header: "Date",
         slot: "date",
         bodyStyle: "font-size: 14px",
-        sortable: true
+        sortable: true,
     },
     {
         header: "Return ID",
         slot: "returnId",
         bodyStyle: "font-size: 14px",
-        sortable: true
+        sortable: true,
     },
     {
         header: "RT#",
         slot: "rtNumber",
         bodyStyle: "font-size: 14px",
-        sortable: true
+        sortable: true,
     },
     {
         field: "serialnumber",
         header: "Serial Number",
         bodyStyle: "font-size: 14px",
-        sortable: true
+        sortable: true,
     },
     {
         field: "serialnumberb",
         header: "Second Serial Number",
         slot: "serialnumberb",
         bodyStyle: "font-size: 14px",
-        sortable: true
+        sortable: true,
     },
     {
         field: "returnstatus",
         header: "Status",
         slot: "status",
         bodyStyle: "font-size: 14px",
-        sortable: true
+        sortable: true,
     },
     {
         header: "Buyer",
         slot: "buyer",
         bodyStyle: "font-size: 14px",
-        sortable: true
-    }
-]
+        sortable: true,
+    },
+];
 export default {
     mixins: [returnsScanner],
     components: {
@@ -432,21 +774,89 @@ export default {
         Select,
         TitlePage,
         AnimateDiv,
-        ViewImageModal,
-        Select
+        ViewImageGalleryModal,
+        Select,
     },
     data() {
         return {
             columns: TABLE_COLUMNS,
-            rowsPerPage: ROWS_PER_PAGE
-        }
+            rowsPerPage: ROWS_PER_PAGE,
+        };
     },
     computed: {
         storeOptions() {
-            const options = this.stores.map((store) => ({ value: store, label: store }))
-            return [{ value: "", label: "All Stores" }, ...options]
-        }
-    }
+            const options = this.stores.map((store) => ({
+                value: store,
+                label: store,
+            }));
+            return [{ value: "", label: "All Stores" }, ...options];
+        },
+    },
+    methods: {
+        transformDataForGallery(data) {
+            // Safety check
+            if (!data) {
+                return {};
+            }
+
+            // If captured images exist, use them with full path
+            if (data.capturedImages && data.capturedImages.capturedimg1) {
+                const transformedData = { ...data };
+
+                // Map capturedimg1-12 to img1-12 with full path
+                for (let i = 1; i <= 12; i++) {
+                    const capturedImg = data.capturedImages[`capturedimg${i}`];
+                    if (capturedImg) {
+                        // Add full path: /images/product_images/Airstaffs/
+                        transformedData[`img${i}`] =
+                            `/images/product_images/Airstaffs/${capturedImg}`;
+                    } else {
+                        transformedData[`img${i}`] = null;
+                    }
+                }
+
+                // Clear img13-15 since captured images only go up to 12
+                for (let i = 13; i <= 15; i++) {
+                    transformedData[`img${i}`] = null;
+                }
+
+                return transformedData;
+            }
+
+            // Return original data if no captured images exist (fallback to product images)
+            return data;
+        },
+
+        countAllImages(data) {
+            // Safety check
+            if (!data) {
+                return 0;
+            }
+
+            // If captured images exist, count them
+            if (data.capturedImages) {
+                let count = 0;
+                for (let i = 1; i <= 12; i++) {
+                    if (data.capturedImages[`capturedimg${i}`]) {
+                        count++;
+                    }
+                }
+                // Return count if captured images exist
+                if (count > 0) {
+                    return count;
+                }
+            }
+
+            // Otherwise count product images (fallback)
+            let count = 0;
+            for (let i = 1; i <= 15; i++) {
+                if (data[`img${i}`]) {
+                    count++;
+                }
+            }
+            return count;
+        },
+    },
 };
 </script>
 
@@ -630,14 +1040,14 @@ export default {
 }
 
 .serial-card.active {
-    border-color: #4CAF50;
+    border-color: #4caf50;
     box-shadow: 0 0 20px rgba(76, 175, 80, 0.3);
     transform: scale(1.02);
 }
 
 .serial-card.completed {
     background: #f1f8f4;
-    border-color: #4CAF50;
+    border-color: #4caf50;
 }
 
 .serial-card.pending {
@@ -664,7 +1074,7 @@ export default {
 
 .serial-number strong {
     color: #1976d2;
-    font-family: 'Courier New', monospace;
+    font-family: "Courier New", monospace;
 }
 
 .serial-status i {
@@ -685,7 +1095,7 @@ export default {
 }
 
 .image-count i {
-    color: #2196F3;
+    color: #2196f3;
 }
 
 .capture-instructions {
@@ -750,7 +1160,7 @@ export default {
     flex: 2;
     max-width: 400px;
     padding: 14px 28px;
-    background: #4CAF50;
+    background: #4caf50;
     border: none;
     color: white;
     border-radius: 8px;
@@ -776,11 +1186,11 @@ export default {
 }
 
 .text-success {
-    color: #4CAF50 !important;
+    color: #4caf50 !important;
 }
 
 .text-primary {
-    color: #2196F3 !important;
+    color: #2196f3 !important;
 }
 
 .text-muted {
@@ -809,7 +1219,7 @@ export default {
     .btn-done-serial {
         max-width: 100%;
     }
-    
+
     .view-details-dialog {
         width: 95% !important;
     }

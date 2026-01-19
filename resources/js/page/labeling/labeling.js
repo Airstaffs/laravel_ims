@@ -166,12 +166,12 @@ export default {
 
         serialKeys() {
             return Object.keys(this.item).filter((k) =>
-                /^serialnumber[a-z]?$/.test(k)
+                /^serialnumber[a-z]?$/.test(k),
             );
         },
         trackingKeys() {
             return Object.keys(this.item).filter((k) =>
-                /^trackingnumber\d*$/.test(k)
+                /^trackingnumber\d*$/.test(k),
             );
         },
         priorityRanks() {
@@ -180,7 +180,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.priorityrank)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -212,7 +212,7 @@ export default {
                     const fieldName = `capturedimg${i}`;
                     if (capturedImagesObj[fieldName]) {
                         images.push(
-                            `/images/product_images/${company}/${capturedImagesObj[fieldName]}`
+                            `/images/product_images/${company}/${capturedImagesObj[fieldName]}`,
                         );
                     }
                 }
@@ -220,12 +220,12 @@ export default {
                 // Add serial images
                 if (capturedImagesObj.serialimg1) {
                     images.push(
-                        `/images/product_images/${company}/${capturedImagesObj.serialimg1}`
+                        `/images/product_images/${company}/${capturedImagesObj.serialimg1}`,
                     );
                 }
                 if (capturedImagesObj.serialimg2) {
                     images.push(
-                        `/images/product_images/${company}/${capturedImagesObj.serialimg2}`
+                        `/images/product_images/${company}/${capturedImagesObj.serialimg2}`,
                     );
                 }
             }
@@ -236,7 +236,7 @@ export default {
                     const fieldName = `img${i}`;
                     if (this.currentItem[fieldName]) {
                         images.push(
-                            `/images/thumbnails/${this.currentItem[fieldName]}`
+                            `/images/thumbnails/${this.currentItem[fieldName]}`,
                         );
                     }
                 }
@@ -254,7 +254,7 @@ export default {
         uniqueStores() {
             return [
                 ...new Set(
-                    this.fnskuList.map((f) => f.storename).filter(Boolean)
+                    this.fnskuList.map((f) => f.storename).filter(Boolean),
                 ),
             ];
         },
@@ -491,9 +491,8 @@ export default {
                 for (let i = 1; i <= 12; i++) {
                     const capturedImg = data.capturedImages[`capturedimg${i}`];
                     if (capturedImg) {
-                        transformedData[
-                            `img${i}`
-                        ] = `/images/product_images/${companyFolder}/${capturedImg}`;
+                        transformedData[`img${i}`] =
+                            `/images/product_images/${companyFolder}/${capturedImg}`;
                     } else {
                         transformedData[`img${i}`] = null;
                     }
@@ -546,7 +545,7 @@ export default {
 
                 console.log(
                     "🔍 Processing captured images:",
-                    capturedImagesObj
+                    capturedImagesObj,
                 );
 
                 // Load capturedimg1 - capturedimg12
@@ -578,7 +577,7 @@ export default {
 
             console.log(
                 "📸 Total captured images loaded:",
-                this.capturedImages.length
+                this.capturedImages.length,
             );
 
             // Fallback if no images exist
@@ -697,7 +696,7 @@ export default {
                             location: "Labeling",
                             include_images: true,
                         },
-                    }
+                    },
                 );
 
                 // Use data as-is from backend (no transformation needed)
@@ -799,7 +798,7 @@ export default {
                 console.log("API_BASE_URL:", API_BASE_URL);
                 console.log(
                     "Making request to:",
-                    `${API_BASE_URL}/api/fnsku/fnsku-list`
+                    `${API_BASE_URL}/api/fnsku/fnsku-list`,
                 );
 
                 // FIXED: Use consistent API endpoint and parameters
@@ -815,7 +814,7 @@ export default {
                             exclude_assigned: false, // SET TO FALSE FOR TESTING - this allows you to see used FNSKUs
                         },
                         withCredentials: true,
-                    }
+                    },
                 );
 
                 console.log("FNSKU API Response:", response);
@@ -830,7 +829,7 @@ export default {
                             fnsku.FNSKU !== "NULL" &&
                             fnsku.ASIN &&
                             fnsku.ASIN.trim() !== "" &&
-                            fnsku.ASIN !== "NULL"
+                            fnsku.ASIN !== "NULL",
                     );
 
                     this.fnskuList = validFnskus;
@@ -839,11 +838,11 @@ export default {
                     console.log(
                         "FNSKU List loaded:",
                         this.fnskuList.length,
-                        "items"
+                        "items",
                     );
                     console.log(
                         "Filtered out empty FNSKUs, remaining:",
-                        validFnskus.length
+                        validFnskus.length,
                     );
                     console.log("First few items:", this.fnskuList.slice(0, 3));
 
@@ -868,17 +867,17 @@ export default {
 
                     if (error.response.status === 404) {
                         alert(
-                            "FNSKU API endpoint not found. Check your routes."
+                            "FNSKU API endpoint not found. Check your routes.",
                         );
                     } else if (error.response.status === 500) {
                         alert(
-                            "Server error while loading FNSKUs. Check server logs."
+                            "Server error while loading FNSKUs. Check server logs.",
                         );
                     } else {
                         alert(
                             `HTTP ${error.response.status}: ${
                                 error.response.data?.message || "Unknown error"
-                            }`
+                            }`,
                         );
                     }
                 } else if (error.request) {
@@ -1005,7 +1004,7 @@ export default {
                 "Selecting FNSKU:",
                 fnsku.FNSKU,
                 "for product:",
-                this.currentItem?.ProductID
+                this.currentItem?.ProductID,
             );
 
             if (!this.currentItem || !this.currentItem.ProductID) {
@@ -1026,7 +1025,7 @@ export default {
                     {
                         params: { fnsku: fnsku.FNSKU },
                         withCredentials: true,
-                    }
+                    },
                 );
 
                 let confirmMessage = `Assign FNSKU ${fnsku.FNSKU} to this product?`;
@@ -1101,11 +1100,11 @@ export default {
                             "Content-Type": "application/json",
                             "X-CSRF-TOKEN":
                                 document.querySelector(
-                                    'meta[name="csrf-token"]'
+                                    'meta[name="csrf-token"]',
                                 )?.content || "",
                         },
                         withCredentials: true,
-                    }
+                    },
                 );
 
                 console.log("=== FNSKU UPDATE RESPONSE ===");
@@ -1132,7 +1131,7 @@ export default {
                     const itemIndex = this.inventory.findIndex(
                         (item) =>
                             item.ProductID === this.currentItem.ProductID ||
-                            item.rtcounter === this.currentItem.rtcounter
+                            item.rtcounter === this.currentItem.rtcounter,
                     );
 
                     if (itemIndex !== -1) {
@@ -1169,13 +1168,13 @@ export default {
                     // Handle cases where response is not what we expect
                     console.error(
                         "❌ Unexpected response format:",
-                        response.data
+                        response.data,
                     );
 
                     // Check if it's still a success but different format
                     if (response.status === 200) {
                         console.log(
-                            "⚠️ Update might be successful but response format unexpected"
+                            "⚠️ Update might be successful but response format unexpected",
                         );
                         await Swal.fire({
                             icon: "warning",
@@ -1209,7 +1208,7 @@ export default {
                     if (error.response.status === 200) {
                         // Sometimes Laravel returns 200 but axios treats it as error
                         console.log(
-                            "🤔 Status 200 but treated as error - checking response..."
+                            "🤔 Status 200 but treated as error - checking response...",
                         );
 
                         if (
@@ -1218,7 +1217,7 @@ export default {
                         ) {
                             // It's actually successful!
                             console.log(
-                                "✅ Actually successful! Updating UI..."
+                                "✅ Actually successful! Updating UI...",
                             );
 
                             const details = error.response.data.details || {};
@@ -1231,7 +1230,7 @@ export default {
                             const itemIndex = this.inventory.findIndex(
                                 (item) =>
                                     item.ProductID ===
-                                    this.currentItem.ProductID
+                                    this.currentItem.ProductID,
                             );
                             if (itemIndex !== -1) {
                                 this.inventory[itemIndex].FNSKUviewer =
@@ -1274,7 +1273,7 @@ export default {
                 } else {
                     console.error(
                         "Request configuration error:",
-                        error.message
+                        error.message,
                     );
                     await Swal.fire({
                         icon: "error",
@@ -1297,7 +1296,7 @@ export default {
                     `${API_BASE_URL}/api/labeling/product/${productId}`,
                     {
                         withCredentials: true,
-                    }
+                    },
                 );
 
                 if (response.data && response.data.success) {
@@ -1305,7 +1304,7 @@ export default {
 
                     // Find and update the item in inventory
                     const itemIndex = this.inventory.findIndex(
-                        (item) => item.ProductID === productId
+                        (item) => item.ProductID === productId,
                     );
 
                     if (itemIndex !== -1) {
@@ -1363,7 +1362,7 @@ export default {
                     {
                         params: params,
                         withCredentials: true,
-                    }
+                    },
                 );
 
                 if (response.data && response.data.data) {
@@ -1375,7 +1374,7 @@ export default {
                             fnsku.FNSKU !== "NULL" &&
                             fnsku.ASIN &&
                             fnsku.ASIN.trim() !== "" &&
-                            fnsku.ASIN !== "NULL"
+                            fnsku.ASIN !== "NULL",
                     );
 
                     this.fnskuList = validFnskus;
@@ -1384,11 +1383,11 @@ export default {
                     console.log(
                         "FNSKU List loaded:",
                         this.fnskuList.length,
-                        "items"
+                        "items",
                     );
                     console.log(
                         "Excluded current item's FNSKU:",
-                        params.exclude_current_fnsku
+                        params.exclude_current_fnsku,
                     );
 
                     // Apply initial filtering if there's a search term
@@ -1412,7 +1411,7 @@ export default {
 
                 if (error.response && error.response.status === 500) {
                     alert(
-                        "Server error while loading FNSKUs. Please try again later."
+                        "Server error while loading FNSKUs. Please try again later.",
                     );
                 }
             } finally {
@@ -1428,7 +1427,7 @@ export default {
                     {
                         params: { fnsku: fnsku.FNSKU },
                         withCredentials: true,
-                    }
+                    },
                 );
 
                 if (response.data.success && response.data.fnsku_info) {
@@ -1488,7 +1487,7 @@ export default {
                     {
                         params: { fnsku: fnsku.FNSKU },
                         withCredentials: true,
-                    }
+                    },
                 );
 
                 return response.data.success && response.data.available;
@@ -1610,7 +1609,7 @@ export default {
                         headers: {
                             "X-CSRF-TOKEN": csrfToken,
                         },
-                    }
+                    },
                 );
 
                 Swal.close();
@@ -1741,7 +1740,7 @@ export default {
                 v !== undefined && v !== null && String(v).trim() !== "";
 
             const missingFields = Object.keys(idFields).filter(
-                (k) => !isFilled(idFields[k])
+                (k) => !isFilled(idFields[k]),
             );
 
             // ❌ Stop if any are missing
@@ -1782,7 +1781,7 @@ export default {
                         headers: {
                             "X-CSRF-TOKEN": csrfToken,
                         },
-                    }
+                    },
                 );
 
                 Swal.close();
@@ -1847,7 +1846,7 @@ export default {
             if (!item) return;
 
             const freshItem = this.items.find(
-                (i) => i.itemnumber === item.itemnumber
+                (i) => i.itemnumber === item.itemnumber,
             );
             this.item = { ...(freshItem || item) };
 
@@ -1926,7 +1925,7 @@ export default {
                 !/^(BKT|SI|ENV)\d+$/i.test(this.item.basketnumber)
             ) {
                 errors.push(
-                    "Basket/Shelf/Envelope Number must start with 'BKT', 'SI', or 'ENV' followed by numbers."
+                    "Basket/Shelf/Envelope Number must start with 'BKT', 'SI', or 'ENV' followed by numbers.",
                 );
             }
 
@@ -1951,17 +1950,17 @@ export default {
 
                 console.log(
                     "POST payload:",
-                    JSON.parse(JSON.stringify(payload))
+                    JSON.parse(JSON.stringify(payload)),
                 );
 
                 const response = await axios.post(
                     "/api/labeling/products",
-                    payload
+                    payload,
                 );
                 const updated = response.data.product;
 
                 const index = this.items.findIndex(
-                    (p) => p.ProductID === updated.ProductID
+                    (p) => p.ProductID === updated.ProductID,
                 );
                 if (index !== -1) this.items.splice(index, 1, updated);
                 else this.items.unshift(updated);
@@ -2121,7 +2120,7 @@ export default {
             this.showSplitModal = true;
             console.log(
                 "🔍 After setting: showSplitModal =",
-                this.showSplitModal
+                this.showSplitModal,
             );
         },
 
@@ -2136,7 +2135,7 @@ export default {
 
             console.log(
                 "🔍 After close: showSplitModal =",
-                this.showSplitModal
+                this.showSplitModal,
             );
         },
 
@@ -2145,7 +2144,7 @@ export default {
          */
         async onSplitSuccess() {
             console.log(
-                "🔍 Split success event received - refreshing inventory"
+                "🔍 Split success event received - refreshing inventory",
             );
             await this.fetchInventory();
         },
@@ -2260,7 +2259,7 @@ export default {
         // Debug: Log initial state
         console.log(
             "🔍 Component mounted. showSplitModal initial state:",
-            this.showSplitModal
+            this.showSplitModal,
         );
 
         this.filterFnskuList(1);
