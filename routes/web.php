@@ -52,6 +52,7 @@ use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Controllers\AuxiliaryController;
 
+use App\Http\Controllers\OrderIdentifierController;
 use App\Http\Middleware\PreventBackHistory;
 use App\Http\Models\Store;
 use App\Models\User;
@@ -805,6 +806,10 @@ Route::post('/user/kanban/saveUserPermissions', [KanbanUserPermissionController:
 Route::post('/user/kanban/getTaskComments', [KanbanCommentController::class, 'getTaskComments']);
 Route::post('/user/kanban/addTaskComment', [KanbanCommentController::class, 'addTaskComment']);
 Route::post('/user/kanban/getActivityLogs', [KanbanActivityLogController::class, 'getActivityLogs']);
+
+Route::get('/settings/getOrderIdentifiers', [OrderIdentifierController::class, 'getOrderIdentifiers']);
+Route::post('/settings/updateStartCount', [OrderIdentifierController::class, 'updateStartCount']);
+Route::post('/print/processPrintRPN_PCN_SH', [OrderIdentifierController::class, 'processPrintRPN_PCN_SH']);
 
 Route::get('/fbm-orders-shippinglabel-test', function () {
     $controller = new PrintShippingLabelController;
