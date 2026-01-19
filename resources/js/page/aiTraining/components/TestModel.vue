@@ -71,7 +71,7 @@ import { ref } from 'vue'
 import axios from 'axios'
 import useTraining from '../scripts/training-script.js'
 
-const { status } = useTraining()
+const { status, config } = useTraining()
 
 const fileInput = ref(null)
 const isDragging = ref(false)
@@ -101,10 +101,13 @@ async function testModel() {
   for (const file of selectedFiles.value) {
     const formData = new FormData()
     formData.append('image', file)
+    formData.append('model_name', config.value.modelName)
 
     try {
-      // ✅ CALL LARAVEL — NOT PYTHON DIRECTLY
-      const res = await axios.post('/api/test-model', formData)
+      const res = await axios.post(
+        '/api/training/test-model', // ✅ FIXED PATH
+        formData
+      )
 
       testResults.value.push({
         asin: res.data.asin,
@@ -126,6 +129,7 @@ async function testModel() {
 
   testing.value = false
 }
+
 </script>
 
 <style scoped>

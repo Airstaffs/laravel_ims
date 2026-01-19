@@ -230,7 +230,13 @@ class TrainingProxyController extends Controller
                 file_get_contents($request->file('image')->getRealPath()),
                 $request->file('image')->getClientOriginalName()
             )
-            ->post($this->trainingUrl('/api/test-model'))
+            ->post(
+                $this->trainingUrl('/api/test-model'), // ✅ FIX
+                [
+                    'model_name' => $request->input('model_name'),
+                ]
+            )
             ->json();
     }
+
 }
