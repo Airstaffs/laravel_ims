@@ -55,8 +55,9 @@ Route::prefix('training')->group(function () {
     /* 📦 Upload dataset */
     Route::post('/upload-dataset', [TrainingProxyController::class, 'uploadDataset']);
 
+    /* 🖼 Class images */
     Route::get('/class-image/{class}/{file}', [TrainingProxyController::class, 'classImage'])
-    ->where('file', '.*');
+        ->where('file', '.*');
 
     /* 🚀 Start training */
     Route::post('/start-training', [TrainingProxyController::class, 'startTraining']);
@@ -65,14 +66,21 @@ Route::prefix('training')->group(function () {
     Route::get('/training-stream', [TrainingProxyController::class, 'trainingStream']);
 
     /* 🖼 Training images */
-    // Route::get('/training-images/{model}', [TrainingProxyController::class, 'trainingImages']);
-
     Route::get('/training-image/{model}/{file}', [TrainingProxyController::class, 'trainingImage'])
         ->where('file', '.*');
 
     /* 📊 Metrics */
     Route::get('/training-metrics/{model}', [TrainingProxyController::class, 'trainingMetrics']);
 
+    Route::get('/training-images/{model}', [TrainingProxyController::class, 'trainingImages']);
+
     /* 🧠 Update / reload model */
     Route::post('/update-model', [TrainingProxyController::class, 'updateModel']);
+
+    /* ❌ Cancel training (FIXED) */
+    Route::post('/cancel-training', [TrainingProxyController::class, 'cancelTraining']);
+
+    Route::post('/test-model', [TrainingProxyController::class, 'testModel']);
+
 });
+

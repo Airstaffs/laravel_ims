@@ -213,6 +213,29 @@
                 </small>
             </div>
 
+            <div class="form-group">
+                <label for="editImageUpload">Update Image (Optional)</label>
+                <input 
+                    type="file" 
+                    id="editImageUpload"
+                    ref="editFileInput"
+                    @change="handleEditFileSelect"
+                    accept="image/*"
+                />
+                <small class="text-muted" style="display: block; margin-top: 5px;">
+                    Leave empty to keep current image
+                </small>
+            </div>
+
+            <!-- Image Preview -->
+            <img 
+                v-if="editImagePreview" 
+                :src="editImagePreview" 
+                id="editImagePreview"
+                alt="Preview"
+                style="display: block; width: 100%; max-width: 300px; max-height: 250px; border: 1px solid #ccc; border-radius: 8px; margin: 15px auto; object-fit: cover;"
+            />
+
             <template #footer>
                 <Button 
                     label="Cancel" 
