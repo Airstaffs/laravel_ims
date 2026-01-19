@@ -20,10 +20,15 @@
 
 <script setup>
 import useTraining from '../scripts/training-script.js'
-import { ref } from 'vue'
 
-const { startTraining, cancelTraining, updateModel, retrainModel, trainingActive, status } = useTraining()
-
+const {
+  startTraining,
+  cancelTraining,
+  updateModel,
+  retrainModel,
+  trainingActive,
+  status
+} = useTraining()
 </script>
 
 <style scoped>

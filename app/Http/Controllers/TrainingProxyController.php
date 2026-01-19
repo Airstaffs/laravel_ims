@@ -206,4 +206,31 @@ class TrainingProxyController extends Controller
 
         return response()->json($res->json(), $res->status());
     }
+
+    /* ===============================
+     | ❌ Cancel training
+     =============================== */
+    public function cancelTraining()
+    {
+        Http::timeout(2)->post(
+            $this->trainingUrl('/api/cancel-training')
+        );
+
+        // 🚀 Respond immediately to frontend
+        return response()->json([
+            'status' => 'cancel_sent'
+        ]);
+    }
+
+    public function testModel(Request $request)
+    {
+        return Http::asMultipart()
+            ->attach(
+                'image',
+                file_get_contents($request->file('image')->getRealPath()),
+                $request->file('image')->getClientOriginalName()
+            )
+            ->post($this->trainingUrl('/api/test-model'))
+            ->json();
+    }
 }
