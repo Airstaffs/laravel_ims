@@ -120,6 +120,7 @@ export default {
 
             // FNSKU Table
             fnskuSummaries: {},
+            isUnmerging: false,
         };
     },
     computed: {
@@ -267,6 +268,98 @@ export default {
                 
                 return groups;
             },
+
+
+                isMergedItem() {
+        if (!this.currentProcessItem) {
+            console.log("No current process item");
+            return false;
+        }
+        
+        console.log("Checking if merged item:", this.currentProcessItem);
+        
+        // Check multiple possible locations for mergeID
+        // 1. Check at item level
+        if (this.currentProcessItem.mergeID) {
+            console.log("Found mergeID at item level:", this.currentProcessItem.mergeID);
+            return true;
+        }
+        
+        // 2. Check in serials array
+        if (this.currentProcessItem.serials && this.currentProcessItem.serials.length > 0) {
+            const hasMergeID = this.currentProcessItem.serials.some(serial => {
+                const has = serial.mergeID !== null && 
+                           serial.mergeID !== undefined && 
+                           serial.mergeID !== 0;
+                if (has) {
+                    console.log("Found mergeID in serial:", serial.ProductID, "mergeID:", serial.mergeID);
+                }
+                return has;
+            });
+            
+            if (hasMergeID) return true;
+        }
+        
+        console.log("No mergeID found - not a merged item");
+        return false;
+    },
+    
+    // Check if only one item is selected and it's merged
+    canUnmerge() {
+        const can = this.selectedItems.length === 1 && this.isMergedItem;
+        console.log("Can unmerge?", can, {
+            selectedCount: this.selectedItems.length,
+            isMerged: this.isMergedItem
+        });
+        return can;
+    },
+        canMergeSelected() {
+        if (this.selectedItems.length < 2) {
+            return false;
+        }
+
+        if (!this.currentProcessItem || !this.currentProcessItem.serials) {
+            return false;
+        }
+
+        // Get the QuantityInside for the first item
+        const firstSerial = this.currentProcessItem.serials.find(
+            s => s.ProductID === this.selectedItems[0]
+        );
+
+        if (!firstSerial) {
+            return false;
+        }
+
+        const quantityInside = this.currentProcessItem.quantity_inside || 1;
+        const targetPackSize = this.selectedItems.length * quantityInside;
+
+        // Only allow 2-pack or 4-pack
+        const allowedPackSizes = [2, 4];
+        
+        return allowedPackSizes.includes(targetPackSize);
+    },
+
+     mergeButtonTooltip() {
+        if (this.selectedItems.length < 2) {
+            return 'Select at least 2 items to merge';
+        }
+
+        if (!this.currentProcessItem) {
+            return 'No items selected';
+        }
+
+        const quantityInside = this.currentProcessItem.quantity_inside || 1;
+        const targetPackSize = this.selectedItems.length * quantityInside;
+
+        if (![2, 4].includes(targetPackSize)) {
+            return `Cannot create ${targetPackSize}-pack. Only 2-pack and 4-pack are allowed.\n\nTo create:\n• 2-pack: Select 2 single items\n• 4-pack: Select 4 single items or 2 double items`;
+        }
+
+        return `Merge ${this.selectedItems.length} items into ${targetPackSize}-pack`;
+    }
+
+     
     },
     methods: {
         setupDailyReset() {
@@ -709,86 +802,88 @@ export default {
     },
 
         // etchInventory with count validation
-        async fetchInventory() {
-            this.loading = true;
-            try {
-                console.log("Starting fetchInventory..."); // Debug log
+       async fetchInventory(forceFresh = false) {
+    this.loading = true;
+    try {
+        console.log("Starting fetchInventory...", forceFresh ? "(FORCE FRESH)" : "");
 
-                const response = await axios.get(
-                    `${API_BASE_URL}/api/stockroom/products`,
-                    {
-                        params: {
-                            search: this.searchQuery,
-                            page: this.currentPage,
-                            per_page: this.perPage,
-                            store: this.selectedStore,
-                        },
-                        withCredentials: true,
-                    }
-                );
-
-                console.log("API Response received:", response.data); // Debug log
-
-                // Initialize items with checked property and useDefaultImage flag
-                let inventoryItems = (response.data.data || []).map((item) => {
-                    const itemWithFlags = {
-                        ...item,
-                        checked: false,
-                        serials: item.serials || [],
-                        fnskus: item.fnskus || [],
-                        useDefaultImage: false,
-                        countValid: true,
-                       
-
-                        quantity_inside: item.quantity_inside || 1,
-                        unit_count: item.unit_count || item.box_count || 0,
-                        item_count: item.item_count || 0,
-                        box_count: item.box_count || item.unit_count || 0,
-
-                        // ADDED: Ensure display_title is set with proper priority
-                        display_title: item.display_title || item.system_title || item.AStitle || '',
-                        system_title: item.system_title || '',
-                        AStitle: item.AStitle || ''
-                    };
-
-               
-                    // Validate the item count
-                    itemWithFlags.countValid = this.validateItemCount(itemWithFlags);
-
-                    return itemWithFlags;
-                });
-
-                // Apply grade conversion to all items
-                this.inventory = this.applyGradeConversion(inventoryItems);
-
-                console.log(
-                    "Inventory items processed:",
-                    this.inventory.length
-                ); // Debug log
-
-                this.totalPages = response.data.last_page || 1;
-
-                // IMPORTANT: Calculate inventory counts AFTER setting this.inventory
-                this.calculateInventoryCounts();
-            } catch (error) {
-                console.error("Error fetching inventory data:", error);
-
-                // Initialize with empty data on error
-                this.inventory = [];
-                this.inventoryCounts = {
-                    total: 0,
-                    qoh: 0,
-                    fbm: 0,
-                    fba: 0,
-                };
-
-                if (SoundService && SoundService.error) {
-                    SoundService.error();
+        const response = await axios.get(
+            `${API_BASE_URL}/api/stockroom/products`,
+            {
+                params: {
+                    search: this.searchQuery,
+                    page: this.currentPage,
+                    per_page: this.perPage,
+                    store: this.selectedStore,
+                    _t: forceFresh ? Date.now() : undefined, // Cache buster for forced refresh
+                },
+                withCredentials: true,
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
                 }
-            } finally {
-                this.loading = false;
             }
-        },
+        );
+
+        console.log("API Response received:", response.data);
+
+        // Initialize items with checked property and useDefaultImage flag
+        let inventoryItems = (response.data.data || []).map((item) => {
+            const itemWithFlags = {
+                ...item,
+                checked: false,
+                serials: item.serials || [],
+                fnskus: item.fnskus || [],
+                useDefaultImage: false,
+                countValid: true,
+
+                quantity_inside: item.quantity_inside || 1,
+                unit_count: item.unit_count || item.box_count || 0,
+                item_count: item.item_count || 0,
+                box_count: item.box_count || item.unit_count || 0,
+
+                display_title: item.display_title || item.system_title || item.AStitle || '',
+                system_title: item.system_title || '',
+                AStitle: item.AStitle || ''
+            };
+
+            // Validate the item count
+            itemWithFlags.countValid = this.validateItemCount(itemWithFlags);
+
+            return itemWithFlags;
+        });
+
+        // Apply grade conversion to all items
+        this.inventory = this.applyGradeConversion(inventoryItems);
+
+        console.log("Inventory items processed:", this.inventory.length);
+
+        this.totalPages = response.data.last_page || 1;
+
+        // IMPORTANT: Calculate inventory counts AFTER setting this.inventory
+        this.calculateInventoryCounts();
+        
+        console.log("✅ Inventory refreshed successfully");
+    } catch (error) {
+        console.error("Error fetching inventory data:", error);
+
+        // Initialize with empty data on error
+        this.inventory = [];
+        this.inventoryCounts = {
+            total: 0,
+            qoh: 0,
+            fbm: 0,
+            fba: 0,
+        };
+
+        if (SoundService && SoundService.error) {
+            SoundService.error();
+        }
+    } finally {
+        this.loading = false;
+    }
+     },
 
         // Pagination methods
         changePerPage() {
@@ -846,6 +941,18 @@ export default {
         openProcessModal(item) {
             const processedItem = this.applyGradeConversion([item])[0];
             this.currentProcessItem = processedItem;
+
+
+             // DEBUG: Log the item structure
+                console.log("Opening process modal for item:", processedItem);
+                console.log("Item serials:", processedItem.serials);
+                console.log("Checking for mergeID in serials:", 
+                    processedItem.serials?.map(s => ({ 
+                        ProductID: s.ProductID, 
+                        mergeID: s.mergeID,
+                        rtcounter: s.rtcounter
+                    }))
+                );
 
             this.showProcessModal = true;
             this.processShipmentType = "For Dispense";
@@ -1840,131 +1947,215 @@ async fetchAvailablePrinters() {
 
         // Updated mergeSelectedItems function with correct API URL format
 async mergeSelectedItems() {
-    if (this.selectedItems.length < 2) {
-        alert("Please select at least two items to merge.");
-        return;
-    }
-
-    let productTitle = "";
-    let productAsin = "";
-    let productStore = "";
-    let selectedSerials = [];
-    let selectedFnsku = ""; // Add variable for FNSKU
-
-    if (this.currentProcessItem) {
-        productTitle = this.currentProcessItem.AStitle || "";
-        productAsin = this.currentProcessItem.ASIN || "";
-        productStore = this.currentProcessItem.storename || "";
-
-        console.log("Using process modal title:", productTitle);
-
-        selectedSerials = this.currentProcessItem.serials
-            .filter((serial) =>
-                this.selectedItems.includes(serial.ProductID)
-            )
-            .map((serial) => serial.serialnumber);
-
-        // Get the first available FNSKU for this product if any
-        if (
-            this.currentProcessItem.fnskus &&
-            this.currentProcessItem.fnskus.length > 0
-        ) {
-            let rawFnsku =
-                this.currentProcessItem.fnskus[0].FNSKU ||
-                this.currentProcessItem.fnskus[0];
-            selectedFnsku = this.normalizeFnsku(rawFnsku);
-            console.log(
-                "Using normalized FNSKU from current process item:",
-                selectedFnsku
-            );
+        if (this.selectedItems.length < 2) {
+            alert("Please select at least two items to merge.");
+            return;
         }
-    } else {
-        const firstSelectedId = this.selectedItems[0];
-        for (const item of this.inventory) {
-            if (
-                item.serials &&
-                item.serials.some(
-                    (serial) => serial.ProductID === firstSelectedId
+
+        // Check if merge is allowed (2-pack or 4-pack only)
+        if (!this.canMergeSelected) {
+            alert(this.mergeButtonTooltip);
+            return;
+        }
+
+        let productTitle = "";
+        let productAsin = "";
+        let productStore = "";
+        let selectedSerials = [];
+        let selectedFnsku = "";
+
+        if (this.currentProcessItem) {
+            productTitle = this.currentProcessItem.AStitle || "";
+            productAsin = this.currentProcessItem.ASIN || "";
+            productStore = this.currentProcessItem.storename || "";
+
+            selectedSerials = this.currentProcessItem.serials
+                .filter((serial) =>
+                    this.selectedItems.includes(serial.ProductID)
                 )
+                .map((serial) => serial.serialnumber);
+
+            if (
+                this.currentProcessItem.fnskus &&
+                this.currentProcessItem.fnskus.length > 0
             ) {
-                productTitle = item.AStitle || "";
-                productAsin = item.ASIN || "";
-                productStore = item.storename || "";
-
-                if (item.fnskus && item.fnskus.length > 0) {
-                    let rawFnsku =
-                        item.fnskus[0].FNSKU || item.fnskus[0];
-                    selectedFnsku = this.normalizeFnsku(rawFnsku);
-                    console.log(
-                        "Found normalized FNSKU from inventory:",
-                        selectedFnsku
-                    );
-                }
-
-                console.log(
-                    "Found title from inventory:",
-                    productTitle
-                );
-                break;
+                let rawFnsku =
+                    this.currentProcessItem.fnskus[0].FNSKU ||
+                    this.currentProcessItem.fnskus[0];
+                selectedFnsku = this.normalizeFnsku(rawFnsku);
             }
         }
 
-        for (const id of this.selectedItems) {
-            for (const item of this.inventory) {
-                if (item.serials) {
-                    const serial = item.serials.find(
-                        (s) => s.ProductID === id
-                    );
-                    if (serial) {
-                        selectedSerials.push(serial.serialnumber);
+        if (!productTitle) {
+            alert("Could not determine product title for merging.");
+            return;
+        }
+
+        const quantityInside = this.currentProcessItem.quantity_inside || 1;
+        const targetPackSize = this.selectedItems.length * quantityInside;
+
+        if (
+            confirm(
+                `Are you sure you want to merge ${this.selectedItems.length} items into a ${targetPackSize}-pack of "${productTitle}"?`
+            )
+        ) {
+            try {
+                this.isProcessing = true;
+
+                const mergeData = {
+                    items: this.selectedItems,
+                    title: productTitle,
+                    asin: productAsin,
+                    store: productStore,
+                    serialNumbers: selectedSerials,
+                };
+
+                if (selectedFnsku && selectedFnsku.trim() !== '') {
+                    mergeData.fnsku = selectedFnsku;
+                }
+
+                console.log("Sending merge data:", mergeData);
+
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/stockroom/merge-items`,
+                    mergeData,
+                    {
+                        withCredentials: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            )?.content,
+                        },
                     }
+                );
+
+                if (response.data.success) {
+                    const newRtNumber = response.data.newrt;
+                    const productId = response.data.productid;
+                    const mergedTitle = response.data.title || productTitle;
+                    const mergedFnsku = response.data.fnsku || selectedFnsku;
+
+                    let storeNameForRt = response.data.store || productStore;
+                    const formattedRt = this.formatRTNumber(
+                        newRtNumber,
+                        storeNameForRt
+                    );
+
+                    alert(
+                        `✅ Items successfully merged into ${formattedRt}: ${mergedTitle}${
+                            mergedFnsku ? ` (FNSKU: ${mergedFnsku})` : ""
+                        }`
+                    );
+
+                    // Close modal first
+                    this.closeProcessModal();
+
+                    // Auto-refresh inventory immediately
+                    await this.fetchInventory();
+
+                    // Ask if user wants to print
+                    if (
+                        confirm(
+                            "Do you want to print a label for the newly created item?"
+                        )
+                    ) {
+                        await this.printLabel(productId);
+                    }
+
+                } else {
+                    alert(
+                        `❌ Error: ${
+                            response.data.message || "Failed to merge items"
+                        }`
+                    );
                 }
+            } catch (error) {
+                console.error("Error merging items:", error);
+                
+                if (error.response?.data?.reason === 'invalid_pack_size') {
+                    alert(error.response.data.message);
+                } else if (error.response?.data?.reason === 'incompatible_items') {
+                    const errorData = error.response.data;
+                    const incompatibleItems = errorData.incompatible_items || [];
+                    
+                    let errorMessage = "❌ Cannot merge items - Incompatible products detected:\n\n";
+                    
+                    const errorsBySerial = {};
+                    incompatibleItems.forEach(issue => {
+                        if (!errorsBySerial[issue.serial]) {
+                            errorsBySerial[issue.serial] = [];
+                        }
+                        errorsBySerial[issue.serial].push(issue);
+                    });
+                    
+                    for (const [serial, issues] of Object.entries(errorsBySerial)) {
+                        errorMessage += `📦 Serial: ${serial}\n`;
+                        issues.forEach(issue => {
+                            errorMessage += `   • ${issue.reason}: Expected "${issue.expected}", Got "${issue.actual}"\n`;
+                        });
+                        errorMessage += "\n";
+                    }
+                    
+                    errorMessage += "💡 Tip: You can only merge items with the same ASIN, Color, and QuantityInside.";
+                    alert(errorMessage);
+                    
+                } else if (error.response?.data?.message) {
+                    alert(`❌ Error: ${error.response.data.message}`);
+                } else {
+                    alert("❌ Failed to merge items. Please try again.");
+                }
+            } finally {
+                this.isProcessing = false;
             }
         }
-    }
+    },
 
-    if (!productTitle) {
-        alert("Could not determine product title for merging.");
-        return;
-    }
+/**
+     * Unmerge a merged item
+     */
+  async unmergeItem() {
+        if (!this.canUnmerge) {
+            alert("Please select exactly one merged item to unmerge.");
+            return;
+        }
 
-    console.log("Final title being sent:", productTitle);
-    console.log(
-        "Number of items being merged:",
-        this.selectedItems.length
-    );
-    console.log("FNSKU being sent:", selectedFnsku);
+        const selectedProductId = this.selectedItems[0];
+        
+        const selectedSerial = this.currentProcessItem.serials.find(
+            serial => serial.ProductID === selectedProductId
+        );
 
-    if (
-        confirm(
-            `Are you sure you want to merge ${this.selectedItems.length} items of "${productTitle}"?`
-        )
-    ) {
+        if (!selectedSerial) {
+            alert("Could not find selected item information.");
+            return;
+        }
+
+        const rtNumber = this.formatRTNumber(
+            selectedSerial.rtcounter,
+            selectedSerial.storename
+        );
+
+        if (!confirm(
+            `Are you sure you want to unmerge item ${rtNumber}?\n\n` +
+            `This will:\n` +
+            `• Delete the merged item\n` +
+            `• Restore all original items back to Stockroom\n` +
+            `• Return FNSKU units\n\n` +
+            `This action cannot be undone.`
+        )) {
+            return;
+        }
+
         try {
-            this.isProcessing = true;
-
-            // Prepare merge data
-            const mergeData = {
-                items: this.selectedItems,
-                title: productTitle,
-                asin: productAsin,
-                store: productStore,
-                serialNumbers: selectedSerials,
-            };
-
-            // ✅ ONLY ADD FNSKU IF IT HAS A VALUE
-            if (selectedFnsku && selectedFnsku.trim() !== '') {
-                mergeData.fnsku = selectedFnsku;
-                console.log("Adding FNSKU to merge data:", selectedFnsku);
-            } else {
-                console.log("No FNSKU provided, skipping");
-            }
-
-            console.log("Sending merge data:", mergeData);
+            this.isUnmerging = true;
 
             const response = await axios.post(
-                `${API_BASE_URL}/api/stockroom/merge-items`,
-                mergeData,
+                `${API_BASE_URL}/api/stockroom/unmerge-item`,
+                {
+                    productId: selectedProductId
+                },
                 {
                     withCredentials: true,
                     headers: {
@@ -1978,102 +2169,38 @@ async mergeSelectedItems() {
             );
 
             if (response.data.success) {
-                const newRtNumber = response.data.newrt;
-                const productId = response.data.productid;
-                const mergedTitle = response.data.title || productTitle;
-                const mergedFnsku =
-                    response.data.fnsku || selectedFnsku;
-
-                let storeNameForRt =
-                    response.data.store || productStore;
-                const formattedRt = this.formatRTNumber(
-                    newRtNumber,
-                    storeNameForRt
-                );
-
                 alert(
-                    `Items successfully merged into new item ${formattedRt}: ${mergedTitle}${
-                        mergedFnsku ? ` (FNSKU: ${mergedFnsku})` : ""
-                    }`
+                    `✅ ${response.data.message}\n\n` +
+                    `${response.data.restored_count} original items have been restored to Stockroom.`
                 );
 
-                if (
-                    confirm(
-                        "Do you want to print a label for the newly created item?"
-                    )
-                ) {
-                    await this.printLabel(productId);
-                }
-
+                // Close modal first
                 this.closeProcessModal();
-                this.fetchInventory();
+                
+                // Auto-refresh inventory immediately
+                await this.fetchInventory();
+
             } else {
-                alert(
-                    `Error: ${
-                        response.data.message || "Failed to merge items"
-                    }`
-                );
+                alert(`❌ Error: ${response.data.message}`);
             }
+
         } catch (error) {
-            console.error("Error merging items:", error);
+            console.error("Error unmerging item:", error);
             
-            // Handle validation errors
-            if (error.response?.data?.reason === 'incompatible_items') {
-                const errorData = error.response.data;
-                const incompatibleItems = errorData.incompatible_items || [];
-                
-                console.log("Incompatible items detected:", incompatibleItems);
-                
-                let errorMessage = "❌ Cannot merge items - Incompatible products detected:\n\n";
-                
-                const errorsBySerial = {};
-                incompatibleItems.forEach(issue => {
-                    if (!errorsBySerial[issue.serial]) {
-                        errorsBySerial[issue.serial] = [];
-                    }
-                    errorsBySerial[issue.serial].push(issue);
-                });
-                
-                for (const [serial, issues] of Object.entries(errorsBySerial)) {
-                    errorMessage += `📦 Serial: ${serial}\n`;
-                    issues.forEach(issue => {
-                        errorMessage += `   • ${issue.reason}: Expected "${issue.expected}", Got "${issue.actual}"\n`;
-                    });
-                    errorMessage += "\n";
-                }
-                
-                errorMessage += "💡 Tip: You can only merge items with the same ASIN, Color, and QuantityInside.";
-                
-                alert(errorMessage);
-                
-                console.warn("Merge validation failed:", {
-                    message: errorData.message,
-                    incompatible_items: incompatibleItems
-                });
-                
-            } else if (error.response?.data?.message) {
-                alert(`Error: ${error.response.data.message}`);
-            } else if (error.response?.data?.errors) {
-                // Laravel validation errors
-                const errors = error.response.data.errors;
-                let errorMsg = "Validation errors:\n";
-                for (const [field, messages] of Object.entries(errors)) {
-                    errorMsg += `${field}: ${messages.join(', ')}\n`;
-                }
-                alert(errorMsg);
+            if (error.response?.data?.message) {
+                alert(`❌ Error: ${error.response.data.message}`);
             } else {
-                alert("Failed to merge items. Please try again.");
+                alert("❌ Failed to unmerge item. Please try again.");
             }
         } finally {
-            this.isProcessing = false;
+            this.isUnmerging = false;
         }
-    }
-},
+    },
 
-        // Print label method
-        async printLabel(productId) {
-            this.loading = true;
-            try {
+    // Print label method
+    async printLabel(productId) {
+        this.loading = true;
+        try {
                 const response = await axios.post(
                     "/api/stockroom/print-label",
                     {

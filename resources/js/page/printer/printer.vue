@@ -31,6 +31,12 @@
             >
               <i class="fas fa-redo"></i> Reprint Single Label
             </button>
+            <button 
+              @click="activeTab = 'unique'"
+              :class="['tab-button', { active: activeTab === 'unique' }]"
+            >
+              <i class="fas fa-note-sticky"></i> RPN-PCN-SHLF
+            </button>
           </div>
 
           <!-- Print All Labels Tab -->
@@ -217,7 +223,14 @@
             </div>
 
             <!-- Enhanced Product Info Display -->
-            <div v-if="reprintProductInfo" class="product-info-card">
+            <button 
+            @click="showProductDetails = !showProductDetails" 
+            v-if="reprintProductInfo" 
+            class="btn-showProductDetails"
+            >
+            {{ showProductDetails ? 'Show Product Information' : 'Hide Product Information' }}
+            </button>
+            <div v-if="reprintProductInfo && !showProductDetails" class="product-info-card">
               <h4><i class="fas fa-info-circle"></i> Product Information</h4>
               <div class="info-grid">
                 <div class="info-item">
@@ -274,6 +287,41 @@
               </span>
             </button>
           </div>
+
+          <!---RPN-PRD-PCN-SHLF TAB--->
+          <div v-if="activeTab === 'unique'" class="tab-content">
+            <div>
+              <Card>
+                <template #title><h6>Last Number Print</h6></template>
+                <template #content>
+                 <div class="text-center fs-2 fw-semibold ">
+                   {{ prefixUniqueLabelWithValue(initLabelOption) }}
+                 </div>
+                </template>
+              </Card>
+            </div>
+            <div class="input-group">
+              <label for="labelSelect">Select Label</label>
+              <select id="labelSelect" v-model="initLabelOption"  class="uniqueLabel">
+                <option v-for="label in labelOption" :value="label.value">{{ label.label }}</option>
+              </select>
+            </div>
+            <div class="input-group">
+               <label for="labelSelectPrinter">Select Printer</label>
+              <select id="labelSelect" v-model="selectedPrinterForUniqueLabel"  class="uniqueLabel">
+                <option v-for="printer in filteredSmallLabelPrinters" :value="printer.printerip">{{ printer.printername_short }}</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <label for="labelInputQuantity">Input Quantity</label>
+              <input v-model="uniqueLabelQuantity" type="number" id="labelNumber">
+            </div>
+
+            <button class="print-unique-label-btn" 
+            :disabled="isPrintingPCN_RPN_SH"
+            @click="handleProcessPrintRPN_PCN_SH">{{ isPrintingPCN_RPN_SH ? "Printing..." : "Print" }}</button>
+          </div>
+          
         </div>
       </template>
     </ScannerComponent>
@@ -282,15 +330,23 @@
 
 <script>
 // Fix the import paths - use relative paths from the printer component location
+
+import { Card } from 'primevue';
 import ScannerComponent from '../../components/Scanner.vue';
 import { SoundService } from '../../components/Sound_service.js';
+import Swal from 'sweetalert2';
 
 export default {
   name: 'PrinterModule',
   components: {
-    ScannerComponent
+    ScannerComponent, Card
   },
   computed: {
+
+    filteredSmallLabelPrinters() {
+      const printers = this.printers.filter((printer) => printer.printer_type === "small_label")
+      return printers
+    },
     // Filter printers to show only unique entries (no duplicates from married pairs) - FOR MAIN PRINT TAB ONLY
    uniquePrinters() {
   if (!this.printers || this.printers.length === 0) {
@@ -461,14 +517,30 @@ export default {
         { key: 'vector_image', name: 'Vector Image', description: 'Product vector image (SMALL LABEL PRINTER)', category: 'small' },
         
         // Instruction Card Types - ONLY INSTRUCTION CARDS
-        { key: 'instruction_cards', name: 'Instruction Cards', description: 'All instruction cards (INSTRUCTION CARD PRINTER ONLY)', category: 'instruction' }
-      ]
+        {    key: 'instruction_cards', name: 'Instruction Card', description: 'For instruction card printer only', category: 'instruction' }
+      ],
+      showProductDetails: true,
+
+      //pcn-rpn-shlf
+      uniqueLabelQuantity: 1,
+      initLabelOption: 'pcn',
+      selectedPrinterForUniqueLabel: "192.168.1.204", //init printer 1 ip
+      uniqueIdentifiersData: [],
+      lastNumberLabel: 0,
+      isPrintingPCN_RPN_SH: false,
+      labelOption: [{label: "PCN", value: 'pcn'},{label: "RPN", value: 'rpn'},{label: "SHLF", value: 'shlf'}]
     };
   },
 
   watch: {
     selectedLabelType() {
       this.onLabelTypeChanged();
+    },
+
+    activeTab(newTab) {
+      if(newTab === 'unique') {
+        this.fetchIdentifiers()
+      }
     }
   },
   
@@ -1467,7 +1539,132 @@ export default {
           window.location.href = '/dashboard';
         }
       }
+    },
+
+  async handleProcessPrintRPN_PCN_SH() {
+    try {
+        this.isPrintingPCN_RPN_SH = true;
+
+        const response = await fetch("/print/processPrintRPN_PCN_SH", {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json', 
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            },
+            body: JSON.stringify({
+                labelName: this.initLabelOption.toUpperCase(),
+                quantity: this.uniqueLabelQuantity,
+                printerIp: this.selectedPrinterForUniqueLabel,
+                lastNumber: this.lastNumberLabel
+            }),
+        });
+
+        const result = await response.json();
+
+
+        if (result.success) {
+            // Swal.fire({
+            //     icon: 'success',
+            //     title: 'Printed Successfully!',
+            //     text: `${result.message}\nRange: ${result.labels}`,
+            //     confirmButtonText: 'OK',
+            // });
+            this.$refs.scannerComponent.showScanSuccess(result.message);
+
+            this.lastNumberLabel = result.endNumber;
+            
+            //fetch fresh data
+            await this.fetchIdentifiers()
+        } else {
+            let errorMessage = result.message || 'Failed to print labels';
+            
+            if (result.errors) {
+                // Show validation errors
+                const errorList = Object.values(result.errors)
+                    .flat()
+                    .join('\n');
+                errorMessage = `Validation errors:\n${errorList}`;
+            }
+
+            this.$refs.scannerComponent.showScanError(result.message);
+
+            // Swal.fire({
+            //     icon: 'error',
+            //     title: 'Print Failed',
+            //     text: errorMessage,
+            //     confirmButtonText: 'OK',
+            // });
+        }
+
+    } catch (error) {
+        console.error('Print request failed:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Network Error',
+            text: 'Could not connect to server. Please check your connection.',
+            confirmButtonText: 'OK',
+        });
+
+    } finally {
+        this.isPrintingPCN_RPN_SH = false;
     }
+},
+
+
+    //get prefix
+    prefixUniqueLabelWithValue() {
+    const prefixMap = {
+        pcn: 'PCN',
+        rpn: 'RPN',
+        shlf: 'SHLF',
+    };
+    
+    const prefix = prefixMap[this.initLabelOption];
+    
+    if (!prefix) return '';
+    
+    const item = this.uniqueIdentifiersData.find(item => item.name === prefix);
+    this.lastNumberLabel = item?.latest
+    return `${prefix} ${item?.latest || 0}`;
+},
+
+async fetchIdentifiers() {
+    try {
+        this.loadingUniqueIdentifiers = true;
+        
+        const response = await fetch("/settings/getOrderIdentifiers", {
+            method: 'GET',
+            headers: {
+                Accept: "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const { data } = await response.json();
+
+        this.uniqueIdentifiersData = data?.map(({ name, end }) => ({ 
+            name, 
+            latest: end 
+        })) || [];
+        console.log(
+          data?.map(({ name, end }) => ({ 
+            name, 
+            latest: end 
+        }))
+        )
+    } catch (error) {
+        console.error("Failed to fetch identifiers:", error);
+        this.uniqueIdentifiersData = []; 
+    } finally {
+        this.loadingUniqueIdentifiers = false;
+    }
+}
+
   },
   
   // Add cleanup when component is destroyed
@@ -1501,12 +1698,26 @@ export default {
   gap: 0;
   margin-bottom: 20px;
   border-bottom: 2px solid #e0e0e0;
+  overflow-x: auto;        /* allows horizontal scrolling */
+  white-space: nowrap;     /* prevents wrapping to next line */
+  -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+  scrollbar-width: thin;   /* optional, for Firefox thin scrollbar */
+}
+
+/* Optional: hide scrollbar for nicer look */
+.tab-navigation::-webkit-scrollbar {
+  height: 6px;
+}
+
+.tab-navigation::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
 }
 
 .tab-button {
   flex: 1;
   padding: 12px 20px;
-  background-color: #f5f5f5;
+  background-color: #ffffff;
   border: none;
   border-bottom: 3px solid transparent;
   font-size: 14px;
@@ -1723,21 +1934,35 @@ export default {
 .input-group label {
   font-weight: 600;
   font-size: 14px;
-  color: #333;
+}
+
+.btn-showProductDetails {
+  background-color: #28a745;
+    color: #fff;
+  padding: .5rem;
+  border-radius: 6px;
+  border: none;
+}
+
+.btn-showProductDetails:hover {
+    background-color: #0c8127;
 }
 
 .input-group input,
 .printer-select,
+.uniqueLabel,
 .label-type-select {
   padding: 12px;
   border: 2px solid #ddd;
   border-radius: 6px;
   font-size: 16px;
   transition: border-color 0.3s ease;
+  width: 100%;
 }
 
 .input-group input:focus,
 .printer-select:focus,
+.uniqueLabel:focus,
 .label-type-select:focus {
   border-color: #4CAF50;
   outline: none;
@@ -1864,6 +2089,15 @@ export default {
 
 .submit-button i {
   font-size: 14px;
+}
+
+.print-unique-label-btn {
+  background-color: #4CAF50;
+  color: #fff;
+  padding: 6px 0;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
 }
 
 @media (max-width: 768px) {

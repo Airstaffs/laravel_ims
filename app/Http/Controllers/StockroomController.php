@@ -207,7 +207,7 @@ class StockroomController extends BasetablesController
      * Display a listing of products in stockroom with optimized queries and caching
      * MODIFIED to handle prefixed FNSKUs in joins - SIMPLIFIED VERSION
      */
-    public function index(Request $request)
+public function index(Request $request)
 {
     try {
         $perPage = min($request->input('per_page', 15), 100);
@@ -215,13 +215,22 @@ class StockroomController extends BasetablesController
         $store = $request->input('store', '');
         $page = $request->input('page', 1);
 
+        // NEW: Check if this is a forced refresh (skip cache)
+        $forceFresh = $request->has('_t');
+
         $cacheKey = "stockroom_inventory_{$page}_{$perPage}_{$store}_" . md5($search);
 
-        if (empty($search)) {
+        // Only use cache if NOT forced fresh AND search is empty
+        if (!$forceFresh && empty($search)) {
             $cachedResult = Cache::get($cacheKey);
             if ($cachedResult) {
+                Log::info("Returning cached inventory data");
                 return response()->json($cachedResult);
             }
+        }
+
+        if ($forceFresh) {
+            Log::info("Force fresh request - bypassing cache");
         }
 
         // Get products first
@@ -237,7 +246,8 @@ class StockroomController extends BasetablesController
                 'prod.Outbound',
                 'prod.Inbound',
                 'prod.Unfulfillable',
-                'prod.Reserved'
+                'prod.Reserved',
+                'prod.mergeID',  
             ])
             ->where('prod.ProductModuleLoc', 'Stockroom');
 
@@ -286,7 +296,7 @@ class StockroomController extends BasetablesController
                 'asin.internal as AStitle',
                 'asin.system_title',
                 'asin.asinStatus',
-                'asin.QuantityInside'  // NEW: Include QuantityInside column
+                'asin.QuantityInside'  // Include QuantityInside column
             ])
             ->whereIn('asin.ASIN', $asinList)
             ->where('asin.ASIN', '!=', '')
@@ -424,7 +434,7 @@ class StockroomController extends BasetablesController
             $item->Unfulfillable = $asinProducts->sum('Unfulfillable');
             $item->Reserved = $asinProducts->sum('Reserved');
 
-            // NEW: Calculate quantity based on QuantityInside
+            // Calculate quantity based on QuantityInside
             $quantityInside = $asin->QuantityInside ?? 1; // Default to 1 if NULL
             $quantityInside = max(1, min(4, (int)$quantityInside)); // Ensure it's between 1-4
             
@@ -447,11 +457,11 @@ class StockroomController extends BasetablesController
                     'FNSKUviewer' => $product->FNSKUviewer,
                     'MSKU' => $fnskuRecord->MSKU ?? '',
                     'grading' => $fnskuRecord->grading ?? '',
-                    'storename' => $fnskuRecord->storename ?? ''
+                    'storename' => $fnskuRecord->storename ?? '',
+                    'mergeID' => $product->mergeID ?? null,
                 ];
             })->toArray();
 
-            // No longer using pack_size from title
             $item->pack_size = $quantityInside;
             $item->box_count = $unitCount;
 
@@ -472,8 +482,18 @@ class StockroomController extends BasetablesController
             'total' => $total
         ];
 
-        if (empty($search)) {
+        // Only cache if NOT forced fresh and search is empty
+        if (!$forceFresh && empty($search)) {
             Cache::put($cacheKey, $result, 30);
+            Log::info("Cached inventory data");
+        }
+
+        // Add no-cache headers for forced fresh requests
+        if ($forceFresh) {
+            return response()->json($result)
+                ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+                ->header('Pragma', 'no-cache')
+                ->header('Expires', '0');
         }
 
         return response()->json($result);
@@ -489,8 +509,6 @@ class StockroomController extends BasetablesController
         ], 500);
     }
 }
-
-
 
     /**
      * Get list of store names for the dropdown with caching
@@ -980,6 +998,9 @@ public function processScan(Request $request)
                 ]);
 
                 DB::commit();
+
+                 // ✅ CLEAR CACHES IMMEDIATELY AFTER COMMIT
+                $this->clearStockroomCaches();
                 return response()->json([
                     'success' => true,
                     'message' => "Scanned and Inserted Successfully",
@@ -1145,7 +1166,6 @@ public function mergeItems(Request $request)
         $serialNumberC = null;
         $serialNumberD = null;
         $totalPrice = 0;
-        $index = 0;
 
         $title = $request->title ?? '';
         $productAsin = $request->asin ?? '';
@@ -1160,33 +1180,27 @@ public function mergeItems(Request $request)
             ]);
         }
 
-        foreach ($serialNumberResults as $row) {
-            $serialNumber = $row->serialnumber;
-            $price = $row->price ?? 0;
-
-            if (empty($title) && $index === 0) {
-                $title = $row->ProductTitle ?? $row->AStitle ?? '';
-                $firstStore = $row->storename ?? $row->StoreName ?? '';
+        // Get serials in the order of selectedIds
+        $orderedSerials = [];
+        foreach ($selectedIds as $productId) {
+            $matchingItem = $serialNumberResults->firstWhere('ProductID', $productId);
+            if ($matchingItem) {
+                $orderedSerials[] = $matchingItem->serialnumber;
+                $totalPrice += $matchingItem->price ?? 0;
+                
+                // Get title and store from first item
+                if (empty($title)) {
+                    $title = $matchingItem->ProductTitle ?? $matchingItem->AStitle ?? '';
+                    $firstStore = $matchingItem->storename ?? $matchingItem->StoreName ?? '';
+                }
             }
-
-            switch ($index) {
-                case 0:
-                    $serialNumberA = $serialNumber;
-                    break;
-                case 1:
-                    $serialNumberB = $serialNumber;
-                    break;
-                case 2:
-                    $serialNumberC = $serialNumber;
-                    break;
-                case 3:
-                    $serialNumberD = $serialNumber;
-                    break;
-            }
-
-            $index++;
-            $totalPrice += $price;
         }
+
+        // Assign serials to A, B, C, D based on order
+        if (count($orderedSerials) > 0) $serialNumberA = $orderedSerials[0];
+        if (count($orderedSerials) > 1) $serialNumberB = $orderedSerials[1];
+        if (count($orderedSerials) > 2) $serialNumberC = $orderedSerials[2];
+        if (count($orderedSerials) > 3) $serialNumberD = $orderedSerials[3];
 
         // Extract color from title (if it exists in parentheses)
         preg_match('/\((.*?)\)/', $title, $matches);
@@ -1199,29 +1213,50 @@ public function mergeItems(Request $request)
         // ============================================
         // CALCULATE TARGET QUANTITY FOR MERGED PACK
         // ============================================
-        // If merging 3 singles (QuantityInside=1), target = 3
-        // If merging 3 doubles (QuantityInside=2), target = 6
         $targetQuantityInside = $numOfSerial * $firstQuantityInside;
 
-        Log::info('Calculating target pack size', [
+        // ============================================
+        // VALIDATE PACK SIZE (ONLY 2-PACK OR 4-PACK ALLOWED)
+        // ============================================
+        $allowedPackSizes = [2, 4];
+        
+        if (!in_array($targetQuantityInside, $allowedPackSizes)) {
+            DB::rollBack();
+            
+            Log::warning('Invalid pack size for merge', [
+                'target_quantity_inside' => $targetQuantityInside,
+                'num_items_merging' => $numOfSerial,
+                'each_item_quantity_inside' => $firstQuantityInside,
+                'allowed_pack_sizes' => $allowedPackSizes
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => "Cannot merge: Invalid pack size.\n\n" .
+                            "You are trying to create a {$targetQuantityInside}-pack, but only 2-pack and 4-pack merges are allowed.\n\n" .
+                            "Current selection:\n" .
+                            "- {$numOfSerial} items selected\n" .
+                            "- Each item contains {$firstQuantityInside} unit(s)\n" .
+                            "- Target pack size: {$targetQuantityInside}-pack\n\n" .
+                            "To create a 2-pack: Select 2 single items\n" .
+                            "To create a 4-pack: Select 4 single items or 2 double items",
+                'reason' => 'invalid_pack_size',
+                'target_pack_size' => $targetQuantityInside,
+                'allowed_pack_sizes' => $allowedPackSizes
+            ]);
+        }
+
+        Log::info('✅ Pack size validation passed', [
             'num_items_merging' => $numOfSerial,
             'each_item_quantity_inside' => $firstQuantityInside,
-            'target_quantity_inside' => $targetQuantityInside
+            'target_quantity_inside' => $targetQuantityInside,
+            'base_title' => $baseTitle,
+            'color' => $colorFromTitle
         ]);
 
-        Log::info('Searching for ASIN with parameters:', [
-            'originalTitle' => $title,
-            'baseTitle' => $baseTitle,
-            'colorFromTitle' => $colorFromTitle,
-            'numOfSerial' => $numOfSerial,
-            'targetQuantityInside' => $targetQuantityInside,
-            'providedAsin' => $productAsin,
-            'providedFnsku' => $providedFnsku
-        ]);
-
-        $asinResult = null;
-
-        // Priority 1: Match base title + color + exact target QuantityInside
+        // ============================================
+        // ACCURATE ASIN SELECTION - NO FALLBACKS
+        // ============================================
         $asinResult = DB::table($this->asinTable)
             ->where('internal', 'like', '%' . $baseTitle . '%')
             ->where('QuantityInside', $targetQuantityInside)
@@ -1232,66 +1267,40 @@ public function mergeItems(Request $request)
             })
             ->first();
 
-        if ($asinResult) {
-            Log::info('Found ASIN by base title, color column, and QuantityInside', [
-                'ASIN' => $asinResult->ASIN,
-                'internal' => $asinResult->internal,
-                'color' => $asinResult->color,
-                'QuantityInside' => $asinResult->QuantityInside
+        // If no exact match found, REJECT the merge
+        if (!$asinResult) {
+            DB::rollBack();
+            
+            Log::error('No exact matching ASIN found for merge', [
+                'base_title' => $baseTitle,
+                'target_quantity_inside' => $targetQuantityInside,
+                'color' => $colorFromTitle,
+                'num_items' => $numOfSerial
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => "Cannot merge: No exact matching pack ASIN found.\n\n" .
+                            "Required:\n" .
+                            "- Title: {$baseTitle}\n" .
+                            "- Pack Size: {$targetQuantityInside}-pack\n" .
+                            "- Color: " . ($colorFromTitle ?: 'Any') . "\n\n" .
+                            "Please ensure a {$targetQuantityInside}-pack variant exists in the database before merging.",
+                'reason' => 'no_exact_asin_match',
+                'required' => [
+                    'title' => $baseTitle,
+                    'quantity_inside' => $targetQuantityInside,
+                    'color' => $colorFromTitle
+                ]
             ]);
         }
 
-        // Priority 2: Match base title + color (any QuantityInside)
-        if (!$asinResult && !empty($colorFromTitle)) {
-            $asinResult = DB::table($this->asinTable)
-                ->where('internal', 'like', '%' . $baseTitle . '%')
-                ->where('color', 'like', '%' . $colorFromTitle . '%')
-                ->first();
-
-            if ($asinResult) {
-                Log::info('Found ASIN by base title and color column', [
-                    'ASIN' => $asinResult->ASIN,
-                    'internal' => $asinResult->internal,
-                    'color' => $asinResult->color,
-                    'QuantityInside' => $asinResult->QuantityInside
-                ]);
-            }
-        }
-
-        // Priority 3: Match base title + exact target QuantityInside (any color)
-        if (!$asinResult && $targetQuantityInside > 1) {
-            $asinResult = DB::table($this->asinTable)
-                ->where('internal', 'like', '%' . $baseTitle . '%')
-                ->where('QuantityInside', $targetQuantityInside)
-                ->first();
-
-            if ($asinResult) {
-                Log::info('Found ASIN by base title and QuantityInside', [
-                    'ASIN' => $asinResult->ASIN,
-                    'internal' => $asinResult->internal,
-                    'QuantityInside' => $asinResult->QuantityInside
-                ]);
-            }
-        }
-
-        // Priority 4: Match base title only
-        if (!$asinResult) {
-            $asinResult = DB::table($this->asinTable)
-                ->where('internal', 'like', '%' . $baseTitle . '%')
-                ->first();
-
-            if ($asinResult) {
-                Log::info('Found ASIN by base title only', [
-                    'ASIN' => $asinResult->ASIN,
-                    'internal' => $asinResult->internal
-                ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No matching ASIN records found for "' . $baseTitle . '" with target quantity ' . $targetQuantityInside . ' and color "' . $colorFromTitle . '".'
-                ]);
-            }
-        }
+        Log::info('✅ Found exact matching ASIN', [
+            'ASIN' => $asinResult->ASIN,
+            'internal' => $asinResult->internal,
+            'QuantityInside' => $asinResult->QuantityInside,
+            'color' => $asinResult->color
+        ]);
 
         $asinTitle = $asinResult->internal;
         $targetAsin = $asinResult->ASIN;
@@ -1320,12 +1329,12 @@ public function mergeItems(Request $request)
         ]);
 
         // ============================================
-        // MERGE FNSKU LOGIC (OPPOSITE OF RETURN SCANNER)
+        // MERGE FNSKU LOGIC WITH RELATED ASIN FALLBACK
         // Find PACK FNSKU for target ASIN
         // ============================================
         $baseFnskuToUse = null;
         $actualFnskuToUse = null;
-        $condition = $firstItem->grading; // Use condition from first item
+        $condition = $firstItem->grading;
         $storename = $firstStore;
 
         try {
@@ -1349,162 +1358,144 @@ public function mergeItems(Request $request)
             }
 
             // ============================================
-            // STEP 1: Search for PACK FNSKU matching target ASIN + QuantityInside
+            // STEP 1: SEARCH FOR PACK FNSKU - EXACT ASIN MATCH
+            // ALL CRITERIA MUST MATCH: QuantityInside + Color + Condition
             // ============================================
-            Log::info("Searching for PACK FNSKU", [
+            Log::info("Searching for PACK FNSKU (exact ASIN)", [
                 'target_asin' => $targetAsin,
                 'quantity_inside' => $asinQuantityInside,
-                'color' => $asinColor,
-                'condition' => $condition
+                'color' => $asinColor ?: 'Any',
+                'condition' => $condition ?: 'Any'
             ]);
 
-            $query = DB::table($this->fnskuTable . ' as fnsku')
+            $packFnsku = DB::table($this->fnskuTable . ' as fnsku')
                 ->select('fnsku.*')
                 ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->where('fnsku.ASIN', $targetAsin)  // ← Target ASIN (pack)
+                ->where('fnsku.ASIN', $targetAsin)
                 ->where('fnsku.fnsku_status', 'available')
                 ->where('fnsku.amazon_status', 'Existed')
                 ->where('fnsku.LimitStatus', 'False')
                 ->where('fnsku.Units', '>', 0)
-                ->where('asin.quantityinside', $asinQuantityInside); // ← Match pack size!
-            
-            if ($asinColor) {
-                $query->where('asin.color', $asinColor);
-                Log::info("Filtering by color: {$asinColor}");
-            }
-            
-            if ($condition) {
-                $query->where('fnsku.grading', $condition);
-                Log::info("Filtering by condition: {$condition}");
-            }
-            
-            $packFnsku = $query->orderByDesc('fnsku.FNSKUID')->first();
+                ->where('asin.quantityinside', $asinQuantityInside)
+                ->when($asinColor, function($query) use ($asinColor) {
+                    return $query->where('asin.color', $asinColor);
+                })
+                ->when($condition, function($query) use ($condition) {
+                    return $query->where('fnsku.grading', $condition);
+                })
+                ->orderByDesc('fnsku.FNSKUID')
+                ->first();
             
             if ($packFnsku) {
                 $baseFnskuToUse = $packFnsku->FNSKU;
                 $condition = $packFnsku->grading;
                 $storename = $packFnsku->storename;
-                Log::info("✅ Found PACK FNSKU matching QuantityInside: {$baseFnskuToUse}");
-            } else {
-                Log::info("❌ No PACK FNSKU found with exact QuantityInside match");
+                Log::info("✅ Found exact PACK FNSKU (primary ASIN)", [
+                    'fnsku' => $baseFnskuToUse,
+                    'asin' => $packFnsku->ASIN,
+                    'condition' => $condition,
+                    'store' => $storename
+                ]);
             }
 
             // ============================================
-            // STEP 2: Fallback - Try without QuantityInside constraint
+            // STEP 2: FALLBACK TO RELATED ASINs
+            // SAME CRITERIA ENFORCED: QuantityInside + Color + Condition
             // ============================================
-            if (!$baseFnskuToUse) {
-                Log::info("Trying fallback: Search without QuantityInside constraint");
+            if (!$packFnsku) {
+                Log::info("Exact ASIN not found, trying related ASINs...");
                 
-                $fallbackQuery = DB::table($this->fnskuTable . ' as fnsku')
-                    ->select('fnsku.*')
-                    ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                    ->where('fnsku.ASIN', $targetAsin)
-                    ->where('fnsku.fnsku_status', 'available')
-                    ->where('fnsku.amazon_status', 'Existed')
-                    ->where('fnsku.LimitStatus', 'False')
-                    ->where('fnsku.Units', '>', 0);
+                $relatedAsins = $this->findRelatedAsins($targetAsin);
                 
-                if ($asinColor) {
-                    $fallbackQuery->where('asin.color', $asinColor);
-                }
-                
-                if ($condition) {
-                    $fallbackQuery->where('fnsku.grading', $condition);
-                }
-                
-                $fallbackFnsku = $fallbackQuery->orderByDesc('fnsku.FNSKUID')->first();
-                
-                if ($fallbackFnsku) {
-                    $baseFnskuToUse = $fallbackFnsku->FNSKU;
-                    $condition = $fallbackFnsku->grading;
-                    $storename = $fallbackFnsku->storename;
-                    Log::info("✅ Found fallback FNSKU: {$baseFnskuToUse}");
+                if (!empty($relatedAsins)) {
+                    Log::info("Found related ASINs to search", [
+                        'count' => count($relatedAsins),
+                        'asins' => $relatedAsins
+                    ]);
+                    
+                    $packFnsku = DB::table($this->fnskuTable . ' as fnsku')
+                        ->select('fnsku.*')
+                        ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                        ->whereIn('fnsku.ASIN', $relatedAsins)
+                        ->where('fnsku.fnsku_status', 'available')
+                        ->where('fnsku.amazon_status', 'Existed')
+                        ->where('fnsku.LimitStatus', 'False')
+                        ->where('fnsku.Units', '>', 0)
+                        ->where('asin.quantityinside', $asinQuantityInside)  // ✅ Same pack size required
+                        ->when($asinColor, function($query) use ($asinColor) {
+                            return $query->where('asin.color', $asinColor);  // ✅ Same color required
+                        })
+                        ->when($condition, function($query) use ($condition) {
+                            return $query->where('fnsku.grading', $condition);  // ✅ Same condition required
+                        })
+                        ->orderByDesc('fnsku.FNSKUID')
+                        ->first();
+                    
+                    if ($packFnsku) {
+                        $baseFnskuToUse = $packFnsku->FNSKU;
+                        $condition = $packFnsku->grading;
+                        $storename = $packFnsku->storename;
+                        Log::info("✅ Found PACK FNSKU from related ASIN", [
+                            'related_asin' => $packFnsku->ASIN,
+                            'original_asin' => $targetAsin,
+                            'fnsku' => $baseFnskuToUse,
+                            'condition' => $condition,
+                            'quantity_inside' => $asinQuantityInside,
+                            'color' => $asinColor ?: 'Any'
+                        ]);
+                    } else {
+                        Log::warning("❌ No matching FNSKU in related ASINs", [
+                            'searched_asins' => $relatedAsins,
+                            'required_quantity_inside' => $asinQuantityInside,
+                            'required_color' => $asinColor ?: 'Any',
+                            'required_condition' => $condition ?: 'Any'
+                        ]);
+                    }
                 } else {
-                    Log::info("❌ No fallback FNSKU found");
+                    Log::info("No related ASINs found for {$targetAsin}");
                 }
             }
 
             // ============================================
-            // STEP 3: Try without color constraint
+            // STEP 3: FINAL CHECK - REJECT IF NOTHING FOUND
             // ============================================
-            if (!$baseFnskuToUse) {
-                Log::info("Trying without color constraint");
+            if (!$packFnsku) {
+                DB::rollBack();
                 
-                $noColorQuery = DB::table($this->fnskuTable)
-                    ->where('ASIN', $targetAsin)
-                    ->where('fnsku_status', 'available')
-                    ->where('amazon_status', 'Existed')
-                    ->where('LimitStatus', 'False')
-                    ->where('Units', '>', 0);
+                $relatedAsinsList = isset($relatedAsins) && !empty($relatedAsins) 
+                    ? implode(', ', array_slice($relatedAsins, 0, 5)) . (count($relatedAsins) > 5 ? ' +' . (count($relatedAsins) - 5) . ' more' : '')
+                    : 'None';
                 
-                if ($condition) {
-                    $noColorQuery->where('grading', $condition);
-                }
-                
-                $noColorFnsku = $noColorQuery->orderByDesc('FNSKUID')->first();
-                
-                if ($noColorFnsku) {
-                    $baseFnskuToUse = $noColorFnsku->FNSKU;
-                    $condition = $noColorFnsku->grading;
-                    $storename = $noColorFnsku->storename;
-                    Log::info("✅ Found FNSKU without color: {$baseFnskuToUse}");
-                } else {
-                    Log::info("❌ No FNSKU found without color");
-                }
-            }
+                Log::error('No matching PACK FNSKU found (checked related ASINs)', [
+                    'target_asin' => $targetAsin,
+                    'related_asins_checked' => isset($relatedAsins) ? count($relatedAsins) : 0,
+                    'required_quantity_inside' => $asinQuantityInside,
+                    'required_color' => $asinColor ?: 'Not specified',
+                    'required_condition' => $condition ?: 'Not specified'
+                ]);
 
-            // ============================================
-            // STEP 4: Try any condition
-            // ============================================
-            if (!$baseFnskuToUse) {
-                Log::info("Trying any condition");
-                
-                $anyConditionQuery = DB::table($this->fnskuTable)
-                    ->where('ASIN', $targetAsin)
-                    ->where('fnsku_status', 'available')
-                    ->where('amazon_status', 'Existed')
-                    ->where('LimitStatus', 'False')
-                    ->where('Units', '>', 0);
-                
-                $anyConditionFnsku = $anyConditionQuery->orderByDesc('FNSKUID')->first();
-                
-                if ($anyConditionFnsku) {
-                    $baseFnskuToUse = $anyConditionFnsku->FNSKU;
-                    $condition = $anyConditionFnsku->grading;
-                    $storename = $anyConditionFnsku->storename;
-                    Log::info("✅ Found FNSKU with any condition: {$baseFnskuToUse}");
-                } else {
-                    Log::info("❌ No FNSKU found with any condition");
-                }
-            }
-
-            // ============================================
-            // STEP 5: Final fallback - any available FNSKU
-            // ============================================
-            if (!$baseFnskuToUse) {
-                Log::info("Final fallback: Any available FNSKU");
-                
-                $genericFnsku = DB::table($this->fnskuTable)
-                    ->where('fnsku_status', 'available')
-                    ->where('Units', '>', 0)
-                    ->where('amazon_status', 'Existed')
-                    ->where('LimitStatus', 'False')
-                    ->orderByDesc('FNSKUID')
-                    ->first();
-                
-                if ($genericFnsku) {
-                    $baseFnskuToUse = $genericFnsku->FNSKU;
-                    $targetAsin = $genericFnsku->ASIN;
-                    $condition = $genericFnsku->grading;
-                    $storename = $genericFnsku->storename;
-                    Log::warning("⚠️ Using generic fallback FNSKU: {$baseFnskuToUse}");
-                }
-            }
-
-            if (!$baseFnskuToUse) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No available FNSKU found for ASIN: ' . $targetAsin
+                    'message' => "Cannot merge: No available FNSKU found.\n\n" .
+                                "Searched ASINs:\n" .
+                                "• Primary: {$targetAsin}\n" .
+                                "• Related: {$relatedAsinsList}\n\n" .
+                                "Required (ALL must match):\n" .
+                                "• Pack Size: {$asinQuantityInside}-pack\n" .
+                                "• Color: " . ($asinColor ?: 'Any') . "\n" .
+                                "• Condition: " . ($condition ?: 'Any') . "\n" .
+                                "• Status: Available with units\n\n" .
+                                "Please create an FNSKU matching all criteria.",
+                    'reason' => 'no_pack_fnsku_available',
+                    'search_details' => [
+                        'primary_asin' => $targetAsin,
+                        'related_asins' => $relatedAsins ?? [],
+                        'required' => [
+                            'quantity_inside' => $asinQuantityInside,
+                            'color' => $asinColor ?: null,
+                            'condition' => $condition ?: null
+                        ]
+                    ]
                 ]);
             }
 
@@ -1526,6 +1517,7 @@ public function mergeItems(Request $request)
             ]);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Error getting FNSKU for merge: ' . $e->getMessage()
@@ -1604,6 +1596,9 @@ public function mergeItems(Request $request)
 
         DB::commit();
 
+         // ✅ CLEAR CACHES IMMEDIATELY AFTER COMMIT
+        $this->clearStockroomCaches();
+
         return response()->json([
             'success' => true,
             'message' => 'Items merged successfully.',
@@ -1633,7 +1628,6 @@ public function mergeItems(Request $request)
         ]);
     }
 }
-
 private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
 {
     try {
@@ -1703,6 +1697,9 @@ private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
                 ]);
 
             DB::commit();
+
+             // ✅ CLEAR CACHES IMMEDIATELY AFTER COMMIT
+        $this->clearStockroomCaches();
 
             return response()->json([
                 'success' => true,
@@ -2252,6 +2249,9 @@ private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
 
             DB::commit();
 
+             // ✅ CLEAR CACHES IMMEDIATELY AFTER COMMIT
+        $this->clearStockroomCaches();
+
             return response()->json([
                 'success' => true,
                 'message' => "Successfully processed {$productInfo->count()} items",
@@ -2268,5 +2268,231 @@ private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
             ], 500);
         }
     }
+
+
+    public function unmergeItem(Request $request)
+{
+    $validated = $request->validate([
+        'productId' => 'required|integer'
+    ]);
+
+    try {
+        DB::beginTransaction();
+
+        $mergedItem = DB::table($this->productTable)
+            ->where('ProductID', $validated['productId'])
+            ->where('ProductModuleLoc', 'Stockroom')
+            ->first();
+
+        if (!$mergedItem) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Item not found or not in Stockroom'
+            ]);
+        }
+
+        if (empty($mergedItem->mergeID)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This item is not a merged item'
+            ]);
+        }
+
+        $mergeId = $mergedItem->mergeID;
+        $rtCounter = $mergedItem->rtcounter;
+
+        // Find all original items that were merged into this item
+        $originalItems = DB::table($this->productTable)
+            ->where('mergedTO', $rtCounter)
+            ->where('ProductModuleLoc', 'Merged')
+            ->get();
+
+        if ($originalItems->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No original items found to restore'
+            ]);
+        }
+
+        $california_timezone = new DateTimeZone('America/Los_Angeles');
+        $currentDatetime = new DateTime('now', $california_timezone);
+        $currentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
+        $user = $this->getCurrentUserName();
+
+        // Restore original items back to Stockroom
+        $restoredCount = 0;
+        foreach ($originalItems as $item) {
+            DB::table($this->productTable)
+                ->where('ProductID', $item->ProductID)
+                ->update([
+                    'ProductModuleLoc' => 'Stockroom',
+                    'mergedTO' => null,
+                    'stockroom_insert_date' => $currentDatetimeString
+                ]);
+
+            // Log history
+            DB::table($this->itemProcessHistoryTable)->insert([
+                'rtcounter' => $item->rtcounter,
+                'employeeName' => $user,
+                'editDate' => $currentDatetimeString,
+                'Module' => 'Stockroom',
+                'Action' => 'Unmerged - Restored to Stockroom'
+            ]);
+
+            $restoredCount++;
+        }
+
+        // Return FNSKU units if the merged item used one
+        if (!empty($mergedItem->FNSKUviewer)) {
+            $baseFnsku = $this->extractBaseFnsku($mergedItem->FNSKUviewer);
+            $this->returnFnskuUnits($baseFnsku);
+            Log::info("Returned FNSKU units after unmerge", [
+                'fnsku' => $baseFnsku
+            ]);
+        }
+
+        // Delete the merged item
+        DB::table($this->productTable)
+            ->where('ProductID', $validated['productId'])
+            ->delete();
+
+        // Log the unmerge action
+        DB::table($this->itemProcessHistoryTable)->insert([
+            'rtcounter' => $rtCounter,
+            'employeeName' => $user,
+            'editDate' => $currentDatetimeString,
+            'Module' => 'Stockroom',
+            'Action' => "Unmerged - Deleted merged item, restored {$restoredCount} original items"
+        ]);
+
+        // Delete merge record
+        DB::table('tblmigrateditem')
+            ->where('migrateID', $mergeId)
+            ->delete();
+
+        DB::commit();
+
+         // ✅ CLEAR CACHES IMMEDIATELY AFTER COMMIT
+        $this->clearStockroomCaches();
+
+        return response()->json([
+            'success' => true,
+            'message' => "Successfully unmerged item. Restored {$restoredCount} original items to Stockroom.",
+            'restored_count' => $restoredCount
+        ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Error unmerging item: ' . $e->getMessage());
+        Log::error($e->getTraceAsString());
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Error unmerging item: ' . $e->getMessage()
+        ], 500);
+    }
+ }
+
+ /**
+ * Return FNSKU units (increment by 1) - helper for unmerge
+ */
+private function returnFnskuUnits($fnskuViewer)
+{
+    try {
+        $baseFnsku = $this->extractBaseFnsku($fnskuViewer);
+
+        $fnskuRecord = DB::table($this->fnskuTable)
+            ->where('FNSKU', $baseFnsku)
+            ->first();
+
+        if (!$fnskuRecord) {
+            return false;
+        }
+
+        $currentUnits = $fnskuRecord->Units ?? 0;
+        $newUnits = $currentUnits + 1;
+
+        DB::table($this->fnskuTable)
+            ->where('FNSKU', $baseFnsku)
+            ->update([
+                'Units' => $newUnits,
+                'fnsku_status' => 'available'
+            ]);
+
+        return true;
+
+    } catch (\Exception $e) {
+        Log::error("Error returning FNSKU units: " . $e->getMessage());
+        return false;
+    }
+}
+
+
+private function clearStockroomCaches()
+{
+    try {
+        Log::info('🧹 Starting cache clear for stockroom...');
+        
+        // Get all stores
+        $stores = DB::table($this->fnskuTable)
+            ->select('storename')
+            ->distinct()
+            ->whereNotNull('storename')
+            ->where('storename', '!=', '')
+            ->pluck('storename')
+            ->toArray();
+        
+        // Add empty string for "all stores" option
+        $stores[] = '';
+        
+        $clearedCount = 0;
+        
+        // Clear inventory caches for all page/perPage/store combinations
+        foreach ([10, 15, 20, 50, 100] as $perPage) {
+            for ($page = 1; $page <= 50; $page++) { // Clear first 50 pages
+                foreach ($stores as $store) {
+                    // Clear with empty search
+                    $cacheKey = "stockroom_inventory_{$page}_{$perPage}_{$store}_" . md5('');
+                    if (Cache::has($cacheKey)) {
+                        Cache::forget($cacheKey);
+                        $clearedCount++;
+                    }
+                }
+            }
+        }
+        
+        // Clear stores cache
+        if (Cache::has('stockroom_stores')) {
+            Cache::forget('stockroom_stores');
+            $clearedCount++;
+        }
+        
+        // Clear new scanned count caches (today + last 7 days)
+        $timezone = new DateTimeZone('America/Los_Angeles');
+        $currentDate = new DateTime('now', $timezone);
+        
+        for ($i = 0; $i < 7; $i++) {
+            $date = clone $currentDate;
+            if ($i > 0) {
+                $date->modify("-{$i} days");
+            }
+            $dateString = $date->format('Y-m-d');
+            $countCacheKey = 'new_scanned_count_' . $dateString;
+            
+            if (Cache::has($countCacheKey)) {
+                Cache::forget($countCacheKey);
+                $clearedCount++;
+            }
+        }
+        
+        Log::info("✅ Cleared {$clearedCount} stockroom cache entries");
+        return true;
+        
+    } catch (\Exception $e) {
+        Log::error('❌ Error clearing caches: ' . $e->getMessage());
+        return false;
+    }
+}
+
 
 }

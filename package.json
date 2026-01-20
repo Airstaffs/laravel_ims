@@ -21,8 +21,10 @@
     "dependencies": {
         "@primevue/themes": "^4.4.1",
         "bootstrap": "^5.3.8",
+        "canvg": "^4.0.3",
         "chart.js": "^4.5.0",
         "cropperjs": "^1.5.13",
+        "html2canvas": "^1.4.1",
         "html2pdf.js": "^0.10.3",
         "jsbarcode": "^3.11.6",
         "primevue": "^4.4.1",
