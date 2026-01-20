@@ -202,7 +202,7 @@ class PrintShippingLabelController extends Controller
             $img = $img->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
             $img->setImageFormat('png');
 
-            $imagePath = public_path("images/FBM_docs/invoices/invoice_{$orderId}_page{$i}.png");
+            $imagePath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$orderId}_page{$i}.png");
             $img->writeImage($imagePath);
 
             $zplCode .= $this->convertImageToZPL($testPrint, $imagePath) . "\n";
@@ -217,36 +217,37 @@ class PrintShippingLabelController extends Controller
         return $zplCode;
     }
 
-    protected function sendToPrinter($zplCode, $pdfFile = null, $savetoprintserver = false)
-    {
-        $printerIP = 'http://99.0.87.190:1450/ims/Admin/modules/PRD-RPN-PCN/print.php';
-        $pIp = '192.168.1.240';
+protected function sendToPrinter($zplCode, $pdfFile = null, $savetoprintserver = false)
+{
+    $printerIP = 'http://99.0.87.190:1450/ims/Admin/modules/PRD-RPN-PCN/print.php';
+    $pIp = '192.168.1.240';
 
-        // If sending ZPL only
-        if (!$savetoprintserver || !file_exists($pdfFile)) {
-            $response = Http::asForm()->post($printerIP, [
-                'zpl' => $zplCode,
-                'printerSelect' => $pIp,
-            ]);
+    try {
+        $postData = [
+            'zpl' => $zplCode,
+            'printerSelect' => $pIp,
+        ];
 
-        } /*else {
-            // If also sending the PDF file (with save mode)
-            $response = Http::attach(
-                'pdf_file',
-                file_get_contents($pdfFile),
-                basename($pdfFile)
-            )
-                ->asMultipart()
-                ->post($printerIP, [
-                    ['name' => 'zpl', 'contents' => $zplCode],
-                    ['name' => 'printerSelect', 'contents' => $pIp],
-                    ['name' => 'savemode', 'contents' => 'ShipmentInvoice'],
-                ]);
-        } */
+        Log::info('Printer request debug', [
+            'url' => $printerIP,
+            'printerSelect' => $pIp,
+            'zpl_len' => strlen($zplCode),
+        ]);
 
-        Log::info('Printer response:', [
+        $response = Http::timeout(30)
+            ->withHeaders(['Content-Type' => 'application/x-www-form-urlencoded'])
+            ->withBody(http_build_query($postData), 'application/x-www-form-urlencoded')
+            ->post($printerIP);
+
+        Log::info('Printer response debug', [
             'status' => $response->status(),
+            'ok' => $response->successful(),
             'body' => $response->body(),
         ]);
+    } catch (\Throwable $e) {
+        Log::error('Printer exception', [
+            'message' => $e->getMessage(),
+        ]);
     }
+}
 }

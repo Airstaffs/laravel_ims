@@ -78,7 +78,8 @@
                     @click="PurchaseShippingLabel" label="Purchase Shipping Label" icon="pi pi-truck" />
                 <Button size="small" severity="secondary" outlined @click="processSelectedOrders"
                     label="Process Selected" icon="pi pi-truck" />
-                <Button size="small" severity="secondary" outlined @click="printShippingLabels" label="Print Labels"
+                <Button size="small" severity="secondary" outlined
+                    @click="() => { console.log('clicked'); openPrintDocumentsModal(); }" label="Print Labels"
                     icon="pi pi-tag" />
                 <Button size="small" severity="secondary" outlined @click="generatePackingSlips"
                     label="Generate Packing Slips" icon="pi pi-file" />
@@ -1082,7 +1083,7 @@ dispensedProduct, dpIndex
                     <button class="btn btn-modal-close" @click="closeShipmentLabelModal">&times;</button>
                 </div>
 
-                <div class="modal-body">
+                <div class="modal-body" style="padding-bottom: 5px">
                     <div class="order-section" v-for="order in selectedShipmentData" :key="order.platform_order_id">
                         <div class="left-container">
                             <div class="order-info">
@@ -1264,6 +1265,13 @@ dispensedProduct, dpIndex
                             </form>
                         </div>
                     </div>
+                </div>
+
+                <div class="rates-note">
+                    <small class="text-muted">
+                        ⚠️ If you change any package details (dimensions, weight, delivery experience, or dates),
+                        please click <strong>Get Rates</strong> again to refresh the carrier options.
+                    </small>
                 </div>
 
                 <div class="modal-footer">
@@ -1648,7 +1656,6 @@ dispensedProduct, dpIndex
         <ManualDispenseModal v-model:visible="showManualDispenseModal" :item="currentManualDispenseItem"
             :order-id="currentProcessOrder ? currentProcessOrder.outboundorderid : 0"
             @dispense-complete="handleManualDispenseComplete" />
-
         <ScrollTop />
     </div>
 
@@ -1657,6 +1664,9 @@ dispensedProduct, dpIndex
         :rejected-rates="getRejectedRatesForOrder(carrierModalOrder?.platform_order_id)"
         :selected-rate="selectedCarrierRateByOrderId?.[carrierModalOrder?.platform_order_id] || null"
         @close="closeCarrierModal" @select="handleCarrierSelected" />
+
+    <PrintDocumentsModal v-model:visible="showPrintDocumentsModal" :order-ids="selectedPlatformOrderIdsForPrint"
+        @print="handlePrintDocuments" />
 
 
 </template>
@@ -1906,7 +1916,7 @@ export default {
                 {
                     label: 'Print Labels',
                     icon: 'pi pi-tag',
-                    command: () => this.printShippingLabels(),
+                    command: () => self.openPrintDocumentsModal(),
                 },
                 {
                     label: 'Generate Packing Slips',

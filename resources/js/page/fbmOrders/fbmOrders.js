@@ -9,6 +9,7 @@ import ManualShipmentLabelModal from "./modals/manualshipmentlabel.vue";
 import ManualDispenseModal from "./modals/manualdispense.vue";
 import CarrierModal from "./modals/selectcarrier.vue";
 import Swal from "sweetalert2";
+import PrintDocumentsModal from "./modals/PrintCenterModal.vue";
 
 export default {
     name: "FbmOrderModule",
@@ -19,6 +20,7 @@ export default {
         ManualShipmentLabelModal,
         ManualDispenseModal,
         CarrierModal,
+        PrintDocumentsModal,
     },
     data() {
         return {
@@ -140,8 +142,11 @@ export default {
 
             // for manualshipmentlabel
             manualShipmentLabelVisible: false,
-
             suppressDispenseSelectionSync: false,
+
+            // for printcentermodal
+            showPrintDocumentsModal: false,
+            selectedPlatformOrderIdsForPrint: [],
         };
     },
     computed: {
@@ -276,6 +281,33 @@ export default {
         },
         // for shipment-label modal
         //________________________________________________________________________________
+        PurchaseShippingLabel() {
+            if (this.dispenseItemsSelected.length === 0) {
+                alert("Please select items first.");
+                return;
+            }
+
+            this.forms = {};
+            this.rateResults = [];
+            this.selectedCarriers = {};
+
+            const itemIds = this.dispenseItemsSelected.join(",");
+            console.log("Items");
+            console.log(itemIds);
+            axios
+                .get("api/fbm-orders/shipping-label-selected-items", {
+                    params: { itemIds },
+                })
+                .then((response) => {
+                    this.selectedShipmentData = response.data; // Store result
+                    this.openShipmentLabelModal();
+                })
+                .catch((error) => {
+                    alert("Failed to fetch shipment info.");
+                    console.error(error);
+                });
+        },
+
         openShipmentLabelModal() {
             this.showShipmentLabelModal = true;
 
@@ -337,18 +369,23 @@ export default {
 
         async getRates() {
             try {
+                console.log(this.selectedShipmentData);
                 if (!this.selectedShipmentData?.length) {
-                    alert("No selected orders.");
+                    Swal.fire(
+                        "No orders selected",
+                        "Please select at least one order.",
+                        "warning"
+                    );
                     return;
                 }
 
-                // ✅ NEW: mark "attempted" BEFORE validation returns
+                // ✅ mark "attempted" BEFORE validation returns
                 (this.selectedShipmentData || []).forEach((o) => {
                     const oid = o.platform_order_id;
                     if (oid) this.rateFetchAttemptedByOrderId[oid] = true;
                 });
 
-                // validate forms...
+                // ✅ validate forms
                 for (const order of this.selectedShipmentData) {
                     const id = order.platform_order_id;
                     const f = this.forms[id];
@@ -361,9 +398,14 @@ export default {
                         "weightUnit",
                         "deliveryExperience",
                     ];
+
                     for (const k of required) {
                         if (!f?.[k]) {
-                            alert(`Please fill ${k} for order ${id}`);
+                            Swal.fire(
+                                "Missing Information",
+                                `Please fill <b>${k}</b> for order <b>${id}</b>.`,
+                                "warning"
+                            );
                             return;
                         }
                     }
@@ -376,20 +418,33 @@ export default {
                     nextToken: null,
                 };
 
+                // ✅ Swal loading BEFORE request
+                Swal.fire({
+                    title: "Getting shipping rates…",
+                    html:
+                        '<div class="progress" style="height: 20px;">' +
+                        '<div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>' +
+                        "</div>",
+                    didOpen: () => Swal.showLoading(),
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                });
+
                 const res = await axios.post(
                     "/amzn/fbm-orders/purchase-label/rates",
                     payload
                 );
 
-                // ✅ normalize into a map
+                // ✅ normalize into maps
                 const results = res.data?.results || [];
                 const eligibleMap = {};
                 const rejectedMap = {};
 
                 results.forEach((row) => {
                     const oid = row.platform_order_id;
-
                     const payload = row?.rates?.payload || row?.rates || {};
+
                     eligibleMap[oid] = payload.ShippingServiceList || [];
                     rejectedMap[oid] =
                         payload.RejectedShippingServiceList || [];
@@ -398,19 +453,28 @@ export default {
                 this.rateResultsByOrderId = eligibleMap;
                 this.rejectedRatesByOrderId = rejectedMap;
 
-                // reset carrier selections (since rates changed)
+                // reset carrier selections (rates changed)
                 this.selectedCarriers = {};
                 (this.selectedShipmentData || []).forEach((o) => {
                     if (o.platform_order_id)
                         this.selectedCarriers[o.platform_order_id] = "";
                 });
+
+                Swal.fire(
+                    "Success",
+                    "Shipping rates retrieved successfully.",
+                    "success"
+                );
             } catch (err) {
                 console.error(err);
-                alert("Get Rates failed. Check console/network.");
+                Swal.fire(
+                    "Error",
+                    "Failed to retrieve shipping rates. Please check the console or network.",
+                    "error"
+                );
+            } finally {
+                Swal.close(); // ✅ always closes loading
             }
-
-            // console.log("rateResultsByOrderId", this.rateResultsByOrderId);
-            // console.log("rejectedRatesByOrderId", this.rejectedRatesByOrderId);
         },
 
         // select carrier modal
@@ -625,7 +689,11 @@ export default {
         async buyShipmentLabel() {
             const check = this.validateOrdersBeforePurchase();
             if (!check.ok) {
-                alert(check.msg);
+                Swal.fire(
+                    "Missing Information",
+                    check.msg || "Please complete all required fields.",
+                    "warning"
+                );
                 return;
             }
 
@@ -643,32 +711,124 @@ export default {
                 nextToken: null,
             };
 
+            Swal.fire({
+                title: "Purchasing shipping labels…",
+                html:
+                    '<div class="progress" style="height: 20px;">' +
+                    '<div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>' +
+                    "</div>",
+                didOpen: () => Swal.showLoading(),
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+            });
+
             try {
                 const res = await axios.post(
                     "/amzn/fbm-orders/purchase-label/createshipment",
                     payload
                 );
 
-                // handle response success/errors per order
                 const results = res.data?.results || [];
                 const failed = results.filter(
-                    (r) => r.error || r.exception || r.status >= 400
+                    (r) =>
+                        r?.error ||
+                        r?.exception ||
+                        (r?.status && r.status >= 400)
                 );
 
                 if (failed.length) {
                     console.log("purchase failed items:", failed);
-                    alert(
-                        `Some labels failed: ${failed.length}. Check console for details.`
+
+                    // Optional: show which orders failed (first few)
+                    const list = failed
+                        .slice(0, 5)
+                        .map(
+                            (f) => `• ${f.platform_order_id || "Unknown Order"}`
+                        )
+                        .join("<br>");
+
+                    Swal.fire(
+                        "Some labels failed",
+                        `${failed.length} label(s) failed.<br>${list}${
+                            failed.length > 5 ? "<br>• ..." : ""
+                        }<br><br>Check console for details.`,
+                        "error"
                     );
                     return;
                 }
 
-                alert("Shipment labels purchased successfully.");
-                // (Optional) refresh orders / clear selections
+                Swal.fire(
+                    "Success",
+                    "Shipment labels purchased successfully.",
+                    "success"
+                );
+                this.closeShipmentLabelModal();
             } catch (err) {
                 console.error(err);
-                alert("Purchase failed. Check console/network.");
+                Swal.fire(
+                    "Purchase failed",
+                    "Check console/network for details.",
+                    "error"
+                );
+            } finally {
+                Swal.close(); // ✅ always closes loading
             }
+        },
+
+        openPrintDocumentsModal() {
+            const platformIds = this.getSelectedPlatformOrderIds();
+
+            if (!platformIds.length) {
+                Swal.fire({
+                    icon: "warning",
+                    title: "Ooops",
+                    text: "Please select at least one order to print documents",
+                    confirmButtonText: "Ok",
+                });
+                return;
+            }
+
+            this.selectedPlatformOrderIdsForPrint = platformIds; // ✅ AmazonOrderIds
+            this.showPrintDocumentsModal = true;
+        },
+
+        async handlePrintDocuments({ labelOrders, invoiceOrders }) {
+            // labelOrders/invoiceOrders are now AmazonOrderIds like 113-xxx
+
+            if (labelOrders?.length) {
+                const res = await axios.post("/fbm-orders-shippinglabel", {
+                    platform_order_ids: labelOrders,
+                    action: "PrintShipmentLabel",
+                    note: "",
+                });
+
+                const rows = res.data?.results || [];
+                /*
+                rows.forEach((r) => {
+                    if (r?.pdf_url) window.open(r.pdf_url, "_blank");
+                });
+                */
+            }
+
+            // invoiceOrders later...
+        },
+
+        getSelectedPlatformOrderIds() {
+            const selectedOutboundIds = this.persistentSelectedOrderIds || [];
+            if (!selectedOutboundIds.length) return [];
+
+            // map outboundorderid -> platform_order_id
+            const map = new Map(
+                (this.orders || []).map((o) => [
+                    String(o.outboundorderid),
+                    o.platform_order_id,
+                ])
+            );
+
+            return selectedOutboundIds
+                .map((id) => map.get(String(id)))
+                .filter(Boolean);
         },
 
         openWorkHistoryModal() {
@@ -1283,32 +1443,6 @@ export default {
             return this.rateResultsByOrderId?.[orderId] || [];
         },
 
-        PurchaseShippingLabel() {
-            if (this.dispenseItemsSelected.length === 0) {
-                alert("Please select items first.");
-                return;
-            }
-
-            this.forms = {};
-            this.rateResults = [];
-            this.selectedCarriers = {};
-
-            const itemIds = this.dispenseItemsSelected.join(",");
-            console.log("Items");
-            console.log(itemIds);
-            axios
-                .get("api/fbm-orders/shipping-label-selected-items", {
-                    params: { itemIds },
-                })
-                .then((response) => {
-                    this.selectedShipmentData = response.data; // Store result
-                    this.openShipmentLabelModal();
-                })
-                .catch((error) => {
-                    alert("Failed to fetch shipment info.");
-                    console.error(error);
-                });
-        },
         handleShipmentLabelSubmit(data) {
             console.log("Submitted shipment label data:", data);
             this.closeShipmentLabelModal();
@@ -2617,63 +2751,6 @@ export default {
             }
         },
 
-        async printShippingLabel(orderId) {
-            try {
-                const response = await axios.post(
-                    `${API_BASE_URL}/api/fbm-orders/shipping-label`,
-                    { order_id: orderId },
-                    {
-                        withCredentials: true,
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
-                            )?.content,
-                        },
-                    }
-                );
-
-                if (response.data && response.data.success) {
-                    // alert("Shipping label generated successfully");
-                    await Swal.fire({
-                        icon: "success",
-                        title: "Operation Success",
-                        text: "Shipping label generated successfully",
-                        confirmButtonText: "Ok",
-                    });
-                    if (response.data.label_url) {
-                        window.open(response.data.label_url, "_blank");
-                    }
-                } else {
-                    // alert(
-                    //     `Error: ${
-                    //         response.data.message ||
-                    //         "Failed to generate shipping label"
-                    //     }`
-                    // );
-                    Swal.fire({
-                        icon: "error",
-                        title: "Operation Failed",
-                        text: `${
-                            response.data.message ||
-                            "Failed to generate shipping label"
-                        }`,
-                        confirmButtonText: "Ok",
-                    });
-                }
-            } catch (error) {
-                console.error("Error generating shipping label:", error);
-                // alert("Failed to generate shipping label. Please try again.");
-                await Swal.fire({
-                    icon: "success",
-                    title: "Operation Failed",
-                    text: "Failed to generate shipping label. Please try again.",
-                    confirmButtonText: "Ok",
-                });
-            }
-        },
-
         confirmCancelOrder(orderId) {
             if (confirm("Are you sure you want to cancel this order?")) {
                 this.cancelOrder(orderId);
@@ -2876,19 +2953,168 @@ export default {
             }
         },
 
-        printShippingLabels() {
-            const selectedOrderIds = this.persistentSelectedOrderIds;
-            if (selectedOrderIds.length === 0) {
-                // alert("Please select at least one order to print labels");
+        async printShippingLabels() {
+            const selectedOrderIds = this.persistentSelectedOrderIds || [];
+            if (!selectedOrderIds.length) {
                 Swal.fire({
                     icon: "warning",
                     title: "Ooops",
-                    text: "Please select at least one order to print labels",
+                    text: "Please select at least one order.",
                     confirmButtonText: "Ok",
                 });
                 return;
             }
-            selectedOrderIds.forEach((id) => this.printShippingLabel(id));
+
+            Swal.fire({
+                title: "Generating labels…",
+                didOpen: () => Swal.showLoading(),
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+            });
+
+            const success = [];
+            const failed = [];
+
+            try {
+                for (const id of selectedOrderIds) {
+                    try {
+                        const ok = await this.printShippingLabelSilent(id); // silent version below
+                        if (ok?.label_url) success.push(ok.label_url);
+                        else failed.push(id);
+                    } catch (e) {
+                        failed.push(id);
+                    }
+                }
+
+                Swal.close();
+
+                if (!success.length) {
+                    Swal.fire({
+                        icon: "warning",
+                        title: "No labels printed",
+                        text: "None of the selected orders had labels available.",
+                        confirmButtonText: "Ok",
+                    });
+                    return;
+                }
+
+                // open labels
+                success.forEach((url) => window.open(url, "_blank"));
+
+                if (failed.length) {
+                    Swal.fire({
+                        icon: "info",
+                        title: "Some failed",
+                        text: `Printed ${success.length}. Failed ${failed.length}. Check console for details.`,
+                        confirmButtonText: "Ok",
+                    });
+                } else {
+                    Swal.fire({
+                        icon: "success",
+                        title: "Success",
+                        text: `Printed ${success.length} label(s).`,
+                        confirmButtonText: "Ok",
+                    });
+                }
+            } catch (err) {
+                console.error(err);
+                Swal.close();
+                Swal.fire({
+                    icon: "error",
+                    title: "Operation Failed",
+                    text: "Failed to print labels.",
+                    confirmButtonText: "Ok",
+                });
+            }
+        },
+
+        async printShippingLabelSilent(platformOrderId) {
+            const res = await axios.post(
+                "/fbm-orders-shippinglabel",
+                {
+                    platform_order_ids: [platformOrderId],
+                    action: "ViewShipmentLabel", // important: we want PDF URL, not actual print
+                    note: "", // optional
+                    settings: { testPrint: false }, // optional; your controller ignores most settings anyway
+                },
+                {
+                    withCredentials: true,
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                        "X-CSRF-TOKEN": document.querySelector(
+                            'meta[name="csrf-token"]'
+                        )?.content,
+                    },
+                }
+            );
+
+            // Your controller returns: { success: true, results: [{ order_id, pdf_url, zpl_preview }] }
+            const row = res.data?.results?.[0];
+
+            if (res.data?.success && row?.pdf_url) {
+                return { label_url: row.pdf_url };
+            }
+
+            return null;
+        },
+
+        async printShippingLabel(orderId) {
+            try {
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/fbm-orders/shipping-label`,
+                    { order_id: orderId },
+                    {
+                        withCredentials: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            )?.content,
+                        },
+                    }
+                );
+
+                if (response.data && response.data.success) {
+                    // alert("Shipping label generated successfully");
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Operation Success",
+                        text: "Shipping label generated successfully",
+                        confirmButtonText: "Ok",
+                    });
+                    if (response.data.label_url) {
+                        window.open(response.data.label_url, "_blank");
+                    }
+                } else {
+                    // alert(
+                    //     `Error: ${
+                    //         response.data.message ||
+                    //         "Failed to generate shipping label"
+                    //     }`
+                    // );
+                    Swal.fire({
+                        icon: "error",
+                        title: "Operation Failed",
+                        text: `${
+                            response.data.message ||
+                            "Failed to generate shipping label"
+                        }`,
+                        confirmButtonText: "Ok",
+                    });
+                }
+            } catch (error) {
+                console.error("Error generating shipping label:", error);
+                // alert("Failed to generate shipping label. Please try again.");
+                await Swal.fire({
+                    icon: "success",
+                    title: "Operation Failed",
+                    text: "Failed to generate shipping label. Please try again.",
+                    confirmButtonText: "Ok",
+                });
+            }
         },
 
         generatePackingSlips() {
