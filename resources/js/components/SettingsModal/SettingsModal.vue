@@ -1208,6 +1208,16 @@
                                 <i class="bi bi-arrow-through-heart me-1"></i>
                                 <span>Married Printers</span>
                             </Button>
+                            <Button
+                                :class="[
+                                    'printer-subtab-btn',
+                                    { active: activePrinterTab === 'identifier' },
+                                ]"
+                                @click="switchPrinterTab('identifier')"
+                            >
+                                <i class="bi bi-file-text me-1"></i>
+                                <span>Identifiers</span>
+                            </Button>
                         </div>
 
                         <!-- All Printers Tab -->
@@ -1588,6 +1598,32 @@
                                 <p>No married printers found</p>
                             </div>
                         </div>
+                        <div v-show="activePrinterTab === 'identifier'" class="printer_tab_content">
+                            <DataTable
+                            :value="uniqueIdentifiersData"
+                            :loading="loadingUniqueIdentifiers"
+                            class="printers-table"
+                            >
+                                <Column header="ID Name" field="name" />
+                                <Column header="Start" field="start" />
+                                <Column header="End" field="end" />
+                                <!-- <Column header="Quantity" field="QTY" />
+                                <Column header="Sticker" field="sticker" /> -->
+                                <Column header="Actions" >
+                                    <template #body="slotProps">
+                                        <Button
+                                            icon="pi pi-pencil"
+                                            severity="primary"
+                                            text
+                                            rounded
+                                            class="mr-1"
+                                            @click="
+                                            showSetStartDialogFunc(slotProps)"
+                                            />
+                                    </template>
+                                </Column>
+                            </DataTable>
+                        </div>
                     </div>
                 </div>
 
@@ -1940,6 +1976,26 @@
                         </div>
                     </form>
                 </Dialog>
+
+                <!---- SET START NUMBER ---->
+                <Dialog v-model:visible="showSetStartDialog" modal header="Set Start Count" :style="{width: '600px'}">
+                    <form action="" @submit.prevent="updateStartValueCount">
+                        <div class="form-field">
+                            <label for="">Input Count</label>
+                            <InputText type="number" size="small" v-model="identifierEditForm.startCountValue" class="w-100" />
+                        </div>
+
+                        <div class="form-footer">
+                            <Button   
+                                type="submit"
+                                :label="isUpdatingStartCount ? 'Saving': 'Save' "
+                                :loading="isUpdatingStartCount"
+                                icon="pi pi-save"
+                                severity="success"
+                            />
+                        </div>
+                    </form>
+                </Dialog>
             </TabPanel>
         </TabView>
     </Dialog>
@@ -2188,6 +2244,14 @@ export default {
                 marriage_name: "",
                 description: "",
             },
+            uniqueIdentifiersData: [],
+            identifierEditForm: {
+                startCountValue: null,
+                name: ''
+            },
+            isUpdatingStartCount: false,
+            showSetStartDialog:false,
+            loadingUniqueIdentifiers: false
         };
     },
     watch: {
@@ -2237,6 +2301,9 @@ export default {
         activePrinterTab(newTab) {
             if (newTab === "married" && this.marriedPrinters.length === 0) {
                 this.fetchMarriedPrinters();
+            }
+            else if (newTab === 'identifier') {
+                this.fetchIdentifiers()
             }
         },
     },
@@ -3829,6 +3896,76 @@ export default {
                 });
             }
         },
+
+       // ###################### UNIQUE IDENTIFIER STICKERS ##################################
+
+       showSetStartDialogFunc(data) {
+        this.showSetStartDialog = true,
+        this.identifierEditForm.name = data.data.name
+       },
+
+       async fetchIdentifiers() {
+        try {
+            this.loadingUniqueIdentifiers = true
+            const response = await fetch("/settings/getOrderIdentifiers", {
+                method: 'GET',
+                 headers: {
+                            Accept: "application/json",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            ).content,
+                        },
+            })
+
+            const data = await response.json()
+
+            this.uniqueIdentifiersData = data?.data || []
+
+        } catch (error) {
+            console.error("Failed to fetch the data:", error);
+        } finally {
+            this.loadingUniqueIdentifiers = false
+        }
+       },
+
+       async updateStartValueCount() {
+        try {
+            this.isUpdatingStartCount = true
+            const response = await fetch("/settings/updateStartCount", {
+                method: "POST",
+                 headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-Requested-With": "XMLHttpRequest",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            ).content,
+                        },
+                        body: JSON.stringify({
+                            name: this.identifierEditForm.name,
+                            start: this.identifierEditForm.startCountValue
+                        }),
+            })
+
+            const result = await response.json()
+
+            if(result.success) {
+                  Swal.fire({
+                    icon: "success",
+                    title: "Updated",
+                    text: "Start count updated successfully",
+                    confirmButtonText: "OK",
+                });
+                this.identifierEditForm.startCountValue = null
+                this.showSetStartDialog = false
+                await this.fetchIdentifiers()
+            }
+        } catch (error) {
+            console.error("Failed to fetch the data:", error);
+        } finally {
+            this.isUpdatingStartCount = false
+        }
+       },
 
         handleClose(value) {
             if (!value) {
