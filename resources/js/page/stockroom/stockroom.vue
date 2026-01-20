@@ -439,9 +439,17 @@
                 </div>
                 <div class="flex-shrink-0"><Button @click="updateSelectedLocation" :disabled="!hasSelectedItems"
                         label="Update Location" icon="pi pi-map-marker" size="small" severity="warn" /></div>
-                <div class="flex-shrink-0"> <Button @click="mergeSelectedItems" :disabled="selectedItems.length < 2"
-                        label="Merge Items" icon="pi pi-arrow-down-left-and-arrow-up-right-to-center" size="small"
-                        severity="info" /></div>
+                <div class="flex-shrink-0">
+                    <Button 
+                        @click="mergeSelectedItems" 
+                        :disabled="!canMergeSelected"
+                        :title="mergeButtonTooltip"
+                        label="Merge Items" 
+                        icon="pi pi-arrow-down-left-and-arrow-up-right-to-center" 
+                        size="small"
+                        severity="info" 
+                    />
+                </div>
              
                  <!-- NEW: Unmerge Button -->
                 <div class="flex-shrink-0" v-if="isMergedItem">
@@ -625,13 +633,13 @@
                 </div>
             </div>
             <template #footer>
-                <div class="d-flex gap-2">
+          <!--    <div class="d-flex gap-2">
                     <Button label="Print" icon="pi pi-print" size="small" severity="success"
                         @click="printLabel(selectedProduct.ProductID)" />
                     <Button label="Process" icon="pi pi-cog" size="small" severity="warn"
                         @click="openProcessModal(selectedProduct)" />
-                </div>
-            </template>
+                </div>-->
+            </template> 
         </Dialog>
 
         <!-- Post to Amazon Modal -->
@@ -744,7 +752,7 @@ const TABLE_COLUMNS = [
 const SERIAL_TABLE_COLUMNS = [
     {
         field: "rtcounter",
-        header: "TR#",
+        header: "Product Number",
         slot: "rtcounter",
         headerStyle: "backgroundColor: #0C81FF; color: #fff",
         bodyStyle: "fontSize: 14px"

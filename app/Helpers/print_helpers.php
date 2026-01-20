@@ -38,95 +38,71 @@ if (!function_exists('getAmazonTitleByASIN')) {
 if (!function_exists('getShipDate')) {
     function getShipDate(string $AmazonOrderId, string $orderitemid): string
     {
-        if (empty($AmazonOrderId) || empty($orderitemid)) {
-            return '';
-        }
+        if ($AmazonOrderId === '' || $orderitemid === '') return '';
 
-        $shipDate = DB::table('tbllabelhistoryitems')
+        return DB::table('tbllabelhistoryitems')
             ->where('AmazonOrderId', $AmazonOrderId)
             ->where('orderitemid', $orderitemid)
-            ->value('shipDate');
-
-        return $shipDate ?? '';
+            ->orderByDesc('id')   // ✅ latest attempt
+            ->value('shipDate') ?? '';
     }
 }
 
 if (!function_exists('DeliveryExperience')) {
-    function DeliveryExperience(string $AmazonOrderId): string
+    function DeliveryExperience($AmazonOrderId)
     {
-        if (empty($AmazonOrderId)) {
-            return '';
-        }
-
-        $deliveryExperience = DB::table('tbllabelhistoryitems')
+        return DB::table('tbllabelhistoryitems')
             ->where('AmazonOrderId', $AmazonOrderId)
-            ->value('DeliveryExperience');
-
-        return $deliveryExperience ?? '';
+            ->orderByDesc('id')
+            ->value('DeliveryExperience') ?? '';
     }
 }
 
 if (!function_exists('getEarliestShipDate')) {
-    function getEarliestShipDate(string $AmazonOrderId, string $orderitemid): string
+    function getEarliestShipDate(string $AmazonOrderId): string
     {
-        if (empty($AmazonOrderId) || empty($orderitemid)) {
-            return '';
-        }
+        if ($AmazonOrderId === '') return '';
 
-        $earliestShipDate = DB::table('tbloutboundorders')
+        return DB::table('tbloutboundorders')
             ->where('platform_order_id', $AmazonOrderId)
-            // ->where('orderitemid', $orderitemid)
-            ->value('EarliestShipDate');
-
-        return $earliestShipDate ?? '';
+            ->value('EarliestShipDate') ?? '';
     }
 }
 
 if (!function_exists('getLatestShipDate')) {
-    function getLatestShipDate(string $AmazonOrderId, string $orderitemid): string
+    function getLatestShipDate(string $AmazonOrderId): string
     {
-        if (empty($AmazonOrderId) || empty($orderitemid)) {
-            return '';
-        }
+        if ($AmazonOrderId === '') return '';
 
-        $latestShipDate = DB::table('tbloutboundorders')
+        return DB::table('tbloutboundorders')
             ->where('platform_order_id', $AmazonOrderId)
-            // ->where('orderitemid', $orderitemid)
-            ->value('LatestShipDate');
-
-        return $latestShipDate ?? '';
+            ->value('LatestShipDate') ?? '';
     }
 }
 
 if (!function_exists('getEarliestDeliveryDate')) {
     function getEarliestDeliveryDate(string $AmazonOrderId, string $orderitemid): string
     {
-        if (empty($AmazonOrderId) || empty($orderitemid)) {
-            return '';
-        }
+        if ($AmazonOrderId === '' || $orderitemid === '') return '';
 
-        $earliestDeliveryDate = DB::table('tbllabelhistoryitems')
+        return DB::table('tbllabelhistoryitems')
             ->where('AmazonOrderId', $AmazonOrderId)
             ->where('orderitemid', $orderitemid)
-            ->value('EarliestEstimatedDeliveryDate');
-
-        return $earliestDeliveryDate ?? '';
+            ->orderByDesc('id')  // ✅ latest attempt
+            ->value('EarliestEstimatedDeliveryDate') ?? '';
     }
 }
 
 if (!function_exists('getLatestDeliveryDate')) {
     function getLatestDeliveryDate(string $AmazonOrderId, string $orderitemid): string
     {
-        if (empty($AmazonOrderId) || empty($orderitemid)) {
-            return '';
-        }
+        if ($AmazonOrderId === '' || $orderitemid === '') return '';
 
-        $latestDeliveryDate = DB::table('tbllabelhistoryitems')
+        return DB::table('tbllabelhistoryitems')
             ->where('AmazonOrderId', $AmazonOrderId)
             ->where('orderitemid', $orderitemid)
-            ->value('LatestEstimatedDeliveryDate');
-
-        return $latestDeliveryDate ?? '';
+            ->orderByDesc('id')  // ✅ latest attempt
+            ->value('LatestEstimatedDeliveryDate') ?? '';
     }
 }
 
@@ -197,13 +173,15 @@ if (!function_exists('getLCode')) {
     function getLCode(string $AmazonOrderId): string
     {
         $labelPrice = DB::table('tbllabelhistory')
-            ->where('amazonOrderId', $AmazonOrderId)
+            ->where('AmazonOrderId', $AmazonOrderId)  // ✅ FIXED
+            ->orderByDesc('id')
             ->value('labelprice');
 
-        if (!empty($labelPrice) && $labelPrice != 0) {
-            return $labelPrice;
+        if (!empty($labelPrice) && (float)$labelPrice != 0.0) {
+            return (string)$labelPrice;
         }
 
+        // If you still want legacy fallback:
         $labelPrice = DB::table('tblshiphistory')
             ->where('amazonOrderId', $AmazonOrderId)
             ->value('labelprice');
@@ -215,22 +193,20 @@ if (!function_exists('getLCode')) {
 if (!function_exists('getinvoicenumberid')) {
     function getinvoicenumberid(string $AmazonOrderId): ?string
     {
-        $invoiceNumberId = DB::table('tbllabelhistory')
-            ->where('amazonOrderId', $AmazonOrderId)
+        return DB::table('tbllabelhistory')
+            ->where('AmazonOrderId', $AmazonOrderId)  // ✅ FIXED
+            ->orderByDesc('id')
             ->value('invoicenumberid');
-
-        return $invoiceNumberId;
     }
 }
 
 if (!function_exists('getUser')) {
     function getUser(string $AmazonOrderId): string
     {
-        $user = DB::table('tbllabelhistory')
+        return DB::table('tbllabelhistory')
             ->where('AmazonOrderId', $AmazonOrderId)
-            ->value('user');
-
-        return $user ?? ' ';
+            ->orderByDesc('id')
+            ->value('user') ?? ' ';
     }
 }
 
@@ -320,30 +296,30 @@ function convertImageToZPL($testprint, $imagePath, $maxWidth = 1250, $maxHeight 
     $textY = $newHeight + 70; // Position below the image
     $zpl .= "^FO{$textX},{$textY}^A0N,30,30^FD$bottomRightNumber^FS\n"; // Bottom-right text
     */
-    /*
-    if ($testprint) {
-        // Define label dimensions (in dots, assuming 203 DPI)
-        $labelWidth = 800;  // 4 inches * 203 DPI
-        $labelHeight = 1200; // 6 inches * 203 DPI
+/*
+if ($testprint) {
+    // Define label dimensions (in dots, assuming 203 DPI)
+    $labelWidth = 800;  // 4 inches * 203 DPI
+    $labelHeight = 1200; // 6 inches * 203 DPI
 
-        // Set larger font size
-        $fontSize = 100; // Adjust for larger text
-        $charWidth = 100; // Adjust for proportional spacing
+    // Set larger font size
+    $fontSize = 100; // Adjust for larger text
+    $charWidth = 100; // Adjust for proportional spacing
 
-        // Center horizontally
-        $textLength = strlen("TEST PRINT") * ($charWidth / 2); // Approximate text width
-        $textX = ($labelWidth - $textLength) / 2; // Center horizontally
+    // Center horizontally
+    $textLength = strlen("TEST PRINT") * ($charWidth / 2); // Approximate text width
+    $textX = ($labelWidth - $textLength) / 2; // Center horizontally
 
-        // Position towards the bottom (adjust as needed)
-        $textY = $labelHeight - 200; // Place it 200 dots above the bottom
+    // Position towards the bottom (adjust as needed)
+    $textY = $labelHeight - 200; // Place it 200 dots above the bottom
 
-        // $textX = 400;
-        $textY = $newHeight - 200;
-        $zpl .= "^FO{$textX},{$textY}^A0N,{$fontSize},{$charWidth}^FDTEST PRINT^FS\n";
-    }
+    // $textX = 400;
+    $textY = $newHeight - 200;
+    $zpl .= "^FO{$textX},{$textY}^A0N,{$fontSize},{$charWidth}^FDTEST PRINT^FS\n";
+}
 
-    $zpl .= "^XZ\n"; // End Label
+$zpl .= "^XZ\n"; // End Label
 
-    return $zpl;
+return $zpl;
 }
 */

@@ -325,7 +325,7 @@ class ShippingLabelController extends Controller
 
                 // Dates
                 'Shipby_Datetime' => $form['shipBy'],
-                'Delivered_Datetime' => $form['deliverBy'],
+                // 'Delivered_Datetime' => $form['deliverBy'],
 
                 // Carrier Data
                 'ShippingServiceId' => $ShippingServiceId,
@@ -364,7 +364,7 @@ class ShippingLabelController extends Controller
                         'logs' => $curlInfo
                     ];
 
-                    $this->insertShipmentData($order, $response->json(), $form);
+                    $this->insertShipmentData($order, $response->json(), $form, $shippingService);
                 } else {
                     $Results[] = [
                         'platform_order_id' => $platformOrderId,

@@ -786,6 +786,22 @@ Route::get('/fbm-orders-invoice-test', function () {
 
 Route::post('/fbm-orders-shippinglabel', [PrintShippingLabelController::class, 'printshippinglabel']);
 
+Route::get('/fbm-orders-shippinglabel-test', function () {
+    $controller = new PrintShippingLabelController;
+
+    $request = Request::create('/fbm-orders-shippinglabel', 'POST', [
+        'platform_order_ids' => ['114-0083765-2829867'],
+        'action' => 'PrintShipmentLabel',
+        'settings' => [
+            'displayPrice' => true,
+            'testPrint' => true,
+            'signatureRequired' => true,
+        ],
+    ]);
+
+    return $controller->printshippinglabel($request);
+});
+
 // timezone system
 Route::post('/update-timezone', [UserController::class, 'updateTimezone'])->name('update-timezone');
 Route::get('/user/settings/timezone', [UserController::class, 'showTimezoneSettings'])->name('timezone.settings');
@@ -811,21 +827,7 @@ Route::get('/settings/getOrderIdentifiers', [OrderIdentifierController::class, '
 Route::post('/settings/updateStartCount', [OrderIdentifierController::class, 'updateStartCount']);
 Route::post('/print/processPrintRPN_PCN_SH', [OrderIdentifierController::class, 'processPrintRPN_PCN_SH']);
 
-Route::get('/fbm-orders-shippinglabel-test', function () {
-    $controller = new PrintShippingLabelController;
 
-    $request = Request::create('/fbm-orders-shippinglabel', 'POST', [
-        'platform_order_ids' => ['114-0083765-2829867'],
-        'action' => 'PrintShipmentLabel',
-        'settings' => [
-            'displayPrice' => true,
-            'testPrint' => true,
-            'signatureRequired' => true,
-        ],
-    ]);
-
-    return $controller->printshippinglabel($request);
-});
 
 Route::get('/session-warmup', function () {
     return response()->noContent(); // Or just return 200 OK

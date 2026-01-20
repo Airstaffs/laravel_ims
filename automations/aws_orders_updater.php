@@ -635,15 +635,15 @@ if ($pdo) {
 function dbDatabase()
 {
     // Define server mode here
-    $servertype = "laravel_ims";
+    $servertype = "ims";
 
     // Set credentials based on server type
     switch ($servertype) {
         case "ims":
             $hostname = 'localhost';
-            $username = 'root';
-            $password = '';
-            $database = 'ims';
+            $username = 'user';
+            $password = 'root';
+            $database = 'dbims';
             break;
 
         case "hostinger":

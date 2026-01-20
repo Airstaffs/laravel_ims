@@ -2055,8 +2055,19 @@
     padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 1px;
     overflow: auto;
+}
+
+.rates-note {
+    padding-left: 12px;   /* ← adds space on the left */
+    margin-top: 1px;
+    margin-bottom: 8px;
+}
+
+.rates-note small {
+    margin-left: 12px;
+    display: inline-block;
 }
 
 .order-section {
