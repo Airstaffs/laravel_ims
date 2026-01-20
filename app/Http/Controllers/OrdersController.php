@@ -69,8 +69,8 @@ class OrdersController extends BasetablesController
             'priceshipping' => 'nullable|numeric',
             'refund' => 'nullable|numeric',
             'description' => 'nullable|string',
-            'supplierNotes' => 'nullable|string',
-            'employeeNotes' => 'nullable|string',
+            'notes' => 'nullable|string',
+            // 'employeeNotes' => 'nullable|string',
             'serialnumber' => 'nullable|string',
             'serialnumberb' => 'nullable|string',
             'serialnumberc' => 'nullable|string',
@@ -81,6 +81,11 @@ class OrdersController extends BasetablesController
             'trackingnumber4' => 'nullable|string',
             'trackingnumber5' => 'nullable|string',
             'validation' => 'nullable|string',
+            'price' => 'nullable|numeric',
+            'RPN' => 'nullable|string',
+            'PRD' => 'nullable|string',
+            'PCN' => 'nullable|string',
+            'basketnumber' => 'nullable|string',
         ]);
 
         $validated['validation'] = $validated['validation'] ?? 'unvalidated';
@@ -89,21 +94,129 @@ class OrdersController extends BasetablesController
         $existingProduct = tblproduct::where('itemnumber', $validated['itemnumber'])->first();
         $isUpdate = $existingProduct !== null;
 
+        // 🔥 TRACK WHAT CHANGED (if update)
+        $changes = [];
+        if ($isUpdate && $existingProduct) {
+            foreach ($validated as $key => $value) {
+                // Skip ProductID and itemnumber
+                if (in_array($key, ['ProductID', 'itemnumber'])) {
+                    continue;
+                }
+
+                // Get old and new values
+                $oldVal = $existingProduct->$key ?? null;
+                $newVal = $value ?? null;
+
+                // 🔥 BETTER NULL/EMPTY HANDLING
+                // Convert empty strings to null for comparison
+                if ($oldVal === '') {
+                    $oldVal = null;
+                }
+                if ($newVal === '') {
+                    $newVal = null;
+                }
+
+                // 🔥 SKIP if both are null
+                if (is_null($oldVal) && is_null($newVal)) {
+                    continue;
+                }
+
+                // 🔥 SKIP if values are identical (including 0 === 0)
+                if ($oldVal === $newVal) {
+                    continue;
+                }
+
+                // 🔥 SPECIAL HANDLING FOR NUMERIC FIELDS
+                if (in_array($key, ['price', 'quantity', 'Discount', 'tax', 'priceshipping', 'refund'])) {
+                    // Convert to float for proper comparison
+                    $oldNum = is_null($oldVal) ? null : (float) $oldVal;
+                    $newNum = is_null($newVal) ? null : (float) $newVal;
+
+                    // Skip if both are null
+                    if (is_null($oldNum) && is_null($newNum)) {
+                        continue;
+                    }
+
+                    // Skip if both are 0
+                    if ($oldNum == 0 && $newNum == 0) {
+                        continue;
+                    }
+
+                    // Skip if values are the same
+                    if ($oldNum === $newNum) {
+                        continue;
+                    }
+
+                    // Only track if there's a real change
+                    $oldDisplay = ! is_null($oldNum) ? $oldNum : '(empty)';
+                    $newDisplay = ! is_null($newNum) ? $newNum : '(empty)';
+                    $changes[] = "$key: $oldDisplay → $newDisplay";
+                }
+                // Format dates
+                elseif (in_array($key, ['orderdate', 'paymentdate', 'shipdate', 'datedelivered'])) {
+                    $oldDisplay = $oldVal ? date('Y-m-d', strtotime($oldVal)) : '(empty)';
+                    $newDisplay = $newVal ? date('Y-m-d', strtotime($newVal)) : '(empty)';
+
+                    // Skip if both are empty
+                    if ($oldDisplay === '(empty)' && $newDisplay === '(empty)') {
+                        continue;
+                    }
+
+                    $changes[] = "$key: $oldDisplay → $newDisplay";
+                }
+                // Format text values
+                else {
+                    // Skip if both are empty/null
+                    if (empty($oldVal) && empty($newVal)) {
+                        continue;
+                    }
+
+                    $oldDisplay = $oldVal ? (strlen($oldVal) > 30 ? substr($oldVal, 0, 27).'...' : $oldVal) : '(empty)';
+                    $newDisplay = $newVal ? (strlen($newVal) > 30 ? substr($newVal, 0, 27).'...' : $newVal) : '(empty)';
+
+                    $changes[] = "$key: $oldDisplay → $newDisplay";
+                }
+            }
+        }
+
+        // Create or update the product
         $product = tblproduct::updateOrCreate(
             ['itemnumber' => $validated['itemnumber']],
             $validated
         );
 
-        // Track history
-        if ($isUpdate) {
+        // 🔥 ONLY TRACK HISTORY IF THERE ARE CHANGES
+        if ($isUpdate && ! empty($changes)) {
+            $employeeName = auth()->user()->username ?? 'System';
+            $identifier = "Item #{$product->itemnumber}".
+                          (! empty($product->ProductTitle) ? " - {$product->ProductTitle}" : '');
+
+            // Log up to 5 changes, show count if more
+            $changeCount = count($changes);
+            $changesToLog = array_slice($changes, 0, 5);
+            $changeDescription = implode(', ', $changesToLog);
+
+            if ($changeCount > 5) {
+                $changeDescription .= ' (+'.($changeCount - 5).' more)';
+            }
+
             $this->trackUpdate(
                 'Orders',
-                "Item: {$product->itemnumber} - {$product->ProductTitle}"
+                $identifier,
+                $changeDescription,
+                null,
+                $employeeName
             );
-        } else {
+        } elseif (! $isUpdate) {
+            // Only track creation for new products
+            $employeeName = auth()->user()->username ?? 'System';
+            $identifier = "Item #{$product->itemnumber}".
+                          (! empty($product->ProductTitle) ? " - {$product->ProductTitle}" : '');
+
             $this->trackCreate(
                 'Orders',
-                "Item: {$product->itemnumber} - {$product->ProductTitle}"
+                $identifier,
+                $employeeName
             );
         }
 
@@ -111,6 +224,7 @@ class OrdersController extends BasetablesController
             'success' => true,
             'message' => 'Order product saved successfully',
             'product' => $product,
+            'changes_made' => count($changes),
         ]);
     }
 
