@@ -6,8 +6,8 @@
       :hideButton="true"
       :enableCamera="false"
       :scannerTitle="'Enhanced Label Printer'"
-      :storagePrefix="'printer'"
-      :displayFields="['serial_number', 'status']"
+      :storagePrefix="selectedStoragePrefix"
+      :displayFields="['message', 'serial_number', 'status']"
       :initialMode="'auto'"
       @scanner-opened="onScannerOpened"
       @scanner-closed="onScannerClosed"
@@ -20,19 +20,19 @@
           <!-- Tab Navigation -->
           <div class="tab-navigation">
             <button 
-              @click="activeTab = 'print'"
+              @click="onChangeTab('print')"
               :class="['tab-button', { active: activeTab === 'print' }]"
             >
               <i class="fas fa-print"></i> Print All Labels
             </button>
             <button 
-              @click="activeTab = 'reprint'"
+              @click="onChangeTab('reprint')"
               :class="['tab-button', { active: activeTab === 'reprint' }]"
             >
               <i class="fas fa-redo"></i> Reprint Single Label
             </button>
             <button 
-              @click="activeTab = 'unique'"
+              @click="onChangeTab('unique')"
               :class="['tab-button', { active: activeTab === 'unique' }]"
             >
               <i class="fas fa-note-sticky"></i> RPN-PCN-SHLF
@@ -223,13 +223,17 @@
             </div>
 
             <!-- Enhanced Product Info Display -->
-            <button 
-            @click="showProductDetails = !showProductDetails" 
-            v-if="reprintProductInfo" 
-            class="btn-showProductDetails"
-            >
-            {{ showProductDetails ? 'Show Product Information' : 'Hide Product Information' }}
-            </button>
+            <Button
+              severity="contrast"
+              variant="link"
+              size="small"
+              class="text-success ms-auto"
+              :label="showProductDetails ? 'Show Product Information' : 'Hide Product Information'"
+              :icon="showProductDetails ? 'pi pi-arrow-down' : 'pi pi-arrow-up'"
+              @click="showProductDetails = !showProductDetails" 
+              v-if="reprintProductInfo" 
+            />
+
             <div v-if="reprintProductInfo && !showProductDetails" class="product-info-card">
               <h4><i class="fas fa-info-circle"></i> Product Information</h4>
               <div class="info-grid">
@@ -331,7 +335,7 @@
 <script>
 // Fix the import paths - use relative paths from the printer component location
 
-import { Card } from 'primevue';
+import { Card, Button } from 'primevue';
 import ScannerComponent from '../../components/Scanner.vue';
 import { SoundService } from '../../components/Sound_service.js';
 import Swal from 'sweetalert2';
@@ -339,7 +343,7 @@ import Swal from 'sweetalert2';
 export default {
   name: 'PrinterModule',
   components: {
-    ScannerComponent, Card
+    ScannerComponent, Card, Button
   },
   computed: {
 
@@ -520,7 +524,7 @@ export default {
         {    key: 'instruction_cards', name: 'Instruction Card', description: 'For instruction card printer only', category: 'instruction' }
       ],
       showProductDetails: true,
-
+      selectedStoragePrefix: 'printer',
       //pcn-rpn-shlf
       uniqueLabelQuantity: 1,
       initLabelOption: 'pcn',
@@ -537,21 +541,88 @@ export default {
       this.onLabelTypeChanged();
     },
 
-    activeTab(newTab) {
-      if(newTab === 'unique') {
-        this.fetchIdentifiers()
-      }
+     activeTab(newTab) {
+      if (newTab === 'printer') {
+      this.selectedStoragePrefix = 'printer'
+      this.fetchIdentifiers()
+      
+      this.$nextTick(() => {
+        if (this.$refs.scannerComponent) {
+         this.loadOrResetScanner("printer")
+        }
+      })
     }
+    if (newTab === 'reprint') {
+      this.selectedStoragePrefix = 'reprint'
+      this.fetchIdentifiers()
+      
+      this.$nextTick(() => {
+        if (this.$refs.scannerComponent) {
+          this.loadOrResetScanner("reprint")
+        }
+      })
+    }
+    if (newTab === 'unique') {
+      this.selectedStoragePrefix = 'small_label'
+      this.fetchIdentifiers()
+      
+      this.$nextTick(() => {
+        if (this.$refs.scannerComponent) {
+          this.loadOrResetScanner("small_label")
+        }
+      })
+    }
+  }
   },
   
   mounted() {
     // Load printers first, then open scanner
     this.loadPrinters().then(() => {
       this.openPrinterScanner();
+      this.$refs.scannerComponent.saveScans()
     });
   },
   
   methods: {
+
+    loadOrResetScanner(storagePrefix) {
+    if (!this.$refs.scannerComponent) return
+    
+    const hasScans = localStorage.getItem(`${storagePrefix}_scans`)
+    const hasStats = localStorage.getItem(`${storagePrefix}_stats`)
+    
+    if (hasScans && hasStats) {
+      // Data exists - load it
+      this.$refs.scannerComponent.loadScans()
+    } else {
+      // No data - reset to clean state
+      this.$refs.scannerComponent.resetScanner()
+    }
+  },
+    onChangeTab(tabName) {
+  // Save current scans before switching tabs
+  if (this.$refs.scannerComponent) {
+    this.$refs.scannerComponent.saveScans()
+  }
+  
+  // Update active tab
+  this.activeTab = tabName
+
+  // Set storage prefix based on tab
+  if (tabName === 'print' || tabName === 'reprint') {
+    this.selectedStoragePrefix = 'printer'
+  } else if (tabName === 'unique') {
+    this.selectedStoragePrefix = 'small_label'
+  }
+  
+  // Load scans for new prefix after storage prefix changes
+  this.$nextTick(() => {
+    if (this.$refs.scannerComponent) {
+      this.$refs.scannerComponent.loadScans()
+    }
+  })
+},
+
   async loadPrinters() {
   this.loadingPrinters = true;
   try {
@@ -988,6 +1059,12 @@ export default {
           this.selectedLabelType = null;
           this.clearCompatibilityWarning();
           this.showError(data.message || 'Product not found');
+          this.$refs.scannerComponent.addErrorScan({
+            serial_number: this.reprintSearchTerm.trim(),
+            status: "Failed"
+          })
+
+
         }
         
       } catch (error) {
@@ -1543,8 +1620,7 @@ export default {
 
   async handleProcessPrintRPN_PCN_SH() {
     try {
-        this.isPrintingPCN_RPN_SH = true;
-
+         this.$refs.scannerComponent.startLoading(`Printing ${this.uniqueLabelQuantity} ${this.initLabelOption.toUpperCase()} label/s`);
         const response = await fetch("/print/processPrintRPN_PCN_SH", {
             method: 'POST',
             headers: {
@@ -1564,12 +1640,11 @@ export default {
 
 
         if (result.success) {
-            // Swal.fire({
-            //     icon: 'success',
-            //     title: 'Printed Successfully!',
-            //     text: `${result.message}\nRange: ${result.labels}`,
-            //     confirmButtonText: 'OK',
-            // });
+            is.$refs.scannerComponent.saveScans()
+                 this.$refs.scannerComponent.addSuccessScan({
+                message: `Successfully printed ${this.uniqueLabelQuantity} ${this.initLabelOption.toUpperCase()} labels`,
+                status: `Success`
+              });
             this.$refs.scannerComponent.showScanSuccess(result.message);
 
             this.lastNumberLabel = result.endNumber;
@@ -1580,6 +1655,7 @@ export default {
             let errorMessage = result.message || 'Failed to print labels';
             
             if (result.errors) {
+                      this.$refs.scannerComponent.saveScans()
                 // Show validation errors
                 const errorList = Object.values(result.errors)
                     .flat()
@@ -1587,27 +1663,23 @@ export default {
                 errorMessage = `Validation errors:\n${errorList}`;
             }
 
+             SoundService.error(true);
+
+             this.$refs.scannerComponent.addErrorScan({
+                message: `Failed to print ${this.uniqueLabelQuantity} ${this.initLabelOption.toUpperCase()} labels`,
+                status: 'Failed'
+              }, errorMessage);
+      
             this.$refs.scannerComponent.showScanError(result.message);
 
-            // Swal.fire({
-            //     icon: 'error',
-            //     title: 'Print Failed',
-            //     text: errorMessage,
-            //     confirmButtonText: 'OK',
-            // });
         }
 
     } catch (error) {
         console.error('Print request failed:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Network Error',
-            text: 'Could not connect to server. Please check your connection.',
-            confirmButtonText: 'OK',
-        });
+          this.$refs.scannerComponent.showScanError("Network Error");
 
     } finally {
-        this.isPrintingPCN_RPN_SH = false;
+       this.$refs.scannerComponent.stopLoading();
     }
 },
 
