@@ -637,49 +637,62 @@ export default {
         },
 
         // Fetch inventory with location = 'Returnlist'
-        async fetchInventory() {
-            this.loading = true;
+       async fetchInventory() {
+                this.loading = true;
 
-            try {
-                const response = await axios.get(
-                    `${API_BASE_URL}/api/returns/products`,
-                    {
-                        params: {
-                            search: this.searchQuery,
-                            page: this.currentPage,
-                            per_page: this.perPage,
-                            location: "Returnlist",
-                            include_images: true,
+                try {
+                    const response = await axios.get(
+                        `${API_BASE_URL}/api/returns/products`,
+                        {
+                            params: {
+                                search: this.searchQuery,
+                                page: this.currentPage,
+                                per_page: this.perPage,
+                                location: "Returnlist",
+                                include_images: true,
+                            },
+                            withCredentials: true,
                         },
-                    },
-                );
+                    );
 
-                // Use data as-is from backend (no transformation needed)
-                this.inventory = response.data.data;
-                this.totalPages = response.data.last_page;
+                    // ✅ Populate BOTH inventory and returnHistory
+                    this.inventory = response.data.data;
+                    this.returnHistory = response.data.data; // ✅ ADD THIS LINE
+                    this.totalPages = response.data.last_page;
 
-                console.log("Inventory loaded:", {
-                    totalItems: this.inventory.length,
-                    firstItem: this.inventory[0],
-                });
-            } catch (error) {
-                console.error("Error fetching inventory data:", error);
-
-                if (error.response) {
-                    console.error("Error response:", {
-                        status: error.response.status,
-                        data: error.response.data,
+                    console.log("Inventory loaded:", {
+                        totalItems: this.inventory.length,
+                        returnHistoryItems: this.returnHistory.length,
+                        firstItem: this.inventory[0],
                     });
+
+                    // ✅ Process capturedImages if they exist
+                    this.returnHistory = this.returnHistory.map(item => {
+                        // Ensure capturedImages is an object
+                        if (!item.capturedImages) {
+                            item.capturedImages = {};
+                        }
+                        return item;
+                    });
+
+                } catch (error) {
+                    console.error("Error fetching inventory data:", error);
+
+                    if (error.response) {
+                        console.error("Error response:", {
+                            status: error.response.status,
+                            data: error.response.data,
+                        });
+                    }
+
+                    alert("Failed to fetch inventory data. Please try again.");
+                    this.inventory = [];
+                    this.returnHistory = []; // ✅ Also clear returnHistory
+                    this.totalPages = 0;
+                } finally {
+                    this.loading = false;
                 }
-
-                alert("Failed to fetch inventory data. Please try again.");
-                this.inventory = [];
-                this.totalPages = 0;
-            } finally {
-                this.loading = false;
-            }
-        },
-
+            },
         // Check for dual serial based on serial number
         async checkDualSerial() {
             if (!this.serialNumber) return false;
