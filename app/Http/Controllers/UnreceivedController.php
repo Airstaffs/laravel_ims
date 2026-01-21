@@ -169,6 +169,7 @@ class UnreceivedController extends BasetablesController
 
             // Get the last 12 digits of the tracking number
             $last12Digits = substr($request->trackingNumber, -12);
+            $fullTrackingNumber = $request->trackingNumber;
 
             // Check if the product exists before updating
             $productExists = DB::table($this->productTable)
@@ -223,14 +224,15 @@ class UnreceivedController extends BasetablesController
                 Log::info('Updated RPN sticker table with next value:', ['nextValue' => $nextRpnValue]);
             }
 
-            // UPDATED: Use TracksHistory trait for consistent tracking
-            $this->trackLocationChange(
-                'Unreceived Module',
-                "Tracking: {$last12Digits} | RPN: {$rpnNumber}",
-                'Orders',
-                'Received'
-            );
+            $employeeName = auth()->user()->username ?? 'System';
 
+            $this->trackLocationChange(
+                'Unreceived',
+                "RT#{$product->rtcounter} | Tracking: {$fullTrackingNumber} | RPN: {$rpnNumber}", // 🔥 CHANGED
+                'Orders',
+                'Received',
+                $employeeName
+            );
             // Save images if provided
             if ($request->has('Images') && ! empty($request->Images)) {
                 // Code to save images
