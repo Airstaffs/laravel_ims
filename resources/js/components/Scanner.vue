@@ -49,7 +49,7 @@
         
         <div class="scanner-body">
           <!-- Top Scanner Notification Area -->
-          <div class="scanner-top-notification-area">
+          <div class="scanner-top-notification-area" v-show="showSuccessNotification || showErrorNotification">
             <div v-if="showSuccessNotification" class="notification success">
               <i class="fas fa-check-circle"></i> Successfully scanned: {{ lastScannedItem }}
             </div>

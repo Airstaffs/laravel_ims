@@ -146,12 +146,11 @@ class ReceivedController extends BasetablesController
         Log::info('Received data:', $request->all());
 
         try {
-            // ✅ FIXED: Updated validation rules
             if ($request->status === 'fail') {
                 $request->validate([
                     'trackingNumber' => 'required',
                     'status' => 'required|in:fail',
-                    'basketNumber' => ['required', 'regex:/^(BKT|SI|ENV)\d+$/i'], // ✅ FIXED: BKT, SI, ENV
+                    'basketNumber' => ['required', 'regex:/^(BKT|SI|ENV)\d+$/i'],
                     'pcnNumber' => ['required', 'regex:/^PCN\d+$/i'],
                     'productId' => 'required',
                     'rtcounter' => 'required',
@@ -160,10 +159,10 @@ class ReceivedController extends BasetablesController
                 $request->validate([
                     'trackingNumber' => 'required',
                     'status' => 'required|in:pass',
-                    'firstSerialNumber' => ['required', 'regex:/^[A-Z0-9]+$/i'], // ✅ ADDED: Serial validation
-                    'secondSerialNumber' => ['required', 'regex:/^(N\/A|[A-Z0-9]+)$/i'], // ✅ ADDED: Allow N/A or alphanumeric
+                    'firstSerialNumber' => ['required', 'regex:/^[A-Z0-9]+$/i'],
+                    'secondSerialNumber' => ['required', 'regex:/^(N\/A|[A-Z0-9]+)$/i'],
                     'pcnNumber' => ['required', 'regex:/^PCN\d+$/i'],
-                    'basketNumber' => ['required', 'regex:/^(BKT|SI|ENV)\d+$/i'], // ✅ FIXED: BKT, SI, ENV
+                    'basketNumber' => ['required', 'regex:/^(BKT|SI|ENV)\d+$/i'],
                     'productId' => 'required',
                     'rtcounter' => 'required',
                 ]);
@@ -171,11 +170,15 @@ class ReceivedController extends BasetablesController
 
             DB::beginTransaction();
 
-            // Get the last 12 digits of the tracking number
+            // 🔥 ADD: Store full tracking number
+            $fullTrackingNumber = $request->trackingNumber;
             $last12Digits = substr($request->trackingNumber, -12);
 
             // Get current user ID from session
             $user = $this->getCurrentUserName();
+
+            // 🔥 ADD: Get employee name for history
+            $employeeName = auth()->user()->username ?? $user ?? 'System';
 
             // Get the original product
             $originalProduct = DB::table($this->productTable)
@@ -254,11 +257,11 @@ class ReceivedController extends BasetablesController
 
                 // ✅ Get the actual inserted ProductID
                 $newProductId = DB::getPdo()->lastInsertId();
-                
+
                 Log::info('Split item created', [
                     'newProductId' => $newProductId,
                     'newRtCounter' => $newRt,
-                    'originalProductId' => $request->productId
+                    'originalProductId' => $request->productId,
                 ]);
 
                 // ✅ Update original item: decrement quantity AND update prices
@@ -281,13 +284,14 @@ class ReceivedController extends BasetablesController
                     throw new \Exception('Failed to update original product quantity');
                 }
 
-                // Track history for split
+                // 🔥 UPDATED: Track history for split with full tracking and employee
                 $totalUnitPrice = $unitPrice + $unitPriceShipping + $unitTax;
                 $this->trackHistory(
-                    'Received Module',
+                    'Received',
                     'Split & Process',
-                    "RTC: {$request->rtcounter} | Qty: {$currentQuantity} | Total: $".number_format($originalPrice + $originalPriceShipping + $originalTax, 2),
-                    "Created RTC: {$newRt} (Qty: 1, Price: $".number_format($totalUnitPrice, 2).") | Remaining: {$remainingQty} @ $".number_format($newOriginalPrice + $newOriginalPriceShipping + $newOriginalTax, 2)
+                    "RT#{$request->rtcounter} | Tracking: {$fullTrackingNumber} | Qty: {$currentQuantity} | Total: $".number_format($originalPrice + $originalPriceShipping + $originalTax, 2),
+                    "Created RT#{$newRt} (Qty: 1, Price: $".number_format($totalUnitPrice, 2).") | Remaining RT#{$request->rtcounter}: {$remainingQty} @ $".number_format($newOriginalPrice + $newOriginalPriceShipping + $newOriginalTax, 2),
+                    $employeeName
                 );
 
                 Log::info('Item split and processed', [
@@ -327,13 +331,13 @@ class ReceivedController extends BasetablesController
                         ->where('ProductID', $request->productId)
                         ->update($updateData);
 
-                    // Track history
+                    // 🔥 UPDATED: Track history with full tracking number
                     $this->trackLocationChange(
-                        'Received Module',
-                        "Tracking: {$last12Digits} | RTC: {$request->rtcounter}",
+                        'Received',
+                        "RT#{$request->rtcounter} | Tracking: {$fullTrackingNumber}",
                         'Received',
                         'RTS (Failed)',
-                        $user
+                        $employeeName
                     );
 
                     Log::info('Failed item processed', [
@@ -373,13 +377,13 @@ class ReceivedController extends BasetablesController
                         ]);
                     }
 
-                    // Track history
+                    // 🔥 UPDATED: Track history with full tracking number
                     $this->trackLocationChange(
-                        'Received Module',
-                        "Tracking: {$last12Digits} | RTC: {$request->rtcounter}",
+                        'Received',
+                        "RT#{$request->rtcounter} | Tracking: {$fullTrackingNumber}",
                         'Received',
                         'Labeling',
-                        $user
+                        $employeeName
                     );
 
                     DB::commit();

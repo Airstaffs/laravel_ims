@@ -1946,7 +1946,7 @@ async fetchAvailablePrinters() {
   },
 
         // Updated mergeSelectedItems function with correct API URL format
-async mergeSelectedItems() {
+  async mergeSelectedItems() {
         if (this.selectedItems.length < 2) {
             alert("Please select at least two items to merge.");
             return;
@@ -1996,7 +1996,7 @@ async mergeSelectedItems() {
 
         if (
             confirm(
-                `Are you sure you want to merge ${this.selectedItems.length} items into a ${targetPackSize}-pack of "${productTitle}"?`
+                `Are you sure you want to merge ${this.selectedItems.length} items into a ${targetPackSize}-pack of "${productTitle}"?\n\nNote: All items must have the same ASIN, Color, QuantityInside, Store, and Condition.`
             )
         ) {
             try {
@@ -2098,7 +2098,26 @@ async mergeSelectedItems() {
                         errorMessage += "\n";
                     }
                     
-                    errorMessage += "💡 Tip: You can only merge items with the same ASIN, Color, and QuantityInside.";
+                    errorMessage += "💡 Tip: You can only merge items with the same ASIN, Color, QuantityInside, Store, and Condition.";
+                    alert(errorMessage);
+                    
+                } else if (error.response?.data?.reason === 'fnsku_condition_mismatch' || 
+                           error.response?.data?.reason === 'fnsku_store_mismatch') {
+                    alert(`❌ FNSKU Validation Failed:\n\n${error.response.data.message}\n\nPlease ensure the FNSKU matches the items' store and condition.`);
+                    
+                } else if (error.response?.data?.reason === 'no_pack_fnsku_available') {
+                    const searchDetails = error.response.data.search_details || {};
+                    const required = searchDetails.required || {};
+                    
+                    let errorMessage = "❌ Cannot merge - No matching FNSKU found.\n\n";
+                    errorMessage += "Required FNSKU must have:\n";
+                    errorMessage += `• Pack Size: ${required.quantity_inside}-pack\n`;
+                    errorMessage += `• Color: ${required.color || 'Any'}\n`;
+                    errorMessage += `• Condition: ${required.condition}\n`;
+                    errorMessage += `• Store: ${required.storename}\n`;
+                    errorMessage += "• Status: Available with units\n\n";
+                    errorMessage += "Please create an FNSKU matching ALL these criteria before merging.";
+                    
                     alert(errorMessage);
                     
                 } else if (error.response?.data?.message) {

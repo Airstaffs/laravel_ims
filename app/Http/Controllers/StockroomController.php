@@ -1052,34 +1052,40 @@ public function mergeItems(Request $request)
         // ============================================
         // GET SELECTED ITEMS WITH ASIN DATA
         // ============================================
-        $serialNumberResults = DB::table($this->productTable . ' as prod')
-            ->select(
-                'prod.*',
-                'fnsku.ASIN',
-                'fnsku.grading',
-                'fnsku.storename',
-                'asin.internal as ProductTitle',
-                'asin.color',
-                'asin.QuantityInside'
-            )
-            ->leftJoin($this->fnskuTable . ' as fnsku', function ($join) {
-                $join->on(DB::raw("CASE 
-                    WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
-                    THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
-                    ELSE prod.FNSKUviewer 
-                END"), '=', 'fnsku.FNSKU');
-            })
-            ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-            ->whereIn('prod.ProductID', $selectedIds)
-            ->get();
+            $serialNumberResults = DB::table($this->productTable . ' as prod')
+                ->select('prod.*')
+                ->whereIn('prod.ProductID', $selectedIds)
+                ->get();
 
-        if ($serialNumberResults->isEmpty()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No records found for selected IDs.'
-            ]);
-        }
-
+            // Now enrich with FNSKU data using PHP
+            $serialNumberResults = $serialNumberResults->map(function($item) {
+                // Extract base FNSKU
+                $baseFnsku = $this->extractBaseFnsku($item->FNSKUviewer);
+                
+                // Get FNSKU record
+                $fnskuRecord = DB::table($this->fnskuTable)
+                    ->where('FNSKU', $baseFnsku)
+                    ->first();
+                
+                if ($fnskuRecord) {
+                    $item->ASIN = $fnskuRecord->ASIN;
+                    $item->grading = $fnskuRecord->grading;
+                    $item->storename = $fnskuRecord->storename;
+                    
+                    // Get ASIN data
+                    $asinRecord = DB::table($this->asinTable)
+                        ->where('ASIN', $fnskuRecord->ASIN)
+                        ->first();
+                    
+                    if ($asinRecord) {
+                        $item->ProductTitle = $asinRecord->internal;
+                        $item->color = $asinRecord->color;
+                        $item->QuantityInside = $asinRecord->QuantityInside;
+                    }
+                }
+                
+                return $item;
+            });
         // ============================================
         // VALIDATION: Check items are compatible for merging
         // ============================================
@@ -1088,12 +1094,16 @@ public function mergeItems(Request $request)
         $firstColor = $firstItem->color;
         $firstQuantityInside = $firstItem->QuantityInside ?? 1;
         $firstTitle = $firstItem->ProductTitle;
+        $firstStoreName = $firstItem->storename;
+        $firstCondition = $firstItem->grading;
 
         Log::info('Validating items for merge', [
             'first_asin' => $firstAsin,
             'first_color' => $firstColor,
             'first_quantity_inside' => $firstQuantityInside,
             'first_title' => $firstTitle,
+            'first_storename' => $firstStoreName,
+            'first_condition' => $firstCondition,
             'total_items' => $numOfSerial
         ]);
 
@@ -1103,6 +1113,8 @@ public function mergeItems(Request $request)
             $itemColor = $item->color;
             $itemQuantityInside = $item->QuantityInside ?? 1;
             $itemSerial = $item->serialnumber;
+            $itemStoreName = $item->storename;
+            $itemCondition = $item->grading;
 
             // Check ASIN match
             if ($itemAsin !== $firstAsin) {
@@ -1133,6 +1145,26 @@ public function mergeItems(Request $request)
                     'actual' => $itemQuantityInside
                 ];
             }
+
+            // Check Store Name match
+            if ($itemStoreName !== $firstStoreName) {
+                $incompatibleItems[] = [
+                    'serial' => $itemSerial,
+                    'reason' => 'Different Store',
+                    'expected' => $firstStoreName ?? 'none',
+                    'actual' => $itemStoreName ?? 'none'
+                ];
+            }
+
+            // Check Condition match
+            if ($itemCondition !== $firstCondition) {
+                $incompatibleItems[] = [
+                    'serial' => $itemSerial,
+                    'reason' => 'Different Condition',
+                    'expected' => $firstCondition ?? 'none',
+                    'actual' => $itemCondition ?? 'none'
+                ];
+            }
         }
 
         // If there are incompatible items, return error
@@ -1156,7 +1188,10 @@ public function mergeItems(Request $request)
             ]);
         }
 
-        Log::info('✅ All items validated - compatible for merge');
+        Log::info('✅ All items validated - compatible for merge', [
+            'validated_storename' => $firstStoreName,
+            'validated_condition' => $firstCondition
+        ]);
 
         // ============================================
         // COLLECT SERIAL NUMBERS AND PRICES
@@ -1334,11 +1369,13 @@ public function mergeItems(Request $request)
         // ============================================
         $baseFnskuToUse = null;
         $actualFnskuToUse = null;
-        $condition = $firstItem->grading;
-        $storename = $firstStore;
+        
+        // Use the validated condition and storename from first item
+        $condition = $firstCondition;
+        $storename = $firstStoreName;
 
         try {
-            // Get condition from original items (if available)
+            // Override with provided FNSKU info if it exists (shouldn't change condition/store)
             if ($providedFnsku) {
                 $baseFnsku = $this->extractBaseFnsku($providedFnsku);
                 
@@ -1347,9 +1384,26 @@ public function mergeItems(Request $request)
                     ->first();
                 
                 if ($originalFnskuInfo) {
-                    $condition = $originalFnskuInfo->grading;
-                    $storename = $originalFnskuInfo->storename ?? $firstStore;
-                    Log::info("Got condition from original FNSKU", [
+                    // Verify provided FNSKU matches the validated condition and store
+                    if ($originalFnskuInfo->grading !== $condition) {
+                        DB::rollBack();
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Provided FNSKU condition ({$originalFnskuInfo->grading}) does not match items' condition ({$condition})",
+                            'reason' => 'fnsku_condition_mismatch'
+                        ]);
+                    }
+                    
+                    if ($originalFnskuInfo->storename !== $storename) {
+                        DB::rollBack();
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Provided FNSKU store ({$originalFnskuInfo->storename}) does not match items' store ({$storename})",
+                            'reason' => 'fnsku_store_mismatch'
+                        ]);
+                    }
+                    
+                    Log::info("Validated provided FNSKU matches condition and store", [
                         'original_fnsku' => $baseFnsku,
                         'condition' => $condition,
                         'storename' => $storename
@@ -1359,13 +1413,14 @@ public function mergeItems(Request $request)
 
             // ============================================
             // STEP 1: SEARCH FOR PACK FNSKU - EXACT ASIN MATCH
-            // ALL CRITERIA MUST MATCH: QuantityInside + Color + Condition
+            // ALL CRITERIA MUST MATCH: QuantityInside + Color + Condition + Store
             // ============================================
             Log::info("Searching for PACK FNSKU (exact ASIN)", [
                 'target_asin' => $targetAsin,
                 'quantity_inside' => $asinQuantityInside,
                 'color' => $asinColor ?: 'Any',
-                'condition' => $condition ?: 'Any'
+                'condition' => $condition,
+                'storename' => $storename
             ]);
 
             $packFnsku = DB::table($this->fnskuTable . ' as fnsku')
@@ -1377,30 +1432,28 @@ public function mergeItems(Request $request)
                 ->where('fnsku.LimitStatus', 'False')
                 ->where('fnsku.Units', '>', 0)
                 ->where('asin.quantityinside', $asinQuantityInside)
+                ->where('fnsku.grading', $condition) // Must match validated condition
+                ->where('fnsku.storename', $storename) // Must match validated storename
                 ->when($asinColor, function($query) use ($asinColor) {
                     return $query->where('asin.color', $asinColor);
-                })
-                ->when($condition, function($query) use ($condition) {
-                    return $query->where('fnsku.grading', $condition);
                 })
                 ->orderByDesc('fnsku.FNSKUID')
                 ->first();
             
             if ($packFnsku) {
                 $baseFnskuToUse = $packFnsku->FNSKU;
-                $condition = $packFnsku->grading;
-                $storename = $packFnsku->storename;
                 Log::info("✅ Found exact PACK FNSKU (primary ASIN)", [
                     'fnsku' => $baseFnskuToUse,
                     'asin' => $packFnsku->ASIN,
-                    'condition' => $condition,
-                    'store' => $storename
+                    'condition' => $packFnsku->grading,
+                    'store' => $packFnsku->storename,
+                    'units' => $packFnsku->Units
                 ]);
             }
 
             // ============================================
             // STEP 2: FALLBACK TO RELATED ASINs
-            // SAME CRITERIA ENFORCED: QuantityInside + Color + Condition
+            // SAME CRITERIA ENFORCED: QuantityInside + Color + Condition + Store
             // ============================================
             if (!$packFnsku) {
                 Log::info("Exact ASIN not found, trying related ASINs...");
@@ -1422,24 +1475,22 @@ public function mergeItems(Request $request)
                         ->where('fnsku.LimitStatus', 'False')
                         ->where('fnsku.Units', '>', 0)
                         ->where('asin.quantityinside', $asinQuantityInside)  // ✅ Same pack size required
+                        ->where('fnsku.grading', $condition)  // ✅ Same condition required
+                        ->where('fnsku.storename', $storename)  // ✅ Same store required
                         ->when($asinColor, function($query) use ($asinColor) {
                             return $query->where('asin.color', $asinColor);  // ✅ Same color required
-                        })
-                        ->when($condition, function($query) use ($condition) {
-                            return $query->where('fnsku.grading', $condition);  // ✅ Same condition required
                         })
                         ->orderByDesc('fnsku.FNSKUID')
                         ->first();
                     
                     if ($packFnsku) {
                         $baseFnskuToUse = $packFnsku->FNSKU;
-                        $condition = $packFnsku->grading;
-                        $storename = $packFnsku->storename;
                         Log::info("✅ Found PACK FNSKU from related ASIN", [
                             'related_asin' => $packFnsku->ASIN,
                             'original_asin' => $targetAsin,
                             'fnsku' => $baseFnskuToUse,
-                            'condition' => $condition,
+                            'condition' => $packFnsku->grading,
+                            'storename' => $packFnsku->storename,
                             'quantity_inside' => $asinQuantityInside,
                             'color' => $asinColor ?: 'Any'
                         ]);
@@ -1448,7 +1499,8 @@ public function mergeItems(Request $request)
                             'searched_asins' => $relatedAsins,
                             'required_quantity_inside' => $asinQuantityInside,
                             'required_color' => $asinColor ?: 'Any',
-                            'required_condition' => $condition ?: 'Any'
+                            'required_condition' => $condition,
+                            'required_storename' => $storename
                         ]);
                     }
                 } else {
@@ -1471,7 +1523,8 @@ public function mergeItems(Request $request)
                     'related_asins_checked' => isset($relatedAsins) ? count($relatedAsins) : 0,
                     'required_quantity_inside' => $asinQuantityInside,
                     'required_color' => $asinColor ?: 'Not specified',
-                    'required_condition' => $condition ?: 'Not specified'
+                    'required_condition' => $condition,
+                    'required_storename' => $storename
                 ]);
 
                 return response()->json([
@@ -1483,7 +1536,8 @@ public function mergeItems(Request $request)
                                 "Required (ALL must match):\n" .
                                 "• Pack Size: {$asinQuantityInside}-pack\n" .
                                 "• Color: " . ($asinColor ?: 'Any') . "\n" .
-                                "• Condition: " . ($condition ?: 'Any') . "\n" .
+                                "• Condition: {$condition}\n" .
+                                "• Store: {$storename}\n" .
                                 "• Status: Available with units\n\n" .
                                 "Please create an FNSKU matching all criteria.",
                     'reason' => 'no_pack_fnsku_available',
@@ -1493,7 +1547,8 @@ public function mergeItems(Request $request)
                         'required' => [
                             'quantity_inside' => $asinQuantityInside,
                             'color' => $asinColor ?: null,
-                            'condition' => $condition ?: null
+                            'condition' => $condition,
+                            'storename' => $storename
                         ]
                     ]
                 ]);
@@ -1547,6 +1602,7 @@ public function mergeItems(Request $request)
             'serialnumberb' => $serialNumberB,
             'serialnumberc' => $serialNumberC,
             'serialnumberd' => $serialNumberD,
+            'validation_status' => 'validated',
             'FNSKUviewer' => $actualFnskuToUse
         ];
 
@@ -1596,7 +1652,7 @@ public function mergeItems(Request $request)
 
         DB::commit();
 
-         // ✅ CLEAR CACHES IMMEDIATELY AFTER COMMIT
+        // ✅ CLEAR CACHES IMMEDIATELY AFTER COMMIT
         $this->clearStockroomCaches();
 
         return response()->json([
@@ -1628,6 +1684,7 @@ public function mergeItems(Request $request)
         ]);
     }
 }
+
 private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
 {
     try {

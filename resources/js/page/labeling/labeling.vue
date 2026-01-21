@@ -633,7 +633,7 @@
                                                         class="form-control no-resize"
                                                         :value="
                                                             getDisplayTitle(
-                                                                item
+                                                                item,
                                                             )
                                                         "
                                                         placeholder="ASIN Title"
@@ -922,7 +922,7 @@
                                                     ref="employeeNotesarea"
                                                     class="no-resize"
                                                     fluid
-                                                    v-model="item.employeeNotes"
+                                                    v-model="item.EmployeeNote"
                                                     placeholder="Employee Notes"
                                                     rows="2"
                                                     @input="autoResize"
@@ -941,7 +941,7 @@
                                                     ref="stickerNotesarea"
                                                     class="no-resize"
                                                     fluid
-                                                    v-model="item.stickerNotes"
+                                                    v-model="item.stickernote"
                                                     placeholder="Sticker Notes"
                                                     rows="2"
                                                     @input="autoResize"
@@ -1362,7 +1362,7 @@
                                             <h6>
                                                 {{
                                                     getFnskuDisplayTitle(
-                                                        item
+                                                        item,
                                                     ) || "----"
                                                 }}
                                             </h6>
@@ -1923,7 +1923,7 @@ export default {
                 // Create a date object at noon in the user's timezone to avoid day boundary issues
                 const [year, month, day] = localDateString.split("-");
                 const dateInUserTz = new Date(
-                    `${year}-${month}-${day}T12:00:00`
+                    `${year}-${month}-${day}T12:00:00`,
                 );
 
                 // Format for database storage (ISO format)
@@ -1952,14 +1952,14 @@ export default {
 
                     // Get the date in UTC
                     const utcDate = new Date(
-                        date.toLocaleString("en-US", { timeZone: "UTC" })
+                        date.toLocaleString("en-US", { timeZone: "UTC" }),
                     );
 
                     // Get the date in user's selected timezone
                     const userTzDate = new Date(
                         date.toLocaleString("en-US", {
                             timeZone: this.currentTimezone,
-                        })
+                        }),
                     );
 
                     // Calculate offset in hours
@@ -1967,7 +1967,7 @@ export default {
                     const offsetHours = Math.round(offsetMs / (1000 * 60 * 60));
                     const offsetSign = offsetHours >= 0 ? "+" : "-";
                     const gmtOffset = `GMT${offsetSign}${Math.abs(
-                        offsetHours
+                        offsetHours,
                     )}`;
 
                     this.timezoneLabel = `(${gmtOffset})`;
@@ -2006,9 +2006,8 @@ export default {
                     const capturedImg = data.capturedImages[`capturedimg${i}`];
                     if (capturedImg) {
                         // Add full path: /images/product_images/Airstaffs/
-                        transformedData[
-                            `img${i}`
-                        ] = `/images/product_images/Airstaffs/${capturedImg}`;
+                        transformedData[`img${i}`] =
+                            `/images/product_images/Airstaffs/${capturedImg}`;
                     } else {
                         transformedData[`img${i}`] = null;
                     }
