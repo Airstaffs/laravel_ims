@@ -818,6 +818,7 @@ public function processScan(Request $request)
                         'quantity' => 1,
                         'price' => $price,
                         'lpnID' => $currentLpnId,
+                        'validation_status' => 'validated',
                         'warehouselocation' => $location,
                         'FNSKUviewer' => $actualFnskuToUse,
                         'stockroom_insert_date' => $insertedDate,

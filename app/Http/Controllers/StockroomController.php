@@ -1052,34 +1052,40 @@ public function mergeItems(Request $request)
         // ============================================
         // GET SELECTED ITEMS WITH ASIN DATA
         // ============================================
-        $serialNumberResults = DB::table($this->productTable . ' as prod')
-            ->select(
-                'prod.*',
-                'fnsku.ASIN',
-                'fnsku.grading',
-                'fnsku.storename',
-                'asin.internal as ProductTitle',
-                'asin.color',
-                'asin.QuantityInside'
-            )
-            ->leftJoin($this->fnskuTable . ' as fnsku', function ($join) {
-                $join->on(DB::raw("CASE 
-                    WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
-                    THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
-                    ELSE prod.FNSKUviewer 
-                END"), '=', 'fnsku.FNSKU');
-            })
-            ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-            ->whereIn('prod.ProductID', $selectedIds)
-            ->get();
+            $serialNumberResults = DB::table($this->productTable . ' as prod')
+                ->select('prod.*')
+                ->whereIn('prod.ProductID', $selectedIds)
+                ->get();
 
-        if ($serialNumberResults->isEmpty()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No records found for selected IDs.'
-            ]);
-        }
-
+            // Now enrich with FNSKU data using PHP
+            $serialNumberResults = $serialNumberResults->map(function($item) {
+                // Extract base FNSKU
+                $baseFnsku = $this->extractBaseFnsku($item->FNSKUviewer);
+                
+                // Get FNSKU record
+                $fnskuRecord = DB::table($this->fnskuTable)
+                    ->where('FNSKU', $baseFnsku)
+                    ->first();
+                
+                if ($fnskuRecord) {
+                    $item->ASIN = $fnskuRecord->ASIN;
+                    $item->grading = $fnskuRecord->grading;
+                    $item->storename = $fnskuRecord->storename;
+                    
+                    // Get ASIN data
+                    $asinRecord = DB::table($this->asinTable)
+                        ->where('ASIN', $fnskuRecord->ASIN)
+                        ->first();
+                    
+                    if ($asinRecord) {
+                        $item->ProductTitle = $asinRecord->internal;
+                        $item->color = $asinRecord->color;
+                        $item->QuantityInside = $asinRecord->QuantityInside;
+                    }
+                }
+                
+                return $item;
+            });
         // ============================================
         // VALIDATION: Check items are compatible for merging
         // ============================================
