@@ -1602,6 +1602,7 @@ public function mergeItems(Request $request)
             'serialnumberb' => $serialNumberB,
             'serialnumberc' => $serialNumberC,
             'serialnumberd' => $serialNumberD,
+            'validation_status' => 'validated',
             'FNSKUviewer' => $actualFnskuToUse
         ];
 
