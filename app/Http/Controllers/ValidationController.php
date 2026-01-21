@@ -3,14 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Traits\TracksHistory;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator; // Add this line
 
 class ValidationController extends BasetablesController
 {
+    use TracksHistory;
+
     private function extractBaseFnsku($fnsku)
     {
         if (empty($fnsku)) {
@@ -240,7 +242,17 @@ class ValidationController extends BasetablesController
                 ], 422);
             }
 
-            // Update the product location in the database
+            $product = DB::table($this->productTable)
+                ->where('ProductID', $request->product_id)
+                ->first();
+
+            if (! $product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found',
+                ], 404);
+            }
+
             DB::table($this->productTable)
                 ->where('ProductID', $request->product_id)
                 ->update([
@@ -248,22 +260,23 @@ class ValidationController extends BasetablesController
                     'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
                 ]);
 
-            // Optional: Log the location change
-            /*DB::table('product_location_logs')->insert([
-                 'product_id' => $request->product_id,
-                 'rt_counter' => $request->rt_counter,
-                 'from_location' => $request->current_location,
-                 'to_location' => 'Stockroom',
-                 'moved_by' => auth()->id() ?? 0,
-                 'moved_at' => now()->format('Y-m-d H:i:s')
-             ]);*/
+            $employeeName = auth()->user()->username ?? 'System';
+            $identifier = "RT#{$request->rt_counter}".
+                          (! empty($product->ProductTitle) ? " - {$product->ProductTitle}" : '');
+
+            $this->trackLocationChange(
+                'Labeling',
+                $identifier,
+                $request->current_location,
+                'Stockroom',
+                $employeeName
+            );
 
             return response()->json([
                 'success' => true,
                 'message' => 'Product successfully moved to Stockroom',
             ]);
         } catch (\Exception $e) {
-            // Log the error
             \Log::error('Error moving product to Stockroom: '.$e->getMessage());
 
             return response()->json([
@@ -277,7 +290,6 @@ class ValidationController extends BasetablesController
     public function moveToLabeling(Request $request)
     {
         try {
-            // Validate the incoming request
             $validator = Validator::make($request->all(), [
                 'product_id' => 'required',
                 'rt_counter' => 'required',
@@ -292,7 +304,17 @@ class ValidationController extends BasetablesController
                 ], 422);
             }
 
-            // Update the product location in the database
+            $product = DB::table($this->productTable)
+                ->where('ProductID', $request->product_id)
+                ->first();
+
+            if (! $product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found',
+                ], 404);
+            }
+
             DB::table($this->productTable)
                 ->where('ProductID', $request->product_id)
                 ->update([
@@ -300,27 +322,28 @@ class ValidationController extends BasetablesController
                     'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
                 ]);
 
-            // Optional: Log the location change
-            /*DB::table('product_location_logs')->insert([
-                 'product_id' => $request->product_id,
-                 'rt_counter' => $request->rt_counter,
-                 'from_location' => $request->current_location,
-                 'to_location' => 'Stockroom',
-                 'moved_by' => auth()->id() ?? 0,
-                 'moved_at' => now()->format('Y-m-d H:i:s')
-             ]);*/
+            $employeeName = auth()->user()->username ?? 'System';
+            $identifier = "RT#{$request->rt_counter}".
+                          (! empty($product->ProductTitle) ? " - {$product->ProductTitle}" : '');
+
+            $this->trackLocationChange(
+                'Validation',
+                $identifier,
+                $request->current_location,
+                'Labeling',
+                $employeeName
+            );
 
             return response()->json([
                 'success' => true,
-                'message' => 'Product successfully moved to Stockroom',
+                'message' => 'Product successfully moved to Labeling',
             ]);
         } catch (\Exception $e) {
-            // Log the error
-            \Log::error('Error moving product to Stockroom: '.$e->getMessage());
+            \Log::error('Error moving product to Labeling: '.$e->getMessage());
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to move product to Stockroom',
+                'message' => 'Failed to move product to Labeling',
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -329,7 +352,7 @@ class ValidationController extends BasetablesController
     public function validate(Request $request)
     {
         try {
-            // Validate the incoming request
+
             $validator = Validator::make($request->all(), [
                 'product_id' => 'required',
                 'rt_counter' => 'required',
@@ -346,29 +369,90 @@ class ValidationController extends BasetablesController
                 ], 422);
             }
 
-            // Get current timestamp
+            $product = DB::table($this->productTable)
+                ->where('ProductID', $request->product_id)
+                ->first();
+
+            if (! $product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found',
+                ], 404);
+            }
+
             $now = now()->format('Y-m-d H:i:s');
 
-            // Get the user ID (or default to 0 if not authenticated)
             $userId = auth()->id() ?? 0;
 
-            // Prepare update data
+            $oldValidationStatus = $product->validation_status ?? 'pending';
+
             $updateData = [
                 'validation_status' => $request->status,
                 'lastDateUpdate' => $now,
             ];
 
-            // ✅ Only apply ProductModuleLoc if status is 'invalid' and the value is present
             if ($request->status === 'invalid' && $request->filled('ProductModuleLoc')) {
                 $updateData['ProductModuleLoc'] = $request->ProductModuleLoc;
             }
 
-            // Update the product in the database
             DB::table($this->productTable)
                 ->where('ProductID', $request->product_id)
                 ->update($updateData);
 
-            // Log the validation action
+            $employeeName = auth()->user()->username ?? 'System';
+            $identifier = "RT#{$request->rt_counter}".
+                          (! empty($product->ProductTitle) ? " - {$product->ProductTitle}" : '');
+
+            $currentLocation = $product->ProductModuleLoc ?? 'Unknown';
+            $newValidationStatus = $request->status;
+
+            if ($request->status === 'validated') {
+
+                $this->trackHistory(
+                    'Validation',
+                    'Status Change',
+                    "{$identifier} | {$oldValidationStatus} | Moved from {$currentLocation}",
+                    "{$identifier} | {$newValidationStatus} | Remains in {$currentLocation}",
+                    $employeeName
+                );
+            } else {
+
+                if ($request->filled('ProductModuleLoc')) {
+
+                    $newLocation = $request->ProductModuleLoc;
+                    $oldDisplay = "{$identifier} | {$oldValidationStatus} | Moved from {$currentLocation}";
+                    $newDisplay = "{$identifier} | {$newValidationStatus} | Moved to {$newLocation}";
+
+                    if ($request->notes) {
+                        $newDisplay .= " | Note: {$request->notes}";
+                    }
+
+                    $this->trackHistory(
+                        'Validation',
+                        'Status Change & Location',
+                        $oldDisplay,
+                        $newDisplay,
+                        $employeeName
+                    );
+                } else {
+
+                    $oldDisplay = "{$identifier} | {$oldValidationStatus} | Moved from {$currentLocation}";
+                    $newDisplay = "{$identifier} | {$newValidationStatus} | Remains in {$currentLocation}";
+
+                    if ($request->notes) {
+                        $newDisplay .= " | Note: {$request->notes}";
+                    }
+
+                    $this->trackHistory(
+                        'Validation',
+                        'Status Change',
+                        $oldDisplay,
+                        $newDisplay,
+                        $employeeName
+                    );
+                }
+            }
+
             Log::info('Product validation status updated', [
                 'product_id' => $request->product_id,
                 'rt_counter' => $request->rt_counter,
@@ -383,7 +467,6 @@ class ValidationController extends BasetablesController
                 'message' => 'Product '.($request->status === 'validated' ? 'validated' : 'marked as invalid').' successfully',
             ]);
         } catch (\Exception $e) {
-            // Log the error
             Log::error('Error updating validation status: '.$e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
             ]);

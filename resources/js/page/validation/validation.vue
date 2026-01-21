@@ -180,7 +180,7 @@
                     <div>
                         <a
                             :href="`/houseage?serial=${encodeURIComponent(
-                                data.serialnumber
+                                data.serialnumber,
                             )}`"
                             @click.prevent="goToHouseage(data.serialnumber)"
                         >
@@ -276,6 +276,7 @@
                                 </div>
                             </div>
                         </div>
+
                         <div class="mobile-product-info">
                             <div class="mobile-product-name clickable">
                                 <p>
@@ -647,7 +648,8 @@
                         style="height: 34px; width: 150px"
                     />
                 </div>
-                <div>
+
+                <div class="validation-buttons-desktop">
                     <Button
                         style="margin-right: 10px"
                         size="small"
@@ -664,9 +666,10 @@
                     />
                 </div>
             </div>
+
             <div class="row mt-4">
                 <div class="col-md-2">
-                    <div class="form-col-left">
+                    <div class="form-col-left image-container">
                         <div>
                             <div
                                 class="image-section"
@@ -761,43 +764,23 @@
                                         />
                                     </div>
                                 </div>
-
-                                <p class="asin-label text-center">
-                                    <label>
-                                        <p>Image from <strong>ASIN</strong></p>
-                                        <p>{{ ASIN }}</p>
-                                        <p class="fw-semibold">
-                                            {{ getDisplayTitle(item) }}
-                                        </p>
-                                    </label>
-                                </p>
                             </div>
 
-                            <div class="image-section" v-else>
-                                <div class="main-image">
-                                    <img
-                                        :src="defaultImage"
-                                        alt="No ASIN Image Available"
-                                    />
-                                </div>
-                                <p class="asin-label text-center" v-if="ASIN">
-                                    <label>
-                                        <p>
-                                            No images available for
-                                            <strong>ASIN</strong>
-                                        </p>
-                                        <p>{{ ASIN }}</p>
-                                    </label>
-                                </p>
-                                <p class="asin-label text-center" v-else>
-                                    <label>
-                                        <p>No ASIN available</p>
-                                    </label>
-                                </p>
-                            </div>
+                            <p>
+                                <label>
+                                    <p class="asin-label text-center">
+                                        Image from <strong>ASIN</strong>
+                                    </p>
+                                    <p>{{ ASIN }}</p>
+                                    <p class="fw-semibold mb-2">
+                                        {{ getDisplayTitle(item) }}
+                                    </p>
+                                </label>
+                            </p>
                         </div>
                     </div>
                 </div>
+
                 <div class="col-md-10" style="font-size: 14px">
                     <div>
                         <h3>{{ item.ProductTitle }}</h3>
@@ -998,6 +981,26 @@
                     </div>
                 </div>
             </div>
+
+            <template #footer>
+                <div class="validation-buttons-mobile">
+                    <Button
+                        class="flex-1"
+                        size="small"
+                        icon="pi pi-thumbs-up"
+                        label="Mark as Valid"
+                        @click="confirmMarkAsValid"
+                    />
+                    <Button
+                        class="flex-1"
+                        severity="danger"
+                        icon="pi pi-thumbs-down"
+                        size="small"
+                        label="Mark as Invalid"
+                        @click="confirmMarkAsInvalid"
+                    />
+                </div>
+            </template>
         </Dialog>
 
         <Dialog
@@ -1047,7 +1050,7 @@
                         'header-valid': confirmationActionType === 'valid',
                         'header-invalid': confirmationActionType === 'invalid',
                         'header-default': !['valid', 'invalid'].includes(
-                            confirmationActionType
+                            confirmationActionType,
                         ),
                     }"
                 >
@@ -1227,7 +1230,7 @@ export default {
                 (stat) => ({
                     value: stat,
                     label: stat.charAt(0).toUpperCase() + stat.slice(1), //capitalize first letter
-                })
+                }),
             );
 
             return [{ value: "", label: "All Status" }, ...validationStatus];
@@ -1236,19 +1239,13 @@ export default {
 };
 </script>
 
-<style>
+<style scoped>
 .search-container {
     margin: 20px 0;
 }
 
 .select-form {
     width: 200px;
-}
-
-@media (max-width: 768px) {
-    .select-form {
-        width: 100%;
-    }
 }
 
 .modal-wrapper-image {
@@ -1341,5 +1338,54 @@ export default {
 
 .thumb-item.active {
     border-color: #3b82f6;
+}
+
+.asin-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #495057;
+    text-align: center;
+    padding: 4px 6px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    margin-top: 5px;
+}
+
+.validation-buttons-desktop {
+    display: flex;
+}
+
+.validation-buttons-mobile {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .select-form {
+        width: 100%;
+    }
+
+    .image-container {
+        flex-direction: row;
+    }
+
+    .image-container .p-divider-horizontal {
+        display: none;
+    }
+
+    /* Mobile: hide header buttons, show footer buttons */
+    .validation-buttons-desktop {
+        display: none;
+    }
+
+    .validation-buttons-mobile {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+    }
+
+    .validation-buttons-mobile .flex-1 {
+        flex: 1;
+    }
 }
 </style>
