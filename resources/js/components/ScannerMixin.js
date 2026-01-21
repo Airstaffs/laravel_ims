@@ -397,6 +397,7 @@ export default {
       this.showErrorNotification = true;
       this.showSuccessNotification = false;
       this.failedScans++;
+      this.totalScanned++;
       
       // Clear after delay
       setTimeout(() => {
@@ -513,7 +514,7 @@ showScanWarning(message) {
   this.scanErrorMessage = message;
   this.showErrorNotification = true;
   this.showSuccessNotification = false;
-  
+  this.totalScanned++;
   // Get the notification element and change its class
   this.$nextTick(() => {
     const notificationEl = document.querySelector('.top-notification.error');
