@@ -273,8 +273,8 @@ export default {
             const result = this.filteredFnskuList.map((fnsku) => {
                 return {
                     ...fnsku,
-                    hasBeenUsed: fnsku.Units < 11,
-                    timesUsed: 11 - fnsku.Units,
+                    hasBeenUsed: fnsku.Units < 10,
+                    timesUsed: 10 - fnsku.Units,
                     nextFnskuToUse: this.getNextFnskuToUse(fnsku),
                 };
             });
@@ -360,7 +360,7 @@ export default {
          * Calculate what FNSKU will actually be assigned (with prefix if needed)
          */
         getNextFnskuToUse(fnsku) {
-            const timesUsed = 11 - fnsku.Units;
+            const timesUsed = 10 - fnsku.Units;
 
             if (timesUsed === 0) {
                 return fnsku.FNSKU; // First use - original FNSKU
