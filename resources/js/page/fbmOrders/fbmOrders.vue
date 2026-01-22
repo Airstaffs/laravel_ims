@@ -59,7 +59,7 @@
                 <i class="fas fa-check-square"></i>
                 <span>{{ persistentSelectedOrderIds.length }} order{{
                     persistentSelectedOrderIds.length > 1 ? "s" : ""
-                }}
+                    }}
                     selected across all pages</span>
                 <button class="btn-clear-selection" @click="clearAllSelections">
                     <i class="fas fa-times"></i> Clear Selection
@@ -138,7 +138,7 @@
                             <span>Fulfillment Channel: </span>
                             <span class="text-danger fw-bolder">{{
                                 data.FulfillmentChannel
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="detail-item-container">
                             <span>Amazon Order: </span>
@@ -364,7 +364,7 @@
                         <div class="detail-item-container">
                             <span>Delivered by Date: </span>
                             <span> {{ formatDeliveryDate(data.delivery_date)
-                            }}</span>
+                                }}</span>
                         </div>
                         <div v-if="hasTrackingNumber(data)">
                             <span>Tracking Status:</span>
@@ -490,7 +490,7 @@
                                 <span class="mobile-detail-label">Condition: </span>
                                 <span class="mobile-detail-value">{{ item.condition }} | Price: ${{
                                     parseFloat(item.unit_price || 0).toFixed(2)
-                                }}</span>
+                                    }}</span>
                             </div>
 
                             <!-- Enhanced mobile dispensed products display -->
@@ -553,19 +553,19 @@ dispensedProduct, dpIndex
                             <span class="mobile-detail-label">Purchase Date: </span>
                             <span class="mobile-detail-value">{{
                                 formatDate(order.purchase_date)
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail">
                             <span class="mobile-detail-label">Order Type: </span>
                             <span class="mobile-detail-value">{{
                                 order.order_type
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail">
                             <span class="mobile-detail-label">Shipment: </span>
                             <span class="mobile-detail-value">{{
                                 order.shipment_service
-                            }}</span>
+                                }}</span>
                         </div>
                     </div>
 
@@ -790,12 +790,12 @@ dispensedProduct, dpIndex
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Title:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.title || 'N/A'
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">ASIN:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.asin || 'N/A'
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Location:</span>
@@ -806,17 +806,17 @@ dispensedProduct, dpIndex
                                                     <div v-if="dispensedProduct.serialNumber" class="dispensed-row">
                                                         <span class="dispensed-label">Serial #:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.serialNumber
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.rtCounter" class="dispensed-row">
                                                         <span class="dispensed-label">RT Counter:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.rtCounter
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.FNSKU" class="dispensed-row">
                                                         <span class="dispensed-label">FNSKU:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.FNSKU
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Action:</span>
@@ -888,7 +888,7 @@ dispensedProduct, dpIndex
                                         </div>
                                         <div><strong>Order Item ID:</strong> {{
                                             dispenseItem.ordered_item.platform_order_item_id
-                                        }}</div>
+                                            }}</div>
                                     </div>
                                     <Tag :value="`Qty: ${dispenseItem.quantity_ordered} (${dispenseItem.quantity_dispensed} dispensed, ${dispenseItem.quantity_remaining} remaining)`"
                                         severity="info" class="mt-2" />
@@ -1009,7 +1009,7 @@ dispensedProduct, dpIndex
                                                 dispensedProduct.rtCounter }}</div>
                                             <div v-if="dispensedProduct.FNSKU"><strong>FNSKU:</strong> {{
                                                 dispensedProduct.FNSKU
-                                            }}</div>
+                                                }}</div>
                                         </div>
                                         <Button label="Not Found" icon="pi pi-exclamation-triangle" severity="warning"
                                             size="small" text
@@ -1332,7 +1332,7 @@ dispensedProduct, dpIndex
                         <!-- Search -->
                         <fieldset class="filter-field">
                             <label>Total Orders: <span class="text-primary">{{ workHistoryStats.totalOrders
-                                    }}</span></label>
+                            }}</span></label>
                             <InputText type="text" size="small" placeholder="Search Order ID or ..."
                                 v-model="workHistoryFilters.searchQuery" class="search-input" fluid
                                 @input="fetchWorkHistory" />
@@ -1407,7 +1407,7 @@ dispensedProduct, dpIndex
                                     <li>
                                         <strong>{{
                                             item.Title
-                                            }}</strong>
+                                        }}</strong>
                                     </li>
                                     <li>{{ item.ASIN }}</li>
                                     <li>{{ item.MSKU }}</li>
@@ -1665,8 +1665,14 @@ dispensedProduct, dpIndex
         :selected-rate="selectedCarrierRateByOrderId?.[carrierModalOrder?.platform_order_id] || null"
         @close="closeCarrierModal" @select="handleCarrierSelected" />
 
-    <PrintDocumentsModal v-model:visible="showPrintDocumentsModal" :order-ids="selectedPlatformOrderIdsForPrint"
-        @print="handlePrintDocuments" />
+<PrintDocumentsModal
+  :visible="showPrintDocumentsModal"
+  :order-ids="selectedPlatformOrderIdsForPrint"
+  :defaultLabelChecked="true"
+  :defaultInvoiceChecked="false"
+  @update:visible="showPrintDocumentsModal = $event"
+  @print="handlePrintDocuments"
+/>
 
 
 </template>

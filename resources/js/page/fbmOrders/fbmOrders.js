@@ -147,6 +147,16 @@ export default {
             // for printcentermodal
             showPrintDocumentsModal: false,
             selectedPlatformOrderIdsForPrint: [],
+
+            printCenterDefaults: {
+                labelAction: "PrintShipmentLabel",
+                invoiceAction: "PrintInvoice",
+                invoiceSettings: {
+                    displayPrice: false,
+                    signatureRequired: false,
+                    testPrint: false,
+                },
+            },
         };
     },
     computed: {
@@ -210,7 +220,7 @@ export default {
             if (!this.currentProcessOrder || !this.currentProcessOrder.items)
                 return false;
             return this.currentProcessOrder.items.some(
-                (item) => !this.isItemDispensed(item)
+                (item) => !this.isItemDispensed(item),
             );
         },
 
@@ -219,7 +229,7 @@ export default {
             if (!this.currentProcessOrder || !this.currentProcessOrder.items)
                 return false;
             return this.currentProcessOrder.items.some((item) =>
-                this.isItemDispensed(item)
+                this.isItemDispensed(item),
             );
         },
 
@@ -230,7 +240,7 @@ export default {
                 this.orders.forEach((order) => {
                     if (order.items) {
                         const item = order.items.find(
-                            (i) => i.outboundorderitemid === itemId
+                            (i) => i.outboundorderitemid === itemId,
                         );
                         if (item) {
                             foundItem = item;
@@ -374,7 +384,7 @@ export default {
                     Swal.fire(
                         "No orders selected",
                         "Please select at least one order.",
-                        "warning"
+                        "warning",
                     );
                     return;
                 }
@@ -404,7 +414,7 @@ export default {
                             Swal.fire(
                                 "Missing Information",
                                 `Please fill <b>${k}</b> for order <b>${id}</b>.`,
-                                "warning"
+                                "warning",
                             );
                             return;
                         }
@@ -433,7 +443,7 @@ export default {
 
                 const res = await axios.post(
                     "/amzn/fbm-orders/purchase-label/rates",
-                    payload
+                    payload,
                 );
 
                 // ✅ normalize into maps
@@ -463,14 +473,14 @@ export default {
                 Swal.fire(
                     "Success",
                     "Shipping rates retrieved successfully.",
-                    "success"
+                    "success",
                 );
             } catch (err) {
                 console.error(err);
                 Swal.fire(
                     "Error",
                     "Failed to retrieve shipping rates. Please check the console or network.",
-                    "error"
+                    "error",
                 );
             } finally {
                 Swal.close(); // ✅ always closes loading
@@ -692,7 +702,7 @@ export default {
                 Swal.fire(
                     "Missing Information",
                     check.msg || "Please complete all required fields.",
-                    "warning"
+                    "warning",
                 );
                 return;
             }
@@ -701,7 +711,7 @@ export default {
                 (o) => ({
                     ...o,
                     selectedCarrier: this.selectedCarriers[o.platform_order_id],
-                })
+                }),
             );
 
             const payload = {
@@ -726,7 +736,7 @@ export default {
             try {
                 const res = await axios.post(
                     "/amzn/fbm-orders/purchase-label/createshipment",
-                    payload
+                    payload,
                 );
 
                 const results = res.data?.results || [];
@@ -734,7 +744,7 @@ export default {
                     (r) =>
                         r?.error ||
                         r?.exception ||
-                        (r?.status && r.status >= 400)
+                        (r?.status && r.status >= 400),
                 );
 
                 if (failed.length) {
@@ -744,7 +754,8 @@ export default {
                     const list = failed
                         .slice(0, 5)
                         .map(
-                            (f) => `• ${f.platform_order_id || "Unknown Order"}`
+                            (f) =>
+                                `• ${f.platform_order_id || "Unknown Order"}`,
                         )
                         .join("<br>");
 
@@ -753,7 +764,7 @@ export default {
                         `${failed.length} label(s) failed.<br>${list}${
                             failed.length > 5 ? "<br>• ..." : ""
                         }<br><br>Check console for details.`,
-                        "error"
+                        "error",
                     );
                     return;
                 }
@@ -761,7 +772,7 @@ export default {
                 Swal.fire(
                     "Success",
                     "Shipment labels purchased successfully.",
-                    "success"
+                    "success",
                 );
                 this.closeShipmentLabelModal();
             } catch (err) {
@@ -769,7 +780,7 @@ export default {
                 Swal.fire(
                     "Purchase failed",
                     "Check console/network for details.",
-                    "error"
+                    "error",
                 );
             } finally {
                 Swal.close(); // ✅ always closes loading
@@ -793,6 +804,10 @@ export default {
             this.showPrintDocumentsModal = true;
         },
 
+        closePrintDocumentsModal() {
+            this.showPrintDocumentsModal = false;
+        },
+        /*
         async handlePrintDocuments({ labelOrders, invoiceOrders }) {
             // labelOrders/invoiceOrders are now AmazonOrderIds like 113-xxx
 
@@ -804,14 +819,169 @@ export default {
                 });
 
                 const rows = res.data?.results || [];
-                /*
+                
                 rows.forEach((r) => {
                     if (r?.pdf_url) window.open(r.pdf_url, "_blank");
                 });
-                */
+                
             }
 
             // invoiceOrders later...
+        }, 
+        */
+
+        async handlePrintDocuments(payload, done) {
+            const {
+                labelOrders,
+                invoiceOrders,
+                labelAction,
+                invoiceAction,
+                invoiceSettings,
+            } = payload || {};
+
+            const labels = Array.isArray(labelOrders) ? labelOrders : [];
+            const invoices = Array.isArray(invoiceOrders) ? invoiceOrders : [];
+
+            const result = { label: {}, invoice: {} };
+
+            try {
+                // 1) Shipping Labels
+                if (labels.length) {
+                    const res = await axios.post("/fbm-orders-shippinglabel", {
+                        platform_order_ids: labels,
+                        action: labelAction,
+                        note: "",
+                    });
+
+                    const rows = res?.data?.results || [];
+
+                    // map by order id
+                    const byId = new Map(
+                        rows.map((r) => [
+                            String(r.order_id || r.platform_order_id || ""),
+                            r,
+                        ]),
+                    );
+
+                    labels.forEach((oid) => {
+                        const row = byId.get(String(oid));
+                        const pdfUrl = row?.pdf_url || "";
+
+                        if (!row) {
+                            result.label[oid] = {
+                                ok: false,
+                                status: "Failed",
+                                pdfUrl: "",
+                            };
+                            return;
+                        }
+
+                        // If action is view and we have a URL => Ready to view + clickable
+                        if (labelAction === "ViewShipmentLabel" && pdfUrl) {
+                            result.label[oid] = {
+                                ok: true,
+                                status: "Ready to view",
+                                pdfUrl,
+                            };
+                        } else if (labelAction === "PrintShipmentLabel") {
+                            // print mode: we usually don't need url, but store it if provided
+                            result.label[oid] = {
+                                ok: true,
+                                status: "Printed",
+                                pdfUrl,
+                            };
+                        } else {
+                            result.label[oid] = {
+                                ok: false,
+                                status: "Failed",
+                                pdfUrl: "",
+                            };
+                        }
+                    });
+                }
+
+                // 2) Invoices
+                if (invoices.length) {
+                    const res = await axios.post("/fbm-orders-invoice", {
+                        platform_order_ids: invoices,
+                        action: invoiceAction,
+                        settings: {
+                            displayPrice: invoiceSettings?.displayPrice
+                                ? "TRUE"
+                                : "FALSE",
+                            signatureRequired:
+                                invoiceSettings?.signatureRequired
+                                    ? "TRUE"
+                                    : "FALSE",
+                            testPrint: !!invoiceSettings?.testPrint,
+                            width: 350,
+                        },
+                    });
+
+                    const rows = res?.data?.results || [];
+                    const byId = new Map(
+                        rows.map((r) => [
+                            String(r.order_id || r.platform_order_id || ""),
+                            r,
+                        ]),
+                    );
+
+                    invoices.forEach((oid) => {
+                        const row = byId.get(String(oid));
+                        const pdfUrl = row?.pdf_url || "";
+
+                        if (!row) {
+                            result.invoice[oid] = {
+                                ok: false,
+                                status: "Failed",
+                                pdfUrl: "",
+                            };
+                            return;
+                        }
+
+                        if (invoiceAction === "ViewInvoice" && pdfUrl) {
+                            result.invoice[oid] = {
+                                ok: true,
+                                status: "Ready to view",
+                                pdfUrl,
+                            };
+                        } else if (invoiceAction === "PrintInvoice") {
+                            result.invoice[oid] = {
+                                ok: true,
+                                status: "Printed",
+                                pdfUrl,
+                            };
+                        } else {
+                            result.invoice[oid] = {
+                                ok: false,
+                                status: "Failed",
+                                pdfUrl: "",
+                            };
+                        }
+                    });
+                }
+            } catch (e) {
+                // if the whole request fails, mark all requested as Failed
+                labels.forEach(
+                    (oid) =>
+                        (result.label[oid] = {
+                            ok: false,
+                            status: "Failed",
+                            pdfUrl: "",
+                        }),
+                );
+                invoices.forEach(
+                    (oid) =>
+                        (result.invoice[oid] = {
+                            ok: false,
+                            status: "Failed",
+                            pdfUrl: "",
+                        }),
+                );
+            } finally {
+                // ✅ tell modal we’re done so it can enable button + show statuses
+                if (typeof done === "function") done(result);
+            }
         },
 
         getSelectedPlatformOrderIds() {
@@ -823,7 +993,7 @@ export default {
                 (this.orders || []).map((o) => [
                     String(o.outboundorderid),
                     o.platform_order_id,
-                ])
+                ]),
             );
 
             return selectedOutboundIds
@@ -879,7 +1049,7 @@ export default {
 
         async fetchWorkHistory(resetPage = false) {
             console.log(
-                "🔄 fetchWorkHistory called - using POST method with pagination"
+                "🔄 fetchWorkHistory called - using POST method with pagination",
             );
 
             if (resetPage) {
@@ -894,7 +1064,7 @@ export default {
                     user_id: this.workHistoryFilters.userId,
                     start_date: this.workHistoryFilters.startDate
                         ? this.formatDateForAPI(
-                              this.workHistoryFilters.startDate
+                              this.workHistoryFilters.startDate,
                           )
                         : "2024-05-20",
                     end_date: this.workHistoryFilters.endDate
@@ -913,7 +1083,7 @@ export default {
 
                 console.log(
                     "Sending work history request with payload:",
-                    payload
+                    payload,
                 );
 
                 const response = await axios.post(
@@ -925,10 +1095,10 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 console.log("Work history response:", response);
@@ -956,7 +1126,7 @@ export default {
                     if (response.data.message) {
                         console.log(
                             "Work history message:",
-                            response.data.message
+                            response.data.message,
                         );
                     }
                 } else {
@@ -1056,7 +1226,7 @@ export default {
                 this.goToWorkHistoryPage(page);
             } else {
                 alert(
-                    `Please enter a valid page number between 1 and ${this.workHistoryPagination.totalPages}`
+                    `Please enter a valid page number between 1 and ${this.workHistoryPagination.totalPages}`,
                 );
                 this.quickJumpPage = this.workHistoryPagination.currentPage;
             }
@@ -1110,10 +1280,10 @@ export default {
 
                 if (isDateFiltered) {
                     const startDate = new Date(
-                        this.workHistoryFilters.startDate
+                        this.workHistoryFilters.startDate,
                     ).toLocaleDateString();
                     const endDate = new Date(
-                        this.workHistoryFilters.endDate
+                        this.workHistoryFilters.endDate,
                     ).toLocaleDateString();
                     confirmMessageHtml += `<li style='margin-bottom: 8px;'>📅 <strong>Date Range:</strong> ${startDate} to ${endDate}</li>`;
                 } else {
@@ -1166,7 +1336,7 @@ export default {
 
                 // Show loading state
                 const exportButton = document.querySelector(
-                    ".btn-export, .btn-primary"
+                    ".btn-export, .btn-primary",
                 );
                 const originalText = exportButton ? exportButton.innerHTML : "";
                 if (exportButton) {
@@ -1181,32 +1351,32 @@ export default {
                     start_date: this.workHistoryFilters.startDate
                         ? String(
                               this.formatDateForAPI(
-                                  this.workHistoryFilters.startDate
-                              )
+                                  this.workHistoryFilters.startDate,
+                              ),
                           )
                         : "",
                     end_date: this.workHistoryFilters.endDate
                         ? String(
                               this.formatDateForAPI(
-                                  this.workHistoryFilters.endDate
-                              )
+                                  this.workHistoryFilters.endDate,
+                              ),
                           )
                         : "",
                     sort_by: String(
-                        this.workHistoryFilters.sortBy || "purchase_date"
+                        this.workHistoryFilters.sortBy || "purchase_date",
                     ),
                     sort_order: String("DESC"),
                     search_query: String(
-                        this.workHistoryFilters.searchQuery || ""
+                        this.workHistoryFilters.searchQuery || "",
                     ),
                     late_orders: String(
-                        this.workHistoryFilters.lateOrders || ""
+                        this.workHistoryFilters.lateOrders || "",
                     ),
                     carrier_filter: String(
-                        this.workHistoryFilters.carrierFilter || ""
+                        this.workHistoryFilters.carrierFilter || "",
                     ),
                     store_filter: String(
-                        this.workHistoryFilters.storeFilter || ""
+                        this.workHistoryFilters.storeFilter || "",
                     ),
                 };
 
@@ -1222,11 +1392,11 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
                         timeout: 300000, // 5 minute timeout for large exports
-                    }
+                    },
                 );
 
                 // Check if response is actually an error
@@ -1240,10 +1410,10 @@ export default {
                 let filename = "work-history";
                 if (isDateFiltered) {
                     const startDate = this.formatDateForAPI(
-                        this.workHistoryFilters.startDate
+                        this.workHistoryFilters.startDate,
                     );
                     const endDate = this.formatDateForAPI(
-                        this.workHistoryFilters.endDate
+                        this.workHistoryFilters.endDate,
                     );
                     filename += `_${startDate}_to_${endDate}`;
                 }
@@ -1254,7 +1424,7 @@ export default {
 
                 // Create download link
                 const url = window.URL.createObjectURL(
-                    new Blob([response.data])
+                    new Blob([response.data]),
                 );
                 const link = document.createElement("a");
                 link.href = url;
@@ -1283,7 +1453,7 @@ export default {
 
                 // Restore button state on error
                 const exportButton = document.querySelector(
-                    ".btn-export, .btn-primary"
+                    ".btn-export, .btn-primary",
                 );
                 if (exportButton) {
                     exportButton.innerHTML =
@@ -1309,7 +1479,7 @@ export default {
                                     errorMessage += `• ${key}: ${error.response.data.errors[
                                         key
                                     ].join(", ")}\n`;
-                                }
+                                },
                             );
                         }
                     } else {
@@ -1513,7 +1683,7 @@ export default {
                 return "Not Available";
             }
             const trackedItem = order.items.find(
-                (item) => item.tracking_status
+                (item) => item.tracking_status,
             );
             return trackedItem ? trackedItem.tracking_status : "Not Available";
         },
@@ -1640,7 +1810,7 @@ export default {
         formatStoreSpecificCondition(
             conditionId,
             conditionSubtypeId,
-            storeName
+            storeName,
         ) {
             const normalizedStore = this.normalizeStoreName(storeName);
 
@@ -1689,7 +1859,7 @@ export default {
                     order.items.forEach((item) => {
                         if (this.isItemDispensed(item)) {
                             this.dispenseItemsSelected.push(
-                                item.outboundorderitemid
+                                item.outboundorderitemid,
                             );
                         }
                     });
@@ -1703,7 +1873,7 @@ export default {
 
         autoCheckOrderAfterDispense(orderId) {
             const orderIndex = this.orders.findIndex(
-                (o) => o.outboundorderid === orderId
+                (o) => o.outboundorderid === orderId,
             );
             if (
                 orderIndex !== -1 &&
@@ -1714,7 +1884,7 @@ export default {
                     this.persistentSelectedOrderIds.push(orderId);
                 }
                 console.log(
-                    `✅ Auto-checked order ${this.orders[orderIndex].platform_order_id} after dispensing`
+                    `✅ Auto-checked order ${this.orders[orderIndex].platform_order_id} after dispensing`,
                 );
             }
         },
@@ -1729,7 +1899,7 @@ export default {
             if (order.checked) {
                 if (
                     !this.persistentSelectedOrderIds.includes(
-                        order.outboundorderid
+                        order.outboundorderid,
                     )
                 ) {
                     this.persistentSelectedOrderIds.push(order.outboundorderid);
@@ -1737,7 +1907,7 @@ export default {
             } else {
                 this.persistentSelectedOrderIds =
                     this.persistentSelectedOrderIds.filter(
-                        (id) => id !== order.outboundorderid
+                        (id) => id !== order.outboundorderid,
                     );
             }
         },
@@ -1785,7 +1955,7 @@ export default {
                             order_by: this.orderByFilter,
                         },
                         withCredentials: true,
-                    }
+                    },
                 );
 
                 console.log("API Response:", response);
@@ -1803,7 +1973,7 @@ export default {
                         const isChecked =
                             this.persistentSelectedOrderIds.length > 0 &&
                             this.persistentSelectedOrderIds.includes(
-                                order.outboundorderid
+                                order.outboundorderid,
                             );
 
                         return {
@@ -1815,7 +1985,7 @@ export default {
 
                     console.log(
                         "Processed orders with dispensed items:",
-                        this.orders
+                        this.orders,
                     );
 
                     this.totalPages = response.data.last_page || 1;
@@ -1843,7 +2013,7 @@ export default {
                     `${API_BASE_URL}/api/fbm-orders/stores`,
                     {
                         withCredentials: true,
-                    }
+                    },
                 );
                 console.log("Stores response:", response);
                 this.stores = response.data || [];
@@ -1932,14 +2102,14 @@ export default {
                 // Remove PrimeVue / UI highlight classes
                 document
                     .querySelectorAll(
-                        ".p-checkbox-box, .p-checkbox, .p-highlight, .p-checked"
+                        ".p-checkbox-box, .p-checkbox, .p-highlight, .p-checked",
                     )
                     .forEach((el) =>
                         el.classList.remove(
                             "p-highlight",
                             "p-checked",
-                            "p-focus"
-                        )
+                            "p-focus",
+                        ),
                     );
 
                 console.log("✅ All selections cleared");
@@ -2032,10 +2202,10 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 console.log("Process response:", response);
@@ -2048,7 +2218,7 @@ export default {
                     alert(
                         `Error: ${
                             response.data.message || "Failed to process order"
-                        }`
+                        }`,
                     );
                 }
             } catch (error) {
@@ -2072,7 +2242,7 @@ export default {
             }
 
             const itemIds = itemsNeedingDispense.map(
-                (item) => item.outboundorderitemid
+                (item) => item.outboundorderitemid,
             );
 
             let message = `Auto-dispense products for ${itemsNeedingDispense.length} item(s) in this order?\n\n`;
@@ -2086,7 +2256,7 @@ export default {
             if (confirm(message)) {
                 this.performStandaloneAutoDispense(
                     order.outboundorderid,
-                    itemIds
+                    itemIds,
                 );
             }
         },
@@ -2100,7 +2270,7 @@ export default {
 
                 console.log(
                     "🤖 Standalone auto dispense request:",
-                    requestData
+                    requestData,
                 );
 
                 const response = await axios.post(
@@ -2112,21 +2282,21 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 if (response.data && response.data.success) {
                     alert(
-                        `Auto-dispensing completed successfully!\n\nDispensed ${response.data.dispensed_count} products across ${response.data.items_processed} items.`
+                        `Auto-dispensing completed successfully!\n\nDispensed ${response.data.dispensed_count} products across ${response.data.items_processed} items.`,
                     );
 
                     // COMPREHENSIVE REFRESH AFTER AUTO DISPENSE
                     console.log(
                         "🔄 Starting comprehensive refresh after auto dispense for order:",
-                        orderId
+                        orderId,
                     );
 
                     // Step 1: Always refresh main orders list first
@@ -2140,12 +2310,12 @@ export default {
                     ) {
                         console.log("📝 Updating details modal...");
                         const updatedOrder = this.orders.find(
-                            (o) => o.outboundorderid === orderId
+                            (o) => o.outboundorderid === orderId,
                         );
                         if (updatedOrder) {
                             this.selectedOrder = { ...updatedOrder };
                             console.log(
-                                "✅ Details modal updated with dispensed products"
+                                "✅ Details modal updated with dispensed products",
                             );
                         }
                     }
@@ -2157,7 +2327,7 @@ export default {
                     ) {
                         console.log("🔧 Updating process modal...");
                         const updatedOrderFromList = this.orders.find(
-                            (o) => o.outboundorderid === orderId
+                            (o) => o.outboundorderid === orderId,
                         );
                         if (updatedOrderFromList) {
                             const wasChecked = this.currentProcessOrder.checked;
@@ -2168,12 +2338,12 @@ export default {
 
                             this.selectedItems = this.currentProcessOrder.items
                                 ? this.currentProcessOrder.items.map(
-                                      (item) => item.outboundorderitemid
+                                      (item) => item.outboundorderitemid,
                                   )
                                 : [];
 
                             console.log(
-                                "✅ Process modal updated with dispensed products"
+                                "✅ Process modal updated with dispensed products",
                             );
                         }
                     }
@@ -2185,7 +2355,7 @@ export default {
                     ) {
                         console.log("🤖 Updating auto dispense modal...");
                         const updatedOrderFromList = this.orders.find(
-                            (o) => o.outboundorderid === orderId
+                            (o) => o.outboundorderid === orderId,
                         );
                         if (updatedOrderFromList) {
                             this.autoDispenseOrder = {
@@ -2207,7 +2377,7 @@ export default {
                     this.$nextTick(() => {
                         this.$forceUpdate();
                         console.log(
-                            "✅ Vue components force updated after auto dispense"
+                            "✅ Vue components force updated after auto dispense",
                         );
                     });
 
@@ -2216,7 +2386,7 @@ export default {
                     alert(
                         `Error in auto-dispensing: ${
                             response.data.message || "Unknown error"
-                        }`
+                        }`,
                     );
                 }
             } catch (error) {
@@ -2262,7 +2432,7 @@ export default {
                     "🗑️ Canceling dispense for order:",
                     order.outboundorderid,
                     "items:",
-                    itemIds
+                    itemIds,
                 );
 
                 const response = await axios.post(
@@ -2277,10 +2447,10 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 if (response.data && response.data.success) {
@@ -2296,7 +2466,7 @@ export default {
                     const orderId = order.outboundorderid;
                     console.log(
                         "🔄 Starting comprehensive refresh for order:",
-                        orderId
+                        orderId,
                     );
 
                     // Step 1: Always refresh main orders list first
@@ -2310,7 +2480,7 @@ export default {
                     ) {
                         console.log("🔧 Updating process modal...");
                         const updatedOrderFromList = this.orders.find(
-                            (o) => o.outboundorderid === orderId
+                            (o) => o.outboundorderid === orderId,
                         );
                         if (updatedOrderFromList) {
                             // Preserve modal state while updating data
@@ -2323,12 +2493,12 @@ export default {
                             // Update selected items
                             this.selectedItems = this.currentProcessOrder.items
                                 ? this.currentProcessOrder.items.map(
-                                      (item) => item.outboundorderitemid
+                                      (item) => item.outboundorderitemid,
                                   )
                                 : [];
 
                             console.log(
-                                "✅ Process modal updated with fresh data"
+                                "✅ Process modal updated with fresh data",
                             );
                         }
                     }
@@ -2340,12 +2510,12 @@ export default {
                     ) {
                         console.log("📝 Updating details modal...");
                         const updatedOrderFromList = this.orders.find(
-                            (o) => o.outboundorderid === orderId
+                            (o) => o.outboundorderid === orderId,
                         );
                         if (updatedOrderFromList) {
                             this.selectedOrder = { ...updatedOrderFromList };
                             console.log(
-                                "✅ Details modal updated with fresh data"
+                                "✅ Details modal updated with fresh data",
                             );
                         }
                     }
@@ -2357,14 +2527,14 @@ export default {
                     ) {
                         console.log("🤖 Updating auto dispense modal...");
                         const updatedOrderFromList = this.orders.find(
-                            (o) => o.outboundorderid === orderId
+                            (o) => o.outboundorderid === orderId,
                         );
                         if (updatedOrderFromList) {
                             this.autoDispenseOrder = {
                                 ...updatedOrderFromList,
                             };
                             console.log(
-                                "✅ Auto dispense modal updated with fresh data"
+                                "✅ Auto dispense modal updated with fresh data",
                             );
                         }
                     }
@@ -2384,7 +2554,7 @@ export default {
                     alert(
                         `Error: ${
                             response.data.message || "Failed to cancel dispense"
-                        }`
+                        }`,
                     );
                 }
             } catch (error) {
@@ -2442,7 +2612,7 @@ export default {
 
             try {
                 const dispenseItems = Object.entries(
-                    this.selectedDispenseProducts
+                    this.selectedDispenseProducts,
                 ).map(([key, product]) => {
                     const itemId = parseInt(key.split("-")[0]);
                     return {
@@ -2453,7 +2623,7 @@ export default {
 
                 console.log(
                     "🔧 Confirming auto dispense in process modal:",
-                    dispenseItems
+                    dispenseItems,
                 );
 
                 const response = await axios.post(
@@ -2468,10 +2638,10 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 if (response.data && response.data.success) {
@@ -2486,7 +2656,7 @@ export default {
                     const orderId = this.currentProcessOrder.outboundorderid;
                     console.log(
                         "🔄 Starting comprehensive refresh for process modal, order:",
-                        orderId
+                        orderId,
                     );
 
                     // Step 1: Refresh main orders list to get latest data
@@ -2496,7 +2666,7 @@ export default {
                     // Step 2: Update process modal with fresh data from main list
                     console.log("🔧 Updating process modal with fresh data...");
                     const updatedOrderFromList = this.orders.find(
-                        (o) => o.outboundorderid === orderId
+                        (o) => o.outboundorderid === orderId,
                     );
                     if (updatedOrderFromList) {
                         const wasChecked = this.currentProcessOrder.checked;
@@ -2507,16 +2677,16 @@ export default {
 
                         this.selectedItems = this.currentProcessOrder.items
                             ? this.currentProcessOrder.items.map(
-                                  (item) => item.outboundorderitemid
+                                  (item) => item.outboundorderitemid,
                               )
                             : [];
 
                         console.log(
-                            "✅ Process modal updated with dispensed products"
+                            "✅ Process modal updated with dispensed products",
                         );
                     } else {
                         console.error(
-                            "❌ Could not find updated order in main list"
+                            "❌ Could not find updated order in main list",
                         );
                     }
 
@@ -2542,7 +2712,7 @@ export default {
                     this.$nextTick(() => {
                         this.$forceUpdate();
                         console.log(
-                            "✅ Vue components force updated in process modal"
+                            "✅ Vue components force updated in process modal",
                         );
                     });
 
@@ -2551,7 +2721,7 @@ export default {
                     alert(
                         `Error: ${
                             response.data.message || "Failed to dispense items"
-                        }`
+                        }`,
                     );
                 }
             } catch (error) {
@@ -2567,7 +2737,7 @@ export default {
             try {
                 console.log(
                     "🔄 Refreshing process modal content for order:",
-                    this.currentProcessOrder.outboundorderid
+                    this.currentProcessOrder.outboundorderid,
                 );
 
                 // Method 1: Try to get fresh data from detail endpoint
@@ -2580,7 +2750,7 @@ export default {
                                     this.currentProcessOrder.outboundorderid,
                             },
                             withCredentials: true,
-                        }
+                        },
                     );
 
                     if (response.data && response.data.success) {
@@ -2593,14 +2763,14 @@ export default {
                         };
 
                         console.log(
-                            "✅ Process modal refreshed via detail endpoint"
+                            "✅ Process modal refreshed via detail endpoint",
                         );
                     } else {
                         throw new Error("Detail endpoint failed");
                     }
                 } catch (detailError) {
                     console.log(
-                        "⚠️ Detail endpoint failed, trying main orders refresh..."
+                        "⚠️ Detail endpoint failed, trying main orders refresh...",
                     );
 
                     // Method 2: Fallback to main orders refresh
@@ -2609,7 +2779,7 @@ export default {
                     const updatedOrder = this.orders.find(
                         (o) =>
                             o.outboundorderid ===
-                            this.currentProcessOrder.outboundorderid
+                            this.currentProcessOrder.outboundorderid,
                     );
 
                     if (updatedOrder) {
@@ -2618,7 +2788,7 @@ export default {
                             checked: this.currentProcessOrder.checked || false,
                         };
                         console.log(
-                            "✅ Process modal refreshed via main orders"
+                            "✅ Process modal refreshed via main orders",
                         );
                     } else {
                         console.error("❌ Could not find updated order");
@@ -2628,7 +2798,7 @@ export default {
                 // Reset selectedItems to include all items
                 this.selectedItems = this.currentProcessOrder.items
                     ? this.currentProcessOrder.items.map(
-                          (item) => item.outboundorderitemid
+                          (item) => item.outboundorderitemid,
                       )
                     : [];
 
@@ -2653,7 +2823,7 @@ export default {
             } catch (error) {
                 console.error(
                     "❌ Error refreshing process modal content:",
-                    error
+                    error,
                 );
             }
         },
@@ -2673,7 +2843,7 @@ export default {
             }
 
             const visibleSelectedOrder = this.orders.find((order) =>
-                selectedOrderIds.includes(order.outboundorderid)
+                selectedOrderIds.includes(order.outboundorderid),
             );
 
             if (visibleSelectedOrder) {
@@ -2692,7 +2862,7 @@ export default {
                     {
                         params: { order_id: orderId },
                         withCredentials: true,
-                    }
+                    },
                 );
 
                 if (response.data && response.data.success) {
@@ -2704,7 +2874,7 @@ export default {
                     this.openProcessModal(processedOrder);
                 } else {
                     alert(
-                        "Could not fetch the selected order. Please try again."
+                        "Could not fetch the selected order. Please try again.",
                     );
                 }
             } catch (error) {
@@ -2726,10 +2896,10 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 if (response.data && response.data.success) {
@@ -2742,7 +2912,7 @@ export default {
                         `Error: ${
                             response.data.message ||
                             "Failed to generate packing slip"
-                        }`
+                        }`,
                     );
                 }
             } catch (error) {
@@ -2768,10 +2938,10 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 if (response.data && response.data.success) {
@@ -2782,7 +2952,7 @@ export default {
                     alert(
                         `Error: ${
                             response.data.message || "Failed to cancel order"
-                        }`
+                        }`,
                     );
                 }
             } catch (error) {
@@ -2794,7 +2964,7 @@ export default {
         async markProductNotFound(productId, item) {
             if (
                 !confirm(
-                    `Mark this product as "Not Found" and automatically select a replacement?\n\nThis will:\n1. Mark the current product as not found\n2. Remove it from this order\n3. Automatically select a new product if available`
+                    `Mark this product as "Not Found" and automatically select a replacement?\n\nThis will:\n1. Mark the current product as not found\n2. Remove it from this order\n3. Automatically select a new product if available`,
                 )
             ) {
                 return;
@@ -2810,7 +2980,7 @@ export default {
                             order.items.some(
                                 (orderItem) =>
                                     orderItem.outboundorderitemid ===
-                                    item.outboundorderitemid
+                                    item.outboundorderitemid,
                             )
                         ) {
                             orderId = order.outboundorderid;
@@ -2839,10 +3009,10 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 // if (response.data && response.data.success) {
@@ -2939,7 +3109,7 @@ export default {
                     const orderId = this.selectedOrder.outboundorderid;
                     await this.fetchOrders();
                     const updatedOrder = this.orders.find(
-                        (o) => o.outboundorderid === orderId
+                        (o) => o.outboundorderid === orderId,
                     );
                     if (updatedOrder) {
                         this.selectedOrder = { ...updatedOrder };
@@ -3044,10 +3214,10 @@ export default {
                         "Content-Type": "application/json",
                         Accept: "application/json",
                         "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
+                            'meta[name="csrf-token"]',
                         )?.content,
                     },
-                }
+                },
             );
 
             // Your controller returns: { success: true, results: [{ order_id, pdf_url, zpl_preview }] }
@@ -3071,10 +3241,10 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 if (response.data && response.data.success) {
@@ -3170,10 +3340,10 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 if (response.data && response.data.success) {
@@ -3187,7 +3357,7 @@ export default {
                         ) {
                             const neededCount = Math.min(
                                 item.quantity_remaining,
-                                item.matching_products.length
+                                item.matching_products.length,
                             );
 
                             for (let i = 0; i < neededCount; i++) {
@@ -3213,7 +3383,7 @@ export default {
 
             try {
                 const dispenseItems = Object.entries(
-                    this.selectedDispenseProducts
+                    this.selectedDispenseProducts,
                 ).map(([key, product]) => {
                     const itemId = parseInt(key.split("-")[0]);
                     return {
@@ -3224,7 +3394,7 @@ export default {
 
                 console.log(
                     "🤖 Confirming auto dispense in standalone modal:",
-                    dispenseItems
+                    dispenseItems,
                 );
 
                 const response = await axios.post(
@@ -3239,10 +3409,10 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 if (response.data && response.data.success) {
@@ -3261,7 +3431,7 @@ export default {
                     const orderId = this.autoDispenseOrder.outboundorderid;
                     console.log(
                         "🔄 Starting comprehensive refresh after standalone auto dispense for order:",
-                        orderId
+                        orderId,
                     );
 
                     // Step 1: Always refresh main orders list first
@@ -3275,12 +3445,12 @@ export default {
                     ) {
                         console.log("📝 Updating details modal...");
                         const updatedOrder = this.orders.find(
-                            (o) => o.outboundorderid === orderId
+                            (o) => o.outboundorderid === orderId,
                         );
                         if (updatedOrder) {
                             this.selectedOrder = { ...updatedOrder };
                             console.log(
-                                "✅ Details modal updated with dispensed products"
+                                "✅ Details modal updated with dispensed products",
                             );
                         }
                     }
@@ -3292,7 +3462,7 @@ export default {
                     ) {
                         console.log("🔧 Updating process modal...");
                         const updatedOrderFromList = this.orders.find(
-                            (o) => o.outboundorderid === orderId
+                            (o) => o.outboundorderid === orderId,
                         );
                         if (updatedOrderFromList) {
                             const wasChecked = this.currentProcessOrder.checked;
@@ -3303,12 +3473,12 @@ export default {
 
                             this.selectedItems = this.currentProcessOrder.items
                                 ? this.currentProcessOrder.items.map(
-                                      (item) => item.outboundorderitemid
+                                      (item) => item.outboundorderitemid,
                                   )
                                 : [];
 
                             console.log(
-                                "✅ Process modal updated with dispensed products"
+                                "✅ Process modal updated with dispensed products",
                             );
                         }
                     }
@@ -3321,18 +3491,18 @@ export default {
                     this.$nextTick(() => {
                         this.$forceUpdate();
                         console.log(
-                            "✅ Vue components force updated after standalone auto dispense"
+                            "✅ Vue components force updated after standalone auto dispense",
                         );
                     });
 
                     console.log(
-                        "🎉 Standalone auto dispense refresh completed!"
+                        "🎉 Standalone auto dispense refresh completed!",
                     );
                 } else {
                     alert(
                         `Error: ${
                             response.data.message || "Failed to dispense items"
-                        }`
+                        }`,
                     );
                 }
             } catch (error) {
@@ -3372,10 +3542,10 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 if (
@@ -3411,8 +3581,9 @@ export default {
                                     &nbsp;&nbsp;&nbsp;&nbsp;◦ Product ID: ${
                                         product.ProductID
                                     } (${
-                                    product.warehouseLocation || "No location"
-                                })<br>
+                                        product.warehouseLocation ||
+                                        "No location"
+                                    })<br>
                                 `;
                                 totalItemsToDispense++;
                             });
@@ -3467,14 +3638,14 @@ export default {
                     // }
                 } else {
                     alert(
-                        "No matching products found in inventory for auto-dispensing."
+                        "No matching products found in inventory for auto-dispensing.",
                     );
                     this.processingAutoDispense = false;
                 }
             } catch (error) {
                 console.error("Error in auto dispense:", error);
                 alert(
-                    "Error finding products for auto-dispensing. Please try again."
+                    "Error finding products for auto-dispensing. Please try again.",
                 );
                 this.processingAutoDispense = false;
             } finally {
@@ -3491,7 +3662,7 @@ export default {
 
                 console.log(
                     "🤖 Performing auto dispense in process modal:",
-                    requestData
+                    requestData,
                 );
 
                 const response = await axios.post(
@@ -3503,10 +3674,10 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 if (response.data && response.data.success) {
@@ -3532,7 +3703,7 @@ export default {
                     const orderId = this.currentProcessOrder.outboundorderid;
                     console.log(
                         "🔄 Starting comprehensive refresh after auto dispense in process modal, order:",
-                        orderId
+                        orderId,
                     );
 
                     // Step 1: Refresh main orders list to get latest data
@@ -3542,7 +3713,7 @@ export default {
                     // Step 2: Update process modal with fresh data from main list
                     console.log("🔧 Updating process modal with fresh data...");
                     const updatedOrderFromList = this.orders.find(
-                        (o) => o.outboundorderid === orderId
+                        (o) => o.outboundorderid === orderId,
                     );
                     if (updatedOrderFromList) {
                         const wasChecked = this.currentProcessOrder.checked;
@@ -3553,16 +3724,16 @@ export default {
 
                         this.selectedItems = this.currentProcessOrder.items
                             ? this.currentProcessOrder.items.map(
-                                  (item) => item.outboundorderitemid
+                                  (item) => item.outboundorderitemid,
                               )
                             : [];
 
                         console.log(
-                            "✅ Process modal updated with auto-dispensed products"
+                            "✅ Process modal updated with auto-dispensed products",
                         );
                     } else {
                         console.error(
-                            "❌ Could not find updated order in main list"
+                            "❌ Could not find updated order in main list",
                         );
                     }
 
@@ -3588,18 +3759,18 @@ export default {
                     this.$nextTick(() => {
                         this.$forceUpdate();
                         console.log(
-                            "✅ Vue components force updated after auto dispense in process modal"
+                            "✅ Vue components force updated after auto dispense in process modal",
                         );
                     });
 
                     console.log(
-                        "🎉 Auto dispense in process modal refresh completed!"
+                        "🎉 Auto dispense in process modal refresh completed!",
                     );
                 } else {
                     alert(
                         `Error in auto-dispensing: ${
                             response.data.message || "Unknown error"
-                        }`
+                        }`,
                     );
                     this.processingAutoDispense = false;
                 }
@@ -3628,10 +3799,10 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 if (response.data && response.data.success) {
@@ -3645,7 +3816,7 @@ export default {
                         ) {
                             const availableProducts = Math.min(
                                 item.quantity_remaining,
-                                item.matching_products.length
+                                item.matching_products.length,
                             );
 
                             for (let i = 0; i < availableProducts; i++) {
@@ -3672,7 +3843,7 @@ export default {
             try {
                 console.log(
                     "Refreshing current process order data for ID:",
-                    this.currentProcessOrder.outboundorderid
+                    this.currentProcessOrder.outboundorderid,
                 );
 
                 // Use the detail endpoint to get comprehensive, up-to-date data
@@ -3683,7 +3854,7 @@ export default {
                             order_id: this.currentProcessOrder.outboundorderid,
                         },
                         withCredentials: true,
-                    }
+                    },
                 );
 
                 console.log("Refresh response:", response);
@@ -3699,14 +3870,14 @@ export default {
 
                     console.log(
                         "Updated current process order:",
-                        this.currentProcessOrder
+                        this.currentProcessOrder,
                     );
 
                     // Also update the corresponding order in the main orders array
                     const orderIndex = this.orders.findIndex(
                         (o) =>
                             o.outboundorderid ===
-                            this.currentProcessOrder.outboundorderid
+                            this.currentProcessOrder.outboundorderid,
                     );
                     if (orderIndex !== -1) {
                         this.orders[orderIndex] = {
@@ -3715,13 +3886,13 @@ export default {
                         };
                         console.log(
                             "Updated order in main list at index:",
-                            orderIndex
+                            orderIndex,
                         );
                     }
 
                     // Reset selectedItems to include all items
                     this.selectedItems = this.currentProcessOrder.items.map(
-                        (item) => item.outboundorderitemid
+                        (item) => item.outboundorderitemid,
                     );
 
                     // Update dispense items selection to reflect newly dispensed items
@@ -3731,7 +3902,7 @@ export default {
                 } else {
                     console.error(
                         "Failed to refresh order data:",
-                        response.data
+                        response.data,
                     );
                     // Don't throw error, just log it and continue with existing data
                 }
@@ -3747,7 +3918,7 @@ export default {
                     const updatedOrder = this.orders.find(
                         (o) =>
                             o.outboundorderid ===
-                            this.currentProcessOrder.outboundorderid
+                            this.currentProcessOrder.outboundorderid,
                     );
                     if (updatedOrder) {
                         this.currentProcessOrder = {
@@ -3755,13 +3926,13 @@ export default {
                             checked: this.currentProcessOrder.checked || false,
                         };
                         console.log(
-                            "Successfully refreshed from main orders list"
+                            "Successfully refreshed from main orders list",
                         );
                     }
                 } catch (fallbackError) {
                     console.error(
                         "Fallback refresh also failed:",
-                        fallbackError
+                        fallbackError,
                     );
                     // At this point we'll just continue with the existing data
                     console.log("Continuing with existing data...");
@@ -3788,7 +3959,7 @@ export default {
 
             console.log(
                 "🔧 Opening manual dispense for item:",
-                item.outboundorderitemid
+                item.outboundorderitemid,
             );
 
             this.currentManualDispenseItem = item;
@@ -3805,7 +3976,7 @@ export default {
         async refreshAfterManualDispense(orderId) {
             console.log(
                 "🔄 Starting refresh after manual dispense for order:",
-                orderId
+                orderId,
             );
 
             // Step 1: Refresh main orders list
@@ -3817,7 +3988,7 @@ export default {
                 this.currentProcessOrder.outboundorderid === orderId
             ) {
                 const updatedOrder = this.orders.find(
-                    (o) => o.outboundorderid === orderId
+                    (o) => o.outboundorderid === orderId,
                 );
                 if (updatedOrder) {
                     this.currentProcessOrder = {
@@ -3827,7 +3998,7 @@ export default {
 
                     this.selectedItems = this.currentProcessOrder.items
                         ? this.currentProcessOrder.items.map(
-                              (item) => item.outboundorderitemid
+                              (item) => item.outboundorderitemid,
                           )
                         : [];
                 }
@@ -3839,7 +4010,7 @@ export default {
                 this.selectedOrder.outboundorderid === orderId
             ) {
                 const updatedOrder = this.orders.find(
-                    (o) => o.outboundorderid === orderId
+                    (o) => o.outboundorderid === orderId,
                 );
                 if (updatedOrder) {
                     this.selectedOrder = { ...updatedOrder };
@@ -3851,7 +4022,7 @@ export default {
 
             // Step 5: Check ONLY this order since items were just dispensed
             console.log(
-                "☑️ Checking order-level checkbox after manual dispense..."
+                "☑️ Checking order-level checkbox after manual dispense...",
             );
             this.autoCheckOrderAfterDispense(orderId);
 
