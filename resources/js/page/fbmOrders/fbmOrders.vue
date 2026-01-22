@@ -72,6 +72,8 @@
             <TitlePage title="FBM Orders Module"
                 subtitle="Manage all orders fulfilled directly by the merchant. Process shipments, generate labels, and track the status of FBM orders." />
             <div class="d-flex justify-content-center gap-2 me-4 flex-wrap desktop-view">
+                <Button severity="secondary" size="small" outlined @click="openShipmentLabelHistoryModal"
+                    label="Shipment Label History" icon="pi pi-history" />
                 <Button severity="secondary" size="small" outlined @click="openWorkHistoryModal" label="Work History"
                     icon="pi pi-chart-line" />
                 <Button size="small" severity="secondary" outlined v-if="persistentSelectedOrderIds.length > 0"
@@ -1665,14 +1667,11 @@ dispensedProduct, dpIndex
         :selected-rate="selectedCarrierRateByOrderId?.[carrierModalOrder?.platform_order_id] || null"
         @close="closeCarrierModal" @select="handleCarrierSelected" />
 
-<PrintDocumentsModal
-  :visible="showPrintDocumentsModal"
-  :order-ids="selectedPlatformOrderIdsForPrint"
-  :defaultLabelChecked="true"
-  :defaultInvoiceChecked="false"
-  @update:visible="showPrintDocumentsModal = $event"
-  @print="handlePrintDocuments"
-/>
+    <PrintDocumentsModal :visible="showPrintDocumentsModal" :order-ids="selectedPlatformOrderIdsForPrint"
+        :defaultLabelChecked="true" :defaultInvoiceChecked="false" @update:visible="showPrintDocumentsModal = $event"
+        @print="handlePrintDocuments" />
+
+    <ShipmentLabelHistory :visible="showShipmentLabelHistory" @close="closeShipmentLabelHistoryModal" />
 
 
 </template>
@@ -1903,6 +1902,11 @@ export default {
         },
         getMoreUpperActionItems() {
             return [
+                {
+                    label: "Shipment Label History",
+                    icon: "pi pi-history",
+                    command: () => this.openShipmentLabelHistoryModal(),
+                },
                 {
                     label: 'Work History',
                     icon: 'pi pi-chart-line',

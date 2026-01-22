@@ -10,6 +10,7 @@ import ManualDispenseModal from "./modals/manualdispense.vue";
 import CarrierModal from "./modals/selectcarrier.vue";
 import Swal from "sweetalert2";
 import PrintDocumentsModal from "./modals/PrintCenterModal.vue";
+import ShipmentLabelHistory from "./modals/shipmentlabelhistory.vue";
 
 export default {
     name: "FbmOrderModule",
@@ -21,6 +22,7 @@ export default {
         ManualDispenseModal,
         CarrierModal,
         PrintDocumentsModal,
+        ShipmentLabelHistory,
     },
     data() {
         return {
@@ -157,6 +159,9 @@ export default {
                     testPrint: false,
                 },
             },
+
+            // shipmentlabelhistory modal
+            showShipmentLabelHistory: false,
         };
     },
     computed: {
@@ -1001,6 +1006,15 @@ export default {
                 .filter(Boolean);
         },
 
+        // Shipment Label History Modal
+        openShipmentLabelHistoryModal() {
+            this.showShipmentLabelHistory = true;
+        },
+        closeShipmentLabelHistoryModal() {
+            this.showShipmentLabelHistory = false;
+        },
+
+        // work history modal
         openWorkHistoryModal() {
             console.log("🚀 Opening work history modal...");
             this.showWorkHistoryModal = true;
