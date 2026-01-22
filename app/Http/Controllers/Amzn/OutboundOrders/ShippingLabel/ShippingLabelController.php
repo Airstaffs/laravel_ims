@@ -1055,8 +1055,15 @@ class ShippingLabelController extends Controller
                     ];
 
                     // ✅ newest outbound row wins (protect vs old duplicates)
+                    $tbloutboundorderitemid = DB::table('tbloutboundordersitem')
+                        ->where('platform_order_id', $amazonOrderId)
+                        ->where('platform_order_item_id', $orderItemId)
+                        ->orderByDesc('outboundorderitemid')
+                        ->value('outboundorderitemid');
+
+                    // ✅ newest outbound row wins (protect vs old duplicates)
                     $productId = DB::table('tblorderitemdispense')
-                        ->where('orderitemid', $orderItemId)
+                        ->where('orderitemid', $tbloutboundorderitemid)
                         ->orderByDesc('id')
                         ->value('productid');
 
