@@ -605,62 +605,65 @@ class ShippingLabelController extends Controller
         if (!$amazonOrderId)
             return;
 
-        // label price from form.rate (sent by frontend), fallback to carrier rate
-        $rateAmount = $form['rate'] ?? ($selectedCarrier['Rate']['Amount'] ?? 0.00);
+        // Your response json has everything under payload
+        $payload = $apiData['payload'] ?? $apiData; // fallback if you ever pass payload directly
 
-        // Step 1: Find or Generate Invoice Number
+        $shipmentId = data_get($payload, 'ShipmentId');
+        $status = data_get($payload, 'Status');
+        $trackingId = data_get($payload, 'TrackingId');
+
+        $shippingServiceId = data_get($payload, 'ShippingService.ShippingServiceId') ?? ($selectedCarrier['ShippingServiceId'] ?? null);
+        $shippingServiceOfferId = data_get($payload, 'ShippingService.ShippingServiceOfferId') ?? ($selectedCarrier['ShippingServiceOfferId'] ?? null);
+        $shipDate = data_get($payload, 'ShippingService.ShipDate');
+
+        $rateAmount = $form['rate'] ?? data_get($payload, 'ShippingService.Rate.Amount') ?? ($selectedCarrier['Rate']['Amount'] ?? 0.00);
+
+        // invoice number logic unchanged...
         $existingInvoice = DB::table('tbllabelhistory')
             ->where('AmazonOrderId', $amazonOrderId)
             ->value('invoicenumberid');
 
-        if ($existingInvoice) {
-            $invoiceNumber = $existingInvoice;
-        } else {
-            $max = DB::table('tbllabelhistory')->max('invoicenumberid');
-            $invoiceNumber = $max ? $max + 1 : 1;
-        }
+        $invoiceNumber = $existingInvoice ?: ((DB::table('tbllabelhistory')->max('invoicenumberid') ?? 0) + 1);
 
-        // Step 2: Insert into tbllabelhistory
         $labelId = DB::table('tbllabelhistory')->insertGetId([
-            'shipmentid' => $apiData['ShipmentId'] ?? null,
+            'shipmentid' => $shipmentId,
             'AmazonOrderId' => $amazonOrderId,
-            'status' => $apiData['Status'] ?? null,
-            'trackingid' => $apiData['TrackingId'] ?? null,
+            'status' => $status,
+            'trackingid' => $trackingId,
             'updatedDate' => now(),
-            'ShippingServiceId' => $apiData['ShippingService']['ShippingServiceId'] ?? ($selectedCarrier['ShippingServiceId'] ?? null),
-            'ShippingServiceOfferId' => $apiData['ShippingService']['ShippingServiceOfferId'] ?? ($selectedCarrier['ShippingServiceOfferId'] ?? null),
+            'ShippingServiceId' => $shippingServiceId,
+            'ShippingServiceOfferId' => $shippingServiceOfferId,
             'labelprice' => $rateAmount,
             'user' => $user,
             'invoicenumberid' => $invoiceNumber,
-            'ShipDate' => $apiData['ShippingService']['ShipDate'] ?? null
+            'ShipDate' => $shipDate,
         ]);
 
-        // Step 3: Insert into tbllabelhistoryitems and update outbound item
-        foreach (($apiData['ItemList'] ?? []) as $item) {
-            $orderItemId = $item['OrderItemId'] ?? null;
+        foreach ((data_get($payload, 'ItemList', [])) as $item) {
+            $orderItemId = data_get($item, 'OrderItemId');
             if (!$orderItemId)
                 continue;
 
             DB::table('tbllabelhistoryitems')->insert([
-                'shipmentid' => $apiData['ShipmentId'] ?? null,
+                'shipmentid' => $shipmentId,
                 'AmazonOrderId' => $amazonOrderId,
                 'orderitemid' => $orderItemId,
-                'trackingid' => $apiData['TrackingId'] ?? null,
-                'shipDate' => $apiData['ShippingService']['ShipDate'] ?? null,
-                'EarliestEstimatedDeliveryDate' => $apiData['ShippingService']['EarliestEstimatedDeliveryDate'] ?? null,
-                'LatestEstimatedDeliveryDate' => $apiData['ShippingService']['LatestEstimatedDeliveryDate'] ?? null,
+                'trackingid' => $trackingId,
+                'shipDate' => $shipDate,
+                'EarliestEstimatedDeliveryDate' => data_get($payload, 'ShippingService.EarliestEstimatedDeliveryDate'),
+                'LatestEstimatedDeliveryDate' => data_get($payload, 'ShippingService.LatestEstimatedDeliveryDate'),
                 'labelhistory_id' => $labelId,
-                'PDFLabel' => $apiData['Label']['FileContents']['Contents'] ?? null,
-                'DeliveryExperience' => $form['deliveryExperience'] ?? null
+                'PDFLabel' => data_get($payload, 'Label.FileContents.Contents'),
+                'DeliveryExperience' => $form['deliveryExperience'] ?? null,
             ]);
 
             DB::table('tbloutboundordersitem')
                 ->where('platform_order_id', $amazonOrderId)
                 ->where('platform_order_item_id', $orderItemId)
                 ->update([
-                    'trackingnumber' => $apiData['TrackingId'] ?? null,
-                    'carrier' => $selectedCarrier['CarrierName'] ?? null,
-                    'carrier_description' => $selectedCarrier['ShippingServiceName'] ?? null,
+                    'trackingnumber' => $trackingId,
+                    'carrier' => data_get($payload, 'ShippingService.CarrierName') ?? ($selectedCarrier['CarrierName'] ?? null),
+                    'carrier_description' => data_get($payload, 'ShippingService.ShippingServiceName') ?? ($selectedCarrier['ShippingServiceName'] ?? null),
                 ]);
         }
     }
