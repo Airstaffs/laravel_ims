@@ -8,31 +8,54 @@
             :hide-button="true" @process-scan="handleScanProcess" @hardware-scan="handleHardwareScan"
             @scanner-opened="handleScannerOpened" @scanner-closed="handleScannerClosed"
             @scanner-reset="handleScannerReset" @mode-changed="handleModeChange" ref="scanner">
-            <template #input-fields>
+        <template #input-fields>
                 <div class="input-group">
                     <label>Serial Number:</label>
-                    <input type="text" v-model="serialNumber" placeholder="Enter Serial Number..."
-                        @input="handleSerialInput" @keyup.enter="
-                            showManualInput
-                                ? focusNextField('fnskuInput')
-                                : processScan()
-                            " ref="serialNumberInput" />
+                    <input 
+                        type="text" 
+                        v-model="serialNumber" 
+                        placeholder="Enter Serial Number..."
+                        @input="handleSerialInput" 
+                        @keyup.enter="showManualInput ? (showFnskuField ? focusNextField('fnskuInput') : focusNextField('locationInput')) : processScan()" 
+                        ref="serialNumberInput" 
+                    />
+                    <!-- ✅ Show checking indicator -->
+                    <div v-if="checkingSerial" class="serial-check-status checking">
+                        <i class="pi pi-spin pi-spinner"></i> Checking serial...
+                    </div>
+                    <!-- ✅ Show serial status message -->
+                    <div v-else-if="serialCheckMessage" 
+                        :class="['serial-check-status', serialExists ? 'exists' : 'new']">
+                        {{ serialCheckMessage }}
+                    </div>
                 </div>
 
-                <div class="input-group">
+                <!-- ✅ CONDITIONAL FNSKU FIELD - Only show if serial doesn't exist -->
+                <div class="input-group" v-if="showFnskuField">
                     <label>FNSKU:</label>
-                    <input type="text" v-model="fnsku" placeholder="Enter FNSKU..." @input="handleFnskuInput"
-                        @keyup.enter="
-                            showManualInput
-                                ? focusNextField('locationInput')
-                                : processScan()
-                            " ref="fnskuInput" />
+                    <input 
+                        type="text" 
+                        v-model="fnsku" 
+                        placeholder="Enter FNSKU..." 
+                        @input="handleFnskuInput"
+                        @keyup.enter="showManualInput ? focusNextField('locationInput') : processScan()" 
+                        ref="fnskuInput" 
+                    />
+                    <div class="fnsku-hint">
+                        ⚠️ Required for new items
+                    </div>
                 </div>
 
                 <div class="input-group">
                     <label>Location:</label>
-                    <input type="text" v-model="locationInput" placeholder="Enter Location..."
-                        @input="handleLocationInput" @keyup.enter="processScan()" ref="locationInput" />
+                    <input 
+                        type="text" 
+                        v-model="locationInput" 
+                        placeholder="Enter Location..."
+                        @input="handleLocationInput" 
+                        @keyup.enter="processScan()" 
+                        ref="locationInput" 
+                    />
                     <div class="container-type-hint">
                         Format: L###X (e.g., L123A) or 'Floor'
                     </div>

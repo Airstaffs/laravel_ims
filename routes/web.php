@@ -454,6 +454,8 @@ Route::prefix('api/stockroom')->group(function () {
 
     Route::post('unmerge-item', [StockroomController::class, 'unmergeItem']);
 
+    Route::get('check-serial', [StockroomController::class, 'checkSerial']);
+
 });
 
 // Routes for Unreceived scanner

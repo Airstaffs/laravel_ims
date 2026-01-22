@@ -35,14 +35,16 @@ class StockroomController extends BasetablesController
     /**
      * Generate the next available FNSKU with incremental prefix based on remaining units
      */
-    private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
+private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
 {
     try {
+        // ✅ Lock FNSKU record
         $fnskuRecord = DB::table($this->fnskuTable)
             ->where('FNSKU', $baseFnsku)
             ->where('ASIN', $asin)
             ->where('grading', $grading)
             ->where('storename', $storename)
+            ->lockForUpdate()
             ->first();
 
         if (!$fnskuRecord) {
@@ -62,35 +64,85 @@ class StockroomController extends BasetablesController
 
         $currentUnits = $fnskuRecord->Units;
 
-        // ✅ COUNT ACTIVE uses of this FNSKU in tblproduct
-        // Exclude: Soldlist, Returnlist, Merged, RTS (these are "out of circulation")
-        $timesUsed = DB::table($this->productTable)
+        if ($currentUnits <= 0) {
+            throw new \Exception("No remaining units for FNSKU: {$baseFnsku}");
+        }
+
+        // ✅ Get ALL active FNSKUs (with and without prefix)
+        $activeFnskus = DB::table($this->productTable)
+            ->select('FNSKUviewer')
             ->where(function($query) use ($baseFnsku) {
                 $query->where('FNSKUviewer', $baseFnsku)
                       ->orWhere('FNSKUviewer', 'LIKE', 'C%' . $baseFnsku);
             })
-            ->whereNotIn('ProductModuleLoc', ['Shipment','Soldlist', 'Returnlist', 'Merged', 'RTS'])
-            ->count();
+            ->whereNotIn('ProductModuleLoc', ['Shipment', 'Soldlist', 'Returnlist', 'Merged', 'RTS'])
+            ->lockForUpdate()
+            ->pluck('FNSKUviewer')
+            ->toArray();
 
-        // Generate prefixed FNSKU based on active count
-        if ($timesUsed == 0) {
-            $actualFnsku = $baseFnsku; // First active use - no prefix
-        } else {
-            $actualFnsku = "C{$timesUsed}{$baseFnsku}"; // Add prefix based on count
+        Log::info("Active FNSKUs found", [
+            'base_fnsku' => $baseFnsku,
+            'active_fnskus' => $activeFnskus,
+            'total_units' => $currentUnits
+        ]);
+
+        // ✅ Extract used prefixes
+        $usedPrefixes = [];
+        
+        foreach ($activeFnskus as $fnsku) {
+            if ($fnsku === $baseFnsku) {
+                // Base FNSKU (no prefix) is used
+                $usedPrefixes[] = 0;
+            } elseif (preg_match('/^C(\d+)' . preg_quote($baseFnsku, '/') . '$/', $fnsku, $matches)) {
+                // Extract prefix number (e.g., "C3" -> 3)
+                $usedPrefixes[] = (int)$matches[1];
+            }
         }
 
-        Log::info("Generated FNSKU prefix", [
+        sort($usedPrefixes);
+
+        Log::info("Used prefixes", [
             'base_fnsku' => $baseFnsku,
+            'used_prefixes' => $usedPrefixes,
+            'max_allowed' => $currentUnits - 1
+        ]);
+
+        // ✅ Find first UNUSED prefix
+        $nextPrefix = null;
+        $maxPrefix = $currentUnits - 1; // If Units = 7, max prefix is C6 (0-6 = 7 total)
+
+        for ($i = 0; $i <= $maxPrefix; $i++) {
+            if (!in_array($i, $usedPrefixes)) {
+                $nextPrefix = $i;
+                break;
+            }
+        }
+
+        if ($nextPrefix === null) {
+            // All prefixes are used
+            throw new \Exception("All available prefixes exhausted for FNSKU: {$baseFnsku} (Units: {$currentUnits})");
+        }
+
+        // ✅ Generate FNSKU with correct prefix
+        if ($nextPrefix === 0) {
+            $actualFnsku = $baseFnsku; // No prefix
+        } else {
+            $actualFnsku = "C{$nextPrefix}{$baseFnsku}";
+        }
+
+        Log::info("Generated FNSKU with first available prefix", [
+            'base_fnsku' => $baseFnsku,
+            'used_prefixes' => $usedPrefixes,
+            'next_prefix' => $nextPrefix,
             'actual_fnsku' => $actualFnsku,
-            'current_units' => $currentUnits,
-            'times_used' => $timesUsed,
-            'excluded_locations' => 'Shipment, Soldlist, Returnlist, Merged, RTS'
+            'remaining_units' => $currentUnits
         ]);
 
         return [
             'actual_fnsku' => $actualFnsku,
-            'times_used' => $timesUsed,
-            'remaining_units' => $currentUnits
+            'times_used' => count($usedPrefixes),
+            'remaining_units' => $currentUnits,
+            'next_prefix' => $nextPrefix
         ];
 
     } catch (\Exception $e) {
@@ -99,11 +151,7 @@ class StockroomController extends BasetablesController
             'trace' => $e->getTraceAsString()
         ]);
 
-        return [
-            'actual_fnsku' => $baseFnsku,
-            'times_used' => 0,
-            'remaining_units' => 0
-        ];
+        throw $e;
     }
 }
 
@@ -647,9 +695,9 @@ public function processScan(Request $request)
     try {
         try {
             $validatedData = $request->validate([
-                'SerialNumber' => 'required_without:FNSKU|nullable|string',
-                'FNSKU' => 'required_without:SerialNumber|nullable|string',
+                'SerialNumber' => 'required|string',
                 'Location' => 'required|string',
+                'FNSKU' => 'nullable|string',  // FNSKU is optional
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -662,62 +710,30 @@ public function processScan(Request $request)
         $User = $this->getCurrentUserName();
         $serial = trim($request->input('SerialNumber', ''));
         $location = trim($request->input('Location', ''));
-        $FNSKU = trim($request->input('FNSKU', ''));
+        $scannedFNSKU = trim($request->input('FNSKU', ''));
 
-        if (!empty($FNSKU)) {
-            $FNSKU = $this->normalizeFnsku($FNSKU);
-            Log::info('Processing scan with normalized FNSKU', [
-                'original_fnsku' => $request->input('FNSKU', ''),
-                'normalized_fnsku' => $FNSKU
-            ]);
-        }
-
-        if (empty($serial) && empty($FNSKU)) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Either Serial Number or FNSKU must be provided',
-                'reason' => 'missing_identifiers'
-            ], 422);
+        if (!empty($scannedFNSKU)) {
+            $scannedFNSKU = $this->normalizeFnsku($scannedFNSKU);
         }
 
         $Module = "Stockroom";
         $Action = "Scanned and insert to Stockroom";
 
-        try {
-            $california_timezone = new DateTimeZone('America/Los_Angeles');
-            $currentDatetime = new DateTime('now', $california_timezone);
-            $formatted_datetime = $currentDatetime->format('Y-m-d h:i A');
-            $currentDate = date('Y-m-d', strtotime($formatted_datetime));
-            $curentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
-        } catch (\Exception $e) {
-            Log::warning('Error with timezone, using default', ['error' => $e->getMessage()]);
-            $currentDatetime = new DateTime();
-            $formatted_datetime = $currentDatetime->format('Y-m-d h:i A');
-            $currentDate = date('Y-m-d');
-            $curentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
-        }
+        $california_timezone = new DateTimeZone('America/Los_Angeles');
+        $currentDatetime = new DateTime('now', $california_timezone);
+        $curentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
 
-        if (!empty($serial)) {
-            if (!preg_match('/^[a-zA-Z0-9]+$/', $serial) || strpos($serial, 'X00') !== false) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid Serial Number',
-                    'reason' => 'invalid_serial'
-                ]);
-            }
-        }
-
-        if (!empty($FNSKU) && preg_match('/^L\d{3}[A-G]$/i', $FNSKU)) {
+        // Validate serial format
+        if (!preg_match('/^[a-zA-Z0-9]+$/', $serial) || strpos($serial, 'X00') !== false) {
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid FNSKU - appears to be a location code',
-                'reason' => 'invalid_fnsku'
+                'message' => 'Invalid Serial Number',
+                'reason' => 'invalid_serial'
             ]);
         }
 
+        // Validate location format
         if (!preg_match('/^L\d{3}[A-G]$/i', $location) && $location !== 'Floor' && $location !== 'L800G') {
             DB::rollBack();
             return response()->json([
@@ -729,10 +745,15 @@ public function processScan(Request $request)
 
         $modulelocation = (substr($location, 0, 4) === 'L800') ? 'Production Area' : 'Stockroom';
 
+        // ============================================
+        // CHECK 1: Does item exist in Stockroom/Production Area?
+        // ============================================
         $existingItem = DB::table($this->productTable)
             ->where(function ($query) use ($serial) {
                 $query->where('serialnumber', $serial)
-                    ->orWhere('serialnumberb', $serial);
+                    ->orWhere('serialnumberb', $serial)
+                    ->orWhere('serialnumberc', $serial)
+                    ->orWhere('serialnumberd', $serial);
             })
             ->where(function ($query) {
                 $query->where('ProductModuleLoc', 'Stockroom')
@@ -741,85 +762,20 @@ public function processScan(Request $request)
             ->first();
 
         if ($existingItem) {
-            // Handle existing item in Stockroom/Production Area
+            // Item already in Stockroom/Production - just update location
             $id = $existingItem->ProductID;
             $rt = $existingItem->rtcounter;
 
-            if ($existingItem->ProductModuleLoc === 'Production Area') {
-                if ($modulelocation === 'Production Area') {
-                    DB::rollBack();
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Data Already in Production Area',
-                        'reason' => 'Duplicate Data not allowed'
-                    ]);
-                } else {
-                    // Moving from Production to Stockroom - requires FNSKU
-                    $fnskuAvailability = $this->checkFnskuAvailabilityWithPrefix($FNSKU);
+            if ($existingItem->ProductModuleLoc === 'Production Area' && $modulelocation === 'Production Area') {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data Already in Production Area',
+                    'reason' => 'duplicate_data'
+                ]);
+            }
 
-                    if (!$fnskuAvailability['available']) {
-                        DB::rollBack();
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'FNSKU not found or not available',
-                            'reason' => 'fnsku_not_found'
-                        ]);
-                    }
-
-                    $baseFnsku = $fnskuAvailability['base_fnsku'];
-                    $fnskuRecord = $fnskuAvailability['record'];
-
-                    try {
-                        $fnskuInfo = $this->getNextAvailableFnsku(
-                            $baseFnsku, 
-                            $fnskuRecord->ASIN, 
-                            $fnskuRecord->grading, 
-                            $fnskuRecord->storename
-                        );
-                    } catch (\Exception $e) {
-                        DB::rollBack();
-                        return response()->json([
-                            'success' => false,
-                            'message' => $e->getMessage(),
-                            'reason' => 'fnsku_exhausted'
-                        ]);
-                    }
-
-                    $actualFnskuToUse = $fnskuInfo['actual_fnsku'];
-
-                    DB::table($this->productTable)
-                        ->where('ProductID', $id)
-                        ->update([
-                            'ProductModuleLoc' => $modulelocation,
-                            'warehouselocation' => $location,
-                            'FNSKUviewer' => $actualFnskuToUse,
-                            'validation_status' => 'validated',
-                            'stockroom_insert_date' => $curentDatetimeString
-                        ]);
-
-                    $this->updateFnskuUnits(
-                        $baseFnsku, 
-                        $fnskuRecord->ASIN, 
-                        $fnskuRecord->grading, 
-                        $fnskuRecord->storename
-                    );
-
-                    DB::table($this->itemProcessHistoryTable)->insert([
-                        'rtcounter' => $rt,
-                        'employeeName' => $User,
-                        'editDate' => $curentDatetimeString,
-                        'Module' => "Stockroom",
-                        'Action' => "Scanned and insert to {$modulelocation}"
-                    ]);
-
-                    DB::commit();
-                    return response()->json([
-                        'success' => true,
-                        'message' => "Scanned and insert to {$modulelocation}",
-                        'fnsku_used' => $actualFnskuToUse
-                    ]);
-                }
-            } else {
+            if ($existingItem->ProductModuleLoc === 'Stockroom' && $modulelocation === 'Stockroom') {
                 DB::rollBack();
                 return response()->json([
                     'success' => false,
@@ -827,196 +783,314 @@ public function processScan(Request $request)
                     'reason' => 'duplicate_data'
                 ]);
             }
-        } else {
-            // Check if item exists in Validation (regardless of validation status)
-            $existingInValidation = DB::table($this->productTable)
-                ->where(function ($query) use ($serial) {
-                    $query->where('serialnumber', $serial)
-                        ->orWhere('serialnumberb', $serial);
-                })
-                ->where('returnstatus', 'Not Returned')
-                ->where('ProductModuleLoc', 'Validation')
-                ->first();
 
-            if ($existingInValidation) {
-                // Check if item is validated
-                if ($existingInValidation->validation_status !== 'validated') {
-                    // Item exists but is NOT validated
-                    DB::rollBack();
-                    Log::warning('Attempted to scan non-validated item from Validation', [
-                        'productId' => $existingInValidation->ProductID,
-                        'rtcounter' => $existingInValidation->rtcounter,
-                        'serial' => $serial,
-                        'validation_status' => $existingInValidation->validation_status
-                    ]);
-                    
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Item not validated yet. Please complete validation first.',
-                        'reason' => 'not_validated'
-                    ]);
-                }
-
-                // Item is validated - proceed with moving to stockroom
-                $id = $existingInValidation->ProductID;
-                $rtnumberofitem = $existingInValidation->rtcounter;
-                $checkFNSKUviewer = $existingInValidation->FNSKUviewer;
-
-                // Validated items MUST have an FNSKU
-                if (empty($checkFNSKUviewer)) {
-                    DB::rollBack();
-                    Log::warning('Validated item missing FNSKU', [
-                        'productId' => $id,
-                        'rtcounter' => $rtnumberofitem,
-                        'serial' => $serial
-                    ]);
-                    
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Item has incomplete data - Missing FNSKU. Please complete validation first.',
-                        'reason' => 'incomplete_validation_data'
-                    ]);
-                }
-
-                // Use existing FNSKU from validation - preserve it exactly
-                $actualFnskuToUse = $checkFNSKUviewer;
-                $needReprint = false;
-
-                Log::info('Moving validated item from Validation to Stockroom', [
-                    'productId' => $id,
-                    'rtcounter' => $rtnumberofitem,
-                    'existing_fnsku' => $actualFnskuToUse,
-                    'scanned_location' => $location
-                ]);
-                
-                // Optional: Check if scanned FNSKU matches
-                if (!empty($FNSKU)) {
-                    $normalizedScanned = $this->normalizeFnsku($FNSKU);
-                    $normalizedExisting = $this->normalizeFnsku($actualFnskuToUse);
-                    
-                    if (trim($normalizedScanned) != trim($normalizedExisting)) {
-                        Log::warning('Scanned FNSKU differs from existing', [
-                            'scanned' => $FNSKU,
-                            'existing' => $actualFnskuToUse,
-                            'rtcounter' => $rtnumberofitem
-                        ]);
-                        $needReprint = true;
-                    }
-                }
-
-                // Update the product location without changing FNSKU
-                DB::table($this->productTable)
-                    ->where('ProductID', $id)
-                    ->update([
-                        'ProductModuleLoc' => $modulelocation,
-                        'warehouselocation' => $location,
-                        'FNSKUviewer' => $actualFnskuToUse,
-                        'stockroom_insert_date' => $curentDatetimeString
-                    ]);
-
-                // Log the history
-                DB::table($this->itemProcessHistoryTable)->insert([
-                    'rtcounter' => $rtnumberofitem,
-                    'employeeName' => $User,
-                    'editDate' => $curentDatetimeString,
-                    'Module' => "Stockroom",
-                    'Action' => "Scanned and insert to {$modulelocation}"
-                ]);
-
-                DB::commit();
-                return response()->json([
-                    'success' => true,
-                    'message' => "Scanned and Forwarded to {$modulelocation} Successfully",
-                    'needReprint' => $needReprint,
-                    'productId' => $needReprint ? $id : null,
-                    'fnsku_used' => $actualFnskuToUse,
-                    'fnsku_preserved' => true
-                ]);
-            } else {
-                // Create new entry - requires FNSKU
-                $fnskuAvailability = $this->checkFnskuAvailabilityWithPrefix($FNSKU);
-
-                if (!$fnskuAvailability['available']) {
-                    DB::rollBack();
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'FNSKU not found or not available: ' . $FNSKU,
-                        'reason' => 'fnsku_not_found'
-                    ]);
-                }
-
-                $baseFnsku = $fnskuAvailability['base_fnsku'];
-                $fnskuRecord = $fnskuAvailability['record'];
-
-                try {
-                    $fnskuInfo = $this->getNextAvailableFnsku(
-                        $baseFnsku, 
-                        $fnskuRecord->ASIN, 
-                        $fnskuRecord->grading, 
-                        $fnskuRecord->storename
-                    );
-                } catch (\Exception $e) {
-                    DB::rollBack();
-                    return response()->json([
-                        'success' => false,
-                        'message' => $e->getMessage(),
-                        'reason' => 'fnsku_exhausted'
-                    ]);
-                }
-
-                $actualFnskuToUse = $fnskuInfo['actual_fnsku'];
-
-                $maxxrt = DB::table($this->productTable)->max('rtcounter');
-                $newrt = $maxxrt + 1;
-
-                $newItemId = DB::table($this->productTable)->insertGetId([
-                    'rtcounter' => $newrt,
-                    'serialnumber' => $serial,
+            // Moving between Production Area and Stockroom
+            DB::table($this->productTable)
+                ->where('ProductID', $id)
+                ->update([
                     'ProductModuleLoc' => $modulelocation,
                     'warehouselocation' => $location,
-                    'FNSKUviewer' => $actualFnskuToUse,
-                    'FbmAvailable' => 1,
-                    'Fulfilledby' => 'FBM',
-                    'validation_status' => 'validated',
-                    'quantity' => 1,
-                    'stockroom_insert_date' => $curentDatetimeString,
+                    'stockroom_insert_date' => $curentDatetimeString
                 ]);
 
-                $this->updateFnskuUnits(
-                    $baseFnsku, 
-                    $fnskuRecord->ASIN, 
-                    $fnskuRecord->grading, 
-                    $fnskuRecord->storename
-                );
+            DB::table($this->itemProcessHistoryTable)->insert([
+                'rtcounter' => $rt,
+                'employeeName' => $User,
+                'editDate' => $curentDatetimeString,
+                'Module' => "Stockroom",
+                'Action' => "Updated location to {$location}"
+            ]);
 
-                DB::table($this->itemProcessHistoryTable)->insert([
-                    'rtcounter' => $newrt,
-                    'employeeName' => $User,
-                    'editDate' => $curentDatetimeString,
-                    'Module' => $Module,
-                    'Action' => $Action
+            DB::commit();
+            $this->clearStockroomCaches();
+            
+            return response()->json([
+                'success' => true,
+                'message' => "Location updated successfully"
+            ]);
+        }
+
+        // ============================================
+        // CHECK 2: Does item exist in Validation?
+        // ============================================
+        $existingInValidation = DB::table($this->productTable)
+            ->where(function ($query) use ($serial) {
+                $query->where('serialnumber', $serial)
+                    ->orWhere('serialnumberb', $serial)
+                    ->orWhere('serialnumberc', $serial)
+                    ->orWhere('serialnumberd', $serial);
+            })
+            ->where('returnstatus', 'Not Returned')
+            ->where('ProductModuleLoc', 'Validation')
+            ->first();
+
+        if ($existingInValidation) {
+            // ✅ Item exists in Validation
+            
+            // Check if validated
+            if ($existingInValidation->validation_status !== 'validated') {
+                DB::rollBack();
+                Log::warning('Attempted to scan non-validated item from Validation', [
+                    'productId' => $existingInValidation->ProductID,
+                    'rtcounter' => $existingInValidation->rtcounter,
+                    'serial' => $serial,
+                    'validation_status' => $existingInValidation->validation_status
                 ]);
-
-                DB::commit();
-
-                 // ✅ CLEAR CACHES IMMEDIATELY AFTER COMMIT
-                $this->clearStockroomCaches();
+                
                 return response()->json([
-                    'success' => true,
-                    'message' => "Scanned and Inserted Successfully",
-                    'fnsku_used' => $actualFnskuToUse,
-                    'remaining_units' => $fnskuInfo['remaining_units']
+                    'success' => false,
+                    'message' => 'Item not validated yet. Please complete validation first.',
+                    'reason' => 'not_validated'
                 ]);
             }
+
+            // ✅ Validated item - move to stockroom
+            // ✅ DON'T check FNSKU availability (already has FNSKU from validation)
+            // ✅ DON'T deduct units (already deducted during validation)
+            
+            $id = $existingInValidation->ProductID;
+            $rtnumberofitem = $existingInValidation->rtcounter;
+            $existingFNSKU = $existingInValidation->FNSKUviewer;
+
+            // Item MUST have FNSKU from validation
+            if (empty($existingFNSKU)) {
+                DB::rollBack();
+                Log::warning('Validated item missing FNSKU', [
+                    'productId' => $id,
+                    'rtcounter' => $rtnumberofitem,
+                    'serial' => $serial
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Item has incomplete data - Missing FNSKU. Please complete validation first.',
+                    'reason' => 'incomplete_validation_data'
+                ]);
+            }
+
+            Log::info('✅ Moving validated item from Validation to Stockroom', [
+                'productId' => $id,
+                'rtcounter' => $rtnumberofitem,
+                'existing_fnsku' => $existingFNSKU,
+                'scanned_location' => $location,
+                'no_fnsku_check' => true,
+                'reason' => 'Item already in system with FNSKU assigned'
+            ]);
+
+            // Just move the item - preserve existing FNSKU
+            DB::table($this->productTable)
+                ->where('ProductID', $id)
+                ->update([
+                    'ProductModuleLoc' => $modulelocation,
+                    'warehouselocation' => $location,
+                    'stockroom_insert_date' => $curentDatetimeString
+                ]);
+
+            DB::table($this->itemProcessHistoryTable)->insert([
+                'rtcounter' => $rtnumberofitem,
+                'employeeName' => $User,
+                'editDate' => $curentDatetimeString,
+                'Module' => "Stockroom",
+                'Action' => "Scanned and insert to {$modulelocation}"
+            ]);
+
+            DB::commit();
+            $this->clearStockroomCaches();
+            
+            return response()->json([
+                'success' => true,
+                'message' => "Scanned and Forwarded to {$modulelocation} Successfully",
+                'fnsku_preserved' => true,
+                'existing_fnsku' => $existingFNSKU
+            ]);
         }
+
+        // ============================================
+        // CHECK 3: Brand New Item (Floating Item)
+        // ✅ THIS IS WHERE WE CHECK FNSKU AVAILABILITY
+        // ============================================
+        
+        Log::info('🆕 Creating new item - checking FNSKU availability', [
+            'serial' => $serial,
+            'scanned_fnsku' => $scannedFNSKU,
+            'reason' => 'Item not found in system (floating item)'
+        ]);
+
+        // For new items, FNSKU is REQUIRED
+        if (empty($scannedFNSKU)) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'FNSKU is required for new items',
+                'reason' => 'fnsku_required_for_new_item'
+            ]);
+        }
+
+        // ✅ NOW check FNSKU availability (only for new items)
+        $fnskuAvailability = $this->checkFnskuAvailabilityWithPrefix($scannedFNSKU);
+
+        if (!$fnskuAvailability['available']) {
+            DB::rollBack();
+            
+            Log::warning('❌ FNSKU not available for new item', [
+                'fnsku' => $scannedFNSKU,
+                'serial' => $serial
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'FNSKU not found or not available: ' . $scannedFNSKU,
+                'reason' => 'fnsku_not_found'
+            ]);
+        }
+
+        $baseFnsku = $fnskuAvailability['base_fnsku'];
+        $fnskuRecord = $fnskuAvailability['record'];
+
+        try {
+            $fnskuInfo = $this->getNextAvailableFnsku(
+                $baseFnsku, 
+                $fnskuRecord->ASIN, 
+                $fnskuRecord->grading, 
+                $fnskuRecord->storename
+            );
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'reason' => 'fnsku_exhausted'
+            ]);
+        }
+
+        $actualFnskuToUse = $fnskuInfo['actual_fnsku'];
+
+        $maxxrt = DB::table($this->productTable)->max('rtcounter');
+        $newrt = $maxxrt + 1;
+
+        Log::info('✅ Creating new item with FNSKU', [
+            'rt' => $newrt,
+            'serial' => $serial,
+            'base_fnsku' => $baseFnsku,
+            'actual_fnsku' => $actualFnskuToUse,
+            'location' => $location
+        ]);
+
+        $newItemId = DB::table($this->productTable)->insertGetId([
+            'rtcounter' => $newrt,
+            'serialnumber' => $serial,
+            'ProductModuleLoc' => $modulelocation,
+            'warehouselocation' => $location,
+            'FNSKUviewer' => $actualFnskuToUse,
+            'FbmAvailable' => 1,
+            'Fulfilledby' => 'FBM',
+            'validation_status' => 'validated',
+            'quantity' => 1,
+            'stockroom_insert_date' => $curentDatetimeString,
+        ]);
+
+        // ✅ Deduct FNSKU units (only for new items)
+        $this->updateFnskuUnits(
+            $baseFnsku, 
+            $fnskuRecord->ASIN, 
+            $fnskuRecord->grading, 
+            $fnskuRecord->storename
+        );
+
+        DB::table($this->itemProcessHistoryTable)->insert([
+            'rtcounter' => $newrt,
+            'employeeName' => $User,
+            'editDate' => $curentDatetimeString,
+            'Module' => $Module,
+            'Action' => $Action
+        ]);
+
+        DB::commit();
+        $this->clearStockroomCaches();
+        
+        return response()->json([
+            'success' => true,
+            'message' => "New item scanned and inserted successfully",
+            'fnsku_used' => $actualFnskuToUse,
+            'remaining_units' => $fnskuInfo['remaining_units'],
+            'new_item' => true
+        ]);
+
     } catch (\Exception $e) {
         DB::rollBack();
-        Log::error('Unhandled error in processScan', $e);
+        Log::error('Unhandled error in processScan', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
 
         return response()->json([
             'success' => false,
             'message' => 'Error processing scan: ' . $e->getMessage(),
             'reason' => 'server_error'
+        ], 500);
+    }
+}
+
+public function checkSerial(Request $request)
+{
+    $serial = $request->input('serial');
+
+    if (empty($serial)) {
+        return response()->json([
+            'exists' => false,
+            'message' => 'Serial is required'
+        ]);
+    }
+
+    try {
+        Log::info('🔍 Checking serial existence', ['serial' => $serial]);
+
+        // Check in Validation, Stockroom, or Production Area
+        $item = DB::table($this->productTable)
+            ->where(function ($query) use ($serial) {
+                $query->where('serialnumber', $serial)
+                    ->orWhere('serialnumberb', $serial)
+                    ->orWhere('serialnumberc', $serial)
+                    ->orWhere('serialnumberd', $serial);
+            })
+            ->where(function ($query) {
+                $query->where('ProductModuleLoc', 'Validation')
+                    ->orWhere('ProductModuleLoc', 'Production Area');
+            })
+            ->first();
+
+        if ($item) {
+            Log::info('✅ Serial exists', [
+                'serial' => $serial,
+                'location' => $item->ProductModuleLoc,
+                'rt' => $item->rtcounter,
+                'fnsku' => $item->FNSKUviewer
+            ]);
+
+            return response()->json([
+                'exists' => true,
+                'location' => $item->ProductModuleLoc,
+                'rtcounter' => $item->rtcounter,
+                'fnsku' => $item->FNSKUviewer,
+                'validation_status' => $item->validation_status ?? null
+            ]);
+        } else {
+            Log::info('❌ Serial not found', ['serial' => $serial]);
+
+            return response()->json([
+                'exists' => false,
+                'message' => 'Serial not found in system (new item)'
+            ]);
+        }
+    } catch (\Exception $e) {
+        Log::error('Error checking serial', [
+            'serial' => $serial,
+            'error' => $e->getMessage()
+        ]);
+
+        return response()->json([
+            'exists' => false,
+            'error' => 'Error checking serial: ' . $e->getMessage()
         ], 500);
     }
 }

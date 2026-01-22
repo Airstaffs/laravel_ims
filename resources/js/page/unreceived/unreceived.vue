@@ -426,7 +426,7 @@
                             </div>
 
                             <div class="col-lg-6">
-                                <section class="pricing-section">
+                                <section class="pricing-section" v-show="showPricingSection">
                                     <h3 class="text-primary fw-bolder">
                                         Pricing
                                     </h3>
@@ -512,6 +512,7 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
+import { showPricingForPH } from "../../utils/helpers.js";
 
 const TABLE_COLUMNS = [
     {
@@ -574,7 +575,19 @@ export default {
         return {
             columns: TABLE_COLUMNS,
             rowsPerPage: ROWS_PER_PAGE,
+            showPricingSection: showPricingForPH()
         };
+    },
+    methods: {
+        updatePricingView() {
+            this.showPricingSection = showPricingForPH();
+        }
+    },
+    mounted() {
+        window.addEventListener('resize', this.updatePricingView);
+    },
+    beforeUnmount() {
+        window.removeEventListener('resize', this.updatePricingView);
     },
     computed: {
         visibleColumns() {

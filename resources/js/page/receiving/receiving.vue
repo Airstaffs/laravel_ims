@@ -701,7 +701,7 @@
 
                             <!-- Right Column: Pricing -->
                             <div class="col-md-6">
-                                <section class="pricing-section">
+                                <section class="pricing-section" v-show="showPricingSection">
                                     <h3 class="text-primary fw-bolder">
                                         Pricing
                                     </h3>
@@ -770,6 +770,7 @@
                                         </div>
                                     </dl>
                                 </section>
+                                
                             </div>
                         </div>
                     </div>
@@ -1076,6 +1077,7 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
+import { showPricingForPH } from "../../utils/helpers.js";
 
 const TABLE_COLUMNS = [
     {
@@ -1098,6 +1100,7 @@ const TABLE_COLUMNS = [
         header: "Price",
         sortable: true,
         bodyStyle: "font-size: 14px;",
+
     },
     {
         field: "serialNumber",
@@ -1147,6 +1150,7 @@ export default {
             columns: TABLE_COLUMNS,
             menuActions: [],
             rowsPerPage: ROWS_PER_PAGE,
+            showPricingSection: showPricingForPH()
         };
     },
     methods: {
@@ -1175,6 +1179,15 @@ export default {
                 },
             ];
         },
+            updatePricingView() {
+            this.showPricingSection = showPricingForPH();
+        }
+    },
+    mounted() {
+        window.addEventListener('resize', this.updatePricingView);
+    },
+    beforeUnmount() {
+        window.removeEventListener('resize', this.updatePricingView);
     },
     computed: {
         visibleColumns() {
