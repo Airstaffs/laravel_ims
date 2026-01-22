@@ -1055,11 +1055,10 @@ class ShippingLabelController extends Controller
                     ];
 
                     // ✅ newest outbound row wins (protect vs old duplicates)
-                    $productId = DB::table('tbloutboundordersitem')
-                        ->where('platform_order_id', $amazonOrderId)
-                        ->where('platform_order_item_id', $orderItemId)
+                    $productId = DB::table('tblorderitemdispense')
+                        ->where('orderitemid', $orderItemId)
                         ->orderByDesc('outboundorderitemid')
-                        ->value('ProductID');
+                        ->value('productid');
 
                     if (!$productId) {
                         $log['steps'][] = [
