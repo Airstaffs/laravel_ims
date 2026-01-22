@@ -1038,7 +1038,7 @@
                         </div>
 
                         <!-- RIGHT: PRICING -->
-                        <div class="form-col-right">
+                        <div class="form-col-right" v-show="showPricingSection">
                             <Card class="shadow">
                                 <template #title>
                                     <h4 class="text-primary">Pricing</h4>
@@ -1180,6 +1180,7 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
+import { showPricingForPH } from "../../utils/helpers.js";
 
 const TABLE_COLUMNS = [
     {
@@ -1297,6 +1298,7 @@ export default {
                 { label: "Check", value: "Check" },
             ],
             rowsPerPage: ROWS_PER_PAGE,
+            showPricingSection: showPricingForPH()
         };
     },
     computed: {
@@ -1339,6 +1341,15 @@ export default {
                 })),
             ];
         },
+           updatePricingView() {
+            this.showPricingSection = showPricingForPH();
+        }
+    },
+         mounted() {
+        window.addEventListener('resize', this.updatePricingView);
+    },
+    beforeUnmount() {
+        window.removeEventListener('resize', this.updatePricingView);
     },
 };
 </script>
