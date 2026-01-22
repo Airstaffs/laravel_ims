@@ -615,6 +615,13 @@ class ShippingLabelController extends Controller
         $shippingServiceId = data_get($payload, 'ShippingService.ShippingServiceId') ?? ($selectedCarrier['ShippingServiceId'] ?? null);
         $shippingServiceOfferId = data_get($payload, 'ShippingService.ShippingServiceOfferId') ?? ($selectedCarrier['ShippingServiceOfferId'] ?? null);
         $shipDate = data_get($payload, 'ShippingService.ShipDate');
+        $shipDate = $shipDate ? Carbon::parse($shipDate)->setTimezone('UTC')->format('Y-m-d H:i:s') : null;
+
+        $earliest = data_get($payload, 'ShippingService.EarliestEstimatedDeliveryDate');
+        $earliest = $earliest ? Carbon::parse($earliest)->setTimezone('UTC')->format('Y-m-d H:i:s') : null;
+
+        $latest = data_get($payload, 'ShippingService.LatestEstimatedDeliveryDate');
+        $latest = $latest ? Carbon::parse($latest)->setTimezone('UTC')->format('Y-m-d H:i:s') : null;
 
         $rateAmount = $form['rate'] ?? data_get($payload, 'ShippingService.Rate.Amount') ?? ($selectedCarrier['Rate']['Amount'] ?? 0.00);
 
@@ -650,8 +657,8 @@ class ShippingLabelController extends Controller
                 'orderitemid' => $orderItemId,
                 'trackingid' => $trackingId,
                 'shipDate' => $shipDate,
-                'EarliestEstimatedDeliveryDate' => data_get($payload, 'ShippingService.EarliestEstimatedDeliveryDate'),
-                'LatestEstimatedDeliveryDate' => data_get($payload, 'ShippingService.LatestEstimatedDeliveryDate'),
+                'EarliestEstimatedDeliveryDate' => data_get($earliest, 'ShippingService.EarliestEstimatedDeliveryDate'),
+                'LatestEstimatedDeliveryDate' => data_get($latest, 'ShippingService.LatestEstimatedDeliveryDate'),
                 'labelhistory_id' => $labelId,
                 'PDFLabel' => data_get($payload, 'Label.FileContents.Contents'),
                 'DeliveryExperience' => $form['deliveryExperience'] ?? null,
