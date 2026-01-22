@@ -207,7 +207,7 @@ class PrintShippingLabelController extends Controller
                 $img->autoOrientImage();
             }
             if ($img->getImageWidth() < $img->getImageHeight()) {
-                $img->rotateImage(new \ImagickPixel('white'), -90); // clockwise
+                $img->rotateImage(new \ImagickPixel('white'), 0); // clockwise
             }
 
             $imagePath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$orderId}_page{$i}.png");
