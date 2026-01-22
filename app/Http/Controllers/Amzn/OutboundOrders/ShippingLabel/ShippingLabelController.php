@@ -1057,7 +1057,7 @@ class ShippingLabelController extends Controller
                     // ✅ newest outbound row wins (protect vs old duplicates)
                     $productId = DB::table('tblorderitemdispense')
                         ->where('orderitemid', $orderItemId)
-                        ->orderByDesc('outboundorderitemid')
+                        ->orderByDesc('id')
                         ->value('productid');
 
                     if (!$productId) {
