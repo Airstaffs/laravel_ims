@@ -5,11 +5,20 @@
                 <i class="pi pi-search"></i>
             </span>
             <InputText
+                ref="searchInput"
                 v-model="searchQuery"
                 @input="onSearch"
                 placeholder="Search inventory..."
                 class="p-inputtext-sm"
             />
+            <button
+                v-if="searchQuery"
+                @click="clearSearch"
+                class="clear-button"
+                type="button"
+            >
+                <i class="pi pi-times"></i>
+            </button>
         </div>
     </div>
 </template>
@@ -55,6 +64,32 @@ export default {
     font-size: 16px;
 }
 
+.clear-button {
+    position: absolute;
+    right: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    background: transparent;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.clear-button:hover {
+    background-color: rgba(108, 117, 125, 0.1);
+}
+
+.clear-button .pi-times {
+    color: #6c757d;
+    font-size: 14px;
+}
+
 .search-input :deep(.p-inputtext) {
     width: 100%;
     padding: 0.75rem 2.5rem 0.75rem 1rem;
@@ -84,6 +119,10 @@ export default {
         padding: 0.65rem 2.5rem 0.65rem 0.75rem;
         font-size: 14px;
     }
+
+    .clear-button {
+        right: 36px;
+    }
 }
 
 /* Mobile */
@@ -105,6 +144,14 @@ export default {
     .search-icon .pi-search {
         font-size: 14px;
     }
+
+    .clear-button {
+        right: 34px;
+    }
+
+    .clear-button .pi-times {
+        font-size: 13px;
+    }
 }
 
 /* Small Mobile */
@@ -120,6 +167,14 @@ export default {
 
     .search-icon .pi-search {
         font-size: 13px;
+    }
+
+    .clear-button {
+        right: 32px;
+    }
+
+    .clear-button .pi-times {
+        font-size: 12px;
     }
 }
 </style>

@@ -955,7 +955,7 @@
                         </div>
 
                         <!-- RIGHT: PRICING -->
-                        <div class="form-col-right">
+                        <div class="form-col-right" v-show="showPricingSection">
                             <Card>
                                 <template #title>
                                     <div>
@@ -1071,72 +1071,84 @@
             </template>
         </Dialog>
 
-        <Dialog
-            v-model:visible="isFnskuModalVisible"
-            header="Select FNSKU"
-            modal
-            :style="{ width: '95%' }"
-            :pt="{
-                root: { class: 'mobile-fullscreen-dialog' },
-            }"
+       <Dialog
+        v-model:visible="isFnskuModalVisible"
+        header="Select FNSKU"
+        modal
+        :style="{ width: '95%' }"
+        :pt="{
+            root: { class: 'mobile-fullscreen-dialog' },
+        }"
+        @show="onDialogShow"
+    >
+        <!-- Mobile: Sticky title (only shows when scrolled past original) -->
+        <div 
+            v-if="showStickyTitle"
+            class="mobile-sticky-title"
         >
-            <div class="row">
-                <div class="col-md-3">
-                    <div class="fnsku-image-column">
-                        <div
-                            v-if="allProductImages.length"
-                            class="image-display"
-                        >
-                            <div class="hover-image-container">
+            <h5>{{ getDisplayTitle(currentItem) }}</h5>
+        </div>
+
+        <div class="row">
+            <div class="col-md-3">
+                <div class="fnsku-image-column">
+                    <div
+                        v-if="allProductImages.length"
+                        class="image-display"
+                    >
+                        <div class="hover-image-container">
+                            <img
+                                :src="selectedImage || mainImage"
+                                alt="Main Image"
+                                class="preview-image"
+                            />
+                            <div class="hover-preview">
                                 <img
                                     :src="selectedImage || mainImage"
-                                    alt="Main Image"
-                                    class="preview-image"
-                                />
-                                <div class="hover-preview">
-                                    <img
-                                        :src="selectedImage || mainImage"
-                                        alt="Zoomed Preview"
-                                    />
-                                </div>
-                            </div>
-
-                            <div class="thumbnail-list overflow-auto">
-                                <img
-                                    v-for="(img, index) in allProductImages"
-                                    :key="index"
-                                    :src="img"
-                                    alt="Thumbnail"
-                                    class="thumbnail"
-                                    :class="{
-                                        active: selectedImage === img,
-                                    }"
-                                    @click="selectedImage = img"
+                                    alt="Zoomed Preview"
                                 />
                             </div>
                         </div>
 
-                        <div v-else class="no-image">
-                            <p>No image available</p>
+                        <div class="thumbnail-list overflow-auto">
+                            <img
+                                v-for="(img, index) in allProductImages"
+                                :key="index"
+                                :src="img"
+                                alt="Thumbnail"
+                                class="thumbnail"
+                                :class="{
+                                    active: selectedImage === img,
+                                }"
+                                @click="selectedImage = img"
+                            />
                         </div>
                     </div>
 
-                    <div class="my-4">
-                        <h5>{{ getDisplayTitle(currentItem) }}</h5>
-
-                        <div class="mt-4">
-                            <span class="fw-semibold">RT#: </span>
-                            <span>{{ currentItem?.rtcounter }}</span>
-                        </div>
-
-                        <div class="mt-2">
-                            <span class="fw-semibold">Current FNSKU: </span>
-                            <span>{{
-                                currentItem?.FNSKUviewer || "None"
-                            }}</span>
-                        </div>
+                    <div v-else class="no-image">
+                        <p>No image available</p>
                     </div>
                 </div>
+
+                <div class="my-4">
+                    <!-- Original title (always visible in its position) -->
+                    <div ref="originalTitle" class="original-title">
+                        <h5>{{ getDisplayTitle(currentItem) }}</h5>
+                    </div>
+
+                    <div class="mt-4">
+                        <span class="fw-semibold">RT#: </span>
+                        <span>{{ currentItem?.rtcounter }}</span>
+                    </div>
+
+                    <div class="mt-2">
+                        <span class="fw-semibold">Current FNSKU: </span>
+                        <span>{{ currentItem?.FNSKUviewer || "None" }}</span>
+                    </div>
+                </div>
+            </div>
+            
+
                 <div class="col-md-9">
                     <div
                         class="d-flex align-items-center justify-content-between"
@@ -1447,6 +1459,24 @@
                                         <span class="mobile-detal-value">
                                             {{ item.storename }}</span
                                         >
+                                    </div>                                  
+                                    <div class="mt-4 d-flex gap-2 align-items-center">
+                                        <Button
+                                            size="small"
+                                            severity="info"
+                                            :label="
+                                                item.ASIN === currentItem?.ASINviewer
+                                                    ? 'Recommended'
+                                                    : 'Select'
+                                            "
+                                            @click="selectFnsku(item)"
+                                        />
+                                        <Button
+                                            size="small"
+                                            label="Other Details"
+                                            icon="pi pi-info-circle"
+                                            @click="showOtherFNSKUInfos(item)"
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -1475,7 +1505,7 @@
                         <div class="d-flex align-items-center gap-3">
                             <Select
                                 v-model="pageSize"
-                                @change="changePageSize"
+                                @change="changeFnskuPageSize"
                                 :options="[
                                     { label: '5', value: 5 },
                                     ...rowsPerPage,
@@ -1489,11 +1519,11 @@
                                 <ul class="pagination pagination-sm mb-0">
                                     <li
                                         class="page-item"
-                                        :class="{ disabled: currentPage === 1 }"
+                                        :class="{ disabled: currentFnskuPage === 1 }"
                                     >
                                         <Button
                                             @click="prevFnskuPage"
-                                            :disabled="currentPage === 1"
+                                            :disabled="currentFnskuPage === 1"
                                             size="small"
                                             label="Previous"
                                             icon="pi pi-angle-left"
@@ -1502,16 +1532,16 @@
                                     </li>
 
                                     <li class="page-item active">
-                                        <span>Page {{ currentPage }}</span>
+                                        <span>Page {{ currentFnskuPage }}</span>
                                     </li>
 
                                     <li
                                         class="page-item"
-                                        :class="{ disabled: !hasMorePages }"
+                                        :class="{ disabled: !hasMoreFnskuPages }"
                                     >
                                         <Button
                                             @click="nextFnskuPage"
-                                            :disabled="!hasMorePages"
+                                            :disabled="!hasMoreFnskuPages"
                                             size="small"
                                             severity="info"
                                             label="Next"
@@ -1680,6 +1710,7 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
+import { showPricingForPH } from "../../utils/helpers.js";
 
 const TABLE_COLUMNS = [
     // {
@@ -1828,6 +1859,12 @@ export default {
             rowsPerPage: ROWS_PER_PAGE,
             currentTimezone: "UTC",
             timezoneLabel: "Loading...",
+            showPricingSection: showPricingForPH(),
+
+            //for sticky title on mobile view
+            showStickyTitle: false,
+            isMobile: false,
+            dialogContent: null,
         };
     },
     async mounted() {
@@ -2054,6 +2091,54 @@ export default {
             }
             return count;
         },
+         updatePricingView() {
+            this.showPricingSection = showPricingForPH();
+        },
+       checkMobile() {
+            this.isMobile = window.innerWidth <= 768;
+        },
+        
+        onDialogShow() {
+            if (!this.isMobile) return;
+            
+            this.$nextTick(() => {
+                const dialog = document.querySelector('.p-dialog-content');
+                if (dialog) {
+                    this.dialogContent = dialog;
+                    this.dialogContent.addEventListener('scroll', this.handleScroll);
+                }
+            });
+        },
+        
+        handleScroll(event) {
+    if (!this.isMobile || !this.$refs.originalTitle) return;
+    
+    const scrollTop = event.target.scrollTop;
+    const titleElement = this.$refs.originalTitle;
+    const rect = titleElement.getBoundingClientRect();
+    const dialogRect = event.target.getBoundingClientRect();
+    
+    // Calculate position relative to dialog content
+    const titleTopRelativeToDialog = rect.top - dialogRect.top;
+    
+    // Show sticky when original title has scrolled past the top of the dialog (with some threshold)
+    this.showStickyTitle = titleTopRelativeToDialog < -50; // -50px threshold
+},
+        
+    },
+     mounted() {
+        window.addEventListener('resize', this.updatePricingView);
+
+         this.checkMobile();
+        window.addEventListener('resize', this.checkMobile)
+     },
+    beforeUnmount() {
+        window.removeEventListener('resize', this.updatePricingView);
+
+         window.removeEventListener('resize', this.checkMobile);
+        if (this.dialogContent) {
+            this.dialogContent.removeEventListener('scroll', this.handleScroll);
+        }
     },
     computed: {
         storeListOptions() {
@@ -2286,6 +2371,9 @@ button:disabled {
     border-width: 4px;
 }
 
+.original-title h5 {
+    margin: 0;
+}
 /* Responsive loading overlay */
 @media (max-width: 768px) {
     .fnsku-loading-overlay {
@@ -2305,6 +2393,41 @@ button:disabled {
     .loading-content p {
         font-size: 0.9em;
         margin-top: 10px;
+    }
+   /* Show mobile sticky title */
+   .mobile-sticky-title {
+        position: fixed;
+        top: 60px; /* Adjust based on dialog header height */
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        background: rgb(255, 255, 255);
+        padding: 1rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border-bottom: 1px solid #e5e7eb;
+        animation: slideDown 0.3s ease;
+    }
+    
+    @keyframes slideDown {
+        from {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    .mobile-sticky-title h5 {
+        margin: 0;
+        font-size: 1rem;
+        line-height: 1.4;
+    }
+}
+@media (min-width: 769px) {
+    .mobile-sticky-title {
+        display: none !important;
     }
 }
 

@@ -202,6 +202,14 @@ class PrintShippingLabelController extends Controller
             $img = $img->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
             $img->setImageFormat('png');
 
+            // ✅ rotation fix
+            if (method_exists($img, 'autoOrientImage')) {
+                $img->autoOrientImage();
+            }
+            if ($img->getImageWidth() < $img->getImageHeight()) {
+                $img->rotateImage(new \ImagickPixel('white'), 0); // clockwise
+            }
+
             $imagePath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$orderId}_page{$i}.png");
             $img->writeImage($imagePath);
 
@@ -217,37 +225,37 @@ class PrintShippingLabelController extends Controller
         return $zplCode;
     }
 
-protected function sendToPrinter($zplCode, $pdfFile = null, $savetoprintserver = false)
-{
-    $printerIP = 'http://99.0.87.190:1450/ims/Admin/modules/PRD-RPN-PCN/print.php';
-    $pIp = '192.168.1.240';
+    protected function sendToPrinter($zplCode, $pdfFile = null, $savetoprintserver = false)
+    {
+        $printerIP = 'http://99.0.87.190:1450/ims/Admin/modules/PRD-RPN-PCN/print.php';
+        $pIp = '192.168.1.240';
 
-    try {
-        $postData = [
-            'zpl' => $zplCode,
-            'printerSelect' => $pIp,
-        ];
+        try {
+            $postData = [
+                'zpl' => $zplCode,
+                'printerSelect' => $pIp,
+            ];
 
-        Log::info('Printer request debug', [
-            'url' => $printerIP,
-            'printerSelect' => $pIp,
-            'zpl_len' => strlen($zplCode),
-        ]);
+            Log::info('Printer request debug', [
+                'url' => $printerIP,
+                'printerSelect' => $pIp,
+                'zpl_len' => strlen($zplCode),
+            ]);
 
-        $response = Http::timeout(30)
-            ->withHeaders(['Content-Type' => 'application/x-www-form-urlencoded'])
-            ->withBody(http_build_query($postData), 'application/x-www-form-urlencoded')
-            ->post($printerIP);
+            $response = Http::timeout(30)
+                ->withHeaders(['Content-Type' => 'application/x-www-form-urlencoded'])
+                ->withBody(http_build_query($postData), 'application/x-www-form-urlencoded')
+                ->post($printerIP);
 
-        Log::info('Printer response debug', [
-            'status' => $response->status(),
-            'ok' => $response->successful(),
-            'body' => $response->body(),
-        ]);
-    } catch (\Throwable $e) {
-        Log::error('Printer exception', [
-            'message' => $e->getMessage(),
-        ]);
+            Log::info('Printer response debug', [
+                'status' => $response->status(),
+                'ok' => $response->successful(),
+                'body' => $response->body(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Printer exception', [
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
-}
 }

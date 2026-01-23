@@ -24,20 +24,61 @@
                 </a>
 
                 <!-- Sub-modules -->
-                <a
-                    v-for="module in filteredSubModules"
-                    :key="module"
-                    :href="module === 'asinoption' ? '#' : `/${module}`"
-                    class="nav-link"
-                    :class="{ active: activeModule === module }"
-                    @click.prevent="handleNavClick(module)"
-                >
-                    <i
-                        :class="['pi', moduleIcons[module] || 'pi-file']"
-                        class="mr-2"
-                    ></i>
-                    {{ modules[module] }}
-                </a>
+                <template v-for="module in filteredSubModules" :key="module">
+                    <!-- Regular nav link or parent with submenu -->
+                    <div v-if="module === 'asinoption'" class="nav-group">
+                        <!-- Parent link with toggle -->
+                        <a
+                            href="#"
+                            class="nav-link"
+                            :class="{ active: isAsinOptionActive }"
+                            @click.prevent="toggleAsinSubmenu"
+                        >
+                            <i
+                                :class="['pi', moduleIcons[module] || 'pi-file']"
+                                class="mr-2"
+                            ></i>
+                            {{ modules[module] }}
+                            <i
+                                :class="['pi', asinSubmenuOpen ? 'pi-chevron-down' : 'pi-chevron-right']"
+                                class="ml-auto submenu-toggle"
+                            ></i>
+                        </a>
+                        
+                        <!-- Submenu items -->
+                        <div v-show="asinSubmenuOpen" class="submenu">
+                            <a
+                                v-for="subItem in asinSubItems"
+                                :key="subItem.id"
+                                :href="`/${subItem.id}`"
+                                class="nav-link submenu-link"
+                                :class="{ active: activeModule === subItem.id }"
+                                @click.prevent="handleNavClick(subItem.id)"
+                            >
+                                <i
+                                    :class="['pi', subItem.icon]"
+                                    class="mr-2"
+                                ></i>
+                                {{ subItem.label }}
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- Regular nav links -->
+                    <a
+                        v-else
+                        :href="`/${module}`"
+                        class="nav-link"
+                        :class="{ active: activeModule === module }"
+                        @click.prevent="handleNavClick(module)"
+                    >
+                        <i
+                            :class="['pi', moduleIcons[module] || 'pi-file']"
+                            class="mr-2"
+                        ></i>
+                        {{ modules[module] }}
+                    </a>
+                </template>
             </nav>
 
             <!-- Fixed bottom div -->
@@ -72,7 +113,7 @@ const props = defineProps({
     },
 });
 
-const emit = defineEmits(["update:visible", "load-content", "show-asin-modal"]);
+const emit = defineEmits(["update:visible", "load-content", "show-asin-modal", "asin-option-selected"]);
 
 // Drawer model bridge
 const localVisible = computed({
@@ -85,6 +126,14 @@ const user = ref(window.user || {});
 const mainModule = ref("");
 const subModules = ref([]);
 const activeModule = ref("");
+const asinSubmenuOpen = ref(false);
+
+// ASIN submenu items
+const asinSubItems = ref([
+    { id: 'asinlist', label: 'ASIN List', icon: 'pi-list' },
+    { id: 'fnsku', label: 'FNSKU List', icon: 'pi-barcode' },
+    { id: 'mskucreation', label: 'FNSKU Creation', icon: 'pi-plus-circle' }
+]);
 
 // Module names
 const modules = ref({
@@ -106,10 +155,11 @@ const modules = ref({
     fbmorder: "FBM Order",
     notfound: "Not Found",
     houseage: "Houseage",
-    // asinlist: 'ASIN List',
-    // fnsku: 'FNSKU',
     printer: "Printer",
     auxiliary: "Auxillary Label",
+    asinlist: "ASIN List",
+    fnsku: "FNSKU List",
+    mskucreation: "FNSKU Creation",
 });
 
 // Icons for each module
@@ -133,16 +183,78 @@ const moduleIcons = {
     houseage: "pi-home",
     asinlist: "pi-list",
     fnsku: "pi-barcode",
+    mskucreation: "pi-plus-circle",
     printer: "pi-print",
     auxiliary: "pi-print",
 };
 
-// Computed: exclude main module
+// Get array of ASIN sub-item IDs
+const asinSubItemIds = computed(() => 
+    asinSubItems.value.map(item => item.id)
+);
+
+// Computed: exclude main module and ASIN sub-items (they appear in submenu)
 const filteredSubModules = computed(() =>
     subModules.value.filter(
-        (mod) => mod !== mainModule.value && modules.value[mod]
+        (mod) => mod !== mainModule.value && 
+                modules.value[mod] &&
+                !asinSubItemIds.value.includes(mod)
     )
 );
+
+// Check if any ASIN sub-item is active
+const isAsinOptionActive = computed(() => {
+    return asinSubItems.value.some(item => item.id === activeModule.value);
+});
+
+// LocalStorage keys
+const STORAGE_KEY = "ims_active_module";
+const SUBMENU_KEY = "ims_asin_submenu_open";
+
+// Save active module to localStorage
+const saveActiveModule = (module) => {
+    try {
+        localStorage.setItem(STORAGE_KEY, module);
+    } catch (error) {
+        console.error("Error saving to localStorage:", error);
+    }
+};
+
+// Load active module from localStorage
+const loadActiveModule = () => {
+    try {
+        return localStorage.getItem(STORAGE_KEY);
+    } catch (error) {
+        console.error("Error loading from localStorage:", error);
+        return null;
+    }
+};
+
+// Save submenu state
+const saveSubmenuState = (isOpen) => {
+    try {
+        localStorage.setItem(SUBMENU_KEY, isOpen.toString());
+    } catch (error) {
+        console.error("Error saving submenu state:", error);
+    }
+};
+
+// Load submenu state
+const loadSubmenuState = () => {
+    try {
+        const state = localStorage.getItem(SUBMENU_KEY);
+        return state === 'true';
+    } catch (error) {
+        console.error("Error loading submenu state:", error);
+        return false;
+    }
+};
+
+// Toggle ASIN submenu
+const toggleAsinSubmenu = () => {
+    asinSubmenuOpen.value = !asinSubmenuOpen.value;
+    saveSubmenuState(asinSubmenuOpen.value);
+};
 
 const fetchUserData = () => {
     try {
@@ -153,8 +265,46 @@ const fetchUserData = () => {
         subModules.value = subModules.value.filter(
             (mod) => mod !== mainModule.value
         );
-        activeModule.value =
-            mainModule.value || subModules.value[0] || "dashboard";
+
+        // Check if there's a saved module in localStorage
+        const savedModule = loadActiveModule();
+        
+        // Get current path from router or URL
+        const currentPath = router?.currentRoute?.value?.path || window.location.pathname;
+        const currentModule = currentPath.replace(/^\//, "").split("/")[0];
+
+        // Load submenu state
+        asinSubmenuOpen.value = loadSubmenuState();
+
+        // Modal modules that shouldn't be restored from localStorage
+        const modalModules = ['asinoption', 'printer'];
+
+        // Priority: current URL > saved module > default
+        if (currentModule && modules.value[currentModule]) {
+            activeModule.value = currentModule;
+            // Auto-open submenu if active module is an ASIN sub-item
+            if (asinSubItems.value.some(item => item.id === currentModule)) {
+                asinSubmenuOpen.value = true;
+                saveSubmenuState(true);
+            }
+        } else if (savedModule && !modalModules.includes(savedModule) && modules.value[savedModule]) {
+            activeModule.value = savedModule;
+            // Auto-open submenu if saved module is an ASIN sub-item
+            if (asinSubItems.value.some(item => item.id === savedModule)) {
+                asinSubmenuOpen.value = true;
+                saveSubmenuState(true);
+            }
+            // Navigate to saved module
+            if (window.loadContent) {
+                window.loadContent(savedModule);
+            } else {
+                router
+                    .push(`/${savedModule}`)
+                    .catch(() => (window.location.href = `/${savedModule}`));
+            }
+        } else {
+            activeModule.value = mainModule.value || subModules.value[0] || "dashboard";
+        }
     } catch (error) {
         console.error("❌ Error fetching user data:", error);
     }
@@ -173,32 +323,86 @@ const handleNavClick = (module) => {
 
     activeModule.value = module;
 
-    if (module === "Asin Option") {
-        emit("show-asin-modal");
-    } else if (window.loadContent) {
-        window.loadContent(module);
+    // Close ASIN submenu if clicking on non-ASIN modules
+    const isAsinModule = module === 'asinoption' || asinSubItems.value.some(item => item.id === module);
+    if (!isAsinModule) {
+        asinSubmenuOpen.value = false;
+        saveSubmenuState(false);
+    }
+
+    // Don't save modal modules (asinoption, printer) to localStorage, but save regular pages
+    const modalModules = ['asinoption', 'printer'];
+    if (!modalModules.includes(module)) {
+        saveActiveModule(module);
+        if (window.loadContent) {
+            window.loadContent(module);
+        } else {
+            router
+                .push(`/${module}`)
+                .catch(() => (window.location.href = `/${module}`));
+        }
     } else {
-        router
-            .push(`/${module}`)
-            .catch(() => (window.location.href = `/${module}`));
+        // For modal modules, just trigger the modal without saving
+        if (window.loadContent) {
+            window.loadContent(module);
+        }
     }
 
     emit("load-content", module);
     localVisible.value = false;
 };
 
+// Handle ASIN option selection from modal (if still needed)
+const handleAsinOptionSelected = (selectedModule) => {
+    const modalModules = ['asinoption', 'printer'];
+    if (selectedModule && !modalModules.includes(selectedModule)) {
+        activeModule.value = selectedModule;
+        saveActiveModule(selectedModule);
+        
+        if (window.loadContent) {
+            window.loadContent(selectedModule);
+        } else {
+            router
+                .push(`/${selectedModule}`)
+                .catch(() => (window.location.href = `/${selectedModule}`));
+        }
+    }
+};
+
+// Expose function globally for modal to use
+window.handleAsinOptionSelected = handleAsinOptionSelected;
+
+// Watch for route changes and save to localStorage
 watch(
     () => router?.currentRoute?.value?.path,
     (newPath) => {
         if (newPath) {
             const module = newPath.replace(/^\//, "").split("/")[0];
+            const modalModules = ['asinoption', 'printer'];
+            
             if (module && modules.value[module]) {
                 activeModule.value = module;
+                if (!modalModules.includes(module)) {
+                    saveActiveModule(module);
+                }
+                // Auto-open submenu if active module is an ASIN sub-item
+                if (asinSubItems.value.some(item => item.id === module)) {
+                    asinSubmenuOpen.value = true;
+                    saveSubmenuState(true);
+                }
             }
         }
     },
     { immediate: true }
 );
+
+// Watch activeModule changes
+watch(activeModule, (newModule) => {
+    const modalModules = ['asinoption', 'printer'];
+    if (newModule && !modalModules.includes(newModule)) {
+        saveActiveModule(newModule);
+    }
+});
 
 onMounted(fetchUserData);
 </script>
@@ -209,6 +413,11 @@ onMounted(fetchUserData);
     flex-direction: column;
     gap: 0.25rem;
     padding-bottom: 10rem;
+}
+
+.nav-group {
+    display: flex;
+    flex-direction: column;
 }
 
 .nav-link {
@@ -223,10 +432,16 @@ onMounted(fetchUserData);
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    position: relative;
 }
 
 .nav-link i {
     font-size: 1rem;
+}
+
+.submenu-toggle {
+    font-size: 0.75rem;
+    transition: transform 0.2s ease;
 }
 
 .nav-link:hover {
@@ -239,6 +454,34 @@ onMounted(fetchUserData);
     color: #fff !important;
     border-left: 3px solid #1e40af;
     box-shadow: 0 2px 4px rgba(59, 130, 246, 0.25);
+}
+
+/* Submenu styles */
+.submenu {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding-left: 0.5rem;
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+.submenu-link {
+    font-size: 14px;
+    padding: 0.6rem 1rem 0.6rem 2rem;
+    background-color: #ffffff;
+}
+
+.submenu-link:hover {
+    background-color: #e9ecef;
+    color: #4780dc !important;
+    border-left-color: #4780dc;
+}
+
+.submenu-link.active {
+    background-color: #4780dc;
+    color: #fff !important;
+    border-left: 3px solid #1e40af;
 }
 
 .font-medium {
