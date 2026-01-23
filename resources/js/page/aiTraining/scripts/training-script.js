@@ -29,6 +29,8 @@ const status = reactive({
   canceled: false,
 })
 
+const updatingModel = ref(false)
+
 const trainingActive = ref(false)
 const autoScroll = ref(true)
 const datasetClasses = ref([])
@@ -305,16 +307,40 @@ async function cancelTraining() {
 // Update / Retrain
 // ========================
 async function updateModel() {
-  pushLog('🧠 Updating model...')
+  if (updatingModel?.value) return
 
-  await axios.post(`${API_BASE}/update-model`, {
-    model_name: config.value.modelName,
-  })
+  pushLog('🧠 Uploading and deploying model...')
 
-  pushLog('✅ Model updated')
+  try {
+    const formData = new FormData()
+
+    // LOCAL training_server best.pt path
+    const res = await axios.get(
+      '/api/training/get-latest-model',
+      { responseType: 'blob' }
+    )
+
+    formData.append('file', res.data, 'best.pt')
+
+    const deployRes = await axios.post(
+      `${API_BASE}/update-model`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    )
+
+    if (deployRes.data?.status !== 'success') {
+      throw new Error(deployRes.data?.message || 'Deployment failed')
+    }
+
+    pushLog('✅ Model uploaded and deployed')
+
+  } catch (err) {
+    console.error(err)
+    pushLog(`❌ Update model failed: ${err.message}`)
+  }
 }
 
-function retrainModel() {
+async function retrainModel() {
   logs.value = []
   reconnectAttempts = 0
 
@@ -324,6 +350,7 @@ function retrainModel() {
 
   resultImages.value = []
 
+  await nextTick()
   pushLog('🔁 Retraining started')
   startTraining()
 }
@@ -370,6 +397,7 @@ export default function useTraining() {
     autoScroll,
     datasetClasses,
     resultImages,
+    updatingModel,
 
     fetchClassFolders,
     uploadDataset,

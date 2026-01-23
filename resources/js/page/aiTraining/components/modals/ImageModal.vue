@@ -8,7 +8,9 @@
         <h2 class="text-xl font-bold">
           🖼️ {{ dataset.name }} — {{ folderType.toUpperCase() }} Images
         </h2>
-        <button class="text-gray-400 hover:text-white text-2xl" @click="$emit('close')">×</button>
+        <button class="text-gray-400 hover:text-white text-2xl" @click="$emit('close')">
+          ×
+        </button>
       </div>
 
       <!-- Actions Row -->
@@ -24,9 +26,7 @@
           >
             🗑 Delete Selected
           </button>
-          <label
-            class="bg-indigo-600 hover:bg-indigo-700 px-3 py-1 rounded cursor-pointer transition"
-          >
+          <label class="bg-indigo-600 hover:bg-indigo-700 px-3 py-1 rounded cursor-pointer transition">
             ➕ Add Images
             <input type="file" multiple class="hidden" @change="handleFileSelect" />
           </label>
@@ -49,11 +49,13 @@
           }"
           @click="toggleSelect(i)"
         >
+          <!-- ✅ FIXED IMAGE URL -->
           <img
-            :src="SITE_URL + img"
+            :src="API_BASE + img"
             class="object-cover w-full h-24 transition-opacity duration-200"
             :class="{ 'opacity-70': selectedImages.includes(i) }"
           />
+
           <button
             class="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition"
             @click.stop="deleteImage(i)"
@@ -71,7 +73,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import axios from 'axios'
 
 const props = defineProps({
@@ -79,21 +81,28 @@ const props = defineProps({
   folderType: String,
 })
 
-const SITE_URL = window.location.origin.includes('localhost')
-  ? 'http://localhost:8001'
-  : 'https://test.techniquyality.com'
+const API_BASE = '/api/training'
 
 const images = ref([])
 const selectedImages = ref([])
 
+/* ✅ Encode class name ONCE */
+const encodedClass = computed(() =>
+  encodeURIComponent(props.dataset.name)
+)
+
 onMounted(fetchImages)
 
-watch(() => props.folderType, fetchImages)
+/* Reload when folder or dataset changes */
+watch(
+  () => [props.folderType, props.dataset?.name],
+  fetchImages
+)
 
 async function fetchImages() {
   try {
     const res = await axios.get(
-      `${SITE_URL}/api/images/${props.folderType}/${props.dataset.name}`
+      `${API_BASE}/images/${props.folderType}/${encodedClass.value}`
     )
     images.value = res.data.images || []
   } catch (err) {
@@ -103,56 +112,58 @@ async function fetchImages() {
 }
 
 function toggleSelect(index) {
-  if (selectedImages.value.includes(index))
-    selectedImages.value = selectedImages.value.filter(i => i !== index)
-  else selectedImages.value.push(index)
+  selectedImages.value.includes(index)
+    ? (selectedImages.value = selectedImages.value.filter(i => i !== index))
+    : selectedImages.value.push(index)
 }
 
 async function deleteImage(index) {
   const filePath = images.value[index]
   const fileName = filePath.split('/').pop()
-  if (confirm(`Delete image "${fileName}"?`)) {
-    await axios.delete(`${SITE_URL}/api/image/${props.folderType}/${props.dataset.name}/${fileName}`)
-    await fetchImages()
-  }
+
+  if (!confirm(`Delete image "${fileName}"?`)) return
+
+  await axios.delete(
+    `${API_BASE}/delete-image/${props.folderType}/${encodedClass.value}/${fileName}`
+  )
+
+  await fetchImages()
 }
 
 async function deleteSelected() {
   if (!selectedImages.value.length) return
-  if (confirm(`Delete ${selectedImages.value.length} selected images?`)) {
-    for (const index of selectedImages.value) {
-      const filePath = images.value[index]
-      const fileName = filePath.split('/').pop()
-      await axios.delete(`${SITE_URL}/api/image/${props.folderType}/${props.dataset.name}/${fileName}`)
-    }
-    selectedImages.value = []
-    await fetchImages()
-  }
-}
+  if (!confirm(`Delete ${selectedImages.value.length} selected images?`)) return
 
-async function handleFileSelect(e) {
-  const files = Array.from(e.target.files)
-  for (const file of files) {
-    const formData = new FormData()
-    formData.append('file', file)
-    await axios.post(
-      `${SITE_URL}/api/upload-image/${props.folderType}/${props.dataset.name}`,
-      formData
+  for (const index of selectedImages.value) {
+    const fileName = images.value[index].split('/').pop()
+    await axios.delete(
+      `${API_BASE}/delete-image/${props.folderType}/${encodedClass.value}/${fileName}`
     )
   }
+
+  selectedImages.value = []
   await fetchImages()
 }
 
+async function handleFileSelect(e) {
+  await uploadFiles(Array.from(e.target.files))
+}
+
 async function handleDrop(e) {
-  const files = Array.from(e.dataTransfer.files)
+  await uploadFiles(Array.from(e.dataTransfer.files))
+}
+
+async function uploadFiles(files) {
   for (const file of files) {
     const formData = new FormData()
     formData.append('file', file)
+
     await axios.post(
-      `${SITE_URL}/api/upload-image/${props.folderType}/${props.dataset.name}`,
+      `${API_BASE}/upload-image/${props.folderType}/${encodedClass.value}`,
       formData
     )
   }
+
   await fetchImages()
 }
 </script>
