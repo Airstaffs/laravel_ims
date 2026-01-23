@@ -605,6 +605,7 @@ class ShippingLabelController extends Controller
                     'message' => 'Amazon cancel failed.',
                     'amazon_status' => $status,
                     'amazon_body' => $body,
+                    'Data' => $shipmentId,
                 ], 400);
             }
 
@@ -640,24 +641,24 @@ class ShippingLabelController extends Controller
             $productIds = [];
 
             if ($labelItems->count()) {
-$latestOi = DB::table('tbloutboundordersitem')
-    ->selectRaw('platform_order_id, platform_order_item_id, MAX(outboundorderitemid) as outboundorderitemid')
-    ->groupBy('platform_order_id', 'platform_order_item_id');
+                $latestOi = DB::table('tbloutboundordersitem')
+                    ->selectRaw('platform_order_id, platform_order_item_id, MAX(outboundorderitemid) as outboundorderitemid')
+                    ->groupBy('platform_order_id', 'platform_order_item_id');
 
-$productIds = DB::table('tbllabelhistoryitems as li')
-    ->joinSub($latestOi, 'oi', function ($join) {
-        $join->on('oi.platform_order_id', '=', 'li.AmazonOrderId')
-             ->on('oi.platform_order_item_id', '=', 'li.orderitemid');
-    })
-    ->join('tblorderitemdispense as d', function ($join) {
-        $join->on('d.orderitemid', '=', 'oi.outboundorderitemid');
-    })
-    ->where('li.labelhistory_id', $labelHistoryId)
-    ->pluck('d.ProductID')
-    ->filter()
-    ->unique()
-    ->values()
-    ->all();
+                $productIds = DB::table('tbllabelhistoryitems as li')
+                    ->joinSub($latestOi, 'oi', function ($join) {
+                        $join->on('oi.platform_order_id', '=', 'li.AmazonOrderId')
+                            ->on('oi.platform_order_item_id', '=', 'li.orderitemid');
+                    })
+                    ->join('tblorderitemdispense as d', function ($join) {
+                        $join->on('d.orderitemid', '=', 'oi.outboundorderitemid');
+                    })
+                    ->where('li.labelhistory_id', $labelHistoryId)
+                    ->pluck('d.ProductID')
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
             }
 
             // Fallback if dispense table didn’t match
