@@ -1163,92 +1163,118 @@ public function findDispenseProducts(Request $request)
  * AUTO DISPENSE - Completely rewritten to work correctly
  */
 public function autoDispense(Request $request)
-{
-    try {
-        Log::info('🤖 Auto dispense request received', $request->all());
-        
-        // Check if dispensed table exists
-        if (!Schema::hasTable('tblorderitemdispense')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Dispensed products table not found. Please contact system administrator.'
-            ], 500);
-        }
-        
-        // Validate request
-        $request->validate([
-            'order_id' => 'required|integer',
-            'item_ids' => 'required|array',
-            'item_ids.*' => 'integer'
-        ]);
-
-        // Start transaction
-        DB::beginTransaction();
-
-        // Get the order's store name
-        $order = DB::table('tbloutboundorders')
-            ->select('outboundorderid', 'storename', 'platform_order_id')
-            ->where('outboundorderid', $request->order_id)
-            ->first();
+    {
+        try {
+            Log::info('🤖 Smart auto-dispense started', $request->all());
             
-        if (!$order) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Order not found'
-            ], 404);
-        }
-        
-        $storeName = $order->storename;
-        $normalizedStoreName = $this->normalizeStoreName($storeName);
-
-        // Get order items
-        $items = DB::table('tbloutboundordersitem')
-            ->select(
-                'outboundorderitemid',
-                'platform_order_id',
-                'platform_asin',
-                'platform_title',
-                'ConditionId',
-                'ConditionSubtypeId',
-                'QuantityOrdered'
-            )
-            ->whereIn('outboundorderitemid', $request->item_ids)
-            ->get();
-
-        if ($items->isEmpty()) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'No items found for dispense'
-            ], 404);
-        }
-
-        // Get ALL already dispensed products for this entire order
-        $allDispensedProductIds = DB::table('tblorderitemdispense as d')
-            ->join('tbloutboundordersitem as oi', 'd.orderitemid', '=', 'oi.outboundorderitemid')
-            ->where('oi.platform_order_id', $order->platform_order_id)
-            ->pluck('d.productid')
-            ->toArray();
-
-        Log::info('Already dispensed product IDs:', $allDispensedProductIds);
-
-        $usedProductIds = $allDispensedProductIds;
-        $dispenseItems = [];
-        
-        // Process each item
-        foreach ($items as $item) {
-            if (empty($item->platform_asin)) continue;
+            if (!Schema::hasTable('tblorderitemdispense')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Dispensed products table not found.'
+                ], 500);
+            }
             
-            // Get already dispensed for this specific item
-            $dispensedProducts = $this->getDispensedProductsForItem($item->outboundorderitemid);
-            $alreadyDispensed = count($dispensedProducts);
-            $quantityNeeded = max(0, $item->QuantityOrdered - $alreadyDispensed);
+            $request->validate([
+                'order_id' => 'required|integer',
+                'item_ids' => 'required|array',
+                'item_ids.*' => 'integer'
+            ]);
+
+            DB::beginTransaction();
+
+            $order = DB::table('tbloutboundorders')
+                ->select('outboundorderid', 'storename', 'platform_order_id')
+                ->where('outboundorderid', $request->order_id)
+                ->first();
+                
+            if (!$order) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order not found'
+                ], 404);
+            }
             
-            Log::info("Processing item {$item->outboundorderitemid}: Ordered={$item->QuantityOrdered}, Dispensed={$alreadyDispensed}, Needed={$quantityNeeded}");
+            $storeName = $order->storename;
+            $normalizedStoreName = $this->normalizeStoreName($storeName);
+
+            $items = DB::table('tbloutboundordersitem')
+                ->select(
+                    'outboundorderitemid',
+                    'platform_order_id',
+                    'platform_asin',
+                    'platform_title',
+                    'ConditionId',
+                    'ConditionSubtypeId',
+                    'QuantityOrdered'
+                )
+                ->whereIn('outboundorderitemid', $request->item_ids)
+                ->get();
+
+            if ($items->isEmpty()) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No items found for dispense'
+                ], 404);
+            }
+
+            // Get all already dispensed products for entire order
+            $allDispensedProductIds = DB::table('tblorderitemdispense as d')
+                ->join('tbloutboundordersitem as oi', 'd.orderitemid', '=', 'oi.outboundorderitemid')
+                ->where('oi.platform_order_id', $order->platform_order_id)
+                ->pluck('d.productid')
+                ->toArray();
+
+            $usedProductIds = $allDispensedProductIds;
+            $itemDispenseResults = []; // Track results for each item
             
-            if ($quantityNeeded > 0) {
-                // Find matching products
+            // ✅ STEP 1: Dispense singles for all items
+            foreach ($items as $item) {
+                if (empty($item->platform_asin)) continue;
+                
+                // Get ASIN record to check QuantityInside
+                $asinRecord = DB::table('tblasin')
+                    ->select('ASIN', 'QuantityInside', 'color', 'internal')
+                    ->where('ASIN', $item->platform_asin)
+                    ->first();
+
+                if (!$asinRecord) {
+                    Log::warning("ASIN not found", ['asin' => $item->platform_asin]);
+                    continue;
+                }
+
+                $quantityInside = $asinRecord->QuantityInside ?? 1;
+                $quantityOrdered = $item->QuantityOrdered ?? 1;
+                
+                // Calculate total singles needed
+                $totalSinglesNeeded = $quantityInside * $quantityOrdered;
+                
+                Log::info("Processing item", [
+                    'item_id' => $item->outboundorderitemid,
+                    'asin' => $item->platform_asin,
+                    'quantity_inside' => $quantityInside,
+                    'quantity_ordered' => $quantityOrdered,
+                    'total_singles_needed' => $totalSinglesNeeded
+                ]);
+                
+                // Get already dispensed for this item
+                $dispensedProducts = $this->getDispensedProductsForItem($item->outboundorderitemid);
+                $alreadyDispensed = count($dispensedProducts);
+                
+                // Check if still needs dispensing
+                $singlesStillNeeded = max(0, $totalSinglesNeeded - $alreadyDispensed);
+                
+                if ($singlesStillNeeded <= 0) {
+                    Log::info("Item already fully dispensed", [
+                        'item_id' => $item->outboundorderitemid,
+                        'already_dispensed' => $alreadyDispensed,
+                        'needed' => $totalSinglesNeeded
+                    ]);
+                    continue;
+                }
+                
+                // Find matching single products
                 $allMatchingProducts = $this->findMatchingProductsForItem($item, $storeName, $normalizedStoreName);
                 
                 // Filter out already used products
@@ -1263,109 +1289,156 @@ public function autoDispense(Request $request)
                     return strcmp($dateA, $dateB);
                 });
                 
-                // Select products
-                $productsToTake = min($quantityNeeded, count($availableProducts));
+                // Take only what we need
+                $productsToTake = min($singlesStillNeeded, count($availableProducts));
+                
+                if ($productsToTake === 0) {
+                    Log::warning("No products available for item", [
+                        'item_id' => $item->outboundorderitemid,
+                        'needed' => $singlesStillNeeded
+                    ]);
+                    continue;
+                }
+                
+                // Track dispensed products for this item
+                $itemDispensedProducts = [];
                 
                 for ($i = 0; $i < $productsToTake; $i++) {
                     $product = $availableProducts[$i];
-                    
-                    $dispenseItems[] = [
-                        'item_id' => $item->outboundorderitemid,
-                        'product_id' => $product['ProductID']
-                    ];
-                    
+                    $itemDispensedProducts[] = $product['ProductID'];
                     $usedProductIds[] = $product['ProductID'];
                 }
                 
-                Log::info("Selected {$productsToTake} products for item {$item->outboundorderitemid}");
+                // Store for later processing
+                $itemDispenseResults[$item->outboundorderitemid] = [
+                    'order_item' => $item,
+                    'asin_record' => $asinRecord,
+                    'dispensed_product_ids' => $itemDispensedProducts,
+                    'quantity_inside' => $quantityInside,
+                    'quantity_ordered' => $quantityOrdered,
+                    'total_singles_needed' => $totalSinglesNeeded
+                ];
             }
-        }
-        
-        if (empty($dispenseItems)) {
-            DB::rollBack();
+            
+            if (empty($itemDispenseResults)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No products available for auto-dispense'
+                ], 400);
+            }
+            
+            // ✅ STEP 2: Insert dispense records for singles
+            $dispensedCount = 0;
+            
+            foreach ($itemDispenseResults as $itemId => $result) {
+                foreach ($result['dispensed_product_ids'] as $productId) {
+                    DB::table('tblorderitemdispense')->insert([
+                        'orderitemid' => $itemId,
+                        'productid' => $productId,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                    
+                    // Decrement FBMAvailable
+                    if (Schema::hasColumn('tblproduct', 'FBMAvailable')) {
+                        DB::table('tblproduct')
+                            ->where('ProductID', $productId)
+                            ->decrement('FBMAvailable', 1);
+                    }
+                    
+                    $dispensedCount++;
+                }
+            }
+            
+            Log::info("✅ Dispensed {$dispensedCount} singles");
+            
+            // ✅ STEP 3: Smart auto-merge for pack orders
+            $totalPacksCreated = 0;
+            $mergeDetails = [];
+            
+            foreach ($itemDispenseResults as $itemId => $result) {
+                $mergeResult = $this->smartAutoMergeForPackOrder(
+                    $request->order_id,
+                    $itemId,
+                    $result['dispensed_product_ids'],
+                    $result['order_item'],
+                    $result['asin_record']
+                );
+                
+                if ($mergeResult['success'] && $mergeResult['merge_needed']) {
+                    $totalPacksCreated += $mergeResult['total_packs'];
+                    $mergeDetails[] = [
+                        'item_id' => $itemId,
+                        'asin' => $result['asin_record']->ASIN,
+                        'pack_size' => $mergeResult['pack_size'],
+                        'packs_created' => $mergeResult['total_packs'],
+                        'singles_used' => $mergeResult['singles_used']
+                    ];
+                    
+                    Log::info("✅ Item auto-merged", [
+                        'item_id' => $itemId,
+                        'packs_created' => $mergeResult['total_packs'],
+                        'pack_size' => $mergeResult['pack_size']
+                    ]);
+                }
+            }
+            
+            // ✅ STEP 4: Add note to order
+            $currentNote = DB::table('tbloutboundorders')
+                ->where('outboundorderid', $request->order_id)
+                ->value('ordernote');
+            
+            $dateTime = new DateTime('now', new DateTimeZone('America/New_York'));
+            $timestamp = $dateTime->format('Y-m-d H:i:s');
+            
+            $dispenseNote = $timestamp . " - Smart auto-dispense: {$dispensedCount} singles dispensed";
+            
+            if ($totalPacksCreated > 0) {
+                $dispenseNote .= ", {$totalPacksCreated} pack(s) auto-merged";
+                
+                // Add details about each merge
+                foreach ($mergeDetails as $detail) {
+                    $dispenseNote .= "\n  • ASIN {$detail['asin']}: {$detail['packs_created']} × {$detail['pack_size']}-pack ({$detail['singles_used']} singles)";
+                }
+            }
+            
+            $newNote = $currentNote ? $currentNote . "\n\n" . $dispenseNote : $dispenseNote;
+            
+            DB::table('tbloutboundorders')
+                ->where('outboundorderid', $request->order_id)
+                ->update([
+                    'ordernote' => $newNote,
+                    'updated_at' => now()
+                ]);
+
+            DB::commit();
+            
+            Log::info("🎉 Smart auto-dispense completed", [
+                'singles_dispensed' => $dispensedCount,
+                'packs_created' => $totalPacksCreated,
+                'items_processed' => count($items)
+            ]);
+            
             return response()->json([
-                'success' => false,
-                'message' => 'No products available for auto-dispense'
-            ], 400);
-        }
-        
-        // Now actually dispense the items
-        $dispensedCount = 0;
-        foreach ($dispenseItems as $dispenseItem) {
-            $itemId = $dispenseItem['item_id'];
-            $productId = $dispenseItem['product_id'];
-            
-            // Verify item exists and not fully dispensed
-            $orderItem = DB::table('tbloutboundordersitem')
-                ->select('QuantityOrdered')
-                ->where('outboundorderitemid', $itemId)
-                ->first();
-            
-            if (!$orderItem) continue;
-            
-            $currentDispensedCount = DB::table('tblorderitemdispense')
-                ->where('orderitemid', $itemId)
-                ->count();
-            
-            if ($currentDispensedCount >= $orderItem->QuantityOrdered) continue;
-            
-            // Insert dispense record
-            DB::table('tblorderitemdispense')->insert([
-                'orderitemid' => $itemId,
-                'productid' => $productId,
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
-            
-            // Decrement FBMAvailable
-            if (Schema::hasColumn('tblproduct', 'FBMAvailable')) {
-                DB::table('tblproduct')
-                    ->where('ProductID', $productId)
-                    ->decrement('FBMAvailable', 1);
-            }
-            
-            $dispensedCount++;
-        }
-        
-        // Add note to order
-        $currentNote = DB::table('tbloutboundorders')
-            ->where('outboundorderid', $request->order_id)
-            ->value('ordernote');
-        
-        $dateTime = new DateTime('now', new DateTimeZone('America/New_York'));
-        $timestamp = $dateTime->format('Y-m-d H:i:s');
-        $dispenseNote = $timestamp . " - Auto dispense completed for {$dispensedCount} products";
-        
-        $newNote = $currentNote ? $currentNote . "\n\n" . $dispenseNote : $dispenseNote;
-        
-        DB::table('tbloutboundorders')
-            ->where('outboundorderid', $request->order_id)
-            ->update([
-                'ordernote' => $newNote,
-                'updated_at' => now()
+                'success' => true,
+                'message' => 'Smart auto-dispense completed successfully',
+                'dispensed_count' => $dispensedCount,
+                'packs_created' => $totalPacksCreated,
+                'items_processed' => count($items),
+                'merge_details' => $mergeDetails
             ]);
 
-        DB::commit();
-        
-        Log::info("✅ Auto dispense successful: {$dispensedCount} products dispensed");
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Items auto-dispensed successfully',
-            'dispensed_count' => $dispensedCount,
-            'items_processed' => count($items)
-        ]);
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        Log::error('❌ Error in auto dispense: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
-        return response()->json([
-            'success' => false, 
-            'message' => 'Error in auto dispense', 
-            'error' => $e->getMessage()
-        ], 500);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('❌ Error in smart auto-dispense: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            return response()->json([
+                'success' => false, 
+                'message' => 'Error in auto-dispense', 
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
-}
 
 
 /**
@@ -2347,6 +2420,496 @@ public function fbmorderauthorizedusers(Request $request)
         'success' => true,
         'users' => $users
     ]);
+}
+
+
+ private function smartAutoMergeForPackOrder($orderId, $itemId, $dispensedProductIds, $orderItem, $asinRecord)
+    {
+        try {
+            $quantityInside = $asinRecord->QuantityInside ?? 1;
+            $quantityOrdered = $orderItem->QuantityOrdered ?? 1;
+            $totalSinglesNeeded = $quantityInside * $quantityOrdered;
+            $dispensedCount = count($dispensedProductIds);
+
+            Log::info("🎯 Smart auto-merge analysis", [
+                'order_id' => $orderId,
+                'item_id' => $itemId,
+                'asin' => $orderItem->platform_asin,
+                'color' => $asinRecord->color,
+                'quantity_inside' => $quantityInside,
+                'quantity_ordered' => $quantityOrdered,
+                'total_singles_needed' => $totalSinglesNeeded,
+                'dispensed_count' => $dispensedCount
+            ]);
+
+            // ✅ RULE 1: If QuantityInside = 1, it's a SINGLE item order → NO merging
+            if ($quantityInside === 1) {
+                Log::info("✅ Single item order - no merging needed", [
+                    'asin' => $orderItem->platform_asin,
+                    'quantity_ordered' => $quantityOrdered
+                ]);
+                return [
+                    'success' => true,
+                    'merge_needed' => false,
+                    'packs_created' => [],
+                    'reason' => 'single_item_order'
+                ];
+            }
+
+            // ✅ RULE 2: Only merge for 2-pack or 4-pack orders
+            if (!in_array($quantityInside, [2, 4])) {
+                Log::info("⚠️ QuantityInside not 2 or 4 - no merging", [
+                    'quantity_inside' => $quantityInside
+                ]);
+                return [
+                    'success' => true,
+                    'merge_needed' => false,
+                    'packs_created' => [],
+                    'reason' => 'unsupported_pack_size'
+                ];
+            }
+
+            // ✅ RULE 3: Check if we have enough singles dispensed
+            if ($dispensedCount < $totalSinglesNeeded) {
+                Log::warning("❌ Not enough singles dispensed for pack creation", [
+                    'needed' => $totalSinglesNeeded,
+                    'dispensed' => $dispensedCount
+                ]);
+                return [
+                    'success' => false,
+                    'merge_needed' => true,
+                    'packs_created' => [],
+                    'reason' => 'insufficient_singles',
+                    'needed' => $totalSinglesNeeded,
+                    'have' => $dispensedCount
+                ];
+            }
+
+            // ✅ RULE 4: Get products in FIFO order
+            $products = DB::table('tblproduct')
+                ->whereIn('ProductID', $dispensedProductIds)
+                ->orderBy('stockroom_insert_date', 'asc')
+                ->get();
+
+            if ($products->count() !== $dispensedCount) {
+                Log::warning("Not all dispensed products found in database");
+                return [
+                    'success' => false,
+                    'merge_needed' => true,
+                    'packs_created' => [],
+                    'reason' => 'products_not_found'
+                ];
+            }
+
+            // ✅ RULE 5: Validate all products match (ASIN, Color, Store, Condition)
+            $validationResult = $this->validateProductsForMerge($products, $asinRecord);
+            if (!$validationResult['valid']) {
+                Log::warning("❌ Products validation failed for auto-merge", [
+                    'errors' => $validationResult['errors']
+                ]);
+                return [
+                    'success' => false,
+                    'merge_needed' => true,
+                    'packs_created' => [],
+                    'reason' => 'validation_failed',
+                    'errors' => $validationResult['errors']
+                ];
+            }
+
+            Log::info("✅ Creating packs", [
+                'pack_size' => $quantityInside,
+                'number_of_packs' => $quantityOrdered,
+                'total_singles_used' => $totalSinglesNeeded
+            ]);
+
+            // ✅ RULE 6: Create packs based on QuantityOrdered
+            $packsCreated = [];
+            $productIndex = 0;
+
+            for ($packNumber = 1; $packNumber <= $quantityOrdered; $packNumber++) {
+                // Take next N singles for this pack
+                $packProducts = $products->slice($productIndex, $quantityInside);
+                $productIndex += $quantityInside;
+
+                if ($packProducts->count() !== $quantityInside) {
+                    Log::error("Not enough products for pack #{$packNumber}", [
+                        'needed' => $quantityInside,
+                        'available' => $packProducts->count()
+                    ]);
+                    break;
+                }
+
+                // Create this pack
+                $mergeResult = $this->performAutoMergePack(
+                    $packProducts->pluck('ProductID')->toArray(),
+                    $asinRecord,
+                    $quantityInside,
+                    $packNumber
+                );
+
+                if ($mergeResult['success']) {
+                    $packsCreated[] = [
+                        'pack_number' => $packNumber,
+                        'pack_size' => $quantityInside,
+                        'product_id' => $mergeResult['product_id'],
+                        'rt_counter' => $mergeResult['newrt'],
+                        'fnsku' => $mergeResult['fnsku'],
+                        'serials' => $mergeResult['serials'],
+                        'location' => $mergeResult['location'] // ✅ Include location
+                    ];
+
+                    Log::info("✅ Pack #{$packNumber} created at location", [
+                        'pack_size' => $quantityInside,
+                        'product_id' => $mergeResult['product_id'],
+                        'rt' => $mergeResult['newrt'],
+                        'location' => $mergeResult['location'] // ✅ Log location
+                    ]);
+                } else {
+                    Log::error("❌ Failed to create pack #{$packNumber}", [
+                        'error' => $mergeResult['message']
+                    ]);
+                    // Continue creating other packs
+                }
+            }
+
+            if (empty($packsCreated)) {
+                Log::error("❌ No packs were created");
+                return [
+                    'success' => false,
+                    'merge_needed' => true,
+                    'packs_created' => [],
+                    'reason' => 'pack_creation_failed'
+                ];
+            }
+
+            // ✅ RULE 7: Update dispense records
+            // Delete old single dispense records
+            DB::table('tblorderitemdispense')
+                ->where('orderitemid', $itemId)
+                ->whereIn('productid', $dispensedProductIds)
+                ->delete();
+
+            // Create new dispense records for merged packs
+            foreach ($packsCreated as $pack) {
+                DB::table('tblorderitemdispense')->insert([
+                    'orderitemid' => $itemId,
+                    'productid' => $pack['product_id'],
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+
+                Log::info("✅ Dispense record updated for pack", [
+                    'item_id' => $itemId,
+                    'pack_product_id' => $pack['product_id']
+                ]);
+            }
+
+            Log::info("🎉 Smart auto-merge completed successfully", [
+                'total_packs_created' => count($packsCreated),
+                'pack_size' => $quantityInside,
+                'quantity_ordered' => $quantityOrdered,
+                'singles_used' => $totalSinglesNeeded
+            ]);
+
+            return [
+                'success' => true,
+                'merge_needed' => true,
+                'packs_created' => $packsCreated,
+                'total_packs' => count($packsCreated),
+                'pack_size' => $quantityInside,
+                'singles_used' => $totalSinglesNeeded
+            ];
+
+        } catch (\Exception $e) {
+            Log::error("❌ Error in smart auto-merge: " . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return [
+                'success' => false,
+                'merge_needed' => true,
+                'packs_created' => [],
+                'reason' => 'exception',
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    private function validateProductsForMerge($products, $asinRecord)
+    {
+        $errors = [];
+        $firstProduct = $products->first();
+
+        // Extract base FNSKU from first product
+        $baseFnsku = $this->extractBaseFnsku($firstProduct->FNSKUviewer);
+        
+        // Get FNSKU record to check store and condition
+        $fnskuRecord = DB::table('tblfnsku')
+            ->where('FNSKU', $baseFnsku)
+            ->first();
+
+        if (!$fnskuRecord) {
+            $errors[] = "FNSKU record not found for product";
+            return ['valid' => false, 'errors' => $errors];
+        }
+
+        $expectedStore = $fnskuRecord->storename;
+        $expectedCondition = $fnskuRecord->grading;
+        $expectedColor = $asinRecord->color;
+
+        // Validate each product
+        foreach ($products as $idx => $product) {
+            $productBaseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+            
+            $productFnskuRecord = DB::table('tblfnsku')
+                ->where('FNSKU', $productBaseFnsku)
+                ->first();
+
+            if (!$productFnskuRecord) {
+                $errors[] = "Product #{$idx}: FNSKU record not found";
+                continue;
+            }
+
+            // Check store match
+            if ($productFnskuRecord->storename !== $expectedStore) {
+                $errors[] = "Product #{$idx}: Different store (expected: {$expectedStore}, got: {$productFnskuRecord->storename})";
+            }
+
+            // Check condition match
+            if ($productFnskuRecord->grading !== $expectedCondition) {
+                $errors[] = "Product #{$idx}: Different condition (expected: {$expectedCondition}, got: {$productFnskuRecord->grading})";
+            }
+
+            // Get ASIN record for this product's FNSKU
+            $productAsinRecord = DB::table('tblasin')
+                ->where('ASIN', $productFnskuRecord->ASIN)
+                ->first();
+
+            if ($productAsinRecord) {
+                // Check color match
+                if ($productAsinRecord->color !== $expectedColor) {
+                    $errors[] = "Product #{$idx}: Different color (expected: {$expectedColor}, got: {$productAsinRecord->color})";
+                }
+            }
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors
+        ];
+    }
+   
+
+    private function performAutoMergePack($productIds, $asinRecord, $packSize, $packNumber)
+{
+    try {
+        // Get product details WITH locations
+        $products = DB::table('tblproduct')
+            ->whereIn('ProductID', $productIds)
+            ->orderBy('stockroom_insert_date', 'asc') // Maintain FIFO order
+            ->get();
+
+        if ($products->count() !== $packSize) {
+            return [
+                'success' => false,
+                'message' => 'Product count mismatch'
+            ];
+        }
+
+        $firstProduct = $products->first();
+        $baseFnsku = $this->extractBaseFnsku($firstProduct->FNSKUviewer);
+        
+        // Get FNSKU record for store and condition
+        $fnskuRecord = DB::table('tblfnsku')
+            ->where('FNSKU', $baseFnsku)
+            ->first();
+
+        if (!$fnskuRecord) {
+            return [
+                'success' => false,
+                'message' => 'FNSKU record not found'
+            ];
+        }
+
+        // ✅ NEW: Collect serial numbers, locations, and calculate total price
+        $serials = [];
+        $locations = [];
+        $totalPrice = 0;
+
+        foreach ($products as $product) {
+            $serials[] = $product->serialnumber;
+            
+            // Collect location for concatenation
+            if (!empty($product->warehouselocation)) {
+                $locations[] = $product->warehouselocation;
+            }
+            
+            $totalPrice += $product->price ?? 0;
+        }
+
+        // ✅ NEW: Concatenate locations with " + " separator
+        $mergedLocation = !empty($locations) ? implode(' + ', $locations) : '';
+
+        Log::info("📍 Location concatenation for pack", [
+            'pack_number' => $packNumber,
+            'individual_locations' => $locations,
+            'merged_location' => $mergedLocation
+        ]);
+
+        // Find pack ASIN (must match: title, QuantityInside, color)
+        $packAsin = DB::table('tblasin')
+            ->where('internal', 'like', '%' . $asinRecord->internal . '%')
+            ->where('QuantityInside', $packSize)
+            ->where('color', $asinRecord->color)
+            ->first();
+
+        if (!$packAsin) {
+            // Try with related ASINs
+            $relatedAsins = $this->findRelatedAsins($asinRecord->ASIN);
+            
+            $packAsin = DB::table('tblasin')
+                ->whereIn('ASIN', $relatedAsins)
+                ->where('QuantityInside', $packSize)
+                ->where('color', $asinRecord->color)
+                ->first();
+
+            if (!$packAsin) {
+                Log::warning("No pack ASIN found", [
+                    'base_asin' => $asinRecord->ASIN,
+                    'pack_size' => $packSize,
+                    'color' => $asinRecord->color
+                ]);
+                return [
+                    'success' => false,
+                    'message' => "Pack ASIN not found for {$packSize}-pack"
+                ];
+            }
+        }
+
+        // Find pack FNSKU (must match: ASIN, condition, store, QuantityInside, available units)
+        $packFnsku = DB::table('tblfnsku as fnsku')
+            ->join('tblasin as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+            ->where('fnsku.ASIN', $packAsin->ASIN)
+            ->where('fnsku.fnsku_status', 'available')
+            ->where('fnsku.Units', '>', 0)
+            ->where('fnsku.grading', $fnskuRecord->grading)
+            ->where('fnsku.storename', $fnskuRecord->storename)
+            ->where('asin.QuantityInside', $packSize)
+            ->select('fnsku.*')
+            ->first();
+
+        if (!$packFnsku) {
+            Log::warning("No pack FNSKU available", [
+                'pack_asin' => $packAsin->ASIN,
+                'condition' => $fnskuRecord->grading,
+                'store' => $fnskuRecord->storename,
+                'pack_size' => $packSize
+            ]);
+            return [
+                'success' => false,
+                'message' => "Pack FNSKU not available for {$packSize}-pack"
+            ];
+        }
+
+        // Get next available FNSKU with prefix
+        $fnskuInfo = $this->getNextAvailableFnsku(
+            $packFnsku->FNSKU,
+            $packAsin->ASIN,
+            $fnskuRecord->grading,
+            $fnskuRecord->storename
+        );
+
+        // Create merge record
+        $california_timezone = new DateTimeZone('America/Los_Angeles');
+        $currentDatetime = new DateTime('now', $california_timezone);
+        $currentDate = $currentDatetime->format('Y-m-d');
+        $currentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
+
+        $mergeId = DB::table('tblmigrateditem')->insertGetId([
+            'migratedDate' => $currentDate
+        ]);
+
+        // Get new RT counter
+        $maxRt = DB::table('tblproduct')->max('rtcounter') ?? 0;
+        $newRt = $maxRt + 1;
+
+        // ✅ UPDATED: Create merged product WITH concatenated location
+        $productData = [
+            'rtcounter' => $newRt,
+            'mergeID' => $mergeId,
+            'price' => $totalPrice,
+            'quantity' => $packSize,
+            'stockroom_insert_date' => $currentDatetimeString,
+            'ProductModuleLoc' => 'Stockroom',
+            'warehouselocation' => $mergedLocation, // ✅ Concatenated location
+            'serialnumber' => $serials[0] ?? null,
+            'serialnumberb' => $serials[1] ?? null,
+            'serialnumberc' => $serials[2] ?? null,
+            'serialnumberd' => $serials[3] ?? null,
+            'validation_status' => 'validated',
+            'FNSKUviewer' => $fnskuInfo['actual_fnsku'],
+            'FbmAvailable' => 1,
+            'Fulfilledby' => 'FBM'
+        ];
+
+        $newProductId = DB::table('tblproduct')->insertGetId($productData);
+
+        // Update FNSKU units
+        $this->updateFnskuUnits(
+            $packFnsku->FNSKU,
+            $packAsin->ASIN,
+            $fnskuRecord->grading,
+            $fnskuRecord->storename
+        );
+
+        // Mark original products as merged
+        DB::table('tblproduct')
+            ->whereIn('ProductID', $productIds)
+            ->update([
+                'ProductModuleLoc' => 'Merged',
+                'mergedTO' => $newRt
+            ]);
+
+        // Add history entry
+        $user = Auth::user();
+        $userName = $user ? ($user->username ?? $user->name ?? 'System') : 'System';
+
+        DB::table('tblitemprocesshistory')->insert([
+            'rtcounter' => $newRt,
+            'employeeName' => $userName,
+            'editDate' => $currentDatetimeString,
+            'Module' => 'Auto-Dispense Merge',
+            'Action' => "Auto-merged {$packSize} singles into pack #{$packNumber} at location: {$mergedLocation}"
+        ]);
+
+        Log::info("✅ Pack created successfully with merged location", [
+            'pack_number' => $packNumber,
+            'product_id' => $newProductId,
+            'rt' => $newRt,
+            'pack_size' => $packSize,
+            'fnsku' => $fnskuInfo['actual_fnsku'],
+            'location' => $mergedLocation,
+            'from_locations' => $locations
+        ]);
+
+        return [
+            'success' => true,
+            'product_id' => $newProductId,
+            'newrt' => $newRt,
+            'fnsku' => $fnskuInfo['actual_fnsku'],
+            'serials' => $serials,
+            'location' => $mergedLocation, // ✅ Return merged location
+            'pack_asin' => $packAsin->ASIN
+        ];
+
+    } catch (\Exception $e) {
+        Log::error("Error creating pack: " . $e->getMessage(), [
+            'trace' => $e->getTraceAsString()
+        ]);
+        return [
+            'success' => false,
+            'message' => $e->getMessage()
+        ];
+    }
 }
 
 }
