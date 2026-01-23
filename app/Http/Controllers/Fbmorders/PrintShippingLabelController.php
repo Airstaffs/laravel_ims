@@ -206,28 +206,14 @@ class PrintShippingLabelController extends Controller
 
             // ✅ rotation fix (detect by trimmed content, not page size)
 
-            $probe = clone $img;
+            // ✅ FORCE rotate (clockwise) – this label is sideways inside a portrait page
+            $img->rotateImage(new \ImagickPixel('white'), -90);  // CLOCKWISE
+            $img->setImagePage(0, 0, 0, 0);
 
-            // allow near-white margins to be trimmed
-            $probe->setImageBackgroundColor(new \ImagickPixel('white'));
-            $probe->setOption('fuzz', '10%');   // <-- compatibility fix
-
-            $probe->trimImage(0);
-            $probe->setImagePage(0, 0, 0, 0);
-
-            $contentW = $probe->getImageWidth();
-            $contentH = $probe->getImageHeight();
-
-            Log::info("[LabelRotate] order={$orderId} page={$i} pageW={$img->getImageWidth()} pageH={$img->getImageHeight()} contentW={$contentW} contentH={$contentH}");
-
-            $probe->clear();
-            $probe->destroy();
-
-            // If trimmed content is tall/narrow, rotate it
-            if ($contentH > $contentW) {
-                $img->rotateImage(new \ImagickPixel('white'), 90); // clockwise
-                $img->setImagePage(0, 0, 0, 0);
-            }
+            // Optional: trim huge white margins after rotating
+            $img->setOption('fuzz', '10%');
+            $img->trimImage(0);
+            $img->setImagePage(0, 0, 0, 0);
 
             $imagePath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$orderId}_page{$i}.png");
             $img->writeImage($imagePath);
