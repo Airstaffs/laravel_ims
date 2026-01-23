@@ -204,20 +204,25 @@ class PrintShippingLabelController extends Controller
 
             // ✅ rotation fix (detect by trimmed content, not page size)
             $probe = clone $img;
+
+            // allow "near-white" to count as white
             $probe->setImageBackgroundColor(new \ImagickPixel('white'));
+            $probe->setImageFuzz($probe->getQuantumRange()['quantumRangeLong'] * 0.10); // 10% tolerance
+
             $probe->trimImage(0);
             $probe->setImagePage(0, 0, 0, 0);
 
             $contentW = $probe->getImageWidth();
             $contentH = $probe->getImageHeight();
 
+            Log::info("[LabelRotate] order={$orderId} page={$i} pageW={$img->getImageWidth()} pageH={$img->getImageHeight()} contentW={$contentW} contentH={$contentH}");
+
             $probe->clear();
             $probe->destroy();
 
-            // If the real label content is tall/narrow, it's sideways → rotate 90°
+            // If trimmed content is taller than wide, it's sideways -> rotate 90° clockwise
             if ($contentH > $contentW) {
-                // clockwise 90 = -90 (Imagick uses CCW positive)
-                $img->rotateImage(new \ImagickPixel('white'), -90);
+                $img->rotateImage(new \ImagickPixel('white'), -90); // clockwise
                 $img->setImagePage(0, 0, 0, 0);
             }
 
