@@ -202,12 +202,28 @@ class PrintShippingLabelController extends Controller
             $img = $img->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
             $img->setImageFormat('png');
 
-            // ✅ rotation fix
-            if (method_exists($img, 'autoOrientImage')) {
-                $img->autoOrientImage();
-            }
-            if ($img->getImageWidth() < $img->getImageHeight()) {
-                $img->rotateImage(new \ImagickPixel('white'), 0); // clockwise
+            // ✅ rotation fix (detect by trimmed content, not page size)
+            $probe = clone $img;
+
+            // allow "near-white" to count as white
+            $probe->setImageBackgroundColor(new \ImagickPixel('white'));
+            $probe->setImageFuzz($probe->getQuantumRange()['quantumRangeLong'] * 0.10); // 10% tolerance
+
+            $probe->trimImage(0);
+            $probe->setImagePage(0, 0, 0, 0);
+
+            $contentW = $probe->getImageWidth();
+            $contentH = $probe->getImageHeight();
+
+            Log::info("[LabelRotate] order={$orderId} page={$i} pageW={$img->getImageWidth()} pageH={$img->getImageHeight()} contentW={$contentW} contentH={$contentH}");
+
+            $probe->clear();
+            $probe->destroy();
+
+            // If trimmed content is taller than wide, it's sideways -> rotate 90° clockwise
+            if ($contentH > $contentW) {
+                $img->rotateImage(new \ImagickPixel('white'), -90); // clockwise
+                $img->setImagePage(0, 0, 0, 0);
             }
 
             $imagePath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$orderId}_page{$i}.png");
