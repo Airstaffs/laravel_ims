@@ -2277,143 +2277,138 @@ export default {
         },
 
         async performStandaloneAutoDispense(orderId, itemIds) {
-            try {
-                const requestData = {
-                    order_id: orderId,
-                    item_ids: itemIds,
-                };
+    try {
+        const requestData = {
+            order_id: orderId,
+            item_ids: itemIds,
+        };
 
-                console.log(
-                    "🤖 Standalone auto dispense request:",
-                    requestData,
-                );
+        console.log("🤖 Standalone auto dispense request:", requestData);
 
-                const response = await axios.post(
-                    `${API_BASE_URL}/api/fbm-orders/auto-dispense`,
-                    requestData,
-                    {
-                        withCredentials: true,
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]',
-                            )?.content,
-                        },
-                    },
-                );
-
-                if (response.data && response.data.success) {
-                    alert(
-                        `Auto-dispensing completed successfully!\n\nDispensed ${response.data.dispensed_count} products across ${response.data.items_processed} items.`,
-                    );
-
-                    // COMPREHENSIVE REFRESH AFTER AUTO DISPENSE
-                    console.log(
-                        "🔄 Starting comprehensive refresh after auto dispense for order:",
-                        orderId,
-                    );
-
-                    // Step 1: Always refresh main orders list first
-                    console.log("📋 Refreshing main orders list...");
-                    await this.fetchOrders();
-
-                    // Step 2: Update details modal if open for this order
-                    if (
-                        this.selectedOrder &&
-                        this.selectedOrder.outboundorderid === orderId
-                    ) {
-                        console.log("📝 Updating details modal...");
-                        const updatedOrder = this.orders.find(
-                            (o) => o.outboundorderid === orderId,
-                        );
-                        if (updatedOrder) {
-                            this.selectedOrder = { ...updatedOrder };
-                            console.log(
-                                "✅ Details modal updated with dispensed products",
-                            );
-                        }
-                    }
-
-                    // Step 3: Update process modal if open for this order
-                    if (
-                        this.currentProcessOrder &&
-                        this.currentProcessOrder.outboundorderid === orderId
-                    ) {
-                        console.log("🔧 Updating process modal...");
-                        const updatedOrderFromList = this.orders.find(
-                            (o) => o.outboundorderid === orderId,
-                        );
-                        if (updatedOrderFromList) {
-                            const wasChecked = this.currentProcessOrder.checked;
-                            this.currentProcessOrder = {
-                                ...updatedOrderFromList,
-                                checked: wasChecked,
-                            };
-
-                            this.selectedItems = this.currentProcessOrder.items
-                                ? this.currentProcessOrder.items.map(
-                                      (item) => item.outboundorderitemid,
-                                  )
-                                : [];
-
-                            console.log(
-                                "✅ Process modal updated with dispensed products",
-                            );
-                        }
-                    }
-
-                    // Step 4: Update auto dispense modal if open for this order
-                    if (
-                        this.autoDispenseOrder &&
-                        this.autoDispenseOrder.outboundorderid === orderId
-                    ) {
-                        console.log("🤖 Updating auto dispense modal...");
-                        const updatedOrderFromList = this.orders.find(
-                            (o) => o.outboundorderid === orderId,
-                        );
-                        if (updatedOrderFromList) {
-                            this.autoDispenseOrder = {
-                                ...updatedOrderFromList,
-                            };
-                            console.log("✅ Auto dispense modal updated");
-                        }
-                    }
-
-                    // Step 5: Reinitialize dispense items selection
-                    console.log("🔄 Reinitializing dispense items...");
-                    this.initializeDispenseItems();
-
-                    // Step 6: Check ONLY this order since items were just dispensed
-                    console.log("☑️ Checking order-level checkbox...");
-                    this.autoCheckOrderAfterDispense(orderId);
-
-                    // Step 7: Force Vue to update all components
-                    this.$nextTick(() => {
-                        this.$forceUpdate();
-                        console.log(
-                            "✅ Vue components force updated after auto dispense",
-                        );
-                    });
-
-                    console.log("🎉 Auto dispense refresh completed!");
-                } else {
-                    alert(
-                        `Error in auto-dispensing: ${
-                            response.data.message || "Unknown error"
-                        }`,
-                    );
-                }
-            } catch (error) {
-                console.error("Error in standalone auto dispense:", error);
-                await Swal.fire({
-                    icon: "error",
-                    title: "Operation Failed",
-                    text: "Failed to perform auto-dispensing. Please try again.",
-                    confirmButtonText: "Ok",
-                });
+        const response = await axios.post(
+            `${API_BASE_URL}/api/fbm-orders/auto-dispense`,
+            requestData,
+            {
+                withCredentials: true,
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    "X-CSRF-TOKEN": document.querySelector(
+                        'meta[name="csrf-token"]'
+                    )?.content,
+                },
             }
-        },
+        );
+
+        // ✅ PASTE YOUR CODE HERE - REPLACE THE EXISTING ALERT
+        if (response.data && response.data.success) {
+            let message = `Smart auto-dispense completed!\n\n`;
+            message += `📦 ${response.data.dispensed_count} singles dispensed\n`;
+            
+            if (response.data.packs_created > 0) {
+                message += `🎁 ${response.data.packs_created} pack(s) auto-merged\n\n`;
+                
+                // Show merge details
+                if (response.data.merge_details && response.data.merge_details.length > 0) {
+                    message += `Pack Details:\n`;
+                    response.data.merge_details.forEach(detail => {
+                        message += `\n• ASIN ${detail.asin}: ${detail.packs_created} × ${detail.pack_size}-pack\n`;
+                        message += `  Used ${detail.singles_used} singles\n`;
+                        
+                        // ✅ OPTIONAL: Show pack locations
+                        if (detail.pack_locations && detail.pack_locations.length > 0) {
+                            detail.pack_locations.forEach((loc, idx) => {
+                                message += `  Pack #${idx + 1}: ${loc}\n`;
+                            });
+                        }
+                    });
+                }
+            }
+            
+            alert(message);
+
+            // COMPREHENSIVE REFRESH AFTER AUTO DISPENSE
+            console.log("🔄 Starting comprehensive refresh after auto dispense for order:", orderId);
+
+            // Step 1: Always refresh main orders list first
+            console.log("📋 Refreshing main orders list...");
+            await this.fetchOrders();
+
+            // Step 2: Update details modal if open for this order
+            if (this.selectedOrder && this.selectedOrder.outboundorderid === orderId) {
+                console.log("📝 Updating details modal...");
+                const updatedOrder = this.orders.find(
+                    (o) => o.outboundorderid === orderId
+                );
+                if (updatedOrder) {
+                    this.selectedOrder = { ...updatedOrder };
+                    console.log("✅ Details modal updated with dispensed products");
+                }
+            }
+
+            // Step 3: Update process modal if open for this order
+            if (this.currentProcessOrder && this.currentProcessOrder.outboundorderid === orderId) {
+                console.log("🔧 Updating process modal...");
+                const updatedOrderFromList = this.orders.find(
+                    (o) => o.outboundorderid === orderId
+                );
+                if (updatedOrderFromList) {
+                    const wasChecked = this.currentProcessOrder.checked;
+                    this.currentProcessOrder = {
+                        ...updatedOrderFromList,
+                        checked: wasChecked,
+                    };
+
+                    this.selectedItems = this.currentProcessOrder.items
+                        ? this.currentProcessOrder.items.map(
+                              (item) => item.outboundorderitemid
+                          )
+                        : [];
+
+                    console.log("✅ Process modal updated with dispensed products");
+                }
+            }
+
+            // Step 4: Update auto dispense modal if open for this order
+            if (this.autoDispenseOrder && this.autoDispenseOrder.outboundorderid === orderId) {
+                console.log("🤖 Updating auto dispense modal...");
+                const updatedOrderFromList = this.orders.find(
+                    (o) => o.outboundorderid === orderId
+                );
+                if (updatedOrderFromList) {
+                    this.autoDispenseOrder = { ...updatedOrderFromList };
+                    console.log("✅ Auto dispense modal updated");
+                }
+            }
+
+            // Step 5: Reinitialize dispense items selection
+            console.log("🔄 Reinitializing dispense items...");
+            this.initializeDispenseItems();
+            
+            // Step 6: Check ONLY this order since items were just dispensed
+            console.log("☑️ Checking order-level checkbox...");
+            this.autoCheckOrderAfterDispense(orderId);
+
+            // Step 7: Force Vue to update all components
+            this.$nextTick(() => {
+                this.$forceUpdate();
+                console.log("✅ Vue components force updated after auto dispense");
+            });
+
+            console.log("🎉 Auto dispense refresh completed!");
+        } else {
+            alert(`Error in auto-dispensing: ${response.data.message || "Unknown error"}`);
+        }
+    } catch (error) {
+        console.error("Error in standalone auto dispense:", error);
+        await Swal.fire({
+            icon: "error",
+            title: "Operation Failed",
+            text: "Failed to perform auto-dispensing. Please try again.",
+            confirmButtonText: "Ok",
+        });
+    }
+       },
 
         // More methods continue here...
         closeAutoDispenseModal() {
@@ -2622,24 +2617,21 @@ export default {
             this.selectedDispenseProducts = updatedSelection;
         },
 
-        async confirmAutoDispenseInProcess() {
+       async confirmAutoDispenseInProcess() {
             if (Object.keys(this.selectedDispenseProducts).length === 0) return;
 
             try {
-                const dispenseItems = Object.entries(
-                    this.selectedDispenseProducts,
-                ).map(([key, product]) => {
-                    const itemId = parseInt(key.split("-")[0]);
-                    return {
-                        item_id: itemId,
-                        product_id: product.ProductID,
-                    };
-                });
-
-                console.log(
-                    "🔧 Confirming auto dispense in process modal:",
-                    dispenseItems,
+                const dispenseItems = Object.entries(this.selectedDispenseProducts).map(
+                    ([key, product]) => {
+                        const itemId = parseInt(key.split("-")[0]);
+                        return {
+                            item_id: itemId,
+                            product_id: product.ProductID,
+                        };
+                    }
                 );
+
+                console.log("🔧 Confirming auto dispense in process modal:", dispenseItems);
 
                 const response = await axios.post(
                     `${API_BASE_URL}/api/fbm-orders/dispense`,
@@ -2653,14 +2645,38 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]',
+                                'meta[name="csrf-token"]'
                             )?.content,
                         },
-                    },
+                    }
                 );
 
+                // ✅ PASTE YOUR CODE HERE - REPLACE THE EXISTING ALERT
                 if (response.data && response.data.success) {
-                    alert("Items dispensed successfully");
+                    let message = `Smart auto-dispense completed!\n\n`;
+                    message += `📦 ${response.data.dispensed_count || dispenseItems.length} singles dispensed\n`;
+                    
+                    if (response.data.packs_created > 0) {
+                        message += `🎁 ${response.data.packs_created} pack(s) auto-merged\n\n`;
+                        
+                        // Show merge details
+                        if (response.data.merge_details && response.data.merge_details.length > 0) {
+                            message += `Pack Details:\n`;
+                            response.data.merge_details.forEach(detail => {
+                                message += `\n• ASIN ${detail.asin}: ${detail.packs_created} × ${detail.pack_size}-pack\n`;
+                                message += `  Used ${detail.singles_used} singles\n`;
+                                
+                                // ✅ OPTIONAL: Show pack locations
+                                if (detail.pack_locations && detail.pack_locations.length > 0) {
+                                    detail.pack_locations.forEach((loc, idx) => {
+                                        message += `  Pack #${idx + 1}: ${loc}\n`;
+                                    });
+                                }
+                            });
+                        }
+                    }
+                    
+                    alert(message);
 
                     // IMMEDIATE STATE CLEANUP
                     this.processingAutoDispense = false;
@@ -2669,10 +2685,7 @@ export default {
 
                     // COMPREHENSIVE REFRESH FOR PROCESS MODAL
                     const orderId = this.currentProcessOrder.outboundorderid;
-                    console.log(
-                        "🔄 Starting comprehensive refresh for process modal, order:",
-                        orderId,
-                    );
+                    console.log("🔄 Starting comprehensive refresh for process modal, order:", orderId);
 
                     // Step 1: Refresh main orders list to get latest data
                     console.log("📋 Refreshing main orders list...");
@@ -2681,7 +2694,7 @@ export default {
                     // Step 2: Update process modal with fresh data from main list
                     console.log("🔧 Updating process modal with fresh data...");
                     const updatedOrderFromList = this.orders.find(
-                        (o) => o.outboundorderid === orderId,
+                        (o) => o.outboundorderid === orderId
                     );
                     if (updatedOrderFromList) {
                         const wasChecked = this.currentProcessOrder.checked;
@@ -2692,24 +2705,17 @@ export default {
 
                         this.selectedItems = this.currentProcessOrder.items
                             ? this.currentProcessOrder.items.map(
-                                  (item) => item.outboundorderitemid,
-                              )
+                                (item) => item.outboundorderitemid
+                            )
                             : [];
 
-                        console.log(
-                            "✅ Process modal updated with dispensed products",
-                        );
+                        console.log("✅ Process modal updated with dispensed products");
                     } else {
-                        console.error(
-                            "❌ Could not find updated order in main list",
-                        );
+                        console.error("❌ Could not find updated order in main list");
                     }
 
                     // Step 3: Update details modal if open for same order
-                    if (
-                        this.selectedOrder &&
-                        this.selectedOrder.outboundorderid === orderId
-                    ) {
+                    if (this.selectedOrder && this.selectedOrder.outboundorderid === orderId) {
                         console.log("📝 Updating details modal...");
                         this.selectedOrder = { ...this.currentProcessOrder };
                         console.log("✅ Details modal updated");
@@ -2718,7 +2724,7 @@ export default {
                     // Step 4: Reinitialize dispense items selection
                     console.log("🔄 Reinitializing dispense items...");
                     this.initializeDispenseItems();
-
+                    
                     // Step 5: Check ONLY this order since items were just dispensed
                     console.log("☑️ Checking order-level checkbox...");
                     this.autoCheckOrderAfterDispense(orderId);
@@ -2726,18 +2732,12 @@ export default {
                     // Step 6: Force Vue reactivity update
                     this.$nextTick(() => {
                         this.$forceUpdate();
-                        console.log(
-                            "✅ Vue components force updated in process modal",
-                        );
+                        console.log("✅ Vue components force updated in process modal");
                     });
 
                     console.log("🎉 Process modal refresh completed!");
                 } else {
-                    alert(
-                        `Error: ${
-                            response.data.message || "Failed to dispense items"
-                        }`,
-                    );
+                    alert(`Error: ${response.data.message || "Failed to dispense items"}`);
                 }
             } catch (error) {
                 console.error("Error confirming dispense:", error);
@@ -3668,133 +3668,125 @@ export default {
             }
         },
 
-        async performAutoDispense(itemIds) {
-            try {
-                const requestData = {
-                    order_id: this.currentProcessOrder.outboundorderid,
-                    item_ids: itemIds,
+       async performAutoDispense(itemIds) {
+    try {
+        const requestData = {
+            order_id: this.currentProcessOrder.outboundorderid,
+            item_ids: itemIds,
+        };
+
+        console.log("🤖 Performing auto dispense in process modal:", requestData);
+
+        const response = await axios.post(
+            `${API_BASE_URL}/api/fbm-orders/auto-dispense`,
+            requestData,
+            {
+                withCredentials: true,
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    "X-CSRF-TOKEN": document.querySelector(
+                        'meta[name="csrf-token"]'
+                    )?.content,
+                },
+            }
+        );
+
+        if (response.data && response.data.success) {
+            // ✅ Enhanced success message with pack merge details
+            let message = `Smart auto-dispense completed!\n\n`;
+            message += `📦 ${response.data.dispensed_count} singles dispensed\n`;
+            
+            if (response.data.packs_created && response.data.packs_created > 0) {
+                message += `🎁 ${response.data.packs_created} pack(s) auto-merged\n\n`;
+                
+                // Show detailed merge information
+                if (response.data.merge_details && response.data.merge_details.length > 0) {
+                    message += `Pack Details:\n`;
+                    response.data.merge_details.forEach(detail => {
+                        message += `\n• ASIN ${detail.asin}: ${detail.packs_created} × ${detail.pack_size}-pack\n`;
+                        message += `  Used ${detail.singles_used} singles\n`;
+                        
+                        // Show pack locations if available
+                        if (detail.pack_locations && detail.pack_locations.length > 0) {
+                            detail.pack_locations.forEach((loc, idx) => {
+                                message += `  Pack #${idx + 1}: ${loc}\n`;
+                            });
+                        }
+                    });
+                }
+            }
+            
+            alert(message);
+
+            // IMMEDIATE STATE CLEANUP
+            this.processingAutoDispense = false;
+            this.dispenseProducts = [];
+            this.selectedDispenseProducts = {};
+
+            // COMPREHENSIVE REFRESH FOR PROCESS MODAL
+            const orderId = this.currentProcessOrder.outboundorderid;
+            console.log("🔄 Starting comprehensive refresh after auto dispense in process modal, order:", orderId);
+
+            // Step 1: Refresh main orders list to get latest data
+            console.log("📋 Refreshing main orders list...");
+            await this.fetchOrders();
+
+            // Step 2: Update process modal with fresh data from main list
+            console.log("🔧 Updating process modal with fresh data...");
+            const updatedOrderFromList = this.orders.find(
+                (o) => o.outboundorderid === orderId
+            );
+            if (updatedOrderFromList) {
+                const wasChecked = this.currentProcessOrder.checked;
+                this.currentProcessOrder = {
+                    ...updatedOrderFromList,
+                    checked: wasChecked,
                 };
 
-                console.log(
-                    "🤖 Performing auto dispense in process modal:",
-                    requestData,
-                );
+                this.selectedItems = this.currentProcessOrder.items
+                    ? this.currentProcessOrder.items.map(
+                          (item) => item.outboundorderitemid
+                      )
+                    : [];
 
-                const response = await axios.post(
-                    `${API_BASE_URL}/api/fbm-orders/auto-dispense`,
-                    requestData,
-                    {
-                        withCredentials: true,
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]',
-                            )?.content,
-                        },
-                    },
-                );
-
-                if (response.data && response.data.success) {
-                    await Swal.fire({
-                        icon: "success",
-                        title: "Auto-Dispensing Completed!",
-                        html: `
-                    <div style="text-align:left;">
-                        Auto-dispensing completed successfully!<br><br>
-                        <strong>${response.data.dispensed_count}</strong> product/s were dispensed<br>
-                        across <strong>${response.data.items_processed}</strong> items.
-                    </div>
-                `,
-                        confirmButtonText: "OK",
-                    });
-
-                    // IMMEDIATE STATE CLEANUP
-                    this.processingAutoDispense = false;
-                    this.dispenseProducts = [];
-                    this.selectedDispenseProducts = {};
-
-                    // COMPREHENSIVE REFRESH FOR PROCESS MODAL
-                    const orderId = this.currentProcessOrder.outboundorderid;
-                    console.log(
-                        "🔄 Starting comprehensive refresh after auto dispense in process modal, order:",
-                        orderId,
-                    );
-
-                    // Step 1: Refresh main orders list to get latest data
-                    console.log("📋 Refreshing main orders list...");
-                    await this.fetchOrders();
-
-                    // Step 2: Update process modal with fresh data from main list
-                    console.log("🔧 Updating process modal with fresh data...");
-                    const updatedOrderFromList = this.orders.find(
-                        (o) => o.outboundorderid === orderId,
-                    );
-                    if (updatedOrderFromList) {
-                        const wasChecked = this.currentProcessOrder.checked;
-                        this.currentProcessOrder = {
-                            ...updatedOrderFromList,
-                            checked: wasChecked,
-                        };
-
-                        this.selectedItems = this.currentProcessOrder.items
-                            ? this.currentProcessOrder.items.map(
-                                  (item) => item.outboundorderitemid,
-                              )
-                            : [];
-
-                        console.log(
-                            "✅ Process modal updated with auto-dispensed products",
-                        );
-                    } else {
-                        console.error(
-                            "❌ Could not find updated order in main list",
-                        );
-                    }
-
-                    // Step 3: Update details modal if open for same order
-                    if (
-                        this.selectedOrder &&
-                        this.selectedOrder.outboundorderid === orderId
-                    ) {
-                        console.log("📝 Updating details modal...");
-                        this.selectedOrder = { ...this.currentProcessOrder };
-                        console.log("✅ Details modal updated");
-                    }
-
-                    // Step 4: Reinitialize dispense items selection
-                    console.log("🔄 Reinitializing dispense items...");
-                    this.initializeDispenseItems();
-
-                    // Step 5: Check ONLY this order since items were just dispensed
-                    console.log("☑️ Checking order-level checkbox...");
-                    this.autoCheckOrderAfterDispense(orderId);
-
-                    // Step 6: Force Vue reactivity update
-                    this.$nextTick(() => {
-                        this.$forceUpdate();
-                        console.log(
-                            "✅ Vue components force updated after auto dispense in process modal",
-                        );
-                    });
-
-                    console.log(
-                        "🎉 Auto dispense in process modal refresh completed!",
-                    );
-                } else {
-                    alert(
-                        `Error in auto-dispensing: ${
-                            response.data.message || "Unknown error"
-                        }`,
-                    );
-                    this.processingAutoDispense = false;
-                }
-            } catch (error) {
-                console.error("Error performing auto dispense:", error);
-                alert("Failed to perform auto-dispensing. Please try again.");
-                this.processingAutoDispense = false;
+                console.log("✅ Process modal updated with auto-dispensed products");
+            } else {
+                console.error("❌ Could not find updated order in main list");
             }
-        },
+
+            // Step 3: Update details modal if open for same order
+            if (this.selectedOrder && this.selectedOrder.outboundorderid === orderId) {
+                console.log("📝 Updating details modal...");
+                this.selectedOrder = { ...this.currentProcessOrder };
+                console.log("✅ Details modal updated");
+            }
+
+            // Step 4: Reinitialize dispense items selection
+            console.log("🔄 Reinitializing dispense items...");
+            this.initializeDispenseItems();
+            
+            // Step 5: Check ONLY this order since items were just dispensed
+            console.log("☑️ Checking order-level checkbox...");
+            this.autoCheckOrderAfterDispense(orderId);
+
+            // Step 6: Force Vue reactivity update
+            this.$nextTick(() => {
+                this.$forceUpdate();
+                console.log("✅ Vue components force updated after auto dispense in process modal");
+            });
+
+            console.log("🎉 Auto dispense in process modal refresh completed!");
+        } else {
+            alert(`Error in auto-dispensing: ${response.data.message || "Unknown error"}`);
+            this.processingAutoDispense = false;
+        }
+    } catch (error) {
+        console.error("Error performing auto dispense:", error);
+        alert("Failed to perform auto-dispensing. Please try again.");
+        this.processingAutoDispense = false;
+    }
+      },
 
         async loadDispenseProductsForProcess(itemIds) {
             this.loadingDispenseProducts = true;

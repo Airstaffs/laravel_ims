@@ -97,26 +97,38 @@ private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
 
         sort($usedPrefixes);
 
+        // ✅ FIX: Use a FIXED maximum, not based on current remaining units
+        // Maximum prefix is 9 (C0 through C9 = 10 total slots)
+        // C0 = base FNSKU (no prefix), C1-C9 = prefixed versions
+        $maxAllowedPrefix = 9; // This allows 10 total uses (0-9)
+
         Log::info("Used prefixes", [
             'base_fnsku' => $baseFnsku,
             'used_prefixes' => $usedPrefixes,
-            'max_allowed' => $currentUnits - 1
+            'max_allowed_prefix' => $maxAllowedPrefix,
+            'remaining_units' => $currentUnits
         ]);
 
-        // ✅ Find first UNUSED prefix
+        // ✅ Find first UNUSED prefix within the allowed range
         $nextPrefix = null;
-        $maxPrefix = $currentUnits - 1; // If Units = 7, max prefix is C6 (0-6 = 7 total)
 
-        for ($i = 0; $i <= $maxPrefix; $i++) {
+        for ($i = 0; $i <= $maxAllowedPrefix; $i++) {
             if (!in_array($i, $usedPrefixes)) {
                 $nextPrefix = $i;
                 break;
             }
         }
 
+        // ✅ Check if we found an available prefix
         if ($nextPrefix === null) {
-            // All prefixes are used
-            throw new \Exception("All available prefixes exhausted for FNSKU: {$baseFnsku} (Units: {$currentUnits})");
+            // All 10 prefix slots are used
+            throw new \Exception("All available prefixes exhausted for FNSKU: {$baseFnsku} (All " . ($maxAllowedPrefix + 1) . " slots used)");
+        }
+
+        // ✅ Additional check: make sure we have units remaining
+        $usedCount = count($usedPrefixes);
+        if ($usedCount >= $currentUnits) {
+            throw new \Exception("No remaining units for FNSKU: {$baseFnsku} (Units: {$currentUnits}, Used: {$usedCount})");
         }
 
         // ✅ Generate FNSKU with correct prefix
@@ -131,12 +143,13 @@ private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
             'used_prefixes' => $usedPrefixes,
             'next_prefix' => $nextPrefix,
             'actual_fnsku' => $actualFnsku,
-            'remaining_units' => $currentUnits
+            'remaining_units' => $currentUnits,
+            'used_count' => $usedCount
         ]);
 
         return [
             'actual_fnsku' => $actualFnsku,
-            'times_used' => count($usedPrefixes),
+            'times_used' => $usedCount,
             'remaining_units' => $currentUnits,
             'next_prefix' => $nextPrefix
         ];
@@ -150,7 +163,6 @@ private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
         throw $e;
     }
 }
-
     /**
      * Update FNSKU units after using an FNSKU
      */
