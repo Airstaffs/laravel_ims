@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AsinMappingController;
 use App\Http\Controllers\TrainingProxyController;
-
+use App\Http\Controllers\Fbmorders\PrintInvoiceController;
 /*
 |--------------------------------------------------------------------------
 | Stateless API Routes
@@ -84,3 +84,4 @@ Route::prefix('training')->group(function () {
 
 });
 
+Route::post('/fbm-orders-invoice', [PrintInvoiceController::class, 'printInvoice']);

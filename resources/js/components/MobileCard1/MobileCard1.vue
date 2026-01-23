@@ -82,6 +82,7 @@
 import { defineProps } from "vue";
 import TableGallery from "../Gallery/tableGallery.vue";
 import { Button, Divider } from "primevue";
+import { isUSAccount } from "../../utils/helpers";
 
 const props = defineProps({
     sortedInventory: { type: Array, required: true },
@@ -166,8 +167,13 @@ const firstCol = (item) => {
             key: "materialtype",
         },
     ];
-
-    return allFields.filter((field) => props.visibleFields.includes(field.key));
+    
+    // Remove price field if the account is US
+    const filteredFields = allFields.filter((field) => 
+        isUSAccount() ? field.key !== "price" : true
+    );
+    
+    return filteredFields.filter((field) => props.visibleFields.includes(field.key));
 };
 </script>
 

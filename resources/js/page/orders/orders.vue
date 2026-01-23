@@ -669,7 +669,7 @@
                         </div>
 
                         <!-- RIGHT: PRICING -->
-                        <div class="form-col-right">
+                        <div class="form-col-right" v-show="showPricingSection">
                             <Card>
                                 <template #title>
                                     <div>
@@ -805,6 +805,7 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
+import { showPricingForPH } from "../../utils/helpers.js";
 
 const TABLE_COLUMNS = [
     {
@@ -917,10 +918,15 @@ export default {
 
             currentTimezone: "UTC",
             timezoneLabel: "Loading...",
+            showPricingSection: showPricingForPH(),
         };
+    },
+    beforeUnmount() {
+        window.removeEventListener("resize", this.updatePricingView);
     },
     async mounted() {
         await this.loadUserTimezone();
+        window.addEventListener("resize", this.updatePricingView);
     },
     computed: {
         materialTypesOptions() {
@@ -1070,6 +1076,10 @@ export default {
                 this.currentTimezone = "UTC";
                 this.timezoneLabel = "UTC";
             }
+        },
+
+        updatePricingView() {
+            this.showPricingSection = showPricingForPH();
         },
     },
 };

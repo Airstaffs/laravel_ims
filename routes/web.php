@@ -85,7 +85,7 @@ Route::get('/dev-login', function () {
     // Find the first SuperAdmin user
     $user = User::where('role', 'SuperAdmin')->first();
 
-    if (! $user) {
+    if (!$user) {
         return '❌ No SuperAdmin found. Please create one in phpMyAdmin first.';
     }
 
@@ -94,7 +94,7 @@ Route::get('/dev-login', function () {
     session()->regenerate();
 
     return redirect()->route('dashboard.system')
-        ->with('login_success', '✅ Dev bypass active — logged in as '.$user->username);
+        ->with('login_success', '✅ Dev bypass active — logged in as ' . $user->username);
 });
 
 Route::get('/dashboard', [LoginController::class, 'showSystemDashboard'])->name('dashboard');
@@ -121,7 +121,7 @@ Route::post('/logout', function (Request $request) {
 
         // Force logout regardless of token issues
         if (Auth::check()) {
-            \Log::info('User logout: '.Auth::user()->username);
+            \Log::info('User logout: ' . Auth::user()->username);
         }
 
         Auth::logout();
@@ -140,7 +140,7 @@ Route::post('/logout', function (Request $request) {
         // FIXED: Use 'logout_success' instead of 'success' to avoid audio confusion
         return redirect('/login')->with('logout_success', 'You have been logged out successfully.');
     } catch (\Exception $e) {
-        \Log::error('Logout error: '.$e->getMessage());
+        \Log::error('Logout error: ' . $e->getMessage());
 
         // Even if there's an error, try to clear session
         try {
@@ -148,7 +148,7 @@ Route::post('/logout', function (Request $request) {
             $request->session()->invalidate();
             $request->session()->regenerateToken();
         } catch (\Exception $sessionError) {
-            \Log::error('Session clearing error: '.$sessionError->getMessage());
+            \Log::error('Session clearing error: ' . $sessionError->getMessage());
         }
 
         if ($request->ajax() || $request->wantsJson()) {
@@ -199,7 +199,7 @@ Route::middleware(['auth', PreventBackHistory::class])->group(function () {
     Route::post('/keep-alive', function () {
         try {
             // Check authentication first
-            if (! auth()->check()) {
+            if (!auth()->check()) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Not authenticated',
@@ -366,7 +366,7 @@ Route::get('/apis/ebay-login', action: function () {
     $redirectUrl = 'https://test.tecniquality.com/apis/ebay-callback';
     $scopes = 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.marketing.readonly https://api.ebay.com/oauth/api_scope/sell.inventory.readonly https://api.ebay.com/oauth/api_scope/sell.account.readonly https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly';
 
-    $authUrl = "https://auth.ebay.com/oauth2/authorize?client_id={$clientId}&redirect_uri={$redirectUrl}&response_type=code&scope=".urlencode($scopes);
+    $authUrl = "https://auth.ebay.com/oauth2/authorize?client_id={$clientId}&redirect_uri={$redirectUrl}&response_type=code&scope=" . urlencode($scopes);
 
     echo "<a href='{$authUrl}'>Authorize with eBay</a>";
 });
@@ -453,6 +453,8 @@ Route::prefix('api/stockroom')->group(function () {
     Route::post('update-fbm-status', [StockroomController::class, 'updateFbmStatus']);
 
     Route::post('unmerge-item', [StockroomController::class, 'unmergeItem']);
+
+    Route::get('check-serial', [StockroomController::class, 'checkSerial']);
 
 });
 
@@ -699,13 +701,13 @@ Route::prefix('api/printer-management')->middleware(['auth'])->group(function ()
 // Auxiliary Label Management Routes
 Route::prefix('api/auxiliary')->middleware(['auth'])->group(function () {
     // Get all auxiliaries (with optional search)
-    Route::get('get-auxiliaries', [AuxiliaryController::class, 'index']);    
+    Route::get('get-auxiliaries', [AuxiliaryController::class, 'index']);
     // Get available printers (small label type only, no married)
-    Route::get('get-printers', [AuxiliaryController::class, 'getPrinters']); 
+    Route::get('get-printers', [AuxiliaryController::class, 'getPrinters']);
     // Upload new auxiliary
-    Route::post('add-auxiliary', [AuxiliaryController::class, 'upload']);   
+    Route::post('add-auxiliary', [AuxiliaryController::class, 'upload']);
     // Update auxiliary
-    Route::post('update-auxiliary/{id}', [AuxiliaryController::class, 'update']);   
+    Route::post('update-auxiliary/{id}', [AuxiliaryController::class, 'update']);
     // Delete auxiliary
     Route::delete('delete-auxiliary/{id}', [AuxiliaryController::class, 'delete']);
     // Print auxiliary labels
@@ -738,6 +740,8 @@ Route::post('/clone-table', [App\Http\Controllers\TableController::class, 'clone
 Route::post('/amzn/fbm-orders/purchase-label/rates', [ShippingLabelController::class, 'get_rates']);
 Route::post('/amzn/fbm-orders/purchase-label/createshipment', [ShippingLabelController::class, 'create_shipment']);
 Route::post('/amzn/fbm-orders/purchase-label/manualshipment', [ShippingLabelController::class, 'manual_shipment']);
+Route::post('/amzn/fbm-orders/shippinghistory/shipmentlabel', [ShippingLabelController::class, 'shipmentLabelHistory']);
+Route::post('/amzn/fbm-orders/shippinghistory/shipmentlabel/cancel', [ShippingLabelController::class,'cancelShipmentLabel']);
 
 Route::match(['get', 'post'], '/fbmorders/fetch-work-history', [WorkhistoryController::class, 'fetchWorkHistory']);
 

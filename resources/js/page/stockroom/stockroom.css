@@ -34,5 +34,45 @@ button.postAmazon-close {
     padding: 20px;
 }
 
+.serial-check-status {
+    font-size: 12px;
+    margin-top: 4px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.serial-check-status.checking {
+    background-color: #e3f2fd;
+    color: #1976d2;
+}
+
+.serial-check-status.exists {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    font-weight: 600;
+}
+
+.serial-check-status.new {
+    background-color: #fff3e0;
+    color: #f57c00;
+    font-weight: 600;
+}
+
+/* FNSKU hint */
+.fnsku-hint {
+    font-size: 11px;
+    color: #f57c00;
+    margin-top: 4px;
+    font-weight: 600;
+}
+
+/* Smooth transitions */
+.input-group {
+    transition: all 0.3s ease;
+}
+
 
 

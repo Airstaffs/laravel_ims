@@ -1,3 +1,5 @@
+import Swal from "sweetalert2";
+
 // ScannerMixin.js
 export default {
   props: {
@@ -119,48 +121,54 @@ export default {
     },
     
     closeScannerModal() {
-      // 🛑 1. Stop any active camera safely
-      if (this.scannerCameraActive) {
-        this.stopScanner();
-      }
+      Swal.fire({
+        title: "Confirm Exit?",
+        text: "Are you sure you want to close the scanner?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Yes, I'm sure",
+        cancelButtonText: "No",
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // 🛑 1. Stop any active camera safely
+          if (this.scannerCameraActive) {
+            this.stopScanner();
+          }
 
-      // 🧹 2. Clear captured data & statuses
-      this.capturedImages = [];
-      this.showSuccessNotification = false;
-      this.showWarningNotification = false;
-      this.showErrorNotification = false;
+          // 🧹 2. Clear captured data & statuses
+          this.capturedImages = [];
+          this.showSuccessNotification = false;
+          this.showWarningNotification = false;
+          this.showErrorNotification = false;
 
-      // 🔄 3. Reset serials and OCR results on parent (if exist)
-      if (this.$parent) {
-        // 🧹 Reset serial OCR results per step
-        this.$parent.apiResult = {
-          step3: null,
-          step4: null,
-        };
+          // 🔄 3. Reset serials and OCR results on parent (if exist)
+          if (this.$parent) {
+            // 🧹 Reset serial OCR results per step
+            this.$parent.apiResult = {
+              step3: null,
+              step4: null,
+            };
 
-        // 🧼 Reset serial numbers
-        this.$parent.firstSerialNumber = '';
-        this.$parent.secondSerialNumber = '';
-      }
+            // 🧼 Reset serial numbers
+            this.$parent.firstSerialNumber = '';
+            this.$parent.secondSerialNumber = '';
+          }
 
+          // 💾 4. Save scans to local storage (if needed)
+          this.saveScans();
 
-      // 🧩 4. Optional: reset the flow to beginning
-      // (Uncomment if you always want to restart from Step 1)
-      // if (this.$parent) {
-      //   this.$parent.currentStep = 1;
-      // }
+          // 🚪 5. Close modals
+          this.showScannerModal = false;
+          this.showCameraModal = false;
 
-      // 💾 5. Save scans to local storage (if needed)
-      this.saveScans();
+          // 📣 6. Emit closure event
+          this.$emit('scanner-closed');
 
-      // 🚪 6. Close modals
-      this.showScannerModal = false;
-      this.showCameraModal = false;
-
-      // 📣 7. Emit closure event
-      this.$emit('scanner-closed');
-
-      console.log('🔄 Scanner modal closed and all data cleared.');
+          console.log('🔄 Scanner modal closed and all data cleared.');
+        }
+      });
     },
     
     // Toggle between auto and manual modes
@@ -407,7 +415,16 @@ export default {
     
     // Reset scanner
     resetScanner() {
-      // Reset scan counts
+    Swal.fire({
+    title: "Confirm Reset",
+    text: "Are you sure you want reset?",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Yes",
+    cancelButtonText: "No"
+}).then((result) => {
+if (result.isConfirmed) {
+         // Reset scan counts
       this.totalScanned = 0;
       this.successfulScans = 0;
       this.failedScans = 0;
@@ -446,6 +463,11 @@ export default {
       // Clear local storage
       localStorage.removeItem(`${this.storagePrefix}_scans`);
       localStorage.removeItem(`${this.storagePrefix}_stats`);
+}
+})
+
+
+
     },
     
     // Scanned items list

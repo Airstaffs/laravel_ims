@@ -83,6 +83,8 @@ export default {
                 from: 0,
                 to: 0,
             },
+             hasMoreFnskuPages: false,
+            currentFnskuPage: 1
         };
     },
     computed: {
@@ -273,8 +275,8 @@ export default {
             const result = this.filteredFnskuList.map((fnsku) => {
                 return {
                     ...fnsku,
-                    hasBeenUsed: fnsku.Units < 11,
-                    timesUsed: 11 - fnsku.Units,
+                    hasBeenUsed: fnsku.Units < 10,
+                    timesUsed: 10 - fnsku.Units,
                     nextFnskuToUse: this.getNextFnskuToUse(fnsku),
                 };
             });
@@ -360,7 +362,7 @@ export default {
          * Calculate what FNSKU will actually be assigned (with prefix if needed)
          */
         getNextFnskuToUse(fnsku) {
-            const timesUsed = 11 - fnsku.Units;
+            const timesUsed = 10 - fnsku.Units;
 
             if (timesUsed === 0) {
                 return fnsku.FNSKU; // First use - original FNSKU
@@ -930,9 +932,9 @@ export default {
                 // Update data from simplePaginate response
                 this.fnskuList = response.data.data || [];
                 this.filteredFnskuList = [...this.fnskuList];
-                this.currentPage = response.data.current_page;
+                this.currentFnskuPage = response.data.current_page;
                 this.totalRecords = response.data.total || 0;
-                this.hasMorePages = response.data.has_more_pages;
+                this.hasMoreFnskuPages = response.data.has_more_pages;
                 this.paginationInfo = {
                     from: response.data.from || 0,
                     to: response.data.to || 0,
@@ -963,19 +965,19 @@ export default {
         },
 
         nextFnskuPage() {
-            if (this.hasMorePages) {
-                this.goToPage(this.currentPage + 1);
+            if (this.hasMoreFnskuPages) {
+                this.goToPage(this.currentFnskuPage + 1);
             }
         },
 
         prevFnskuPage() {
-            if (this.currentPage > 1) {
-                this.goToPage(this.currentPage - 1);
+            if (this.currentFnskuPage > 1) {
+                this.goToPage(this.currentFnskuPage - 1);
             }
         },
 
         changeFnskuPageSize() {
-            this.currentPage = 1;
+            this.currentFnskuPage = 1;
             this.filterFnskuList(1);
         },
 

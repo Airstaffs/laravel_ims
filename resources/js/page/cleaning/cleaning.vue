@@ -619,7 +619,10 @@
                                     </section>
                                 </div>
 
-                                <div class="col-lg-6">
+                                <div
+                                    class="col-lg-6"
+                                    v-show="showPricingSection"
+                                >
                                     <section class="pricing-section">
                                         <h3 class="text-primary fw-bolder">
                                             Pricing
@@ -712,6 +715,7 @@ import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewIm
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import ReceiveReleaseConditionModal from "./modals/receiveAndReleaseCondition_modal.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
+import { showPricingForPH } from "../../utils/helpers.js";
 
 const TABLE_COLUMNS = [
     {
@@ -739,6 +743,7 @@ const TABLE_COLUMNS = [
         header: "Price",
         sortable: true,
         bodyStyle: "font-size: 14px;",
+        visibility: showPricingForPH(),
     },
     {
         field: "serialNumber",
@@ -784,10 +789,12 @@ export default {
             selectedItem: null,
             currentTimezone: "UTC",
             timezoneLabel: "Loading...",
+            showPricingSection: showPricingForPH(),
         };
     },
     async mounted() {
         await this.loadUserTimezone();
+        window.addEventListener("resize", this.updatePricingView);
     },
     computed: {
         visibleColumns() {
@@ -998,6 +1005,12 @@ export default {
                 this.timezoneLabel = "UTC";
             }
         },
+        updatePricingView() {
+            this.showPricingSection = showPricingForPH();
+        },
+    },
+    beforeUnmount() {
+        window.removeEventListener("resize", this.updatePricingView);
     },
 };
 </script>

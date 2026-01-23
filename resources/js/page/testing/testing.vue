@@ -473,7 +473,10 @@
                                 </div>
 
                                 <!-- Right Column: Pricing -->
-                                <div class="col-md-6">
+                                <div
+                                    class="col-md-6"
+                                    v-show="showPricingSection"
+                                >
                                     <section class="pricing-section">
                                         <h3 class="text-primary fw-bolder">
                                             Pricing
@@ -564,6 +567,7 @@ import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import ReceivedConditionModal from "./modals/receivedCondtion_modal.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 import axios from "axios";
+import { showPricingForPH } from "../../utils/helpers.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -636,10 +640,12 @@ export default {
             movingItem: false,
             currentTimezone: "UTC",
             timezoneLabel: "Loading...",
+            showPricingSection: showPricingForPH(),
         };
     },
     async mounted() {
         await this.loadUserTimezone();
+        window.addEventListener("resize", this.updatePricingView);
     },
     computed: {
         visibleColumns() {
@@ -980,6 +986,12 @@ export default {
                 this.timezoneLabel = "UTC";
             }
         },
+        updatePricingView() {
+            this.showPricingSection = showPricingForPH();
+        },
+    },
+    beforeUnmount() {
+        window.removeEventListener("resize", this.updatePricingView);
     },
 };
 </script>

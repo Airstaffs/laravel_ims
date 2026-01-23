@@ -413,6 +413,9 @@
             modal
             :header="`RT # ${item.rtcounter} - ${getDisplayTitle(item)}`"
             style="width: 110rem"
+            :pt="{
+                root: { class: 'mobile-fullscreen-dialog' },
+            }"
         >
             <div class="modal-body">
                 <div class="view-info-container">
@@ -581,7 +584,7 @@
                                     </section>
                                 </div>
 
-                                <div class="col-lg-6">
+                                <div class="col-lg-6" v-show="showPricingSection">
                                     <section class="pricing-section">
                                         <h3 class="text-primary fw-bolder">
                                             Pricing
@@ -672,6 +675,7 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
+import { showPricingForPH } from "../../utils/helpers.js";
 const TABLE_COLUMNS = [
     {
         field: "gallery",
@@ -736,6 +740,7 @@ export default {
         return {
             columns: TABLE_COLUMNS,
             rowsPerPage: ROWS_PER_PAGE,
+            showPricingSection: showPricingForPH()
         };
     },
     methods: {
@@ -802,6 +807,15 @@ export default {
             }
             return count;
         },
+          updatePricingView() {
+            this.showPricingSection = showPricingForPH();
+        }
+    },
+         mounted() {
+        window.addEventListener('resize', this.updatePricingView);
+    },
+    beforeUnmount() {
+        window.removeEventListener('resize', this.updatePricingView);
     },
 };
 </script>

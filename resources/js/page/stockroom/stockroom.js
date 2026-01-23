@@ -50,6 +50,12 @@ export default {
             fnskuStatus: "",
             fnskuNormalized: false,
 
+          // ✅ NEW: Control FNSKU field visibility
+            showFnskuField: false,
+            checkingSerial: false,
+            serialExists: false,
+            serialCheckMessage: "",
+
             // For process modal (replaces move modal)
             showProcessModal: false,
             processShipmentType: "For Dispense",
@@ -1615,36 +1621,92 @@ async fetchAvailablePrinters() {
             }
         },
 
-        // Input field handlers with sound
-        async handleSerialInput() {
-            // First validate serial number
-            const isValid = this.validateSerialNumber();
+            async checkSerialExists(serial) {
+        if (!serial || serial.length < 3) {
+            this.showFnskuField = false;
+            this.serialExists = false;
+            this.serialCheckMessage = "";
+            return;
+        }
 
-            if (!isValid) {
-                // Show error for invalid serial
-                this.$refs.scanner.showScanError(
-                    "Invalid Serial Number - must be alphanumeric and not contain X00"
-                );
-                this.$refs.serialNumberInput.select();
-                SoundService.error();
-                return;
-            }
-
-            // In auto mode with valid input, play sound and proceed
-            if (!this.showManualInput && this.serialNumber.trim().length > 5) {
-                if (this.autoVerifyTimeout) {
-                    clearTimeout(this.autoVerifyTimeout);
+        try {
+            this.checkingSerial = true;
+            
+            const response = await axios.get(
+                `${API_BASE_URL}/api/stockroom/check-serial`,
+                {
+                    params: { serial: serial },
+                    withCredentials: true,
                 }
+            );
 
-                this.autoVerifyTimeout = setTimeout(() => {
-                    // Play success sound
-                    SoundService.success();
+            console.log('Serial check response:', response.data);
 
-                    // Focus on next field
-                    this.focusNextField("fnskuInput");
-                }, 500);
+            if (response.data.exists) {
+                // ✅ Serial EXISTS in system
+                this.serialExists = true;
+                this.showFnskuField = false; // Hide FNSKU field
+                this.fnsku = ""; // Clear FNSKU input
+                this.serialCheckMessage = `✓ Item found in ${response.data.location}`;
+                
+                console.log('✅ Serial exists - hiding FNSKU field');
+            } else {
+                // ❌ Serial DOESN'T exist (new item)
+                this.serialExists = false;
+                this.showFnskuField = true; // Show FNSKU field
+                this.serialCheckMessage = "⚠ New item - FNSKU required";
+                
+                console.log('❌ Serial not found - showing FNSKU field');
             }
-        },
+
+        } catch (error) {
+            console.error('Error checking serial:', error);
+            // On error, show FNSKU field to be safe
+            this.showFnskuField = true;
+            this.serialCheckMessage = "";
+        } finally {
+            this.checkingSerial = false;
+        }
+    },
+
+        // Input field handlers with sound
+         async handleSerialInput() {
+        // First validate serial number
+        const isValid = this.validateSerialNumber();
+
+        if (!isValid) {
+            this.$refs.scanner.showScanError(
+                "Invalid Serial Number - must be alphanumeric and not contain X00"
+            );
+            this.$refs.serialNumberInput.select();
+            SoundService.error();
+            return;
+        }
+
+        // ✅ Check if serial exists in system
+        if (this.serialNumber.trim().length >= 5) {
+            await this.checkSerialExists(this.serialNumber.trim());
+        }
+
+        // In auto mode with valid input
+        if (!this.showManualInput && this.serialNumber.trim().length > 5) {
+            if (this.autoVerifyTimeout) {
+                clearTimeout(this.autoVerifyTimeout);
+            }
+
+            this.autoVerifyTimeout = setTimeout(() => {
+                SoundService.success();
+
+                // ✅ If serial exists, skip FNSKU and go to location
+                // ✅ If serial doesn't exist, go to FNSKU field
+                if (this.serialExists) {
+                    this.focusNextField("locationInput");
+                } else {
+                    this.focusNextField("fnskuInput");
+                }
+            }, 500);
+        }
+    },
 
         async handleFnskuInput() {
             console.log("handleFnskuInput called with:", this.fnsku);
@@ -1772,178 +1834,155 @@ async fetchAvailablePrinters() {
         },
 
         // Process scan with validation - UPDATED with notification count refresh
-        async processScan(scannedCode = null) {
-    try {
-        // Use either the scanned code or input fields
-        let scanSerial, scanFnsku, scanLocation;
+     async processScan(scannedCode = null) {
+        try {
+            let scanSerial, scanFnsku, scanLocation;
 
-        if (scannedCode) {
-            scanSerial = "";
-            scanFnsku = this.normalizeFnsku(scannedCode);
-            this.fnsku = scanFnsku;
-            scanLocation = this.locationInput || "";
-        } else {
-            scanSerial = this.serialNumber;
-            scanFnsku = this.fnsku;
-            scanLocation = this.locationInput;
-            
-            if (!scanFnsku && !scanSerial) {
+            if (scannedCode) {
+                // Hardware scanner
+                scanSerial = scannedCode;
+                scanLocation = this.locationInput || "";
+                
+                // Check if serial exists first
+                await this.checkSerialExists(scanSerial);
+                
+                // If serial exists, don't need FNSKU
+                scanFnsku = this.serialExists ? "" : this.fnsku;
+            } else {
+                // Manual input
+                scanSerial = this.serialNumber;
+                scanFnsku = this.showFnskuField ? this.fnsku : ""; // Only use FNSKU if field is shown
+                scanLocation = this.locationInput;
+                
+                if (!scanSerial) {
+                    this.$refs.scanner.showScanError("Serial Number is required");
+                    SoundService.error();
+                    this.focusNextField("serialNumberInput");
+                    return;
+                }
+            }
+
+            // Validate serial
+            if (scanSerial && (!/^[a-zA-Z0-9]+$/.test(scanSerial) || scanSerial.includes("X00"))) {
                 this.$refs.scanner.showScanError(
-                    "Serial Number or FNSKU is required"
+                    "Invalid Serial Number - must be alphanumeric and not contain X00"
                 );
                 SoundService.error();
-                this.focusNextField("serialNumberInput");
                 return;
             }
-        }
 
-        // Validation checks...
-        if (scanSerial && (!/^[a-zA-Z0-9]+$/.test(scanSerial) || scanSerial.includes("X00"))) {
-            this.$refs.scanner.showScanError(
-                "Invalid Serial Number - must be alphanumeric and not contain X00"
-            );
-            SoundService.error();
-            return;
-        }
-
-        if (scanFnsku && /^L\d{3}[A-G]$/i.test(scanFnsku)) {
-            this.$refs.scanner.showScanError(
-                "FNSKU appears to be a location. Please enter it in the Location field."
-            );
-            SoundService.error();
-            return;
-        }
-
-        const locationRegex = /^L\d{3}[A-G]$/i;
-        if (scanLocation && !locationRegex.test(scanLocation) && 
-            scanLocation !== "Floor" && scanLocation !== "L800G") {
-            this.$refs.scanner.showScanError(
-                "Invalid Location Format (use L###X, Floor, or L800G)"
-            );
-            SoundService.error();
-            return;
-        }
-
-        const imageData = this.$refs.scanner.capturedImages.map(
-            (img) => img.data
-        );
-
-        const scanData = {
-            SerialNumber: scanSerial,
-            FNSKU: scanFnsku,
-            Location: scanLocation,
-            Images: imageData,
-        };
-
-        this.$refs.scanner.startLoading("Processing Scan");
-
-        const response = await axios.post(
-            "/api/stockroom/process-scan",
-            scanData,
-            {
-                withCredentials: true,
-                headers: {
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
-                    "X-CSRF-TOKEN": document.querySelector(
-                        'meta[name="csrf-token"]'
-                    )?.content,
-                },
+            // Validate location
+            const locationRegex = /^L\d{3}[A-G]$/i;
+            if (scanLocation && !locationRegex.test(scanLocation) && 
+                scanLocation !== "Floor" && scanLocation !== "L800G") {
+                this.$refs.scanner.showScanError(
+                    "Invalid Location Format (use L###X, Floor, or L800G)"
+                );
+                SoundService.error();
+                return;
             }
-        );
 
-        this.$refs.scanner.stopLoading();
-        const data = response.data;
-
-        if (data.success) {
-    this.$refs.scanner.showScanSuccess(data.item || "Item scanned successfully");
-    SoundService.successScan(true);
-
-    this.$refs.scanner.addSuccessScan({
-        Serial: scanSerial,
-        FNSKU: scanFnsku,
-        Location: scanLocation,
-    });
-
-    this.$refs.scanner.capturedImages = [];
-
-    // ============================================
-    // CRITICAL FIX: Real-time updates after scan
-    // ============================================
-    console.log('🎯 Scan successful - triggering updates...');
-    
-    try {
-        // 1. Update badge count with retry
-        console.log('🔄 Refreshing badge count...');
-        await this.fetchCountWithRetry(3);
-        console.log('✅ Badge count updated:', this.newScannedCount);
-        
-        // 2. Refresh inventory table
-        console.log('🔄 Refreshing inventory table...');
-        await this.fetchInventory();
-        console.log('✅ Inventory table refreshed');
-        
-        // 3. If modal is open, refresh it
-        if (this.showNewScannedModal && this.$refs.newScannedModal?.fetchItems) {
-            console.log('🔄 Refreshing modal...');
-            await this.$refs.newScannedModal.fetchItems();
-            console.log('✅ Modal refreshed');
-        }
-        
-        // 4. Force Vue to re-render
-        this.$nextTick(() => {
-            this.$forceUpdate();
-            console.log('✅ UI re-rendered - Final count:', this.newScannedCount);
-        });
-    } catch (error) {
-        console.error('⚠️ Error during refresh:', error);
-    }
-
-    if (data.needReprint && data.productId) {
-        if (confirm("Different FNSKU found in the database. Do you want to reprint the label?")) {
-            this.printLabel(data.productId);
-        }
-    }
-} else {
-            this.$refs.scanner.showScanError(
-                data.message || "Error processing scan"
+            const imageData = this.$refs.scanner.capturedImages.map(
+                (img) => img.data
             );
-            SoundService.scanRejected(true);
 
-            this.$refs.scanner.addErrorScan(
+            const scanData = {
+                SerialNumber: scanSerial,
+                FNSKU: scanFnsku, // Will be empty if serial exists
+                Location: scanLocation,
+                Images: imageData,
+            };
+
+            console.log('📤 Sending scan data:', {
+                serial: scanSerial,
+                fnsku: scanFnsku || '(not provided - serial exists)',
+                location: scanLocation,
+                serialExists: this.serialExists
+            });
+
+            this.$refs.scanner.startLoading("Processing Scan");
+
+            const response = await axios.post(
+                "/api/stockroom/process-scan",
+                scanData,
                 {
-                    Serial: scanSerial,
-                    FNSKU: scanFnsku,
-                    Location: scanLocation,
-                },
-                data.reason || "error"
+                    withCredentials: true,
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                        "X-CSRF-TOKEN": document.querySelector(
+                            'meta[name="csrf-token"]'
+                        )?.content,
+                    },
+                }
             );
 
-            this.$refs.scanner.capturedImages = [];
+            this.$refs.scanner.stopLoading();
+            const data = response.data;
+
+            if (data.success) {
+                this.$refs.scanner.showScanSuccess(data.item || "Item scanned successfully");
+                SoundService.successScan(true);
+
+                this.$refs.scanner.addSuccessScan({
+                    Serial: scanSerial,
+                    FNSKU: scanFnsku || '(existing)',
+                    Location: scanLocation,
+                });
+
+                this.$refs.scanner.capturedImages = [];
+
+                // Real-time updates
+                console.log('🎯 Scan successful - triggering updates...');
+                
+                try {
+                    await this.fetchCountWithRetry(3);
+                    await this.fetchInventory();
+                    
+                    if (this.showNewScannedModal && this.$refs.newScannedModal?.fetchItems) {
+                        await this.$refs.newScannedModal.fetchItems();
+                    }
+                    
+                    this.$nextTick(() => {
+                        this.$forceUpdate();
+                    });
+                } catch (error) {
+                    console.error('⚠️ Error during refresh:', error);
+                }
+            } else {
+                this.$refs.scanner.showScanError(
+                    data.message || "Error processing scan"
+                );
+                SoundService.scanRejected(true);
+
+                this.$refs.scanner.addErrorScan(
+                    {
+                        Serial: scanSerial,
+                        FNSKU: scanFnsku || '(not provided)',
+                        Location: scanLocation,
+                    },
+                    data.reason || "error"
+                );
+
+                this.$refs.scanner.capturedImages = [];
+            }
+
+            // Clear input fields
+            this.serialNumber = "";
+            this.fnsku = "";
+            this.locationInput = "";
+            this.showFnskuField = false;
+            this.serialExists = false;
+            this.serialCheckMessage = "";
+            this.focusNextField("serialNumberInput");
+            
+        } catch (error) {
+            this.$refs.scanner.stopLoading();
+            console.error("Error processing scan:", error);
+            this.$refs.scanner.showScanError("Network or server error");
+            SoundService.scanRejected(true);
         }
-
-        // Clear input fields and focus first field
-        this.serialNumber = "";
-        this.fnsku = "";
-        this.locationInput = "";
-        this.focusNextField("serialNumberInput");
-        
-    } catch (error) {
-        this.$refs.scanner.stopLoading();
-        console.error("Error processing scan:", error);
-        this.$refs.scanner.showScanError("Network or server error");
-        SoundService.scanRejected(true);
-
-        this.$refs.scanner.addErrorScan(
-            {
-                Serial: this.serialNumber || "",
-                FNSKU: this.fnsku || "",
-                Location: this.locationInput || "",
-            },
-            "network_error"
-        );
-    }
-  },
+    },
 
         // Updated mergeSelectedItems function with correct API URL format
   async mergeSelectedItems() {
@@ -2276,38 +2315,37 @@ async fetchAvailablePrinters() {
             this.showManualInput = event.manual;
         },
 
-        handleScannerOpened() {
-            // Get current mode from scanner component
-            this.showManualInput = this.$refs.scanner.showManualInput;
+   handleScannerOpened() {
+        this.showManualInput = this.$refs.scanner.showManualInput;
 
-            // Reset fields
-            this.serialNumber = "";
-            this.fnsku = "";
-            this.locationInput = "";
-            this.fnskuValid = false;
-            this.fnskuStatus = "";
+        // Reset fields
+        this.serialNumber = "";
+        this.fnsku = "";
+        this.locationInput = "";
+        this.showFnskuField = false; // ✅ Hide FNSKU initially
+        this.serialExists = false;
+        this.serialCheckMessage = "";
 
-            // Focus on first field
-            this.$nextTick(() => {
-                if (this.$refs.serialNumberInput) {
-                    this.$refs.serialNumberInput.focus();
-                }
-            });
-        },
-
+        // Focus on first field
+        this.$nextTick(() => {
+            if (this.$refs.serialNumberInput) {
+                this.$refs.serialNumberInput.focus();
+            }
+        });
+    },
         handleScannerClosed() {
             // Refresh inventory when scanner is closed
             this.fetchInventory();
         },
 
-        handleScannerReset() {
-            // Reset fields when scanner is reset
-            this.serialNumber = "";
-            this.fnsku = "";
-            this.locationInput = "";
-            this.fnskuValid = false;
-            this.fnskuStatus = "";
-        },
+       handleScannerReset() {
+        this.serialNumber = "";
+        this.fnsku = "";
+        this.locationInput = "";
+        this.showFnskuField = false;
+        this.serialExists = false;
+        this.serialCheckMessage = "";
+    },
 
         // Methods for handling responsiveness
         handleResize() {

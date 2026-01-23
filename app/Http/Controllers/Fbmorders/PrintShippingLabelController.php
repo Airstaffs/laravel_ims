@@ -87,6 +87,16 @@ class PrintShippingLabelController extends Controller
             // Step 4: Convert to ZPL
             $zplCode = $this->convertPDFToZPL($pdfPath, $platform_order_id, ['note' => $note]);
 
+            $mpdf = new \Mpdf\Mpdf([
+                'margin_top' => 0,
+                'margin_bottom' => 0,
+                'margin_left' => 0,
+                'margin_right' => 0
+            ]);
+
+            $mpdf->WriteHTML('<img src="' . $imagePath . '" style="width:100%; height:auto;">');
+            $mpdf->Output($pdfPath, 'F');
+
             // Step 5: Optional print
             if ($action === 'PrintShipmentLabel') {
                 $this->sendToPrinter($zplCode);
@@ -202,6 +212,31 @@ class PrintShippingLabelController extends Controller
             $img = $img->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
             $img->setImageFormat('png');
 
+            // ✅ rotation fix (detect by trimmed content, not page size)
+
+            $probe = clone $img;
+
+            // allow near-white margins to be trimmed
+            $probe->setImageBackgroundColor(new \ImagickPixel('white'));
+            $probe->setOption('fuzz', '10%');   // <-- compatibility fix
+
+            $probe->trimImage(0);
+            $probe->setImagePage(0, 0, 0, 0);
+
+            $contentW = $probe->getImageWidth();
+            $contentH = $probe->getImageHeight();
+
+            Log::info("[LabelRotate] order={$orderId} page={$i} pageW={$img->getImageWidth()} pageH={$img->getImageHeight()} contentW={$contentW} contentH={$contentH}");
+
+            $probe->clear();
+            $probe->destroy();
+
+            // If trimmed content is tall/narrow, rotate it
+            if ($contentH > $contentW) {
+                $img->rotateImage(new \ImagickPixel('white'), 90); // clockwise
+                $img->setImagePage(0, 0, 0, 0);
+            }
+
             $imagePath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$orderId}_page{$i}.png");
             $img->writeImage($imagePath);
 
@@ -217,37 +252,37 @@ class PrintShippingLabelController extends Controller
         return $zplCode;
     }
 
-protected function sendToPrinter($zplCode, $pdfFile = null, $savetoprintserver = false)
-{
-    $printerIP = 'http://99.0.87.190:1450/ims/Admin/modules/PRD-RPN-PCN/print.php';
-    $pIp = '192.168.1.240';
+    protected function sendToPrinter($zplCode, $pdfFile = null, $savetoprintserver = false)
+    {
+        $printerIP = 'http://99.0.87.190:1450/ims/Admin/modules/PRD-RPN-PCN/print.php';
+        $pIp = '192.168.1.240';
 
-    try {
-        $postData = [
-            'zpl' => $zplCode,
-            'printerSelect' => $pIp,
-        ];
+        try {
+            $postData = [
+                'zpl' => $zplCode,
+                'printerSelect' => $pIp,
+            ];
 
-        Log::info('Printer request debug', [
-            'url' => $printerIP,
-            'printerSelect' => $pIp,
-            'zpl_len' => strlen($zplCode),
-        ]);
+            Log::info('Printer request debug', [
+                'url' => $printerIP,
+                'printerSelect' => $pIp,
+                'zpl_len' => strlen($zplCode),
+            ]);
 
-        $response = Http::timeout(30)
-            ->withHeaders(['Content-Type' => 'application/x-www-form-urlencoded'])
-            ->withBody(http_build_query($postData), 'application/x-www-form-urlencoded')
-            ->post($printerIP);
+            $response = Http::timeout(30)
+                ->withHeaders(['Content-Type' => 'application/x-www-form-urlencoded'])
+                ->withBody(http_build_query($postData), 'application/x-www-form-urlencoded')
+                ->post($printerIP);
 
-        Log::info('Printer response debug', [
-            'status' => $response->status(),
-            'ok' => $response->successful(),
-            'body' => $response->body(),
-        ]);
-    } catch (\Throwable $e) {
-        Log::error('Printer exception', [
-            'message' => $e->getMessage(),
-        ]);
+            Log::info('Printer response debug', [
+                'status' => $response->status(),
+                'ok' => $response->successful(),
+                'body' => $response->body(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Printer exception', [
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
-}
 }

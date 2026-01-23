@@ -598,7 +598,7 @@ if ($pdo) {
 function dbDatabase()
 {
     // Define server mode here
-    $servertype = "ims";
+    $servertype = "laravel_ims";
 
     // Set credentials based on server type
     switch ($servertype) {

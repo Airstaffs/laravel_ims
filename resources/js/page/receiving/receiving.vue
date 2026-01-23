@@ -684,7 +684,10 @@
 
                             <!-- Right Column: Pricing -->
                             <div class="col-md-6">
-                                <section class="pricing-section">
+                                <section
+                                    class="pricing-section"
+                                    v-show="showPricingSection"
+                                >
                                     <h3 class="text-primary fw-bolder">
                                         Pricing
                                     </h3>
@@ -1059,6 +1062,7 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
+import { showPricingForPH } from "../../utils/helpers.js";
 
 const TABLE_COLUMNS = [
     {
@@ -1132,10 +1136,12 @@ export default {
             rowsPerPage: ROWS_PER_PAGE,
             currentTimezone: "UTC",
             timezoneLabel: "Loading...",
+            showPricingSection: showPricingForPH(),
         };
     },
     async mounted() {
         await this.loadUserTimezone();
+        window.addEventListener("resize", this.updatePricingView);
     },
     methods: {
         toggle(event) {
@@ -1264,6 +1270,12 @@ export default {
                 this.timezoneLabel = "UTC";
             }
         },
+        updatePricingView() {
+            this.showPricingSection = showPricingForPH();
+        },
+    },
+    beforeUnmount() {
+        window.removeEventListener("resize", this.updatePricingView);
     },
     computed: {
         visibleColumns() {
