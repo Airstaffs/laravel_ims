@@ -640,18 +640,24 @@ class ShippingLabelController extends Controller
             $productIds = [];
 
             if ($labelItems->count()) {
-                // Preferred: tblorderitemdispense mapping
-                $productIds = DB::table('tblorderitemdispense as d')
-                    ->join('tbllabelhistoryitems as li', function ($join) {
-                        $join->on('d.platform_order_id', '=', 'li.AmazonOrderId')
-                            ->on('d.platform_order_item_id', '=', 'li.orderitemid');
-                    })
-                    ->where('li.labelhistory_id', $labelHistoryId)
-                    ->pluck('d.ProductID')
-                    ->filter()
-                    ->unique()
-                    ->values()
-                    ->all();
+$latestOi = DB::table('tbloutboundordersitem')
+    ->selectRaw('platform_order_id, platform_order_item_id, MAX(outboundorderitemid) as outboundorderitemid')
+    ->groupBy('platform_order_id', 'platform_order_item_id');
+
+$productIds = DB::table('tbllabelhistoryitems as li')
+    ->joinSub($latestOi, 'oi', function ($join) {
+        $join->on('oi.platform_order_id', '=', 'li.AmazonOrderId')
+             ->on('oi.platform_order_item_id', '=', 'li.orderitemid');
+    })
+    ->join('tblorderitemdispense as d', function ($join) {
+        $join->on('d.orderitemid', '=', 'oi.outboundorderitemid');
+    })
+    ->where('li.labelhistory_id', $labelHistoryId)
+    ->pluck('d.ProductID')
+    ->filter()
+    ->unique()
+    ->values()
+    ->all();
             }
 
             // Fallback if dispense table didn’t match
@@ -1055,7 +1061,7 @@ class ShippingLabelController extends Controller
                     ];
 
                     // ✅ newest outbound row wins (protect vs old duplicates)
-                    $tbloutboundorderitemid = DB::table('tbloutboundordersitem')
+                    $tbloutboundorderitemidid = DB::table('tbloutboundordersitem')
                         ->where('platform_order_id', $amazonOrderId)
                         ->where('platform_order_item_id', $orderItemId)
                         ->orderByDesc('outboundorderitemid')
@@ -1063,7 +1069,7 @@ class ShippingLabelController extends Controller
 
                     // ✅ newest outbound row wins (protect vs old duplicates)
                     $productId = DB::table('tblorderitemdispense')
-                        ->where('orderitemid', $tbloutboundorderitemid)
+                        ->where('orderitemid', $tbloutboundorderitemidid)
                         ->orderByDesc('id')
                         ->value('productid');
 
