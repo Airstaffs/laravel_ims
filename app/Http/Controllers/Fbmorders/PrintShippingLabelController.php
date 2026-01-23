@@ -203,11 +203,12 @@ class PrintShippingLabelController extends Controller
             $img->setImageFormat('png');
 
             // ✅ rotation fix (detect by trimmed content, not page size)
+
             $probe = clone $img;
 
-            // allow "near-white" to count as white
+            // allow near-white margins to be trimmed
             $probe->setImageBackgroundColor(new \ImagickPixel('white'));
-            $probe->setImageFuzz($probe->getQuantumRange()['quantumRangeLong'] * 0.10); // 10% tolerance
+            $probe->setOption('fuzz', '10%');   // <-- compatibility fix
 
             $probe->trimImage(0);
             $probe->setImagePage(0, 0, 0, 0);
@@ -220,7 +221,7 @@ class PrintShippingLabelController extends Controller
             $probe->clear();
             $probe->destroy();
 
-            // If trimmed content is taller than wide, it's sideways -> rotate 90° clockwise
+            // If trimmed content is tall/narrow, rotate it
             if ($contentH > $contentW) {
                 $img->rotateImage(new \ImagickPixel('white'), -90); // clockwise
                 $img->setImagePage(0, 0, 0, 0);
