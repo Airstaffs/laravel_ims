@@ -64,11 +64,12 @@ private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
 
         $currentUnits = $fnskuRecord->Units;
 
+        // ✅ Check if units are available
         if ($currentUnits <= 0) {
-            throw new \Exception("No remaining units for FNSKU: {$baseFnsku}");
+            throw new \Exception("No remaining units for FNSKU: {$baseFnsku} (Units: {$currentUnits})");
         }
 
-        // ✅ Get ALL active FNSKUs (with and without prefix)
+        // ✅ Get ALL active FNSKUs (with and without prefix) currently in use
         $activeFnskus = DB::table($this->productTable)
             ->select('FNSKUviewer')
             ->where(function($query) use ($baseFnsku) {
@@ -83,10 +84,11 @@ private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
         Log::info("Active FNSKUs found", [
             'base_fnsku' => $baseFnsku,
             'active_fnskus' => $activeFnskus,
-            'total_units' => $currentUnits
+            'active_count' => count($activeFnskus),
+            'remaining_units' => $currentUnits
         ]);
 
-        // ✅ Extract used prefixes
+        // ✅ Extract used prefixes from active products
         $usedPrefixes = [];
         
         foreach ($activeFnskus as $fnsku) {
@@ -101,16 +103,15 @@ private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
 
         sort($usedPrefixes);
 
-        // ✅ FIX: Use a FIXED maximum, not based on current remaining units
-        // Maximum prefix is 9 (C0 through C9 = 10 total slots)
-        // C0 = base FNSKU (no prefix), C1-C9 = prefixed versions
-        $maxAllowedPrefix = 9; // This allows 10 total uses (0-9)
+        // ✅ Maximum prefix is 9 (C0 through C9 = 10 total slots)
+        $maxAllowedPrefix = 9;
 
-        Log::info("Used prefixes", [
+        Log::info("Prefix analysis", [
             'base_fnsku' => $baseFnsku,
             'used_prefixes' => $usedPrefixes,
+            'used_count' => count($usedPrefixes),
             'max_allowed_prefix' => $maxAllowedPrefix,
-            'remaining_units' => $currentUnits
+            'remaining_units_in_db' => $currentUnits
         ]);
 
         // ✅ Find first UNUSED prefix within the allowed range
@@ -123,16 +124,13 @@ private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
             }
         }
 
-        // ✅ Check if we found an available prefix
+        // ✅ Check if we found an available prefix slot
         if ($nextPrefix === null) {
-            // All 10 prefix slots are used
-            throw new \Exception("All available prefixes exhausted for FNSKU: {$baseFnsku} (All " . ($maxAllowedPrefix + 1) . " slots used)");
-        }
-
-        // ✅ Additional check: make sure we have units remaining
-        $usedCount = count($usedPrefixes);
-        if ($usedCount >= $currentUnits) {
-            throw new \Exception("No remaining units for FNSKU: {$baseFnsku} (Units: {$currentUnits}, Used: {$usedCount})");
+            throw new \Exception(
+                "All prefix slots exhausted for FNSKU: {$baseFnsku}. " .
+                "All " . ($maxAllowedPrefix + 1) . " prefixes (C0-C9) are in use. " .
+                "Used prefixes: " . implode(', ', $usedPrefixes)
+            );
         }
 
         // ✅ Generate FNSKU with correct prefix
@@ -142,18 +140,17 @@ private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
             $actualFnsku = "C{$nextPrefix}{$baseFnsku}";
         }
 
-        Log::info("Generated FNSKU with first available prefix", [
+        Log::info("✅ Generated FNSKU with available prefix", [
             'base_fnsku' => $baseFnsku,
             'used_prefixes' => $usedPrefixes,
             'next_prefix' => $nextPrefix,
             'actual_fnsku' => $actualFnsku,
-            'remaining_units' => $currentUnits,
-            'used_count' => $usedCount
+            'remaining_units' => $currentUnits
         ]);
 
         return [
             'actual_fnsku' => $actualFnsku,
-            'times_used' => $usedCount,
+            'times_used' => count($usedPrefixes),
             'remaining_units' => $currentUnits,
             'next_prefix' => $nextPrefix
         ];
