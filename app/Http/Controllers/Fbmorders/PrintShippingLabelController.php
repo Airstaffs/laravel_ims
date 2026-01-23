@@ -87,15 +87,7 @@ class PrintShippingLabelController extends Controller
             // Step 4: Convert to ZPL
             $zplCode = $this->convertPDFToZPL($pdfPath, $platform_order_id, ['note' => $note]);
 
-            $mpdf = new \Mpdf\Mpdf([
-                'margin_top' => 0,
-                'margin_bottom' => 0,
-                'margin_left' => 0,
-                'margin_right' => 0
-            ]);
 
-            $mpdf->WriteHTML('<img src="' . $imagePath . '" style="width:100%; height:auto;">');
-            $mpdf->Output($pdfPath, 'F');
 
             // Step 5: Optional print
             if ($action === 'PrintShipmentLabel') {
@@ -239,6 +231,16 @@ class PrintShippingLabelController extends Controller
 
             $imagePath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$orderId}_page{$i}.png");
             $img->writeImage($imagePath);
+
+            $mpdf = new \Mpdf\Mpdf([
+                'margin_top' => 0,
+                'margin_bottom' => 0,
+                'margin_left' => 0,
+                'margin_right' => 0
+            ]);
+
+            $mpdf->WriteHTML('<img src="' . $imagePath . '" style="width:100%; height:auto;">');
+            $mpdf->Output($pdfPath, 'F');
 
             $zplCode .= $this->convertImageToZPL($testPrint, $imagePath) . "\n";
 
