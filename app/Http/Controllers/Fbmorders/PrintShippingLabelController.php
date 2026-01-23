@@ -223,7 +223,7 @@ class PrintShippingLabelController extends Controller
 
             // If trimmed content is tall/narrow, rotate it
             if ($contentH > $contentW) {
-                $img->rotateImage(new \ImagickPixel('white'), -90); // clockwise
+                $img->rotateImage(new \ImagickPixel('white'), 90); // clockwise
                 $img->setImagePage(0, 0, 0, 0);
             }
 
