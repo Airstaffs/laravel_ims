@@ -207,7 +207,7 @@ class PrintShippingLabelController extends Controller
             // ✅ rotation fix (detect by trimmed content, not page size)
 
             // ✅ FORCE rotate (clockwise) – this label is sideways inside a portrait page
-            $img->rotateImage(new \ImagickPixel('white'), -90);  // CLOCKWISE
+            $img->rotateImage(new \ImagickPixel('white'), 0);  // CLOCKWISE
             $img->setImagePage(0, 0, 0, 0);
 
             // Optional: trim huge white margins after rotating
