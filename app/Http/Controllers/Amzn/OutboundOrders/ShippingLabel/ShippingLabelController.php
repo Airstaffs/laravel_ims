@@ -525,13 +525,13 @@ class ShippingLabelController extends Controller
         //    Adjust platform value if yours differs.
         $store = DB::table('tbloutboundorders')
             ->where('platform_order_id', $amazonOrderId)
-            ->value('store');
+            ->value('storename');
 
         if (!$store) {
             // fallback: some setups can infer via outbound items
             $store = DB::table('tbloutboundordersitem')
                 ->where('platform_order_id', $amazonOrderId)
-                ->value('store');
+                ->value('storename');
         }
 
         // Normalize store name to match AWSCredentials(storename)
