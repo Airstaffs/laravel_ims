@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AsinMappingController;
 use App\Http\Controllers\TrainingProxyController;
+use App\Http\Controllers\DatasetProxyController;
 
 /*
 |--------------------------------------------------------------------------
