@@ -181,64 +181,99 @@ class PrintShippingLabelController extends Controller
         return $zpl;
     }
 
-    protected function convertPDFToZPL($pdfPath, $orderId, $settings)
-    {
-        $testPrint = $settings['testPrint'] ?? false;
-        $imagick = new \Imagick();
-        $imagick->setResolution(300, 300);
-        $imagick->readImage($pdfPath . '[0-10]');
-        $imagick->setImageFormat('png');
+protected function convertPDFToZPL($pdfPath, $orderId, $settings)
+{
+    $testPrint = $settings['testPrint'] ?? false;
 
-        Log::info('Page count: ' . $imagick->getNumberImages());
-        if (!file_exists($pdfPath)) {
-            Log::error("PDF file does not exist: $pdfPath");
-        }
+    $imagick = new \Imagick();
+    $imagick->setResolution(300, 300);
+    $imagick->readImage($pdfPath . '[0-10]');
 
-        $zplCode = "";
-        for ($i = 0; $i < $imagick->getNumberImages(); $i++) {
-            $imagick->setIteratorIndex($i);
-            $img = $imagick->getImage();
-
-            $img->setImageAlphaChannel(\Imagick::ALPHACHANNEL_REMOVE);
-            $img->setBackgroundColor(new \ImagickPixel('white'));
-            $img = $img->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
-            $img->setImageFormat('png');
-
-            // ✅ rotation fix (detect by trimmed content, not page size)
-
-            // ✅ FORCE rotate (clockwise) – this label is sideways inside a portrait page
-            $img->rotateImage(new \ImagickPixel('white'), 90);  // CLOCKWISE
-            $img->setImagePage(0, 0, 0, 0);
-
-            // Optional: trim huge white margins after rotating
-            $img->setOption('fuzz', '10%');
-            $img->trimImage(0);
-            $img->setImagePage(0, 0, 0, 0);
-
-            $imagePath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$orderId}_page{$i}.png");
-            $img->writeImage($imagePath);
-
-            $mpdf = new \Mpdf\Mpdf([
-                'margin_top' => 0,
-                'margin_bottom' => 0,
-                'margin_left' => 0,
-                'margin_right' => 0
-            ]);
-
-            $mpdf->WriteHTML('<img src="' . $imagePath . '" style="width:100%; height:auto;">');
-            $mpdf->Output($pdfPath, 'F');
-
-            $zplCode .= $this->convertImageToZPL($testPrint, $imagePath) . "\n";
-
-            $img->clear();
-            $img->destroy();
-        }
-
-        $imagick->clear();
-        $imagick->destroy();
-
-        return $zplCode;
+    Log::info('Page count: ' . $imagick->getNumberImages());
+    if (!file_exists($pdfPath)) {
+        Log::error("PDF file does not exist: $pdfPath");
     }
+
+    // 4x6 at 300 DPI
+    $targetW = 1200;
+    $targetH = 1800;
+
+    // how much margin you want after trimming
+    $pad = 80;
+
+    $zplCode = "";
+
+    for ($i = 0; $i < $imagick->getNumberImages(); $i++) {
+        $imagick->setIteratorIndex($i);
+        $img = $imagick->getImage();
+
+        // Flatten
+        $img->setImageAlphaChannel(\Imagick::ALPHACHANNEL_REMOVE);
+        $img->setBackgroundColor(new \ImagickPixel('white'));
+        $img = $img->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
+        $img->setImageFormat('png');
+        $img->setImagePage(0, 0, 0, 0);
+
+        // ✅ Rotate (keep this since it works for your label)
+        $img->rotateImage(new \ImagickPixel('white'), 90);
+        $img->setImagePage(0, 0, 0, 0);
+
+        // ✅ Trim extra whitespace (tolerate near-white)
+        $img->setOption('fuzz', '10%');
+        $img->trimImage(0);
+        $img->setImagePage(0, 0, 0, 0);
+
+        // ✅ Add padding so it isn't too tight
+        if ($pad > 0) {
+            $img->borderImage(new \ImagickPixel('white'), $pad, $pad);
+            $img->setImagePage(0, 0, 0, 0);
+        }
+
+        // ✅ Fit inside 4x6 canvas WITHOUT upscaling (prevents "zoomed in")
+        // bestfit=true, fill=false
+        $img->thumbnailImage($targetW, $targetH, true, false);
+        $img->setImagePage(0, 0, 0, 0);
+
+        // ✅ Center on 4x6 canvas
+        $imgW = $img->getImageWidth();
+        $imgH = $img->getImageHeight();
+
+        $x = (int)(($targetW - $imgW) / 2);
+        $y = (int)(($targetH - $imgH) / 2);
+
+        $canvas = new \Imagick();
+        $canvas->newImage($targetW, $targetH, new \ImagickPixel('white'));
+        $canvas->setImageFormat('png');
+        $canvas->compositeImage($img, \Imagick::COMPOSITE_DEFAULT, $x, $y);
+
+        $imagePath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$orderId}_page{$i}.png");
+        $canvas->writeImage($imagePath);
+
+        // ✅ rebuild preview PDF from the corrected PNG
+        $mpdf = new \Mpdf\Mpdf([
+            'margin_top' => 0,
+            'margin_bottom' => 0,
+            'margin_left' => 0,
+            'margin_right' => 0,
+        ]);
+        $mpdf->WriteHTML('<img src="' . $imagePath . '" style="width:100%; height:auto;">');
+        $mpdf->Output($pdfPath, 'F');
+
+        // ZPL
+        $zplCode .= $this->convertImageToZPL($testPrint, $imagePath) . "\n";
+
+        // cleanup
+        $canvas->clear();
+        $canvas->destroy();
+        $img->clear();
+        $img->destroy();
+    }
+
+    $imagick->clear();
+    $imagick->destroy();
+
+    return $zplCode;
+}
 
     protected function sendToPrinter($zplCode, $pdfFile = null, $savetoprintserver = false)
     {
