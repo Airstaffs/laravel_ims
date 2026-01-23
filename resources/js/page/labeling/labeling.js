@@ -83,8 +83,8 @@ export default {
                 from: 0,
                 to: 0,
             },
-             hasMoreFnskuPages: false,
-            currentFnskuPage: 1
+            hasMoreFnskuPages: false,
+            currentFnskuPage: 1,
         };
     },
     computed: {
@@ -904,10 +904,10 @@ export default {
                 const params = {
                     page: page,
                     limit: this.pageSize,
-                    exclude_assigned: false,
+                    exclude_assigned: false, // Set to true if you want to exclude assigned FNSKUs
                 };
 
-                // Add search parameters if they exist
+                // Add ALL active filter parameters - they will stack with AND logic
                 if (this.fnskuSearch && this.fnskuSearch.trim()) {
                     params.search = this.fnskuSearch.trim();
                 }
@@ -921,38 +921,57 @@ export default {
                     params.grading = this.selectedGrading;
                 }
 
-                console.log("Calling backend with params:", params);
+                console.log("📤 Calling backend with stacked filters:", params);
 
                 const response = await axios.get("/api/fnsku/fnsku-list", {
                     params,
                 });
 
-                console.log("Backend response:", response.data);
+                console.log("📥 Backend response:", response.data);
+                console.log(
+                    "📊 Filters applied:",
+                    response.data.filters_applied,
+                );
 
-                // Update data from simplePaginate response
+                // Update data from response
                 this.fnskuList = response.data.data || [];
-                this.filteredFnskuList = [...this.fnskuList];
-                this.currentFnskuPage = response.data.current_page;
+                this.currentFnskuPage = response.data.current_page || page;
                 this.totalRecords = response.data.total || 0;
-                this.hasMoreFnskuPages = response.data.has_more_pages;
+                this.hasMoreFnskuPages = response.data.has_more_pages || false;
                 this.paginationInfo = {
                     from: response.data.from || 0,
                     to: response.data.to || 0,
                 };
 
-                // Apply frontend sorting for ASIN priority
+                // Apply frontend sorting for ASIN priority (recommended ASIN appears first)
                 const asinPriority = this.currentItem?.ASINviewer;
-                if (asinPriority) {
-                    this.filteredFnskuList.sort((a, b) => {
-                        if (a.ASIN === asinPriority && b.ASIN !== asinPriority)
-                            return -1;
-                        if (a.ASIN !== asinPriority && b.ASIN === asinPriority)
-                            return 1;
-                        return 0;
-                    });
+                if (asinPriority && this.fnskuList.length > 0) {
+                    this.filteredFnskuList = [...this.fnskuList].sort(
+                        (a, b) => {
+                            const aMatches = a.ASIN === asinPriority;
+                            const bMatches = b.ASIN === asinPriority;
+
+                            if (aMatches && !bMatches) return -1;
+                            if (!aMatches && bMatches) return 1;
+                            return 0;
+                        },
+                    );
+                } else {
+                    this.filteredFnskuList = [...this.fnskuList];
                 }
+
+                console.log("✅ Filtered list updated:", {
+                    total: this.totalRecords,
+                    currentPage: this.currentFnskuPage,
+                    displayedItems: this.filteredFnskuList.length,
+                });
             } catch (error) {
-                console.error("Error filtering FNSKU list:", error);
+                console.error("❌ Error filtering FNSKU list:", error);
+                this.fnskuList = [];
+                this.filteredFnskuList = [];
+                this.totalRecords = 0;
+                this.hasMoreFnskuPages = false;
+                this.paginationInfo = { from: 0, to: 0 };
             } finally {
                 this.isSearching = false;
             }

@@ -1071,83 +1071,81 @@
             </template>
         </Dialog>
 
-       <Dialog
-        v-model:visible="isFnskuModalVisible"
-        header="Select FNSKU"
-        modal
-        :style="{ width: '95%' }"
-        :pt="{
-            root: { class: 'mobile-fullscreen-dialog' },
-        }"
-        @show="onDialogShow"
-    >
-        <!-- Mobile: Sticky title (only shows when scrolled past original) -->
-        <div 
-            v-if="showStickyTitle"
-            class="mobile-sticky-title"
+        <Dialog
+            v-model:visible="isFnskuModalVisible"
+            header="Select FNSKU"
+            modal
+            :style="{ width: '95%' }"
+            :pt="{
+                root: { class: 'mobile-fullscreen-dialog' },
+            }"
+            @show="onDialogShow"
         >
-            <h5>{{ getDisplayTitle(currentItem) }}</h5>
-        </div>
+            <!-- Mobile: Sticky title (only shows when scrolled past original) -->
+            <div v-if="showStickyTitle" class="mobile-sticky-title">
+                <h5>{{ getDisplayTitle(currentItem) }}</h5>
+            </div>
 
-        <div class="row">
-            <div class="col-md-3">
-                <div class="fnsku-image-column">
-                    <div
-                        v-if="allProductImages.length"
-                        class="image-display"
-                    >
-                        <div class="hover-image-container">
-                            <img
-                                :src="selectedImage || mainImage"
-                                alt="Main Image"
-                                class="preview-image"
-                            />
-                            <div class="hover-preview">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="fnsku-image-column">
+                        <div
+                            v-if="allProductImages.length"
+                            class="image-display"
+                        >
+                            <div class="hover-image-container">
                                 <img
                                     :src="selectedImage || mainImage"
-                                    alt="Zoomed Preview"
+                                    alt="Main Image"
+                                    class="preview-image"
+                                />
+                                <div class="hover-preview">
+                                    <img
+                                        :src="selectedImage || mainImage"
+                                        alt="Zoomed Preview"
+                                    />
+                                </div>
+                            </div>
+
+                            <div class="thumbnail-list overflow-auto">
+                                <img
+                                    v-for="(img, index) in allProductImages"
+                                    :key="index"
+                                    :src="img"
+                                    alt="Thumbnail"
+                                    class="thumbnail"
+                                    :class="{
+                                        active: selectedImage === img,
+                                    }"
+                                    @click="selectedImage = img"
                                 />
                             </div>
                         </div>
 
-                        <div class="thumbnail-list overflow-auto">
-                            <img
-                                v-for="(img, index) in allProductImages"
-                                :key="index"
-                                :src="img"
-                                alt="Thumbnail"
-                                class="thumbnail"
-                                :class="{
-                                    active: selectedImage === img,
-                                }"
-                                @click="selectedImage = img"
-                            />
+                        <div v-else class="no-image">
+                            <p>No image available</p>
                         </div>
                     </div>
 
-                    <div v-else class="no-image">
-                        <p>No image available</p>
+                    <div class="my-4">
+                        <!-- Original title (always visible in its position) -->
+                        <div ref="originalTitle" class="original-title">
+                            <h5>{{ getDisplayTitle(currentItem) }}</h5>
+                        </div>
+
+                        <div class="mt-4">
+                            <span class="fw-semibold">RT#: </span>
+                            <span>{{ currentItem?.rtcounter }}</span>
+                        </div>
+
+                        <div class="mt-2">
+                            <span class="fw-semibold">Current FNSKU: </span>
+                            <span>{{
+                                currentItem?.FNSKUviewer || "None"
+                            }}</span>
+                        </div>
                     </div>
                 </div>
-
-                <div class="my-4">
-                    <!-- Original title (always visible in its position) -->
-                    <div ref="originalTitle" class="original-title">
-                        <h5>{{ getDisplayTitle(currentItem) }}</h5>
-                    </div>
-
-                    <div class="mt-4">
-                        <span class="fw-semibold">RT#: </span>
-                        <span>{{ currentItem?.rtcounter }}</span>
-                    </div>
-
-                    <div class="mt-2">
-                        <span class="fw-semibold">Current FNSKU: </span>
-                        <span>{{ currentItem?.FNSKUviewer || "None" }}</span>
-                    </div>
-                </div>
-            </div>
-            
 
                 <div class="col-md-9">
                     <div
@@ -1459,13 +1457,16 @@
                                         <span class="mobile-detal-value">
                                             {{ item.storename }}</span
                                         >
-                                    </div>                                  
-                                    <div class="mt-4 d-flex gap-2 align-items-center">
+                                    </div>
+                                    <div
+                                        class="mt-4 d-flex gap-2 align-items-center"
+                                    >
                                         <Button
                                             size="small"
                                             severity="info"
                                             :label="
-                                                item.ASIN === currentItem?.ASINviewer
+                                                item.ASIN ===
+                                                currentItem?.ASINviewer
                                                     ? 'Recommended'
                                                     : 'Select'
                                             "
@@ -1519,7 +1520,9 @@
                                 <ul class="pagination pagination-sm mb-0">
                                     <li
                                         class="page-item"
-                                        :class="{ disabled: currentFnskuPage === 1 }"
+                                        :class="{
+                                            disabled: currentFnskuPage === 1,
+                                        }"
                                     >
                                         <Button
                                             @click="prevFnskuPage"
@@ -1537,7 +1540,9 @@
 
                                     <li
                                         class="page-item"
-                                        :class="{ disabled: !hasMoreFnskuPages }"
+                                        :class="{
+                                            disabled: !hasMoreFnskuPages,
+                                        }"
                                     >
                                         <Button
                                             @click="nextFnskuPage"
@@ -2091,53 +2096,55 @@ export default {
             }
             return count;
         },
-         updatePricingView() {
+        updatePricingView() {
             this.showPricingSection = showPricingForPH();
         },
-       checkMobile() {
+        checkMobile() {
             this.isMobile = window.innerWidth <= 768;
         },
-        
+
         onDialogShow() {
             if (!this.isMobile) return;
-            
+
             this.$nextTick(() => {
-                const dialog = document.querySelector('.p-dialog-content');
+                const dialog = document.querySelector(".p-dialog-content");
                 if (dialog) {
                     this.dialogContent = dialog;
-                    this.dialogContent.addEventListener('scroll', this.handleScroll);
+                    this.dialogContent.addEventListener(
+                        "scroll",
+                        this.handleScroll,
+                    );
                 }
             });
         },
-        
+
         handleScroll(event) {
-    if (!this.isMobile || !this.$refs.originalTitle) return;
-    
-    const scrollTop = event.target.scrollTop;
-    const titleElement = this.$refs.originalTitle;
-    const rect = titleElement.getBoundingClientRect();
-    const dialogRect = event.target.getBoundingClientRect();
-    
-    // Calculate position relative to dialog content
-    const titleTopRelativeToDialog = rect.top - dialogRect.top;
-    
-    // Show sticky when original title has scrolled past the top of the dialog (with some threshold)
-    this.showStickyTitle = titleTopRelativeToDialog < -50; // -50px threshold
-},
-        
+            if (!this.isMobile || !this.$refs.originalTitle) return;
+
+            const scrollTop = event.target.scrollTop;
+            const titleElement = this.$refs.originalTitle;
+            const rect = titleElement.getBoundingClientRect();
+            const dialogRect = event.target.getBoundingClientRect();
+
+            // Calculate position relative to dialog content
+            const titleTopRelativeToDialog = rect.top - dialogRect.top;
+
+            // Show sticky when original title has scrolled past the top of the dialog (with some threshold)
+            this.showStickyTitle = titleTopRelativeToDialog < -50; // -50px threshold
+        },
     },
-     mounted() {
-        window.addEventListener('resize', this.updatePricingView);
+    mounted() {
+        window.addEventListener("resize", this.updatePricingView);
 
-         this.checkMobile();
-        window.addEventListener('resize', this.checkMobile)
-     },
+        this.checkMobile();
+        window.addEventListener("resize", this.checkMobile);
+    },
     beforeUnmount() {
-        window.removeEventListener('resize', this.updatePricingView);
+        window.removeEventListener("resize", this.updatePricingView);
 
-         window.removeEventListener('resize', this.checkMobile);
+        window.removeEventListener("resize", this.checkMobile);
         if (this.dialogContent) {
-            this.dialogContent.removeEventListener('scroll', this.handleScroll);
+            this.dialogContent.removeEventListener("scroll", this.handleScroll);
         }
     },
     computed: {
@@ -2394,8 +2401,8 @@ button:disabled {
         font-size: 0.9em;
         margin-top: 10px;
     }
-   /* Show mobile sticky title */
-   .mobile-sticky-title {
+    /* Show mobile sticky title */
+    .mobile-sticky-title {
         position: fixed;
         top: 60px; /* Adjust based on dialog header height */
         left: 0;
@@ -2407,7 +2414,7 @@ button:disabled {
         border-bottom: 1px solid #e5e7eb;
         animation: slideDown 0.3s ease;
     }
-    
+
     @keyframes slideDown {
         from {
             transform: translateY(-100%);
@@ -2418,7 +2425,7 @@ button:disabled {
             opacity: 1;
         }
     }
-    
+
     .mobile-sticky-title h5 {
         margin: 0;
         font-size: 1rem;
