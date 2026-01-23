@@ -12,6 +12,7 @@ import Swal from "sweetalert2";
 import PrintDocumentsModal from "./modals/PrintCenterModal.vue";
 import ShipmentLabelHistory from "./modals/shipmentlabelhistory.vue";
 
+
 export default {
     name: "FbmOrderModule",
     components: {
