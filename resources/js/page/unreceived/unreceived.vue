@@ -1,11 +1,5 @@
 <template>
     <div class="vue-container unreceived-module">
-        <!-- <div class="top-header">
-            <div class="header-buttons">
-
-            </div>
-        </div> -->
-
         <div
             class="d-flex align-items-center justify-content-between flex-wrap mb-4"
         >
@@ -113,6 +107,10 @@
                             </p>
                         </div>
                     </div>
+                </template>
+
+                <template #datedelivered="{ data }">
+                    {{ convertToLocalDate(data.datedelivered) }}
                 </template>
 
                 <template #actions="{ data }">
@@ -426,7 +424,10 @@
                             </div>
 
                             <div class="col-lg-6">
-                                <section class="pricing-section" v-show="showPricingSection">
+                                <section
+                                    class="pricing-section"
+                                    v-show="showPricingSection"
+                                >
                                     <h3 class="text-primary fw-bolder">
                                         Pricing
                                     </h3>
@@ -575,19 +576,17 @@ export default {
         return {
             columns: TABLE_COLUMNS,
             rowsPerPage: ROWS_PER_PAGE,
-            showPricingSection: showPricingForPH()
+            currentTimezone: "UTC",
+            timezoneLabel: "Loading...",
+            showPricingSection: showPricingForPH(),
         };
     },
-    methods: {
-        updatePricingView() {
-            this.showPricingSection = showPricingForPH();
-        }
-    },
-    mounted() {
-        window.addEventListener('resize', this.updatePricingView);
-    },
     beforeUnmount() {
-        window.removeEventListener('resize', this.updatePricingView);
+        window.removeEventListener("resize", this.updatePricingView);
+    },
+    async mounted() {
+        await this.loadUserTimezone();
+        window.addEventListener("resize", this.updatePricingView);
     },
     computed: {
         visibleColumns() {
@@ -609,6 +608,121 @@ export default {
                 }
                 return true;
             });
+        },
+
+        localDeliveredDate: {
+            get() {
+                return this.convertToLocalDate(this.item.datedelivered);
+            },
+            set(value) {
+                this.item.datedelivered = this.convertFromLocalDate(value);
+            },
+        },
+    },
+    methods: {
+        convertToLocalDate(dateString) {
+            if (!dateString) return "";
+
+            try {
+                // Parse the date from database (assumed to be in UTC or server timezone)
+                const date = new Date(dateString);
+
+                // Format to YYYY-MM-DD for date input in user's timezone
+                const options = {
+                    timeZone: this.currentTimezone,
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                };
+
+                const formatter = new Intl.DateTimeFormat("en-CA", options); // en-CA gives YYYY-MM-DD format
+                return formatter.format(date);
+            } catch (error) {
+                console.error("Error converting to local date:", error);
+                return dateString;
+            }
+        },
+
+        convertFromLocalDate(localDateString) {
+            if (!localDateString) return null;
+
+            try {
+                // The input gives us YYYY-MM-DD in user's timezone
+                // We need to convert it to a proper datetime for storage
+
+                // Create a date object at noon in the user's timezone to avoid day boundary issues
+                const [year, month, day] = localDateString.split("-");
+                const dateInUserTz = new Date(
+                    `${year}-${month}-${day}T12:00:00`,
+                );
+
+                // Format for database storage (ISO format)
+                return dateInUserTz.toISOString().split("T")[0]; // Returns YYYY-MM-DD
+            } catch (error) {
+                console.error("Error converting from local date:", error);
+                return localDateString;
+            }
+        },
+
+        async loadUserTimezone() {
+            try {
+                const response = await axios.get("/api/timezone/current");
+
+                if (response.data.success && response.data.usertimezone) {
+                    this.currentTimezone = response.data.usertimezone;
+
+                    // Format timezone for display
+                    const timezoneParts = this.currentTimezone.split("/");
+                    const location = timezoneParts[
+                        timezoneParts.length - 1
+                    ].replace("_", " ");
+
+                    // ✅ FIXED: Calculate GMT offset for the SELECTED timezone, not browser's
+                    const date = new Date();
+
+                    // Get the date in UTC
+                    const utcDate = new Date(
+                        date.toLocaleString("en-US", { timeZone: "UTC" }),
+                    );
+
+                    // Get the date in user's selected timezone
+                    const userTzDate = new Date(
+                        date.toLocaleString("en-US", {
+                            timeZone: this.currentTimezone,
+                        }),
+                    );
+
+                    // Calculate offset in hours
+                    const offsetMs = userTzDate - utcDate;
+                    const offsetHours = Math.round(offsetMs / (1000 * 60 * 60));
+                    const offsetSign = offsetHours >= 0 ? "+" : "-";
+                    const gmtOffset = `GMT${offsetSign}${Math.abs(
+                        offsetHours,
+                    )}`;
+
+                    this.timezoneLabel = `(${gmtOffset})`;
+                } else {
+                    // Fallback to browser timezone
+                    const browserTz =
+                        Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    this.currentTimezone = browserTz;
+                    const location = browserTz
+                        .split("/")
+                        .pop()
+                        .replace("_", " ");
+                    this.timezoneLabel = location;
+                }
+
+                console.log("📍 Timezone loaded:", this.timezoneLabel);
+            } catch (error) {
+                console.error("Error loading timezone:", error);
+                this.currentTimezone = "UTC";
+                this.timezoneLabel = "UTC";
+            }
+        },
+
+        updatePricingView() {
+            this.showPricingSection = showPricingForPH();
         },
     },
 };
