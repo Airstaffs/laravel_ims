@@ -45,5 +45,8 @@ return [
         'url' => env('TRAINING_SERVER_URL'),
     ],
 
+    'backend_ai' => [
+        'url' => env('BACKEND_AI_URL'),
+    ],
 
 ];

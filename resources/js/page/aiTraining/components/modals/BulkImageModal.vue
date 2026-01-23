@@ -78,15 +78,18 @@ import axios from 'axios'
 import UploadDataset from '../UploadDataset.vue'
 
 const props = defineProps({ dataset: Object })
-const emit = defineEmits(['close']) // ✅ added
+const emit = defineEmits(['close'])
 
 const files = ref([])
 const split = ref(80)
 const progress = ref(0)
 
+// ✅ Laravel proxy
+const API_BASE = '/api/training'
+
 function handleFiles(selected) {
   files.value = Array.from(selected).map(file => {
-    if (file.type.startsWith("image/")) {
+    if (file.type.startsWith('image/')) {
       file.preview = URL.createObjectURL(file)
     }
     return file
@@ -94,26 +97,32 @@ function handleFiles(selected) {
 }
 
 async function uploadBulk() {
-  if (!files.value.length) return alert("Please select images or a zip file.")
+  if (!files.value.length) return alert('Please select images or a zip file.')
 
   const formData = new FormData()
-  for (const file of files.value) formData.append("files", file)
-  formData.append("dataset_name", props.dataset.name)
-  formData.append("split", split.value)
+  files.value.forEach(f => formData.append('dataset', f))
+  formData.append('dataset_name', props.dataset.name)
+  formData.append('split', split.value)
 
   try {
-    const res = await axios.post("http://localhost:8001/api/upload-bulk-dataset", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-      onUploadProgress: e => progress.value = Math.round((e.loaded * 100) / e.total),
-    })
-    alert(res.data.message)
-    emit("close") // ✅ works now
+    const res = await axios.post(
+      `${API_BASE}/upload-dataset`,
+      formData,
+      {
+        onUploadProgress: e =>
+          progress.value = Math.round((e.loaded * 100) / e.total),
+      }
+    )
+
+    alert(res.data.message || 'Upload completed')
+    emit('close')
   } catch (err) {
-    console.error("❌ Upload failed:", err)
-    alert("Upload failed. See console for details.")
+    console.error('❌ Upload failed:', err)
+    alert('Upload failed.')
   } finally {
     progress.value = 0
   }
 }
 </script>
+
 

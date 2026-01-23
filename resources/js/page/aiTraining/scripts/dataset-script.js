@@ -1,30 +1,21 @@
 import axios from "axios";
 
-const SITE_URL = window.location.origin.includes("localhost")
-  ? "http://localhost:8001"
-  : "https://test.techniquyality.com";
+// ✅ Vue should ONLY talk to Laravel
+const API_BASE = "/api";
 
 /**
  * 🔹 Fetch datasets for Dataset Manager
- * Backend returns:
- * {
- *   "datasets": [
- *     { "className": "BOSE_161_BLACK", "valCount": 48, "trainCount": 192 },
- *     ...
- *   ]
- * }
  */
 export async function fetchDatasetFolders() {
   try {
-    const res = await axios.get(`${SITE_URL}/api/datasets`);
+    const res = await axios.get(`${API_BASE}/datasets`);
 
-    // Normalize response
-    const data = res.data.datasets || res.data.classes || [];
+    const data = res.data.datasets || [];
 
     return data.map(item => ({
-      name: item.className || item.name,
-      val: item.valCount || item.val || 0,
-      train: item.trainCount || item.train || 0,
+      name: item.className,
+      val: item.valCount || 0,
+      train: item.trainCount || 0,
     }));
   } catch (err) {
     console.error("[❌ ERROR] Failed to fetch dataset folders:", err);
@@ -37,8 +28,9 @@ export async function fetchDatasetFolders() {
  */
 export async function deleteDatasetFolder(name) {
   try {
-    const res = await axios.delete(`${SITE_URL}/api/delete-dataset/${name}`);
-    console.log("✅ Deleted dataset:", name);
+    const res = await axios.delete(
+      `${API_BASE}/datasets/${encodeURIComponent(name)}`
+    );
     return res.data;
   } catch (err) {
     console.error(`[❌ ERROR] Failed to delete dataset "${name}":`, err);
