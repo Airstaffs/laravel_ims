@@ -202,12 +202,23 @@ class PrintShippingLabelController extends Controller
             $img = $img->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
             $img->setImageFormat('png');
 
-            // ✅ rotation fix
-            if (method_exists($img, 'autoOrientImage')) {
-                $img->autoOrientImage();
-            }
-            if ($img->getImageWidth() < $img->getImageHeight()) {
-                $img->rotateImage(new \ImagickPixel('white'), 0); // clockwise
+            // ✅ rotation fix (detect by trimmed content, not page size)
+            $probe = clone $img;
+            $probe->setImageBackgroundColor(new \ImagickPixel('white'));
+            $probe->trimImage(0);
+            $probe->setImagePage(0, 0, 0, 0);
+
+            $contentW = $probe->getImageWidth();
+            $contentH = $probe->getImageHeight();
+
+            $probe->clear();
+            $probe->destroy();
+
+            // If the real label content is tall/narrow, it's sideways → rotate 90°
+            if ($contentH > $contentW) {
+                // clockwise 90 = -90 (Imagick uses CCW positive)
+                $img->rotateImage(new \ImagickPixel('white'), -90);
+                $img->setImagePage(0, 0, 0, 0);
             }
 
             $imagePath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$orderId}_page{$i}.png");
