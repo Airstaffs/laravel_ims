@@ -29,6 +29,7 @@
                         />
                     </div>
                 </template>
+
                 <template #ProductTitle="{ data }">
                     <div class="d-flex align-items-start gap-4">
                         <div
@@ -47,6 +48,10 @@
                             </p>
                         </div>
                     </div>
+                </template>
+
+                <template #orderdate="{ data }">
+                    {{ convertToLocalDate(data.orderdate) }}
                 </template>
 
                 <template #status="{ data }">
@@ -161,7 +166,7 @@
                                 >Ordered Date:</span
                             >
                             <span class="mobile-detal-value">
-                                {{ item.orderdate }}</span
+                                {{ item.localOrderDate }}</span
                             >
                         </div>
                         <div class="mobile-detail-row">
@@ -169,7 +174,7 @@
                                 >Delivered Date:</span
                             >
                             <span class="mobile-detal-value">
-                                {{ item.datedelivered }}</span
+                                {{ item.localDeliveredDate }}</span
                             >
                         </div>
                     </div>
@@ -365,12 +370,22 @@
                                 <div class="dates-section">
                                     <Card>
                                         <template #title>
-                                            <div>
-                                                <h6 class="text-primary">
+                                            <div
+                                                class="d-flex justify-content-between align-items-center"
+                                            >
+                                                <h6 class="text-primary mb-0">
                                                     Dates
                                                 </h6>
-                                                <Divider />
+                                                <div>
+                                                    <Tag
+                                                        :value="timezoneLabel"
+                                                        severity="info"
+                                                        icon="pi pi-clock"
+                                                        class="timezone-badge"
+                                                    />
+                                                </div>
                                             </div>
+                                            <Divider />
                                         </template>
 
                                         <template #content>
@@ -380,7 +395,7 @@
                                                     <input
                                                         type="date"
                                                         class="form-control"
-                                                        v-model="item.orderdate"
+                                                        v-model="localOrderDate"
                                                     />
                                                 </fieldset>
                                                 <fieldset>
@@ -389,7 +404,7 @@
                                                         type="date"
                                                         class="form-control"
                                                         v-model="
-                                                            item.paymentdate
+                                                            localPaymentDate
                                                         "
                                                     />
                                                 </fieldset>
@@ -398,7 +413,7 @@
                                                     <input
                                                         type="date"
                                                         class="form-control"
-                                                        v-model="item.shipdate"
+                                                        v-model="localShipDate"
                                                     />
                                                 </fieldset>
                                                 <fieldset>
@@ -409,7 +424,7 @@
                                                         type="date"
                                                         class="form-control"
                                                         v-model="
-                                                            item.datedelivered
+                                                            localDeliveredDate
                                                         "
                                                     />
                                                 </fieldset>
@@ -784,6 +799,7 @@ import {
     DatePicker,
     Select,
     ScrollTop,
+    Tag,
 } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
@@ -867,6 +883,7 @@ export default {
         TitlePage,
         ViewImageModal,
         AnimateDiv,
+        Tag,
     },
     data() {
         return {
@@ -897,7 +914,13 @@ export default {
                 { label: "Check", value: "Check" },
             ],
             rowsPerPageOptions: ROWS_PER_PAGE,
+
+            currentTimezone: "UTC",
+            timezoneLabel: "Loading...",
         };
+    },
+    async mounted() {
+        await this.loadUserTimezone();
     },
     computed: {
         materialTypesOptions() {
@@ -911,6 +934,142 @@ export default {
                 value: carrier,
                 label: carrier,
             }));
+        },
+
+        // ✅ ADD THESE COMPUTED PROPERTIES FOR DATE CONVERSION
+        localOrderDate: {
+            get() {
+                return this.convertToLocalDate(this.item.orderdate);
+            },
+            set(value) {
+                this.item.orderdate = this.convertFromLocalDate(value);
+            },
+        },
+        localPaymentDate: {
+            get() {
+                return this.convertToLocalDate(this.item.paymentdate);
+            },
+            set(value) {
+                this.item.paymentdate = this.convertFromLocalDate(value);
+            },
+        },
+        localShipDate: {
+            get() {
+                return this.convertToLocalDate(this.item.shipdate);
+            },
+            set(value) {
+                this.item.shipdate = this.convertFromLocalDate(value);
+            },
+        },
+        localDeliveredDate: {
+            get() {
+                return this.convertToLocalDate(this.item.datedelivered);
+            },
+            set(value) {
+                this.item.datedelivered = this.convertFromLocalDate(value);
+            },
+        },
+    },
+    methods: {
+        convertToLocalDate(dateString) {
+            if (!dateString) return "";
+
+            try {
+                // Parse the date from database (assumed to be in UTC or server timezone)
+                const date = new Date(dateString);
+
+                // Format to YYYY-MM-DD for date input in user's timezone
+                const options = {
+                    timeZone: this.currentTimezone,
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                };
+
+                const formatter = new Intl.DateTimeFormat("en-CA", options); // en-CA gives YYYY-MM-DD format
+                return formatter.format(date);
+            } catch (error) {
+                console.error("Error converting to local date:", error);
+                return dateString;
+            }
+        },
+
+        convertFromLocalDate(localDateString) {
+            if (!localDateString) return null;
+
+            try {
+                // The input gives us YYYY-MM-DD in user's timezone
+                // We need to convert it to a proper datetime for storage
+
+                // Create a date object at noon in the user's timezone to avoid day boundary issues
+                const [year, month, day] = localDateString.split("-");
+                const dateInUserTz = new Date(
+                    `${year}-${month}-${day}T12:00:00`,
+                );
+
+                // Format for database storage (ISO format)
+                return dateInUserTz.toISOString().split("T")[0]; // Returns YYYY-MM-DD
+            } catch (error) {
+                console.error("Error converting from local date:", error);
+                return localDateString;
+            }
+        },
+
+        async loadUserTimezone() {
+            try {
+                const response = await axios.get("/api/timezone/current");
+
+                if (response.data.success && response.data.usertimezone) {
+                    this.currentTimezone = response.data.usertimezone;
+
+                    // Format timezone for display
+                    const timezoneParts = this.currentTimezone.split("/");
+                    const location = timezoneParts[
+                        timezoneParts.length - 1
+                    ].replace("_", " ");
+
+                    // ✅ FIXED: Calculate GMT offset for the SELECTED timezone, not browser's
+                    const date = new Date();
+
+                    // Get the date in UTC
+                    const utcDate = new Date(
+                        date.toLocaleString("en-US", { timeZone: "UTC" }),
+                    );
+
+                    // Get the date in user's selected timezone
+                    const userTzDate = new Date(
+                        date.toLocaleString("en-US", {
+                            timeZone: this.currentTimezone,
+                        }),
+                    );
+
+                    // Calculate offset in hours
+                    const offsetMs = userTzDate - utcDate;
+                    const offsetHours = Math.round(offsetMs / (1000 * 60 * 60));
+                    const offsetSign = offsetHours >= 0 ? "+" : "-";
+                    const gmtOffset = `GMT${offsetSign}${Math.abs(
+                        offsetHours,
+                    )}`;
+
+                    this.timezoneLabel = `(${gmtOffset})`;
+                } else {
+                    // Fallback to browser timezone
+                    const browserTz =
+                        Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    this.currentTimezone = browserTz;
+                    const location = browserTz
+                        .split("/")
+                        .pop()
+                        .replace("_", " ");
+                    this.timezoneLabel = location;
+                }
+
+                console.log("📍 Timezone loaded:", this.timezoneLabel);
+            } catch (error) {
+                console.error("Error loading timezone:", error);
+                this.currentTimezone = "UTC";
+                this.timezoneLabel = "UTC";
+            }
         },
     },
 };
