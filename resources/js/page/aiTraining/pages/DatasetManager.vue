@@ -90,6 +90,7 @@
 </template>
 
 <script setup>
+import axios from 'axios'
 import { ref, onMounted } from "vue";
 import ImageModal from "../components/modals/ImageModal.vue";
 import AsinAssignModal from "../components/modals/AsinAssignModal.vue";
@@ -105,61 +106,61 @@ const showImageModal = ref(false);
 const showAsinModal = ref(false);
 const selectedDataset = ref(null);
 const selectedFolder = ref("");
-
 const showBulkModal = ref(false);
 
-// 🔄 Load datasets on mount
+// 🔄 Load datasets
 async function loadDatasets() {
   datasets.value = await fetchDatasetFolders();
-  console.log("📦 Loaded datasets:", datasets.value);
 }
 
 onMounted(loadDatasets);
 
-// 🖼 Open image modal
+// 🖼 Image modal
 function openImageModal(dataset, folderType) {
   selectedDataset.value = dataset;
   selectedFolder.value = folderType;
   showImageModal.value = true;
 }
 
-// 🔖 Open ASIN modal
+// 🔖 ASIN modal
 function assignAsin(dataset) {
   selectedDataset.value = dataset;
   showAsinModal.value = true;
 }
 
+// 📦 Bulk upload modal
 function openBulkModal(dataset) {
-  selectedDataset.value = dataset
-  showBulkModal.value = true
+  selectedDataset.value = dataset;
+  showBulkModal.value = true;
 }
 
-// 🗑 Delete dataset
+// 🗑 Delete dataset (FINAL & SAFE)
 async function deleteDataset(dataset) {
-  if (confirm(`Are you sure you want to delete "${dataset.name}" and all related ASIN mappings?`)) {
-    try {
-      // 1️⃣ Delete dataset folders via Python backend
-      await fetch(`http://localhost:8001/api/delete-dataset/${dataset.name}`, {
-        method: "DELETE",
-      });
+  if (!confirm(`Are you sure you want to delete "${dataset.name}" and all related ASIN mappings?`)) {
+    return
+  }
 
-      // 2️⃣ Delete ASIN mappings for this class via Laravel backend
-      await fetch(`http://localhost:8000/api/asin-mappings/class/${encodeURIComponent(dataset.name)}`, {
-        method: "DELETE",
-      });
+  try {
+    // ✅ 1. Delete dataset folder via Laravel → Training Server
+    await axios.delete(`/api/datasets/${encodeURIComponent(dataset.name)}`)
 
-      alert(`✅ Deleted dataset "${dataset.name}" and all related ASIN mappings.`);
-      await loadDatasets();
-    } catch (err) {
-      console.error("❌ Failed to delete dataset:", err);
-      alert("Failed to delete dataset. Check console for details.");
-    }
+    // ✅ 2. Delete ASIN mappings for that class
+    await axios.delete(
+      `/api/asin-mappings/class/${encodeURIComponent(dataset.name)}`
+    )
+
+    alert(`✅ Deleted dataset "${dataset.name}"`)
+    await loadDatasets()
+  } catch (err) {
+    console.error('❌ Failed to delete dataset:', err)
+    alert('Failed to delete dataset. Check console for details.')
   }
 }
 
+// 🔄 Refresh after bulk upload
 async function handleBulkClose() {
-  showBulkModal.value = false
-  await loadDatasets() // 👈 re-fetch datasets to update counts
+  showBulkModal.value = false;
+  await loadDatasets();
 }
-
 </script>
+

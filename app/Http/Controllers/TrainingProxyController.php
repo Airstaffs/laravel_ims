@@ -16,6 +16,12 @@ class TrainingProxyController extends Controller
         return rtrim(config('services.training.url'), '/') . $path;
     }
 
+    private function executionUrl(string $path): string
+    {
+        // backend_ai FastAPI
+        return rtrim(config('services.backend_ai.url'), '/') . $path;
+    }
+
     /* ===============================
      | ❤️ Health check
      =============================== */
@@ -198,11 +204,26 @@ class TrainingProxyController extends Controller
     /* ===============================
      | 🧠 Update / reload model
      =============================== */
-    public function updateModel()
+    public function updateModel(Request $request)
     {
-        $res = Http::timeout(60)->post(
-            $this->trainingUrl('/api/update-model')
-        );
+        if (!$request->hasFile('file')) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No model file uploaded'
+            ], 400);
+        }
+
+        $file = $request->file('file');
+
+        $res = Http::timeout(120)
+            ->attach(
+                'file',
+                fopen($file->getRealPath(), 'r'),
+                $file->getClientOriginalName()
+            )
+            ->post(
+                $this->executionUrl('/api/update-model')
+            );
 
         return response()->json($res->json(), $res->status());
     }
@@ -237,6 +258,55 @@ class TrainingProxyController extends Controller
                 ]
             )
             ->json();
+    }
+
+    /* ===============================
+    | 🖼 Dataset images (list)
+    =============================== */
+    public function listImages(string $folder, string $class)
+    {
+        $res = Http::timeout(30)->get(
+            $this->trainingUrl("/api/images/{$folder}/{$class}")
+        );
+
+        return response()->json($res->json(), $res->status());
+    }
+
+    /* ===============================
+    | ➕ Upload image
+    =============================== */
+    public function uploadImage(Request $request, string $folder, string $class)
+    {
+        $file = $request->file('file');
+
+        $res = Http::attach(
+            'file',
+            fopen($file->getRealPath(), 'r'),
+            $file->getClientOriginalName()
+        )->post(
+            $this->trainingUrl("/api/upload-image/{$folder}/{$class}")
+        );
+
+        return response()->json($res->json(), $res->status());
+    }
+
+    /* ===============================
+    | 🗑 Delete image
+    =============================== */
+    public function deleteImage(string $folder, string $class, string $file)
+    {
+        $res = Http::delete(
+            $this->trainingUrl("/api/image/{$folder}/{$class}/{$file}")
+        );
+
+        return response()->json($res->json(), $res->status());
+    }
+
+    public function datasetImage(string $folder, string $class, string $file)
+    {
+        return Http::get(
+            $this->trainingUrl("/api/image/{$folder}/{$class}/{$file}")
+        )->throw()->body();
     }
 
 }

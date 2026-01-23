@@ -939,7 +939,7 @@ Route::middleware(['auth'])->get('/account/complete', function () {
 
 // Add this BEFORE the fallback route
 Route::get('/aitraining', function () {
-    return view('aiTraining'); // Blade file wrapper for Vue
+    return view('aitraining'); // Blade file wrapper for Vue
 })->middleware(['auth']); // if you want it only for logged users
 
 Route::prefix('api/history')->middleware(['auth'])->group(function () {

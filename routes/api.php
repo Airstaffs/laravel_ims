@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AsinMappingController;
 use App\Http\Controllers\TrainingProxyController;
-use App\Http\Controllers\Fbmorders\PrintInvoiceController;
+
 /*
 |--------------------------------------------------------------------------
 | Stateless API Routes
@@ -38,6 +38,28 @@ Route::get('/asin-details/{className}', function ($className) {
         'brand' => '',
     ]);
 });
+
+/* =========================================================
+ | 🧩 ASIN CRUD (used by AsinAssignModal)
+ ========================================================= */
+
+Route::post(
+    '/asin-mappings',
+    [AsinMappingController::class, 'store']
+);
+
+Route::delete(
+    '/asin-mappings/{asin}',
+    [AsinMappingController::class, 'destroy']
+);
+
+/* =========================================================
+ | 📂 Dataset Manager (Vue → Laravel → Training Server)
+ ========================================================= */
+
+Route::get('/datasets', [DatasetProxyController::class, 'index']);
+Route::delete('/datasets/{name}', [DatasetProxyController::class, 'destroy']);
+
 
 /* =========================================================
  | 🤖 TRAINING SERVER (Laravel → Proxy → FastAPI)
@@ -81,6 +103,29 @@ Route::prefix('training')->group(function () {
     Route::post('/cancel-training', [TrainingProxyController::class, 'cancelTraining']);
 
     Route::post('/test-model', [TrainingProxyController::class, 'testModel']);
+
+    /* 🖼 Dataset images (list) */
+    Route::get(
+        '/images/{folder}/{class}',
+        [TrainingProxyController::class, 'listImages']
+    );
+
+    Route::get(
+    '/image/{folder}/{class}/{file}',
+        [TrainingProxyController::class, 'datasetImage']
+    )->where('file', '.*');
+
+    /* ➕ Upload image */
+    Route::post(
+        '/upload-image/{folder}/{class}',
+        [TrainingProxyController::class, 'uploadImage']
+    );
+
+    /* 🗑 Delete image */
+    Route::delete(
+        '/delete-image/{folder}/{class}/{file}',
+        [TrainingProxyController::class, 'deleteImage']
+    )->where('file', '.*');
 
 });
 
