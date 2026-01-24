@@ -1094,11 +1094,12 @@ private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
 
         $currentUnits = $fnskuRecord->Units;
 
+        // ✅ Check if units are available
         if ($currentUnits <= 0) {
-            throw new \Exception("No remaining units for FNSKU: {$baseFnsku}");
+            throw new \Exception("No remaining units for FNSKU: {$baseFnsku} (Units: {$currentUnits})");
         }
 
-        // ✅ Get ALL active FNSKUs (with and without prefix)
+        // ✅ Get ALL active FNSKUs (with and without prefix) currently in use
         $activeFnskus = DB::table($this->productTable)
             ->select('FNSKUviewer')
             ->where(function($query) use ($baseFnsku) {
@@ -1113,10 +1114,11 @@ private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
         Log::info("Active FNSKUs found", [
             'base_fnsku' => $baseFnsku,
             'active_fnskus' => $activeFnskus,
-            'total_units' => $currentUnits
+            'active_count' => count($activeFnskus),
+            'remaining_units' => $currentUnits
         ]);
 
-        // ✅ Extract used prefixes
+        // ✅ Extract used prefixes from active products
         $usedPrefixes = [];
         
         foreach ($activeFnskus as $fnsku) {
@@ -1131,26 +1133,34 @@ private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
 
         sort($usedPrefixes);
 
-        Log::info("Used prefixes", [
+        // ✅ Maximum prefix is 9 (C0 through C9 = 10 total slots)
+        $maxAllowedPrefix = 9;
+
+        Log::info("Prefix analysis", [
             'base_fnsku' => $baseFnsku,
             'used_prefixes' => $usedPrefixes,
-            'max_allowed' => $currentUnits - 1
+            'used_count' => count($usedPrefixes),
+            'max_allowed_prefix' => $maxAllowedPrefix,
+            'remaining_units_in_db' => $currentUnits
         ]);
 
-        // ✅ Find first UNUSED prefix
+        // ✅ Find first UNUSED prefix within the allowed range
         $nextPrefix = null;
-        $maxPrefix = $currentUnits - 1; // If Units = 7, max prefix is C6 (0-6 = 7 total)
 
-        for ($i = 0; $i <= $maxPrefix; $i++) {
+        for ($i = 0; $i <= $maxAllowedPrefix; $i++) {
             if (!in_array($i, $usedPrefixes)) {
                 $nextPrefix = $i;
                 break;
             }
         }
 
+        // ✅ Check if we found an available prefix slot
         if ($nextPrefix === null) {
-            // All prefixes are used
-            throw new \Exception("All available prefixes exhausted for FNSKU: {$baseFnsku} (Units: {$currentUnits})");
+            throw new \Exception(
+                "All prefix slots exhausted for FNSKU: {$baseFnsku}. " .
+                "All " . ($maxAllowedPrefix + 1) . " prefixes (C0-C9) are in use. " .
+                "Used prefixes: " . implode(', ', $usedPrefixes)
+            );
         }
 
         // ✅ Generate FNSKU with correct prefix
@@ -1160,7 +1170,7 @@ private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
             $actualFnsku = "C{$nextPrefix}{$baseFnsku}";
         }
 
-        Log::info("Generated FNSKU with first available prefix", [
+        Log::info("✅ Generated FNSKU with available prefix", [
             'base_fnsku' => $baseFnsku,
             'used_prefixes' => $usedPrefixes,
             'next_prefix' => $nextPrefix,

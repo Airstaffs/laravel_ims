@@ -136,20 +136,15 @@ function openBulkModal(dataset) {
 
 // 🗑 Delete dataset (FINAL & SAFE)
 async function deleteDataset(dataset) {
-  if (!confirm(`Are you sure you want to delete "${dataset.name}" and all related ASIN mappings?`)) {
-    return
-  }
+  if (!confirm(`Are you sure you want to delete "${dataset.name}"?`)) return
 
   try {
-    // ✅ 1. Delete dataset folder via Laravel → Training Server
-    await axios.delete(`/api/datasets/${encodeURIComponent(dataset.name)}`)
-
-    // ✅ 2. Delete ASIN mappings for that class
+    // ✅ FIX: pass dataset.name, NOT the whole object
     await axios.delete(
-      `/api/asin-mappings/class/${encodeURIComponent(dataset.name)}`
+      `/api/datasets/${encodeURIComponent(dataset.name)}`
     )
 
-    alert(`✅ Deleted dataset "${dataset.name}"`)
+    // 🔁 Refresh list
     await loadDatasets()
   } catch (err) {
     console.error('❌ Failed to delete dataset:', err)
