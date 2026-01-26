@@ -27,13 +27,9 @@ export async function fetchDatasetFolders() {
  * 🗑️ Delete a dataset folder by name
  */
 export async function deleteDatasetFolder(name) {
-  try {
-    const res = await axios.delete(
-      `${API_BASE}/datasets/${encodeURIComponent(name)}`
-    );
-    return res.data;
-  } catch (err) {
-    console.error(`[❌ ERROR] Failed to delete dataset "${name}":`, err);
-    throw err;
-  }
+  if (!name) throw new Error('Dataset name is required')
+
+  return axios.delete(
+    `/api/datasets/${encodeURIComponent(name)}`
+  )
 }
