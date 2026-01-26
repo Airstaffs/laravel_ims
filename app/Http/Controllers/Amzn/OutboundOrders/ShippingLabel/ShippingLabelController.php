@@ -766,7 +766,8 @@ class ShippingLabelController extends Controller
                     ],
                     "LabelCustomization" => [
                         "AmazonOrderId" => $data_additionale['AmazonOrderId']
-                    ]
+                    ],
+                    "ShipDate" => $data_additionale['Shipby_Datetime'],
                 ],
                 "ShippingOfferingFilter" => [
                     "IncludeComplexShippingOptions" => 'true'

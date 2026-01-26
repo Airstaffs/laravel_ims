@@ -6,12 +6,17 @@ use Illuminate\Support\Facades\Http;
 
 class DatasetProxyController extends Controller
 {
+    /* ===============================
+     | 🔗 Training server URL
+     =============================== */
     private function trainingUrl(string $path = ''): string
     {
         return rtrim(config('services.training.url'), '/') . $path;
     }
 
-    /* 📂 List datasets */
+    /* ===============================
+     | 📂 List datasets
+     =============================== */
     public function index()
     {
         $res = Http::timeout(30)->get(
@@ -21,23 +26,26 @@ class DatasetProxyController extends Controller
         return response()->json($res->json(), $res->status());
     }
 
-    /* 🗑 Delete dataset */
-    public function destroy($name)
+    /* ===============================
+     | 🗑 Delete dataset (FIXED)
+     =============================== */
+    public function destroy(string $name)
     {
-        $response = Http::delete(
-            $this->trainingServerUrl . "/api/delete-dataset/" . urlencode($name)
+        $res = Http::timeout(30)->delete(
+            $this->trainingUrl('/api/delete-dataset/' . rawurlencode($name))
         );
 
-        if ($response->failed()) {
+        if ($res->failed()) {
             return response()->json([
-                'error' => 'Failed to delete dataset'
-            ], 500);
+                'status'  => 'error',
+                'message' => 'Failed to delete dataset',
+                'details' => $res->json(),
+            ], $res->status());
         }
 
         return response()->json([
-            'status' => 'ok',
-            'message' => 'Dataset deleted'
+            'status'  => 'ok',
+            'message' => 'Dataset deleted successfully',
         ]);
     }
-
 }

@@ -3,34 +3,205 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+/**
+ * IMPORTANT:
+ * - Do NOT echo credentials.
+ * - Rotate the secrets you pasted earlier (DB + UPS client_secret + refresh/access tokens).
+ */
 
-$servertype1 = "hostinger";
-$imsv1_connect = dbDatabase($servertype1);
+$imsv1_connect = dbDatabase("hostinger");
+$imsv2_connect = dbDatabase("laravel_ims");
 
-$servertype2 = "laravel_ims";
-$imsv2_connect = dbDatabase($servertype2);
-
-$refresher = ups_refresher($imsv1_connect);
-
+// Fetch UPS credentials (and refresh if needed)
 $credentials = getUPSCredentials($imsv1_connect);
+if (!$credentials) {
+    die("UPS API credentials not found.\n");
+}
 
-if ($credentials) {
-    $trackingNumber = '1ZK5083X0318006920';
+$credentials = ups_refresher($imsv1_connect, $credentials);
 
-    $resultsheesh = UPS_fetchDetails($trackingNumber, $credentials, $imsv2_connect);
+// Toggle test queue
+$USE_TEST_QUEUE = false;
+
+$queue = $USE_TEST_QUEUE
+    ? [
+        [
+            'trackingnumber' => '1ZK5083X0318006920',
+            'outboundorderitemid' => 999001,
+            'productid' => 888001,
+            'fnskuviewer' => 'X00ABC12345', // put a real fnsku for testing
+        ],
+        [
+            'trackingnumber' => '1Z12345E0205271688',
+            'outboundorderitemid' => 999002,
+            'productid' => 888002,
+            'fnskuviewer' => 'X00DEF67890',
+        ],
+    ]
+    : getUpsTrackingQueueLatestDispense($imsv2_connect);
+
+// Handle queue error shape
+if (isset($queue['error']) && $queue['error'] === true) {
+    die("Queue error: " . ($queue['message'] ?? 'Unknown') . "\n");
+}
+
+foreach ($queue as $row) {
+
+    // ✅ Skip incomplete rows
+    $trackingNumber = trim((string) ($row['trackingnumber'] ?? ''));
+    $outboundId = (int) ($row['outboundorderitemid'] ?? 0);
+    $productId = (int) ($row['productid'] ?? 0);
+
+    if ($trackingNumber === '' || $outboundId <= 0 || $productId <= 0) {
+        continue;
+    }
+
+    // 1) Fetch UPS details
+    $resp = UPS_fetchDetails($trackingNumber, $credentials);
+
+    if (!empty($resp['error'])) {
+        echo "<pre>";
+        print_r([
+            'trackingnumber' => $trackingNumber,
+            'outboundorderitemid' => $outboundId,
+            'productid' => $productId,
+            'error' => $resp,
+        ]);
+        echo "</pre>";
+        continue;
+    }
+
+    // 2) Extract package status (use old logic first)
+    $package_status = ups_extract_package_status_like_old($resp);
+
+    if ($package_status === '') {
+        echo "<pre>";
+        print_r([
+            'trackingnumber' => $trackingNumber,
+            'outboundorderitemid' => $outboundId,
+            'productid' => $productId,
+            'error' => 'Could not extract UPS package status',
+            'ups' => $resp,
+        ]);
+        echo "</pre>";
+        continue;
+    }
+
+    // 3) Delivered-ish statuses are complex → skip for later
+    if ($package_status === 'Delivered' || $package_status === 'Delivered by Local Post Office') {
+
+        $fnsku = trim((string) ($row['fnskuviewer'] ?? ''));
+
+        $done = handleDeliveredTransaction(
+            $imsv2_connect,
+            (int) $row['outboundorderitemid'],
+            (int) $row['productid'],
+            $fnsku
+        );
+
+        echo "<pre>";
+        print_r([
+            'trackingnumber' => $trackingNumber,
+            'package_status' => $package_status,
+            'delivered_update' => $done,
+        ]);
+        echo "</pre>";
+
+        continue; // done
+    }
+
+    // 4) Simple update only (tbloutboundordersitem.trackingstatus)
+    $upd = update_outbound_trackingstatus_by_outboundorderitemid(
+        $imsv2_connect,
+        $outboundId,
+        $package_status
+    );
 
     echo "<pre>";
-    print_r($resultsheesh);
+    print_r([
+        'trackingnumber' => $trackingNumber,
+        'outboundorderitemid' => $outboundId,
+        'productid' => $productId,
+        'package_status' => $package_status,
+        'update' => $upd,
+    ]);
     echo "</pre>";
-} else {
-    echo "USPS API credentials not found.";
+
+    // optional: avoid rate limits
+    // sleep(1);
 }
+
+/* =========================
+   Status extraction (OLD-first)
+========================= */
+
+function ups_extract_package_status_like_old(array $resp): string
+{
+    $ups = $resp['ups'] ?? null;
+    if (!is_array($ups))
+        return '';
+
+    // OLD script main path
+    $status =
+        $ups['trackResponse']['shipment'][0]['package'][0]['currentStatus']['description']
+        ?? null;
+
+    // OLD script fallback warning path
+    if (!$status) {
+        $status =
+            $ups['trackResponse']['Shipment'][0]['warnings'][0]['message']
+            ?? null;
+    }
+
+    // Other common shapes (backup)
+    if (!$status) {
+        $status =
+            $ups['trackResponse']['shipment'][0]['package'][0]['activity'][0]['status']['description']
+            ?? null;
+    }
+
+    if (!$status) {
+        $status =
+            $ups['TrackResponse']['Shipment'][0]['Package'][0]['Activity'][0]['Status']['StatusType']['Description']
+            ?? null;
+    }
+
+    return trim((string) $status);
+}
+
+/* =========================
+   DB update
+========================= */
+
+function update_outbound_trackingstatus_by_outboundorderitemid(mysqli $db, int $outboundorderitemid, string $trackingstatus): array
+{
+    $sql = "UPDATE tbloutboundordersitem
+            SET trackingstatus = ?
+            WHERE outboundorderitemid = ?";
+
+    $stmt = $db->prepare($sql);
+    if (!$stmt)
+        return ['ok' => false, 'error' => $db->error];
+
+    $stmt->bind_param("si", $trackingstatus, $outboundorderitemid);
+    $stmt->execute();
+
+    $affected = $stmt->affected_rows;
+    $err = $stmt->error;
+    $stmt->close();
+
+    if ($err)
+        return ['ok' => false, 'error' => $err];
+
+    return ['ok' => true, 'rowsAffected' => $affected];
+}
+
+/* =========================
+   Existing functions you already have
+========================= */
 
 function dbDatabase($servertype)
 {
-    // Define server mode here
-
-    // Set credentials based on server type
     switch ($servertype) {
         case "ims":
             $hostname = 'localhost';
@@ -61,182 +232,288 @@ function dbDatabase($servertype)
             break;
 
         default:
-            die("❌ Invalid server type: Set \$servertype properly.");
+            die("❌ Invalid server type: {$servertype}");
     }
 
-    echo "$hostname $username $password $database Rawr";
-
-    // Create mysqli dbion
     $db = new mysqli($hostname, $username, $password, $database);
+    if ($db->connect_errno) {
+        die("❌ DB connect failed ({$servertype}): " . $db->connect_error);
+    }
 
+    $db->set_charset('utf8mb4');
     return $db;
 }
 
-function getUPSCredentials($Connect)
+function getUPSCredentials(mysqli $Connect)
 {
     $id = 4;
-    $sql = "SELECT client_id, client_secret, access_token, refresh_token, expires_in FROM aws_key WHERE id = $id";
-    $result = $Connect->query($sql);
-    $row = $result->fetch_assoc();
 
-    if (!$row) {
-        die("No keys found for the given client ID.");
-    }
+    $stmt = $Connect->prepare("SELECT client_id, client_secret, access_token, refresh_token, expires_in FROM aws_key WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
 
-    return $row;
+    $res = $stmt->get_result();
+    $row = $res ? $res->fetch_assoc() : null;
+
+    $stmt->close();
+
+    return $row ?: null;
 }
 
-function UPS_fetchDetails($trackingnumber, $credentials)
+function ups_refresher(mysqli $Connect, array $credentials)
 {
-    $inquiry = $trackingnumber;
-    $query = array(
+    $currenttime = time();
+    $expiryUnix = (int) ($credentials['expires_in'] ?? 0);
+    $refreshAt = $expiryUnix - 2100;
+
+    if ($expiryUnix > 0 && $currenttime <= $refreshAt) {
+        return $credentials;
+    }
+
+    $refreshToken = (string) ($credentials['refresh_token'] ?? '');
+    $clientId = (string) ($credentials['client_id'] ?? '');
+    $clientSecret = (string) ($credentials['client_secret'] ?? '');
+
+    if ($refreshToken === '' || $clientId === '' || $clientSecret === '') {
+        return [
+            'error' => true,
+            'message' => 'Missing UPS OAuth refresh_token/client_id/client_secret.',
+        ];
+    }
+
+    $payload = [
+        'grant_type' => 'refresh_token',
+        'refresh_token' => $refreshToken,
+    ];
+
+    $basic = base64_encode($clientId . ":" . $clientSecret);
+
+    $curl = curl_init();
+    curl_setopt_array($curl, [
+        CURLOPT_URL => "https://onlinetools.ups.com/security/v1/oauth/refresh",
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CUSTOMREQUEST => "POST",
+        CURLOPT_POSTFIELDS => http_build_query($payload),
+        CURLOPT_HTTPHEADER => [
+            "Content-Type: application/x-www-form-urlencoded",
+            "Authorization: Basic {$basic}",
+        ],
+    ]);
+
+    $raw = curl_exec($curl);
+    $err = curl_error($curl);
+    $info = curl_getinfo($curl);
+    curl_close($curl);
+
+    if ($err) {
+        return ['error' => true, 'message' => "cURL error: {$err}", 'http' => $info];
+    }
+
+    $response = json_decode($raw, true);
+
+    if (!is_array($response)) {
+        return ['error' => true, 'message' => 'Invalid JSON response from UPS refresh.', 'raw' => $raw, 'http' => $info];
+    }
+
+    if (isset($response['response']['errors'])) {
+        return ['error' => true, 'message' => 'UPS refresh error.', 'ups' => $response, 'http' => $info];
+    }
+
+    if (empty($response['access_token'])) {
+        return ['error' => true, 'message' => 'UPS refresh did not return access_token.', 'ups' => $response, 'http' => $info];
+    }
+
+    $newAccess = (string) $response['access_token'];
+    $newRefresh = (string) ($response['refresh_token'] ?? $refreshToken);
+    $expiresInSeconds = (int) ($response['expires_in'] ?? 0);
+    $newExpiryUnix = $currenttime + $expiresInSeconds;
+
+    $id = 4;
+    $stmt = $Connect->prepare("UPDATE aws_key SET access_token = ?, refresh_token = ?, expires_in = ? WHERE id = ?");
+    $stmt->bind_param("ssii", $newAccess, $newRefresh, $newExpiryUnix, $id);
+
+    if (!$stmt->execute()) {
+        $errMsg = $stmt->error;
+        $stmt->close();
+        return ['error' => true, 'message' => "DB update failed: {$errMsg}"];
+    }
+    $stmt->close();
+
+    $credentials['access_token'] = $newAccess;
+    $credentials['refresh_token'] = $newRefresh;
+    $credentials['expires_in'] = $newExpiryUnix;
+
+    return $credentials;
+}
+
+function UPS_fetchDetails($trackingnumber, array $credentials)
+{
+    $inquiry = trim((string) $trackingnumber);
+
+    $query = [
         "locale" => "en_US",
         "returnSignature" => "false",
         "returnMilestones" => "false"
-    );
+    ];
+
+    $token = (string) ($credentials['access_token'] ?? '');
+    if ($token === '') {
+        return ['error' => true, 'message' => 'Missing UPS access_token.'];
+    }
 
     $curl = curl_init();
 
     curl_setopt_array($curl, [
-        CURLOPT_HTTPHEADER => [
-            "Authorization: Bearer " . $credentials['access_token'],
-            "transId: asjfdklasdjfaslkjsdfasslkdjfas",
-            "transactionSrc: CustomerServicePortal"
-        ],
-        CURLOPT_URL => "https://onlinetools.ups.com/api/track/v1/details/" . $inquiry . "?" . http_build_query($query),
+        CURLOPT_URL => "https://onlinetools.ups.com/api/track/v1/details/" . rawurlencode($inquiry) . "?" . http_build_query($query),
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CUSTOMREQUEST => "GET",
+        CURLOPT_HTTPHEADER => [
+            "Authorization: Bearer {$token}",
+            "transId: " . uniqid("ims_", true),
+            "transactionSrc: CustomerServicePortal",
+            "Accept: application/json",
+        ],
     ]);
 
-
-    $response = curl_exec($curl);
-
-    $response = json_decode($response, true);
-
-    $data = curl_getinfo($curl);
-    echo "<pre>";
-    print_r($response);
-    echo "</pre>";
-
-
-    $error = curl_error($curl);
-
+    $raw = curl_exec($curl);
+    $err = curl_error($curl);
+    $info = curl_getinfo($curl);
     curl_close($curl);
 
-    if ($error) {
-        echo "cURL Error #:" . $error;
-    } else {
-        return $response;
+    if ($err) {
+        return ['error' => true, 'message' => "cURL error: {$err}", 'http' => $info];
     }
-}
 
-function getUSPSTrackingInfo($trackingNumber, $accessToken)
-{
-    $url = "https://api.usps.com/tracking/v3/tracking/$trackingNumber";
+    $data = json_decode($raw, true);
+    $httpCode = (int) ($info['http_code'] ?? 0);
 
-    $headers = [
-        "Authorization: Bearer $accessToken",
-        "Accept: application/json",
+    if (!is_array($data)) {
+        return [
+            'error' => true,
+            'message' => 'Invalid JSON response from UPS Track API.',
+            'http_code' => $httpCode,
+            'raw' => $raw,
+        ];
+    }
+
+    if ($httpCode < 200 || $httpCode >= 300) {
+        return [
+            'error' => true,
+            'message' => 'UPS Track API returned non-2xx.',
+            'http_code' => $httpCode,
+            'ups' => $data,
+        ];
+    }
+
+    return [
+        'http_code' => $httpCode,
+        'ups' => $data,
     ];
-
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-    $response = curl_exec($ch);
-    $status = curl_getinfo($ch);
-    echo "<pre>";
-    print_r($status);
-    echo "</pre>";
-    curl_close($ch);
-
-    $data = json_decode($response, true);
-    echo "<pre>";
-    print_r($data);
-    echo "</pre>";
-
-    if ($status === 200) {
-        return $data;
-    } else {
-        error_log("Tracking Error [$status]: $response");
-        return false;
-    }
 }
 
-function ups_refresher($Connect)
+function getUpsTrackingQueueLatestDispense(mysqli $db): array
 {
-    $sql = "SELECT * FROM aws_key WHERE id = 4";
-    $result = $Connect->query($sql);
+    $sql = "
+        SELECT
+            oi.trackingnumber,
+            oi.outboundorderitemid,
+            d2.productid,
+            p.FNSKUviewer AS fnskuviewer
+        FROM tbloutboundordersitem oi
+        INNER JOIN (
+            SELECT d.orderitemid, d.productid
+            FROM tblorderitemdispense d
+            INNER JOIN (
+                SELECT orderitemid, MAX(id) AS max_id
+                FROM tblorderitemdispense
+                GROUP BY orderitemid
+            ) x ON x.orderitemid = d.orderitemid AND x.max_id = d.id
+        ) d2 ON d2.orderitemid = oi.outboundorderitemid
+        INNER JOIN tblproduct p ON p.ProductID = d2.productid
+        WHERE oi.carrier = 'UPS'
+          AND oi.trackingnumber IS NOT NULL
+          AND oi.trackingnumber <> ''
+          AND oi.order_status = 'Shipped'
+          AND d2.productid IS NOT NULL
+          AND p.FNSKUviewer IS NOT NULL
+          AND p.FNSKUviewer <> ''
+        ORDER BY oi.outboundorderitemid DESC
+    ";
 
-    if ($result->num_rows > 0) {
-        while ($row = $result->fetch_assoc()) {
-            $currenttime = time();
-            $refreshToken = $row['refresh_token'];
-            $clientId = $row['client_id'];
-            $clientSecret = $row['client_secret'];
+    $res = $db->query($sql);
+    if (!$res)
+        return ['error' => true, 'message' => 'Query failed: ' . $db->error];
 
-            echo "$currenttime Current unix Time <br>";
+    $items = [];
+    while ($row = $res->fetch_assoc()) {
+        $items[] = [
+            'trackingnumber' => (string) $row['trackingnumber'],
+            'outboundorderitemid' => (int) $row['outboundorderitemid'],
+            'productid' => (int) $row['productid'],
+            'fnskuviewer' => (string) $row['fnskuviewer'],
+        ];
+    }
+    return $items;
+}
 
-            // expiration is minus 30minutes of actual deadline
-            $expiration = $row['expires_in'] - 2100;
+function handleDeliveredTransaction(mysqli $db, int $outboundId, int $productId, string $fnsku): array
+{
+    if ($outboundId <= 0 || $productId <= 0 || trim($fnsku) === '') {
+        return ['ok' => false, 'error' => 'Missing outboundId/productId/fnsku'];
+    }
 
-            // execute if cur_time is greater than expiration
-            if ($currenttime > $expiration) {
+    try {
+        $db->begin_transaction();
 
-                $curl = curl_init();
+        // 1) outboundordersitem -> Delivered
+        // IMPORTANT: confirm your column name is orderstatus OR order_status
+        $stmt1 = $db->prepare("UPDATE tbloutboundordersitem SET order_status = 'Delivered' WHERE outboundorderitemid = ?");
+        if (!$stmt1)
+            throw new Exception("prepare stmt1 failed: " . $db->error);
+        $stmt1->bind_param("i", $outboundId);
+        if (!$stmt1->execute())
+            throw new Exception("execute stmt1 failed: " . $stmt1->error);
+        $affected1 = $stmt1->affected_rows;
+        $stmt1->close();
 
-                $payload = array(
-                    'grant_type' => 'refresh_token',
-                    'refresh_token' => $refreshToken,
-                );
+        // 2) product -> SoldList
+        $stmt2 = $db->prepare("UPDATE tblproduct SET ProductModuleLoc = 'SoldList' WHERE ProductID = ?");
+        if (!$stmt2)
+            throw new Exception("prepare stmt2 failed: " . $db->error);
+        $stmt2->bind_param("i", $productId);
+        if (!$stmt2->execute())
+            throw new Exception("execute stmt2 failed: " . $stmt2->error);
+        $affected2 = $stmt2->affected_rows;
+        $stmt2->close();
 
-                $credentials = base64_encode("$clientId:$clientSecret");
+        // 3) fnsku units + 1
+        $stmt3 = $db->prepare("UPDATE tblfnsku SET units = COALESCE(units,0) + 1 WHERE FNSKU = ?");
+        if (!$stmt3)
+            throw new Exception("prepare stmt3 failed: " . $db->error);
+        $stmt3->bind_param("s", $fnsku);
+        if (!$stmt3->execute())
+            throw new Exception("execute stmt3 failed: " . $stmt3->error);
+        $affected3 = $stmt3->affected_rows;
+        $stmt3->close();
 
-                curl_setopt_array($curl, [
-                    CURLOPT_HTTPHEADER => [
-                        "Content-Type: application/x-www-form-urlencoded",
-                        "Authorization: Basic $credentials"
-                    ],
-                    CURLOPT_POSTFIELDS => http_build_query($payload),
-                    CURLOPT_URL => "https://onlinetools.ups.com/security/v1/oauth/refresh",
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_CUSTOMREQUEST => "POST",
-                ]);
+        // Optional safety: require rows affected
+        if ($affected1 <= 0)
+            throw new Exception("No outbound row updated for outboundorderitemid={$outboundId}");
+        if ($affected2 <= 0)
+            throw new Exception("No product row updated for ProductID={$productId}");
+        if ($affected3 <= 0)
+            throw new Exception("No fnsku row updated for FNSKU={$fnsku}");
 
-                $response = curl_exec($curl);
-                $response = json_decode($response, true);
-                /*
-                echo '<pre>';
-                print_r($response);
-                echo '</pre>';
-                */
-                $error = curl_error($curl);
+        $db->commit();
 
-                curl_close($curl);
-
-                if (isset($response['response']['errors'])) {
-                    return $response;
-                }
-
-                if ($error) {
-                    echo "cURL Error #:" . $error;
-                } else {
-                    if (isset($response['access_token'])) {
-                        $id = 4;
-                        $expiresin = $response['expires_in'] + time();
-                        $stmt = $Connect->prepare("UPDATE aws_key SET access_token = ?, refresh_token = ?, expires_in = ? WHERE id = ?");
-                        $stmt->bind_param("sssi", $response['access_token'], $response['refresh_token'], $expiresin, $id);
-
-                        if ($stmt->execute()) {
-                            echo "Success Updating Access Token!";
-                        } else {
-                            echo $stmt->error;
-                        }
-                    }
-                }
-            } else {
-                echo "Not Time Yet! for UPS refresher!";
-            }
-        }
+        return [
+            'ok' => true,
+            'outbound_updated' => $affected1,
+            'product_updated' => $affected2,
+            'fnsku_updated' => $affected3,
+        ];
+    } catch (Throwable $e) {
+        $db->rollback();
+        return ['ok' => false, 'error' => $e->getMessage()];
     }
 }

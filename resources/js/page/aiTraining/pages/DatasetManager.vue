@@ -139,12 +139,7 @@ async function deleteDataset(dataset) {
   if (!confirm(`Are you sure you want to delete "${dataset.name}"?`)) return
 
   try {
-    // ✅ FIX: pass dataset.name, NOT the whole object
-    await axios.delete(
-      `/api/datasets/${encodeURIComponent(dataset.name)}`
-    )
-
-    // 🔁 Refresh list
+    await deleteDatasetFolder(dataset.name)
     await loadDatasets()
   } catch (err) {
     console.error('❌ Failed to delete dataset:', err)

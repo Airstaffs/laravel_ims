@@ -71,6 +71,9 @@ class ASINlistController extends BasetablesController
                 $asinQuery->where(function ($query) use ($search) {
                     $query->where('asin.ASIN', 'like', "%{$search}%")
                         ->orWhere('asin.internal', 'like', "%{$search}%")
+                        ->orWhere('asin.metakeyword', 'like', "%{$search}%")
+                        ->orWhere('asin.EAN', 'like', "%{$search}%")
+                        ->orWhere('asin.UPC', 'like', "%{$search}%")
                         ->orWhere('asin.system_title', 'like', "%{$search}%") // Added system_title to search
                         ->orWhere('fnsku.FNSKU', 'like', "%{$search}%");
                 });
