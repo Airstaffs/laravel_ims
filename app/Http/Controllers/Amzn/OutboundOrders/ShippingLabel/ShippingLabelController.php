@@ -286,6 +286,8 @@ class ShippingLabelController extends Controller
         $orders = $request->input('orders', []);
         $forms = $request->input('forms', []);
 
+
+
         if (empty($orders) || empty($forms)) {
             return response()->json(['error' => 'Missing orders or form data'], 400);
         }
@@ -436,6 +438,31 @@ class ShippingLabelController extends Controller
             }
 
             try {
+
+                // BEFORE calling Amazon createShipment:
+                $existing = DB::table('tbllabelhistory')
+                    ->where('AmazonOrderId', $platformOrderId)
+                    ->whereRaw("LOWER(status) NOT IN ('cancelled', 'canceled', 'voided')")
+                    ->orderByDesc('id')
+                    ->first();
+
+                if ($existing && !empty($existing->shipmentid)) {
+                    $Results[] = [
+                        'platform_order_id' => $platformOrderId,
+                        'skipped' => true,
+                        'reason' => 'Label already purchased in DB',
+                        'existing' => [
+                            'labelhistory_id' => $existing->id,
+                            'shipmentid' => $existing->shipmentid,
+                            'trackingid' => $existing->trackingid,
+                            'status' => $existing->status,
+                            'createdDate' => $existing->createdDate ?? null,
+                            'updatedDate' => $existing->updatedDate ?? null,
+                        ],
+                    ];
+                    continue;
+                }
+
                 $headers = buildHeaders($credentials, $accessToken, 'POST', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
                 $headers['Content-Type'] = 'application/json';
                 $headers['accept'] = 'application/json';
