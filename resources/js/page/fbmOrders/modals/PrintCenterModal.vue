@@ -1,11 +1,5 @@
 <template>
-  <Dialog
-    :visible="visible"
-    modal
-    header="Print Documents"
-    :style="{ width: '900px' }"
-    @update:visible="onClose"
-  >
+  <Dialog :visible="visible" modal header="Print Documents" :style="{ width: '900px' }" @update:visible="onClose">
     <!-- Top Controls -->
     <div class="d-flex flex-wrap gap-2 mb-3">
       <Button size="small" severity="secondary" outlined label="Select All" @click="selectAll(true)" />
@@ -49,15 +43,9 @@
 
     <!-- Toggleable Invoice Settings (default hidden) -->
     <div class="mb-3">
-      <Button
-        size="small"
-        severity="secondary"
-        outlined
-        :label="showInvoiceSettings ? 'Hide Order Invoice Settings' : 'Show Order Invoice Settings'"
-        icon="pi pi-cog"
-        @click="showInvoiceSettings = !showInvoiceSettings"
-        :disabled="isProcessing"
-      />
+      <Button size="small" severity="secondary" outlined
+        :label="showInvoiceSettings ? 'Hide Order Invoice Settings' : 'Show Order Invoice Settings'" icon="pi pi-cog"
+        @click="showInvoiceSettings = !showInvoiceSettings" :disabled="isProcessing" />
 
       <div v-if="showInvoiceSettings" class="mt-2 p-2 border rounded">
         <div class="d-flex flex-wrap gap-4">
@@ -90,11 +78,7 @@
           <div class="d-flex align-items-center gap-2">
             <Checkbox v-model="selections[data.orderId].label" :binary="true" :disabled="isProcessing" />
             <small v-if="getStatus(data.orderId, 'label')" :class="statusClass(getStatus(data.orderId, 'label'))">
-              <a
-                v-if="isClickableStatus(data.orderId, 'label')"
-                href="#"
-                @click.prevent="openOrderDocs(data.orderId)"
-              >
+              <a v-if="isClickableStatus(data.orderId, 'label')" href="#" @click.prevent="openOrderDocs(data.orderId)">
                 {{ getStatus(data.orderId, 'label') }}
               </a>
               <span v-else>
@@ -110,11 +94,8 @@
           <div class="d-flex align-items-center gap-2">
             <Checkbox v-model="selections[data.orderId].invoice" :binary="true" :disabled="isProcessing" />
             <small v-if="getStatus(data.orderId, 'invoice')" :class="statusClass(getStatus(data.orderId, 'invoice'))">
-              <a
-                v-if="isClickableStatus(data.orderId, 'invoice')"
-                href="#"
-                @click.prevent="openOrderDocs(data.orderId)"
-              >
+              <a v-if="isClickableStatus(data.orderId, 'invoice')" href="#"
+                @click.prevent="openOrderDocs(data.orderId)">
                 {{ getStatus(data.orderId, 'invoice') }}
               </a>
               <span v-else>
@@ -130,13 +111,8 @@
     <template #footer>
       <div class="d-flex justify-content-end gap-2">
         <Button severity="secondary" outlined label="Cancel" @click="onClose(false)" :disabled="isProcessing" />
-        <Button
-          severity="success"
-          :label="isProcessing ? 'Processing…' : 'Run Selected'"
-          icon="pi pi-play"
-          @click="printSelected"
-          :disabled="isProcessing"
-        />
+        <Button severity="success" :label="isProcessing ? 'Processing…' : 'Run Selected'" icon="pi pi-play"
+          @click="printSelected" :disabled="isProcessing" />
       </div>
     </template>
   </Dialog>
@@ -282,13 +258,10 @@ export default {
       return !!url && String(status).toLowerCase().includes("ready");
     },
 
-    openOrderDocs(orderId) {
-      // open whatever exists for this order (label + invoice)
-      const labelUrl = this.orderMeta?.[orderId]?.label?.pdfUrl;
-      const invoiceUrl = this.orderMeta?.[orderId]?.invoice?.pdfUrl;
-
-      if (labelUrl) window.open(labelUrl, "_blank");
-      if (invoiceUrl) window.open(invoiceUrl, "_blank");
+    openOrderDoc(orderId, kind) {
+      const url = this.orderMeta?.[orderId]?.[kind]?.pdfUrl;
+      if (!url) return;
+      window.open(url, "_blank");
     },
 
     clearAllTimers() {
