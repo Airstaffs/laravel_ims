@@ -286,6 +286,8 @@ class ShippingLabelController extends Controller
         $orders = $request->input('orders', []);
         $forms = $request->input('forms', []);
 
+
+
         if (empty($orders) || empty($forms)) {
             return response()->json(['error' => 'Missing orders or form data'], 400);
         }
@@ -436,6 +438,7 @@ class ShippingLabelController extends Controller
             }
 
             try {
+
                 $headers = buildHeaders($credentials, $accessToken, 'POST', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
                 $headers['Content-Type'] = 'application/json';
                 $headers['accept'] = 'application/json';
@@ -807,7 +810,8 @@ class ShippingLabelController extends Controller
                     ],
                     "LabelCustomization" => [
                         "AmazonOrderId" => $data_additionale['AmazonOrderId']
-                    ]
+                    ],
+                    "ShipDate" => $data_additionale['Shipby_Datetime'],
                 ],
                 "ShippingServiceId" => $data_additionale['ShippingServiceId'],
                 "ShippingServiceOfferId" => $data_additionale['ShippingServiceOfferId']

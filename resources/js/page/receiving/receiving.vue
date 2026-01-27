@@ -1270,6 +1270,7 @@ export default {
                 this.timezoneLabel = "UTC";
             }
         },
+
         updatePricingView() {
             this.showPricingSection = showPricingForPH();
         },
