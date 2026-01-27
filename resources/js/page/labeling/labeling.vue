@@ -1874,6 +1874,11 @@ export default {
     },
     async mounted() {
         await this.loadUserTimezone();
+        
+        window.addEventListener("resize", this.updatePricingView);
+
+        this.checkMobile();
+        window.addEventListener("resize", this.checkMobile);
     },
     methods: {
         toggle(event, item) {
@@ -2132,12 +2137,6 @@ export default {
             // Show sticky when original title has scrolled past the top of the dialog (with some threshold)
             this.showStickyTitle = titleTopRelativeToDialog < -50; // -50px threshold
         },
-    },
-    mounted() {
-        window.addEventListener("resize", this.updatePricingView);
-
-        this.checkMobile();
-        window.addEventListener("resize", this.checkMobile);
     },
     beforeUnmount() {
         window.removeEventListener("resize", this.updatePricingView);

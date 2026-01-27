@@ -681,7 +681,7 @@ export default {
     },
     
    //return scanner condition 
-    async captureReturnScanner() {
+async captureReturnScanner() {
     const video = document.getElementById('scanner-camera-preview');
     if (!video || !this.scannerCameraActive) return;
 
@@ -709,31 +709,54 @@ export default {
     const timestamp = new Date().toLocaleTimeString();
     const dataUrl = canvas.toDataURL('image/jpeg');
 
-    // ✅ CRITICAL: Store with captureStep AND the actual serial number
+    // ✅ FIXED: Get serial data directly from parent at capture time
+    let serialData = {
+        serial: null,
+        serialIndex: null
+    };
+
+    // Get the correct serial based on current capture step
+    if (this.$parent) {
+        switch (currentCaptureStep) {
+            case 1:
+                serialData.serial = this.$parent.serialNumber || null;
+                serialData.serialIndex = 1;
+                break;
+            case 2:
+                serialData.serial = this.$parent.secondSerialNumber || null;
+                serialData.serialIndex = 2;
+                break;
+            case 3:
+                serialData.serial = this.$parent.thirdSerialNumber || null;
+                serialData.serialIndex = 3;
+                break;
+            case 4:
+                serialData.serial = this.$parent.fourthSerialNumber || null;
+                serialData.serialIndex = 4;
+                break;
+            default:
+                console.warn('⚠️ Capture step is 0, image will not be associated with a serial');
+                break;
+        }
+    }
+
+    // Store captured image with all metadata
     const captureData = {
         data: dataUrl,
         timestamp,
-        captureStep: currentCaptureStep
+        captureStep: currentCaptureStep,
+        serial: serialData.serial,
+        serialIndex: serialData.serialIndex
     };
-
-    // ✅ Add the serial number based on which step we're on
-    if (currentCaptureStep === 1 && this.$parent.serialNumber) {
-        captureData.serial = this.$parent.serialNumber;
-        captureData.serialIndex = 1;
-    } else if (currentCaptureStep === 2 && this.$parent.secondSerialNumber) {
-        captureData.serial = this.$parent.secondSerialNumber;
-        captureData.serialIndex = 2;
-    }
 
     this.capturedImages.push(captureData);
 
-    console.log(`✅ Image captured for Return Scanner (Step ${currentCaptureStep})`, {
-        totalImages: this.capturedImages.length,
-        serial: captureData.serial,
-        serialIndex: captureData.serialIndex
+    console.log(`✅ Image captured for Return Scanner`, {
+        step: currentCaptureStep,
+        serial: serialData.serial,
+        serialIndex: serialData.serialIndex,
+        totalImages: this.capturedImages.length
     });
-
-    this.showScanSuccess(`Image ${this.capturedImages.length} captured.`);
 
     setTimeout(() => {
         this.showSuccessNotification = false;

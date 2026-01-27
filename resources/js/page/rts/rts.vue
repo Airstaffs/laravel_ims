@@ -434,7 +434,7 @@
                                                 fluid
                                                 size="small"
                                                 type="date"
-                                                v-model="item.orderdate"
+                                                v-model="localOrderDate"
                                             />
                                         </fieldset>
                                         <fieldset>
@@ -447,7 +447,7 @@
                                                 fluid
                                                 size="small"
                                                 type="date"
-                                                v-model="item.paymentdate"
+                                                v-model="localPaymentDate"
                                             />
                                         </fieldset>
                                         <fieldset>
@@ -460,7 +460,7 @@
                                                 fluid
                                                 size="small"
                                                 type="date"
-                                                v-model="item.shipdate"
+                                                v-model="localShipDate"
                                             />
                                         </fieldset>
                                         <fieldset>
@@ -473,7 +473,7 @@
                                                 fluid
                                                 size="small"
                                                 type="date"
-                                                v-model="item.datedelivered"
+                                                v-model="localDeliveredDate"
                                             />
                                         </fieldset>
                                     </template>
@@ -482,57 +482,6 @@
 
                             <!-- CENTER: ALL OTHER INFO EXCEPT PRICING -->
                             <div class="form-col-center">
-                                <!-- <Card>
-                                    <template #title>
-                                        <div>
-                                            <h6 class="text-primary">General Information</h6>
-                                            <Divider />
-                                        </div>
-                                    </template>
-                                    <template #content>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <fieldset>
-                                                    <label>External Title:</label>
-                                                    <Textarea ref="productTextarea" fluid size="small" class="no-resize"
-                                                        v-model="item.ProductTitle" placeholder="Product Title" rows="2"
-                                                        @input="autoResize"></Textarea>
-                                                </fieldset>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <fieldset>
-                                                    <label>Internal Title:</label>
-                                                    <Textarea ref="productTextarea" fluid size="small" class="no-resize"
-                                                        v-model="item.ProductTitle" placeholder="Product Title" rows="2"
-                                                        @input="autoResize" readonly disabled></Textarea>
-                                                </fieldset>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-4">
-                                                <fieldset>
-                                                    <label>RT:</label>
-                                                    <InputText fluid size="small" type="text" :value="item.rtcounter"
-                                                        placeholder="RT Counter" />
-                                                </fieldset>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <fieldset>
-                                                    <label>ASIN:</label>
-                                                    <InputText fluid size="small" type="text" v-model="item.ASIN"
-                                                        readonly disabled />
-                                                </fieldset>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <fieldset>
-                                                    <label>FNSKU:</label>
-                                                    <InputText fluid size="small" type="text" v-model="item.FNSKU"
-                                                        readonly disabled />
-                                                </fieldset>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </Card> -->
                                 <div class="bg-white border-0">
                                     <!-- SECTION: Dates -->
                                     <div class="row">
@@ -584,7 +533,7 @@
                                                                 class="no-resize"
                                                                 :value="
                                                                     getDisplayTitle(
-                                                                        item
+                                                                        item,
                                                                     )
                                                                 "
                                                                 placeholder="Product Title"
@@ -694,7 +643,7 @@
                                                                 >Serial Number
                                                                 {{
                                                                     getLabel(
-                                                                        index
+                                                                        index,
                                                                     )
                                                                 }}:</label
                                                             >
@@ -1933,7 +1882,13 @@ export default {
                 { label: "Ship-Back", value: "Ship-Back" },
             ],
             rowsPerPage: ROWS_PER_PAGE,
+
+            currentTimezone: "UTC",
+            timezoneLabel: "Loading...",
         };
+    },
+    async mounted() {
+        await this.loadUserTimezone();
     },
     computed: {
         materialTypesOptions() {
@@ -1972,6 +1927,40 @@ export default {
                 value: module,
             }));
         },
+
+        // ✅ ADD THESE COMPUTED PROPERTIES FOR DATE CONVERSION
+        localOrderDate: {
+            get() {
+                return this.convertToLocalDate(this.item.orderdate);
+            },
+            set(value) {
+                this.item.orderdate = this.convertFromLocalDate(value);
+            },
+        },
+        localPaymentDate: {
+            get() {
+                return this.convertToLocalDate(this.item.paymentdate);
+            },
+            set(value) {
+                this.item.paymentdate = this.convertFromLocalDate(value);
+            },
+        },
+        localShipDate: {
+            get() {
+                return this.convertToLocalDate(this.item.shipdate);
+            },
+            set(value) {
+                this.item.shipdate = this.convertFromLocalDate(value);
+            },
+        },
+        localDeliveredDate: {
+            get() {
+                return this.convertToLocalDate(this.item.datedelivered);
+            },
+            set(value) {
+                this.item.datedelivered = this.convertFromLocalDate(value);
+            },
+        },
     },
     methods: {
         toggleMoreDetailsModal(item) {
@@ -1995,9 +1984,8 @@ export default {
                     const capturedImg = data.capturedImages[`capturedimg${i}`];
                     if (capturedImg) {
                         // Add full path: /images/product_images/Airstaffs/
-                        transformedData[
-                            `img${i}`
-                        ] = `/images/product_images/Airstaffs/${capturedImg}`;
+                        transformedData[`img${i}`] =
+                            `/images/product_images/Airstaffs/${capturedImg}`;
                     } else {
                         transformedData[`img${i}`] = null;
                     }
@@ -2043,6 +2031,107 @@ export default {
                 }
             }
             return count;
+        },
+
+        convertToLocalDate(dateString) {
+            if (!dateString) return "";
+
+            try {
+                // Parse the date from database (assumed to be in UTC or server timezone)
+                const date = new Date(dateString);
+
+                // Format to YYYY-MM-DD for date input in user's timezone
+                const options = {
+                    timeZone: this.currentTimezone,
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                };
+
+                const formatter = new Intl.DateTimeFormat("en-CA", options); // en-CA gives YYYY-MM-DD format
+                return formatter.format(date);
+            } catch (error) {
+                console.error("Error converting to local date:", error);
+                return dateString;
+            }
+        },
+
+        convertFromLocalDate(localDateString) {
+            if (!localDateString) return null;
+
+            try {
+                // The input gives us YYYY-MM-DD in user's timezone
+                // We need to convert it to a proper datetime for storage
+
+                // Create a date object at noon in the user's timezone to avoid day boundary issues
+                const [year, month, day] = localDateString.split("-");
+                const dateInUserTz = new Date(
+                    `${year}-${month}-${day}T12:00:00`,
+                );
+
+                // Format for database storage (ISO format)
+                return dateInUserTz.toISOString().split("T")[0]; // Returns YYYY-MM-DD
+            } catch (error) {
+                console.error("Error converting from local date:", error);
+                return localDateString;
+            }
+        },
+
+        async loadUserTimezone() {
+            try {
+                const response = await axios.get("/api/timezone/current");
+
+                if (response.data.success && response.data.usertimezone) {
+                    this.currentTimezone = response.data.usertimezone;
+
+                    // Format timezone for display
+                    const timezoneParts = this.currentTimezone.split("/");
+                    const location = timezoneParts[
+                        timezoneParts.length - 1
+                    ].replace("_", " ");
+
+                    // ✅ FIXED: Calculate GMT offset for the SELECTED timezone, not browser's
+                    const date = new Date();
+
+                    // Get the date in UTC
+                    const utcDate = new Date(
+                        date.toLocaleString("en-US", { timeZone: "UTC" }),
+                    );
+
+                    // Get the date in user's selected timezone
+                    const userTzDate = new Date(
+                        date.toLocaleString("en-US", {
+                            timeZone: this.currentTimezone,
+                        }),
+                    );
+
+                    // Calculate offset in hours
+                    const offsetMs = userTzDate - utcDate;
+                    const offsetHours = Math.round(offsetMs / (1000 * 60 * 60));
+                    const offsetSign = offsetHours >= 0 ? "+" : "-";
+                    const gmtOffset = `GMT${offsetSign}${Math.abs(
+                        offsetHours,
+                    )}`;
+
+                    this.timezoneLabel = `(${gmtOffset})`;
+                } else {
+                    // Fallback to browser timezone
+                    const browserTz =
+                        Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    this.currentTimezone = browserTz;
+                    const location = browserTz
+                        .split("/")
+                        .pop()
+                        .replace("_", " ");
+                    this.timezoneLabel = location;
+                }
+
+                console.log("📍 Timezone loaded:", this.timezoneLabel);
+            } catch (error) {
+                console.error("Error loading timezone:", error);
+                this.currentTimezone = "UTC";
+                this.timezoneLabel = "UTC";
+            }
         },
     },
 };
@@ -2297,7 +2386,9 @@ div[aria-labelledby="swal2-title"] {
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 13px;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    transition:
+        border-color 0.3s ease,
+        box-shadow 0.3s ease;
 }
 
 .rts-input:focus,
