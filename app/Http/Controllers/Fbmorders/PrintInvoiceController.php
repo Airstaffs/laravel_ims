@@ -190,46 +190,54 @@ class PrintInvoiceController extends Controller
     // =========================================================
     // ✅ NEW: Warehouse + Serial section (adjust query as needed)
     // =========================================================
-    protected function addWarehouseDetails(array $items): array
+
+    protected function addWarehouseDetails(string $amazonOrderId, array $items): array
     {
         $result = [];
 
         foreach ($items as $it) {
+            $orderItemId = (string) ($it['OrderItemId'] ?? '');
             $asin = (string) ($it['ASIN'] ?? '');
             $msku = (string) ($it['MSKU'] ?? '');
 
-            if ($msku === '') {
-                $result[] = ['ASIN' => $asin, 'MSKU' => $msku, 'FNSKU' => '', 'pairs' => []];
+            if ($orderItemId === '') {
+                $result[] = ['OrderItemId' => '', 'ASIN' => $asin, 'MSKU' => $msku, 'pairs' => []];
                 continue;
             }
 
-            // 1) Find FNSKU by MSKU (you can add storename filter later if needed)
-            $fnskuRow = DB::table('tblfnsku')
-                ->select('FNSKU')
-                ->where('MSKU', $msku)
-                ->orderByDesc('FNSKUID') // newest mapping if multiple exist
-                ->first();
+            // 1) newest outbound row wins (same as your shipment code)
+            $outboundorderitemid = DB::table('tbloutboundordersitem')
+                ->where('platform_order_id', $amazonOrderId)
+                ->where('platform_order_item_id', $orderItemId)
+                ->orderByDesc('outboundorderitemid')
+                ->value('outboundorderitemid');
 
-            $fnsku = (string) ($fnskuRow->FNSKU ?? '');
-
-            if ($fnsku === '') {
-                // No mapping found; return empty pairs (so UI doesn't break)
-                $result[] = ['ASIN' => $asin, 'MSKU' => $msku, 'FNSKU' => '', 'pairs' => []];
+            if (!$outboundorderitemid) {
+                $result[] = ['OrderItemId' => $orderItemId, 'ASIN' => $asin, 'MSKU' => $msku, 'pairs' => []];
                 continue;
             }
 
-            // 2) Use FNSKU to find stockroom items
-            // Your tblproduct has: FNSKUviewer, warehouselocation, serialnumber, ProductModuleLoc, DateCreated
+            // 2) get dispensed ProductIDs (these are the CHILD units)
+            $productIds = DB::table('tblorderitemdispense')
+                ->where('orderitemid', $outboundorderitemid)
+                ->orderByDesc('id')
+                ->limit(4)
+                ->pluck('productid')
+                ->filter()
+                ->values()
+                ->all();
+
+            if (!count($productIds)) {
+                $result[] = ['OrderItemId' => $orderItemId, 'ASIN' => $asin, 'MSKU' => $msku, 'pairs' => []];
+                continue;
+            }
+
+            // 3) pull serial/location from tblproduct for those ProductIDs
             $rows = DB::table('tblproduct')
                 ->select('warehouselocation', 'serialnumber')
-                ->where('FNSKUviewer', $fnsku)
-                ->where('ProductModuleLoc', 'Stockroom')
-                ->whereNotNull('warehouselocation')
-                ->where('warehouselocation', '<>', '')
-                ->whereNotNull('serialnumber')
-                ->where('serialnumber', '<>', '')
-                ->orderBy('DateCreated', 'ASC')
-                ->limit(4)
+                ->whereIn('ProductID', $productIds)
+                ->whereNotNull('warehouselocation')->where('warehouselocation', '<>', '')
+                ->whereNotNull('serialnumber')->where('serialnumber', '<>', '')
                 ->get();
 
             $pairs = [];
@@ -241,9 +249,9 @@ class PrintInvoiceController extends Controller
             }
 
             $result[] = [
+                'OrderItemId' => $orderItemId,
                 'ASIN' => $asin,
                 'MSKU' => $msku,
-                'FNSKU' => $fnsku,
                 'pairs' => $pairs,
             ];
         }
@@ -251,9 +259,21 @@ class PrintInvoiceController extends Controller
         return $result;
     }
 
+    protected function findFnskuByMsku(string $msku, string $store = ''): string
+    {
+        $q = DB::table('tblfnsku')->select('FNSKU')->where('MSKU', $msku);
+
+        // If your tblfnsku has store column(s), add them here:
+        // if ($store !== '') $q->where('storename', $store);
+
+        $row = $q->orderByDesc('FNSKUID')->first();
+        return (string) ($row->FNSKU ?? '');
+    }
+
     // =========================================================
     // HTML generation (with ✅ NEW QR + warehouse/serial section)
     // =========================================================
+
 
     protected function generateHtml($settings, $orderData, $action)
     {
@@ -315,20 +335,23 @@ class PrintInvoiceController extends Controller
         // ✅ NEW: Warehouse details build (unique ASIN|MSKU)
         $unique = [];
         $ItemsForWarehouse = [];
+
         foreach ($items as $it) {
+            $oid = (string) ($it['platform_order_item_id'] ?? '');
             $asin = (string) ($it['platform_asin'] ?? '');
             $msku = (string) ($it['platform_sku'] ?? '');
-            if ($asin === '' || $msku === '')
+
+            if ($oid === '')
                 continue;
 
-            $key = $asin . '|' . $msku;
-            if (!isset($unique[$key])) {
-                $unique[$key] = true;
-                $ItemsForWarehouse[] = ['ASIN' => $asin, 'MSKU' => $msku];
-            }
+            $ItemsForWarehouse[] = [
+                'OrderItemId' => $oid,
+                'ASIN' => $asin,
+                'MSKU' => $msku,
+            ];
         }
 
-        $warehouseDetails = $this->addWarehouseDetails($ItemsForWarehouse);
+        $warehouseDetails = $this->addWarehouseDetails($platformOrderId, $ItemsForWarehouse);
 
         $itemsText = '';
         foreach ($warehouseDetails as $entry) {
@@ -942,5 +965,33 @@ class PrintInvoiceController extends Controller
             return '';
 
         return base64_encode($png);
+    }
+
+    protected function resolveChildMskusFromParent(string $parentMsku, string $asin = '', string $store = ''): array
+    {
+        $children = [];
+
+        /**
+         * TODO: Replace this query with YOUR real mapping table.
+         *
+         * Common patterns in IMS-like DBs:
+         * - tblmsku_components(parent_msku, child_msku)
+         * - tblbundles(parent_sku, component_sku)
+         * - tblkits(parent_msku, child_msku, qty)
+         * - tblasin_pack / tblparentchild
+         */
+
+        // Example (placeholder):
+        // $rows = DB::table('tblmsku_components')
+        //     ->select('child_msku')
+        //     ->where('parent_msku', $parentMsku)
+        //     ->get();
+
+        // foreach ($rows as $r) $children[] = (string) $r->child_msku;
+
+        // Fallback: if nothing found, return empty array
+        $children = array_values(array_unique(array_filter($children)));
+
+        return $children;
     }
 }

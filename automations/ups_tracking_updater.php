@@ -9,16 +9,18 @@ error_reporting(E_ALL);
  * - Rotate the secrets you pasted earlier (DB + UPS client_secret + refresh/access tokens).
  */
 
-$imsv1_connect = dbDatabase("hostinger");
+// $imsv1_connect = dbDatabase("hostinger");
 $imsv2_connect = dbDatabase("laravel_ims");
 
 // Fetch UPS credentials (and refresh if needed)
-$credentials = getUPSCredentials($imsv1_connect);
+$credentials = fetchUpsCredentialsFromMainApp();
+
+if (!empty($credentials['error'])) {
+    die("UPS credential fetch failed: " . ($credentials['message'] ?? 'Unknown') . "\n");
+}
 if (!$credentials) {
     die("UPS API credentials not found.\n");
 }
-
-$credentials = ups_refresher($imsv1_connect, $credentials);
 
 // Toggle test queue
 $USE_TEST_QUEUE = false;
@@ -58,6 +60,14 @@ foreach ($queue as $row) {
 
     // 1) Fetch UPS details
     $resp = UPS_fetchDetails($trackingNumber, $credentials);
+
+    // If token expired/invalid, refetch from main app and retry once
+    if (!empty($resp['http_code']) && (int) $resp['http_code'] === 401) {
+        $credentials = fetchUpsCredentialsFromMainApp();
+        if (empty($credentials['error'])) {
+            $resp = UPS_fetchDetails($trackingNumber, $credentials);
+        }
+    }
 
     if (!empty($resp['error'])) {
         echo "<pre>";
@@ -226,9 +236,9 @@ function dbDatabase($servertype)
 
         case "laravel_ims":
             $hostname = 'localhost';
-            $username = 'u298641722_dbims_user';
-            $password = '?cIk=|zRk3T';
-            $database = 'u298641722_dbims';
+            $username = 'imsv2_dbims_user';
+            $password = 'Imsv2_dbims_user';
+            $database = 'imsv2_dbims';
             break;
 
         default:
@@ -242,108 +252,6 @@ function dbDatabase($servertype)
 
     $db->set_charset('utf8mb4');
     return $db;
-}
-
-function getUPSCredentials(mysqli $Connect)
-{
-    $id = 4;
-
-    $stmt = $Connect->prepare("SELECT client_id, client_secret, access_token, refresh_token, expires_in FROM aws_key WHERE id = ?");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-
-    $res = $stmt->get_result();
-    $row = $res ? $res->fetch_assoc() : null;
-
-    $stmt->close();
-
-    return $row ?: null;
-}
-
-function ups_refresher(mysqli $Connect, array $credentials)
-{
-    $currenttime = time();
-    $expiryUnix = (int) ($credentials['expires_in'] ?? 0);
-    $refreshAt = $expiryUnix - 2100;
-
-    if ($expiryUnix > 0 && $currenttime <= $refreshAt) {
-        return $credentials;
-    }
-
-    $refreshToken = (string) ($credentials['refresh_token'] ?? '');
-    $clientId = (string) ($credentials['client_id'] ?? '');
-    $clientSecret = (string) ($credentials['client_secret'] ?? '');
-
-    if ($refreshToken === '' || $clientId === '' || $clientSecret === '') {
-        return [
-            'error' => true,
-            'message' => 'Missing UPS OAuth refresh_token/client_id/client_secret.',
-        ];
-    }
-
-    $payload = [
-        'grant_type' => 'refresh_token',
-        'refresh_token' => $refreshToken,
-    ];
-
-    $basic = base64_encode($clientId . ":" . $clientSecret);
-
-    $curl = curl_init();
-    curl_setopt_array($curl, [
-        CURLOPT_URL => "https://onlinetools.ups.com/security/v1/oauth/refresh",
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_CUSTOMREQUEST => "POST",
-        CURLOPT_POSTFIELDS => http_build_query($payload),
-        CURLOPT_HTTPHEADER => [
-            "Content-Type: application/x-www-form-urlencoded",
-            "Authorization: Basic {$basic}",
-        ],
-    ]);
-
-    $raw = curl_exec($curl);
-    $err = curl_error($curl);
-    $info = curl_getinfo($curl);
-    curl_close($curl);
-
-    if ($err) {
-        return ['error' => true, 'message' => "cURL error: {$err}", 'http' => $info];
-    }
-
-    $response = json_decode($raw, true);
-
-    if (!is_array($response)) {
-        return ['error' => true, 'message' => 'Invalid JSON response from UPS refresh.', 'raw' => $raw, 'http' => $info];
-    }
-
-    if (isset($response['response']['errors'])) {
-        return ['error' => true, 'message' => 'UPS refresh error.', 'ups' => $response, 'http' => $info];
-    }
-
-    if (empty($response['access_token'])) {
-        return ['error' => true, 'message' => 'UPS refresh did not return access_token.', 'ups' => $response, 'http' => $info];
-    }
-
-    $newAccess = (string) $response['access_token'];
-    $newRefresh = (string) ($response['refresh_token'] ?? $refreshToken);
-    $expiresInSeconds = (int) ($response['expires_in'] ?? 0);
-    $newExpiryUnix = $currenttime + $expiresInSeconds;
-
-    $id = 4;
-    $stmt = $Connect->prepare("UPDATE aws_key SET access_token = ?, refresh_token = ?, expires_in = ? WHERE id = ?");
-    $stmt->bind_param("ssii", $newAccess, $newRefresh, $newExpiryUnix, $id);
-
-    if (!$stmt->execute()) {
-        $errMsg = $stmt->error;
-        $stmt->close();
-        return ['error' => true, 'message' => "DB update failed: {$errMsg}"];
-    }
-    $stmt->close();
-
-    $credentials['access_token'] = $newAccess;
-    $credentials['refresh_token'] = $newRefresh;
-    $credentials['expires_in'] = $newExpiryUnix;
-
-    return $credentials;
 }
 
 function UPS_fetchDetails($trackingnumber, array $credentials)
@@ -456,64 +364,198 @@ function getUpsTrackingQueueLatestDispense(mysqli $db): array
     return $items;
 }
 
-function handleDeliveredTransaction(mysqli $db, int $outboundId, int $productId, string $fnsku): array
+function handleDeliveredTransaction(mysqli $db, int $outboundId, int $productId, string $fnskuviewer): array
 {
-    if ($outboundId <= 0 || $productId <= 0 || trim($fnsku) === '') {
+    if ($outboundId <= 0 || $productId <= 0 || trim($fnskuviewer) === '') {
         return ['ok' => false, 'error' => 'Missing outboundId/productId/fnsku'];
     }
 
     try {
         $db->begin_transaction();
 
-        // 1) outboundordersitem -> Delivered
-        // IMPORTANT: confirm your column name is orderstatus OR order_status
-        $stmt1 = $db->prepare("UPDATE tbloutboundordersitem SET order_status = 'Delivered' WHERE outboundorderitemid = ?");
+        /* =========================
+           1) Lock + update outbound item
+        ========================= */
+
+        $stmt1 = $db->prepare("
+            UPDATE tbloutboundordersitem
+            SET order_status = 'Delivered'
+            WHERE outboundorderitemid = ? AND order_status = 'Shipped'
+        ");
         if (!$stmt1)
-            throw new Exception("prepare stmt1 failed: " . $db->error);
+            throw new Exception($db->error);
         $stmt1->bind_param("i", $outboundId);
-        if (!$stmt1->execute())
-            throw new Exception("execute stmt1 failed: " . $stmt1->error);
-        $affected1 = $stmt1->affected_rows;
+        $stmt1->execute();
+        if ($stmt1->affected_rows <= 0) {
+            throw new Exception("Outbound item already processed or not Shipped");
+        }
         $stmt1->close();
 
-        // 2) product -> SoldList
-        $stmt2 = $db->prepare("UPDATE tblproduct SET ProductModuleLoc = 'SoldList' WHERE ProductID = ?");
+        /* =========================
+           2) Move ONLY dispensed product
+        ========================= */
+
+        $stmt2 = $db->prepare("
+            UPDATE tblproduct
+            SET ProductModuleLoc = 'SoldList'
+            WHERE ProductID = ?
+        ");
         if (!$stmt2)
-            throw new Exception("prepare stmt2 failed: " . $db->error);
+            throw new Exception($db->error);
         $stmt2->bind_param("i", $productId);
-        if (!$stmt2->execute())
-            throw new Exception("execute stmt2 failed: " . $stmt2->error);
-        $affected2 = $stmt2->affected_rows;
+        $stmt2->execute();
+        if ($stmt2->affected_rows <= 0) {
+            throw new Exception("Product not moved to SoldList");
+        }
         $stmt2->close();
 
-        // 3) fnsku units + 1
-        $stmt3 = $db->prepare("UPDATE tblfnsku SET units = COALESCE(units,0) + 1 WHERE FNSKU = ?");
-        if (!$stmt3)
-            throw new Exception("prepare stmt3 failed: " . $db->error);
-        $stmt3->bind_param("s", $fnsku);
-        if (!$stmt3->execute())
-            throw new Exception("execute stmt3 failed: " . $stmt3->error);
-        $affected3 = $stmt3->affected_rows;
-        $stmt3->close();
+        /* =========================
+           3) Resolve pack / FNSKU increments
+        ========================= */
 
-        // Optional safety: require rows affected
-        if ($affected1 <= 0)
-            throw new Exception("No outbound row updated for outboundorderitemid={$outboundId}");
-        if ($affected2 <= 0)
-            throw new Exception("No product row updated for ProductID={$productId}");
-        if ($affected3 <= 0)
-            throw new Exception("No fnsku row updated for FNSKU={$fnsku}");
+        // Fetch mergeId + rtcounter of dispensed product
+        $stmt = $db->prepare("
+            SELECT mergeId, rtcounter
+            FROM tblproduct
+            WHERE ProductID = ?
+        ");
+        if (!$stmt)
+            throw new Exception($db->error);
+        $stmt->bind_param("i", $productId);
+        $stmt->execute();
+        $prod = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        $fnskuCounts = [];
+
+        // CASE A: Single item (no mergeId)
+        if (empty($prod['mergeId'])) {
+            $baseFnsku = extractBaseFnsku($fnskuviewer);
+            $fnskuCounts[$baseFnsku] = 1;
+        }
+        // CASE B: Pack parent → expand children
+        else {
+            $rtcounter = (int) $prod['rtcounter'];
+
+            $stmt = $db->prepare("
+                SELECT FNSKUviewer
+                FROM tblproduct
+                WHERE mergeTO = ?
+            ");
+            if (!$stmt)
+                throw new Exception($db->error);
+            $stmt->bind_param("i", $rtcounter);
+            $stmt->execute();
+            $res = $stmt->get_result();
+
+            if ($res->num_rows === 0) {
+                throw new Exception("Pack parent found but no children for rtcounter={$rtcounter}");
+            }
+
+            while ($row = $res->fetch_assoc()) {
+                $baseFnsku = extractBaseFnsku($row['FNSKUviewer']);
+                $fnskuCounts[$baseFnsku] = ($fnskuCounts[$baseFnsku] ?? 0) + 1;
+            }
+
+            $stmt->close();
+        }
+
+        /* =========================
+           4) Apply FNSKU unit increments
+        ========================= */
+
+        $stmt = $db->prepare("
+            UPDATE tblfnsku
+            SET units = COALESCE(units,0) + ?
+            WHERE FNSKU = ?
+        ");
+        if (!$stmt)
+            throw new Exception($db->error);
+
+        foreach ($fnskuCounts as $fnsku => $qty) {
+            $stmt->bind_param("is", $qty, $fnsku);
+            $stmt->execute();
+            if ($stmt->affected_rows <= 0) {
+                throw new Exception("Failed updating FNSKU units for {$fnsku}");
+            }
+        }
+        $stmt->close();
 
         $db->commit();
 
         return [
             'ok' => true,
-            'outbound_updated' => $affected1,
-            'product_updated' => $affected2,
-            'fnsku_updated' => $affected3,
+            'fnsku_updates' => $fnskuCounts,
         ];
+
     } catch (Throwable $e) {
         $db->rollback();
         return ['ok' => false, 'error' => $e->getMessage()];
     }
+}
+
+function extractBaseFnsku(string $fnsku): string
+{
+    $fnsku = strtoupper(trim($fnsku));
+    if ($fnsku === '') {
+        return $fnsku;
+    }
+
+    // Strip exactly 1 letter + 1 digit prefix if remainder is FNSKU
+    if (preg_match('/^[A-Z][0-9](X[0-9A-Z]+)$/', $fnsku, $m)) {
+        return $m[1];
+    }
+
+    return $fnsku;
+}
+
+function fetchUpsCredentialsFromMainApp(): array
+{
+    $url = 'https://ims.tecniquality.com/dbserver/ups/ups_credentials.php';
+
+    // ✅ Must match EXPECTED_KEY on the main app endpoint
+    $secret = 'REPLACE_WITH_LONG_RANDOM_SECRET';
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CUSTOMREQUEST => 'POST',
+        CURLOPT_TIMEOUT => 20,
+        CURLOPT_HTTPHEADER => [
+            'Accept: application/json',
+            'X-IMS-KEY: ' . $secret,
+        ],
+        // optional body if you want to log caller identity
+        CURLOPT_POSTFIELDS => http_build_query([
+            'caller' => 'ups_tracker_second_app',
+        ]),
+    ]);
+
+    $raw = curl_exec($ch);
+    $err = curl_error($ch);
+    $info = curl_getinfo($ch);
+    curl_close($ch);
+
+    if ($err) {
+        return ['error' => true, 'message' => "cURL error: {$err}", 'http' => $info];
+    }
+
+    $data = json_decode($raw, true);
+
+    if (!is_array($data) || empty($data['ok'])) {
+        return ['error' => true, 'message' => 'Invalid response from main app', 'raw' => $raw, 'http' => $info];
+    }
+
+    $token = (string) ($data['access_token'] ?? '');
+    $exp = (int) ($data['expires_unix'] ?? 0);
+
+    if ($token === '' || $exp <= 0) {
+        return ['error' => true, 'message' => 'Main app returned missing token/expiry', 'raw' => $data];
+    }
+
+    return [
+        'access_token' => $token,
+        'expires_in' => $exp, // keep same key name your script expects (absolute unix)
+    ];
 }

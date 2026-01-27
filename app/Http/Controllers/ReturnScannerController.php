@@ -131,70 +131,133 @@ class ReturnScannerController extends BasetablesController
     /**
      * Check if a serial number belongs to a dual-serial product
      */
-    public function checkSerial(Request $request)
-    {
-        $serial = $request->get('serial');
-        
-        if (!$serial) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No serial number provided'
-            ]);
-        }
-        
-        try {
-            $product = DB::table($this->productTable)
-                ->where(function ($query) use ($serial) {
-                    $query->where('serialnumber', $serial)
-                        ->orWhere('serialnumberb', $serial);
-                })
-                ->whereIn('ProductModuleLoc', ['Stockroom', 'Shipment', 'Soldlist','Returnlist'])
-                ->first();
-            
-            if (!$product) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Serial number not found or not in a valid location'
-                ]);
-            }
-           // ✅ FIXED: Check if serialnumberb is valid (not empty, not null, not "N/A")
-            $isValidSecondSerial = !empty($product->serialnumberb) && 
-                              trim($product->serialnumberb) !== '' &&
-                              strtoupper(trim($product->serialnumberb)) !== 'N/A';
-            
-            $isDualSerial = $isValidSecondSerial;
-            $secondSerial = null;
-            $scannedSerialPosition = null;
-            
-            if ($serial === $product->serialnumber && !empty($product->serialnumberb)) {
-                $secondSerial = $product->serialnumberb;
-                $scannedSerialPosition = 'primary';
-            } else if ($serial === $product->serialnumberb && !empty($product->serialnumber)) {
-                $secondSerial = $product->serialnumber;
-                $scannedSerialPosition = 'secondary';
-            }
-            
-            $fnskuViewer = $product->FNSKUviewer ?? null;
-            
-            return response()->json([
-                'success' => true,
-                'isDualSerial' => $isDualSerial,
-                'secondSerial' => $secondSerial,
-                'scannedSerialPosition' => $scannedSerialPosition,
-                'secondSerialLabel' => 'Second Serial',
-                'productId' => $product->ProductID,
-                'fnskuViewer' => $fnskuViewer
-            ]);
-            
-        } catch (\Exception $e) {
-            Log::error('Error checking serial: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Error checking serial: ' . $e->getMessage()
-            ]);
-        }
+public function checkSerial(Request $request)
+{
+    $serial = $request->get('serial');
+    
+    if (!$serial) {
+        return response()->json([
+            'success' => false,
+            'message' => 'No serial number provided'
+        ]);
     }
+    
+    try {
+        // Search across all 4 serial fields - EXCLUDE Returnlist and Merged
+        $product = DB::table($this->productTable)
+            ->where(function ($query) use ($serial) {
+                $query->where('serialnumber', $serial)
+                    ->orWhere('serialnumberb', $serial)
+                    ->orWhere('serialnumberc', $serial)
+                    ->orWhere('serialnumberd', $serial);
+            })
+            ->whereIn('ProductModuleLoc', ['Stockroom', 'Shipment', 'Soldlist']) // ✅ FIXED: Only these locations
+            ->first();
+        
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Serial number not found or not in a valid location'
+            ]);
+        }
 
+        // Helper function to check if serial is valid
+        $isValidSerial = function($serialValue) {
+            return !empty($serialValue) && 
+                   trim($serialValue) !== '' &&
+                   strtoupper(trim($serialValue)) !== 'N/A';
+        };
+
+        // Collect all valid serials with their positions
+        $allSerials = [];
+        $serialFields = [
+            1 => 'serialnumber',
+            2 => 'serialnumberb', 
+            3 => 'serialnumberc',
+            4 => 'serialnumberd'
+        ];
+        $serialLabels = [
+            1 => 'Serial Number',
+            2 => 'Second Serial',
+            3 => 'Third Serial',
+            4 => 'Fourth Serial'
+        ];
+        
+        foreach ($serialFields as $index => $field) {
+            $value = $product->$field ?? null;
+            if ($isValidSerial($value)) {
+                $allSerials[] = [
+                    'index' => $index,
+                    'field' => $field,
+                    'value' => $value,
+                    'label' => $serialLabels[$index]
+                ];
+            }
+        }
+
+        $totalSerials = count($allSerials);
+        
+        // Determine which serial was scanned
+        $scannedSerialIndex = null;
+        $scannedSerialPosition = null;
+        
+        foreach ($allSerials as $serialInfo) {
+            if ($serialInfo['value'] === $serial) {
+                $scannedSerialIndex = $serialInfo['index'];
+                $scannedSerialPosition = $serialInfo['field'];
+                break;
+            }
+        }
+
+        // Build array of other serials (excluding the scanned one)
+        $otherSerials = [];
+        foreach ($allSerials as $serialInfo) {
+            if ($serialInfo['value'] !== $serial) {
+                $otherSerials[] = $serialInfo;
+            }
+        }
+
+        $fnskuViewer = $product->FNSKUviewer ?? null;
+        
+        // Determine if multi-serial
+        $isMultiSerial = $totalSerials > 1;
+        
+        // For backward compatibility with dual-serial
+        $isDualSerial = $totalSerials === 2;
+        $secondSerial = isset($otherSerials[0]) ? $otherSerials[0]['value'] : null;
+        $thirdSerial = isset($otherSerials[1]) ? $otherSerials[1]['value'] : null;
+        $fourthSerial = isset($otherSerials[2]) ? $otherSerials[2]['value'] : null;
+        
+        return response()->json([
+            'success' => true,
+            // New multi-serial fields
+            'isMultiSerial' => $isMultiSerial,
+            'totalSerials' => $totalSerials,
+            'allSerials' => $allSerials,
+            'otherSerials' => $otherSerials,
+            'scannedSerialIndex' => $scannedSerialIndex,
+            'scannedSerialPosition' => $scannedSerialPosition,
+            // Legacy dual-serial compatibility
+            'isDualSerial' => $isDualSerial,
+            'secondSerial' => $secondSerial,
+            'secondSerialLabel' => isset($otherSerials[0]) ? $otherSerials[0]['label'] : 'Second Serial',
+            'thirdSerial' => $thirdSerial,
+            'thirdSerialLabel' => isset($otherSerials[1]) ? $otherSerials[1]['label'] : 'Third Serial',
+            'fourthSerial' => $fourthSerial,
+            'fourthSerialLabel' => isset($otherSerials[2]) ? $otherSerials[2]['label'] : 'Fourth Serial',
+            // Product info
+            'productId' => $product->ProductID,
+            'fnskuViewer' => $fnskuViewer
+        ]);
+        
+    } catch (\Exception $e) {
+        Log::error('Error checking serial: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Error checking serial: ' . $e->getMessage()
+        ]);
+    }
+}
   private function getCurrentUserName()
     {
         $user = Auth::user();
@@ -257,12 +320,16 @@ public function processScan(Request $request)
             $validatedData = $request->validate([
                 'SerialNumber' => 'required|string',
                 'SecondSerial' => 'nullable|string',
+                'ThirdSerial' => 'nullable|string',
+                'FourthSerial' => 'nullable|string',
                 'Location' => 'required|string',
                 'ReturnId' => 'nullable|string',
                 'SingleSerialMode' => 'nullable|boolean',
                 'ProductID' => 'nullable|integer',
                 'FNSKUviewer' => 'nullable|string',
                 'ScannedSerialPosition' => 'nullable|string',
+                'TotalSerials' => 'nullable|integer',
+                'IsMultiSerial' => 'nullable|boolean',
                 'ScannedPrimarySerial' => 'nullable|string',
                 'ScannedSecondarySerial' => 'nullable|string',
                 'Images' => 'nullable|array',
@@ -282,6 +349,11 @@ public function processScan(Request $request)
         $User = $this->getCurrentUserName();
         $serial = trim($request->input('SerialNumber', ''));
         $secondSerial = trim($request->input('SecondSerial', ''));
+        $thirdSerial = trim($request->input('ThirdSerial', ''));
+        $fourthSerial = trim($request->input('FourthSerial', ''));
+        $totalExpectedSerials = $request->input('TotalSerials', 1);
+        $isMultiSerial = $request->input('IsMultiSerial', false);
+        
         $location = trim($request->input('Location', ''));
         $returnId = trim($request->input('ReturnId', ''));
         $singleSerialMode = (bool)$request->input('SingleSerialMode', false);
@@ -293,7 +365,10 @@ public function processScan(Request $request)
         Log::info("Processing return scan", [
             'serial' => $serial,
             'secondSerial' => $secondSerial,
+            'thirdSerial' => $thirdSerial,
+            'fourthSerial' => $fourthSerial,
             'location' => $location,
+            'totalExpectedSerials' => $totalExpectedSerials,
             'imagesCount' => count($images)
         ]);
 
@@ -306,6 +381,7 @@ public function processScan(Request $request)
             ], 422);
         }
 
+        // Validate all serial number formats
         if (!preg_match('/^[a-zA-Z0-9-]+$/', $serial)) {
             DB::rollBack();
             return response()->json([
@@ -324,6 +400,24 @@ public function processScan(Request $request)
             ]);
         }
 
+        if (!empty($thirdSerial) && !preg_match('/^[a-zA-Z0-9-]+$/', $thirdSerial)) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid Third Serial Number format',
+                'reason' => 'invalid_third_serial'
+            ]);
+        }
+
+        if (!empty($fourthSerial) && !preg_match('/^[a-zA-Z0-9-]+$/', $fourthSerial)) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid Fourth Serial Number format',
+                'reason' => 'invalid_fourth_serial'
+            ]);
+        }
+
         if (!preg_match('/^L\d{3}[A-G]$/i', $location) && $location !== 'Floor' && $location !== 'L800G') {
             DB::rollBack();
             return response()->json([
@@ -333,16 +427,26 @@ public function processScan(Request $request)
             ]);
         }
 
+        // Build serials to check array (all 4 serials)
         $serialsToCheck = [$serial];
         if (!empty($secondSerial) && !$singleSerialMode) {
             $serialsToCheck[] = $secondSerial;
         }
+        if (!empty($thirdSerial) && !$singleSerialMode) {
+            $serialsToCheck[] = $thirdSerial;
+        }
+        if (!empty($fourthSerial) && !$singleSerialMode) {
+            $serialsToCheck[] = $fourthSerial;
+        }
         
+        // Check for existing serials in Production Area (search all 4 serial columns)
         foreach ($serialsToCheck as $serialToCheck) {
             $existingSerialCheck = DB::table($this->productTable)
                 ->where(function ($query) use ($serialToCheck) {
                     $query->where('serialnumber', $serialToCheck)
-                        ->orWhere('serialnumberb', $serialToCheck);
+                        ->orWhere('serialnumberb', $serialToCheck)
+                        ->orWhere('serialnumberc', $serialToCheck)
+                        ->orWhere('serialnumberd', $serialToCheck);
                 })
                 ->where('ProductModuleLoc', 'Production Area')
                 ->first();
@@ -367,7 +471,9 @@ public function processScan(Request $request)
                 $existingProductionItem = DB::table($this->productTable)
                     ->where(function ($query) use ($serialToCheck) {
                         $query->where('serialnumber', $serialToCheck)
-                            ->orWhere('serialnumberb', $serialToCheck);
+                            ->orWhere('serialnumberb', $serialToCheck)
+                            ->orWhere('serialnumberc', $serialToCheck)
+                            ->orWhere('serialnumberd', $serialToCheck);
                     })
                     ->where('ProductModuleLoc', 'Production Area')
                     ->first();
@@ -428,6 +534,7 @@ public function processScan(Request $request)
         }
         
         if (!$existingItem) {
+            // Search by serial number across all 4 serial columns
             $existingItem = DB::table($this->productTable . ' as prod')
                 ->select(
                     'prod.*',
@@ -442,13 +549,29 @@ public function processScan(Request $request)
                     END"), '=', 'fnsku.FNSKU');
                 })
                 ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->where(function ($query) use ($serial, $secondSerial) {
+                ->where(function ($query) use ($serial, $secondSerial, $thirdSerial, $fourthSerial) {
                     $query->where('prod.serialnumber', $serial)
-                        ->orWhere('prod.serialnumberb', $serial);
+                        ->orWhere('prod.serialnumberb', $serial)
+                        ->orWhere('prod.serialnumberc', $serial)
+                        ->orWhere('prod.serialnumberd', $serial);
                     
                     if (!empty($secondSerial)) {
                         $query->orWhere('prod.serialnumber', $secondSerial)
-                            ->orWhere('prod.serialnumberb', $secondSerial);
+                            ->orWhere('prod.serialnumberb', $secondSerial)
+                            ->orWhere('prod.serialnumberc', $secondSerial)
+                            ->orWhere('prod.serialnumberd', $secondSerial);
+                    }
+                    if (!empty($thirdSerial)) {
+                        $query->orWhere('prod.serialnumber', $thirdSerial)
+                            ->orWhere('prod.serialnumberb', $thirdSerial)
+                            ->orWhere('prod.serialnumberc', $thirdSerial)
+                            ->orWhere('prod.serialnumberd', $thirdSerial);
+                    }
+                    if (!empty($fourthSerial)) {
+                        $query->orWhere('prod.serialnumber', $fourthSerial)
+                            ->orWhere('prod.serialnumberb', $fourthSerial)
+                            ->orWhere('prod.serialnumberc', $fourthSerial)
+                            ->orWhere('prod.serialnumberd', $fourthSerial);
                     }
                 })
                 ->whereIn('prod.ProductModuleLoc', ['Stockroom', 'Shipment', 'Soldlist'])
@@ -471,52 +594,99 @@ public function processScan(Request $request)
                 'FNSKUviewer' => null,
                 'serialnumber' => null,
                 'serialnumberb' => null,
+                'serialnumberc' => null,
+                'serialnumberd' => null,
                 'ProductModuleLoc' => null,
                 'ProductTitle' => null
             ];
         }
 
-        if ($isSerialKnown && !empty($existingItem->serialnumberb) && !$singleSerialMode) {
-            $dbSerial1 = $existingItem->serialnumber;
-            $dbSerial2 = $existingItem->serialnumberb;
+        // ========== MULTI-SERIAL VALIDATION - ALLOW SWITCHERU ==========
+        if ($isSerialKnown && !$singleSerialMode) {
+            // Helper function to check if serial is valid
+            $isValidSerial = function($s) {
+                return !empty($s) && trim($s) !== '' && strtoupper(trim($s)) !== 'N/A';
+            };
             
-            if (strtoupper(trim($dbSerial2)) === 'N/A') {
-                // Treat as single serial
-            } else {
-                if (empty($secondSerial)) {
+            // Collect all valid serials from DB
+            $dbSerials = [];
+            if ($isValidSerial($existingItem->serialnumber ?? null)) {
+                $dbSerials[1] = $existingItem->serialnumber;
+            }
+            if ($isValidSerial($existingItem->serialnumberb ?? null)) {
+                $dbSerials[2] = $existingItem->serialnumberb;
+            }
+            if ($isValidSerial($existingItem->serialnumberc ?? null)) {
+                $dbSerials[3] = $existingItem->serialnumberc;
+            }
+            if ($isValidSerial($existingItem->serialnumberd ?? null)) {
+                $dbSerials[4] = $existingItem->serialnumberd;
+            }
+            
+            $totalDbSerials = count($dbSerials);
+            
+            if ($totalDbSerials > 1) {
+                // Build provided serials array
+                $providedSerials = array_filter([$serial, $secondSerial, $thirdSerial, $fourthSerial], function($s) {
+                    return !empty(trim($s));
+                });
+                
+                $providedCount = count($providedSerials);
+                
+                // ✅ RELAXED VALIDATION: Only require at least ONE serial to match (confirms correct product)
+                $dbSerialsValues = array_values($dbSerials);
+                $hasAtLeastOneMatch = false;
+                
+                foreach ($providedSerials as $provided) {
+                    if (in_array($provided, $dbSerialsValues)) {
+                        $hasAtLeastOneMatch = true;
+                        break;
+                    }
+                }
+                
+                if (!$hasAtLeastOneMatch) {
+                    // None of the provided serials match - this is the WRONG product
                     DB::rollBack();
                     return response()->json([
                         'success' => false,
-                        'message' => 'This is a dual-serial product. Second serial number is required.',
-                        'reason' => 'missing_second_serial',
-                        'secondSerialLabel' => 'Second Serial',
-                        'isDualSerial' => true,
-                        'secondSerial' => $serial === $dbSerial1 ? $dbSerial2 : $dbSerial1
+                        'message' => "None of the provided serials match this product. Expected serials: " . implode(', ', $dbSerialsValues),
+                        'reason' => 'wrong_product',
+                        'expectedSerials' => $dbSerialsValues,
+                        'providedSerials' => array_values($providedSerials)
                     ]);
                 }
                 
-                $anySerialMatches = in_array($serial, [$dbSerial1, $dbSerial2]) || 
-                                    in_array($secondSerial, [$dbSerial1, $dbSerial2]);
-                
-                if (!$anySerialMatches) {
-                    DB::rollBack();
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'The provided serial numbers do not match the product record.',
-                        'reason' => 'serial_mismatch',
-                        'correctSerials' => [
-                            'serial1' => $dbSerial1,
-                            'serial2' => $dbSerial2
-                        ]
+                // ✅ LOG WARNINGS for tracking (but don't block)
+                if ($providedCount < $totalDbSerials) {
+                    Log::warning("⚠️ Partial return detected", [
+                        'expected' => $totalDbSerials,
+                        'provided' => $providedCount,
+                        'dbSerials' => $dbSerials,
+                        'providedSerials' => $providedSerials,
+                        'productId' => $existingItem->ProductID
                     ]);
+                }
+                
+                // Check for any mismatches (potential switcheru - log but allow)
+                foreach ($providedSerials as $provided) {
+                    if (!in_array($provided, $dbSerialsValues)) {
+                        Log::warning("⚠️ Potential SWITCHERU detected during validation", [
+                            'provided_serial' => $provided,
+                            'expected_serials' => $dbSerialsValues,
+                            'productId' => $existingItem->ProductID
+                        ]);
+                    }
                 }
             }
         }
 
+        // Build serialsToProcess array (all provided serials)
         $serialsToProcess = [];
-        if (!empty($secondSerial) && !$singleSerialMode) {
-            $serialsToProcess[] = $serial;
-            $serialsToProcess[] = $secondSerial;
+        if (!$singleSerialMode) {
+            if (!empty($serial)) $serialsToProcess[] = $serial;
+            if (!empty($secondSerial)) $serialsToProcess[] = $secondSerial;
+            if (!empty($thirdSerial)) $serialsToProcess[] = $thirdSerial;
+            if (!empty($fourthSerial)) $serialsToProcess[] = $fourthSerial;
         } else {
             $serialsToProcess[] = $serial;
         }
@@ -659,11 +829,11 @@ public function processScan(Request $request)
                             ->where('fnsku.amazon_status', 'Existed')
                             ->where('fnsku.LimitStatus', 'False')
                             ->where('fnsku.grading', $condition)
-                            ->where('fnsku.storename', $storename)  // ✅ STRICT STORE MATCH
+                            ->where('fnsku.storename', $storename)
                             ->where('fnsku.Units', '>', 0)
                             ->where('asin.quantityinside', 1)
                             ->where('fnsku.ASIN', 'LIKE', $asinBase . '%')
-                            ->where('asin.color', $color);  // ✅ ALWAYS REQUIRED
+                            ->where('asin.color', $color);
                         
                         $singleItem = $query->orderByDesc('fnsku.FNSKUID')->first();
                         
@@ -688,10 +858,10 @@ public function processScan(Request $request)
                                     ->where('fnsku.amazon_status', 'Existed')
                                     ->where('fnsku.LimitStatus', 'False')
                                     ->where('fnsku.grading', $condition)
-                                    ->where('fnsku.storename', $storename)  // ✅ STRICT STORE MATCH
+                                    ->where('fnsku.storename', $storename)
                                     ->where('fnsku.Units', '>', 0)
                                     ->where('asin.quantityinside', 1)
-                                    ->where('asin.color', $color);  // ✅ ALWAYS REQUIRED
+                                    ->where('asin.color', $color);
                                 
                                 $singleItem = $relatedQuery->orderByDesc('fnsku.FNSKUID')->first();
                                 
@@ -758,10 +928,10 @@ public function processScan(Request $request)
                                     ->where('fnsku.amazon_status', 'Existed')
                                     ->where('fnsku.LimitStatus', 'False')
                                     ->where('fnsku.grading', $condition)
-                                    ->where('fnsku.storename', $storename)  // ✅ STRICT STORE MATCH
+                                    ->where('fnsku.storename', $storename)
                                     ->where('fnsku.Units', '>', 0)
                                     ->where('asin.quantityinside', $quantityInside)
-                                    ->where('asin.color', $color);  // ✅ ALWAYS REQUIRED
+                                    ->where('asin.color', $color);
                                 
                                 $relatedFnsku = $relatedQuery->orderByDesc('fnsku.FNSKUID')->first();
                                 
@@ -932,34 +1102,120 @@ public function processScan(Request $request)
         }
         // ========== END OF MODIFIED FNSKU LOGIC ==========
         
-        // Switcheru detection
-        $switcheruData = null;
+        // ========== SWITCHERU DETECTION (FIXED FOR UP TO 4 SERIALS) ==========
+        $switcheruRecords = [];
         $switcheruFound = false;
+        $serialsNotReturned = [];
+        $newSwitchedSerials = [];
 
         if (!$isSerialKnown) {
-            $switcheruData = [
+            // Unknown serial case - no original product found
+            $switcheruRecords[] = [
                 'buyer' => $buyerName ?? 'Unknown',
                 'sendserial' => '',
                 'receiveserial' => $serial,
+                'rtcounter' => null,
                 'created_at' => $curentDatetimeString
             ];
             $switcheruFound = true;
-        }
-        else if (!$singleSerialMode && !empty($secondSerial) && !empty($existingItem->serialnumberb)) {
-            $dbSerial1 = $existingItem->serialnumber;
-            $dbSerial2 = $existingItem->serialnumberb;
+            $newSwitchedSerials[] = $serial;
             
-            $expectedSecondSerial = ($serial === $dbSerial1) ? $dbSerial2 : 
-                                  (($serial === $dbSerial2) ? $dbSerial1 : null);
+            Log::info("✅ Switcheru detected: Unknown serial", [
+                'receiveserial' => $serial
+            ]);
+        } 
+        else if (!$singleSerialMode) {
+            // ✅ FIXED: Multi-serial switcheru detection (2, 3, or 4 serials)
             
-            if ($expectedSecondSerial && $secondSerial !== $expectedSecondSerial) {
-                $switcheruData = [
-                    'buyer' => $buyerName,
-                    'sendserial' => $expectedSecondSerial,
-                    'receiveserial' => $secondSerial,
-                    'created_at' => $curentDatetimeString
-                ];
+            // Helper function
+            $isValidSerial = function($s) {
+                return !empty($s) && trim($s) !== '' && strtoupper(trim($s)) !== 'N/A';
+            };
+            
+            // Collect all DB serials
+            $dbSerials = [];
+            if ($isValidSerial($existingItem->serialnumber ?? null)) {
+                $dbSerials[1] = $existingItem->serialnumber;
+            }
+            if ($isValidSerial($existingItem->serialnumberb ?? null)) {
+                $dbSerials[2] = $existingItem->serialnumberb;
+            }
+            if ($isValidSerial($existingItem->serialnumberc ?? null)) {
+                $dbSerials[3] = $existingItem->serialnumberc;
+            }
+            if ($isValidSerial($existingItem->serialnumberd ?? null)) {
+                $dbSerials[4] = $existingItem->serialnumberd;
+            }
+            
+            // Collect all received serials
+            $receivedSerials = [];
+            if ($isValidSerial($serial)) $receivedSerials[1] = $serial;
+            if ($isValidSerial($secondSerial)) $receivedSerials[2] = $secondSerial;
+            if ($isValidSerial($thirdSerial)) $receivedSerials[3] = $thirdSerial;
+            if ($isValidSerial($fourthSerial)) $receivedSerials[4] = $fourthSerial;
+            
+            $dbSerialValues = array_values($dbSerials);
+            $receivedSerialValues = array_values($receivedSerials);
+            
+            // Find serials NOT returned (switched out)
+            foreach ($dbSerials as $idx => $dbSerial) {
+                if (!in_array($dbSerial, $receivedSerialValues)) {
+                    $serialsNotReturned[$idx] = $dbSerial;
+                }
+            }
+            
+            // Find NEW serials received (switched in)
+            foreach ($receivedSerials as $idx => $receivedSerial) {
+                if (!in_array($receivedSerial, $dbSerialValues)) {
+                    $newSwitchedSerials[$idx] = $receivedSerial;
+                }
+            }
+            
+            Log::info("✅ Switcheru Analysis", [
+                'dbSerials' => $dbSerials,
+                'receivedSerials' => $receivedSerials,
+                'serialsNotReturned' => $serialsNotReturned,
+                'newSwitchedSerials' => $newSwitchedSerials
+            ]);
+            
+            // Create switcheru records ONLY IF there are switched serials
+            // ✅ FIXED: If user only returned fewer serials (like 1 from 2-pack), don't create switcheru unless there's a NEW serial
+            if (!empty($serialsNotReturned) && !empty($newSwitchedSerials)) {
+                // TRUE SWITCHERU: Sent serials not returned AND new serials received
                 $switcheruFound = true;
+                
+                $notReturnedList = array_values($serialsNotReturned);
+                $newSwitchedList = array_values($newSwitchedSerials);
+                
+                $maxCount = max(count($notReturnedList), count($newSwitchedList));
+                
+                for ($i = 0; $i < $maxCount; $i++) {
+                    $sendSerial = $notReturnedList[$i] ?? '';
+                    $receiveSerial = $newSwitchedList[$i] ?? '';
+                    
+                    if (!empty($sendSerial) || !empty($receiveSerial)) {
+                        $switcheruRecords[] = [
+                            'buyer' => $buyerName ?? 'Unknown',
+                            'sendserial' => $sendSerial,
+                            'receiveserial' => $receiveSerial,
+                            'rtcounter' => $rtCounter,
+                            'created_at' => $curentDatetimeString
+                        ];
+                    }
+                }
+                
+                Log::info("✅ Switcheru Records Created", [
+                    'count' => count($switcheruRecords),
+                    'records' => $switcheruRecords
+                ]);
+            } else if (!empty($serialsNotReturned) && empty($newSwitchedSerials)) {
+                // PARTIAL RETURN: Some serials not returned, but no new serials received
+                // This is NOT a switcheru, just missing items
+                Log::info("ℹ️ Partial return detected (NOT switcheru)", [
+                    'serialsNotReturned' => $serialsNotReturned,
+                    'totalDbSerials' => count($dbSerials),
+                    'totalReceivedSerials' => count($receivedSerials)
+                ]);
             }
         }
         
@@ -973,12 +1229,47 @@ public function processScan(Request $request)
                     'Action' => 'Return Item'
                 ]);
     
+                // ✅ FIXED: Build update data with switcheru handling
+                $updateData = [
+                    'ProductModuleLoc' => 'Returnlist',
+                    'returnstatus' => 'returned'
+                ];
+                
+                // ✅ FIXED: Remove switched-out serials from original product ONLY IF switcheru detected
+                if ($switcheruFound && !empty($serialsNotReturned)) {
+                    Log::info("🔄 Removing switched serials from original product", [
+                        'productId' => $originalItem->ProductID,
+                        'serialsNotReturned' => $serialsNotReturned
+                    ]);
+                    
+                    foreach ($serialsNotReturned as $idx => $notReturnedSerial) {
+                        switch ($idx) {
+                            case 1: $updateData['serialnumber'] = null; break;
+                            case 2: $updateData['serialnumberb'] = null; break;
+                            case 3: $updateData['serialnumberc'] = null; break;
+                            case 4: $updateData['serialnumberd'] = null; break;
+                        }
+                    }
+                } else if (!empty($serialsNotReturned) && empty($newSwitchedSerials)) {
+                    // PARTIAL RETURN: Also remove serials that weren't returned
+                    Log::info("🔄 Removing unreturned serials from original product (partial return)", [
+                        'productId' => $originalItem->ProductID,
+                        'serialsNotReturned' => $serialsNotReturned
+                    ]);
+                    
+                    foreach ($serialsNotReturned as $idx => $notReturnedSerial) {
+                        switch ($idx) {
+                            case 1: $updateData['serialnumber'] = null; break;
+                            case 2: $updateData['serialnumberb'] = null; break;
+                            case 3: $updateData['serialnumberc'] = null; break;
+                            case 4: $updateData['serialnumberd'] = null; break;
+                        }
+                    }
+                }
+                
                 DB::table($this->productTable)
                     ->where('ProductID', $originalItem->ProductID)
-                    ->update([
-                        'ProductModuleLoc' => 'Returnlist',
-                        'returnstatus' => 'returned'
-                    ]);
+                    ->update($updateData);
 
                 if ($originalFnsku) {
                     $baseFnsku = $this->extractBaseFnsku($originalFnsku);
@@ -990,31 +1281,57 @@ public function processScan(Request $request)
                     ->where('Prodid', $originalItem->ProductID)
                     ->delete();
                 
+                // ✅ IMPROVED: Action message with switcheru details
+                $actionMessage = ($singleSerialMode && !empty($existingItem->serialnumberb)) 
+                    ? 'Item returned with only one serial and added to Return List' 
+                    : 'Item returned and added to Return List';
+                
+                if ($switcheruFound) {
+                    $actionMessage .= ' - SWITCHERU DETECTED';
+                    if (!empty($serialsNotReturned)) {
+                        $actionMessage .= ' - Not returned: ' . implode(', ', $serialsNotReturned);
+                    }
+                    if (!empty($newSwitchedSerials)) {
+                        $actionMessage .= ' - Switched in: ' . implode(', ', $newSwitchedSerials);
+                    }
+                } else if (!empty($serialsNotReturned)) {
+                    $actionMessage .= ' - Partial return - Missing: ' . implode(', ', $serialsNotReturned);
+                }
+                
                 DB::table($this->itemProcessHistoryTable)->insert([
                     'rtcounter' => $originalItem->rtcounter,
                     'employeeName' => $User,
                     'editDate' => $curentDatetimeString,
                     'Module' => 'Returnlist',
-                    'Action' => ($singleSerialMode && !empty($existingItem->serialnumberb)) 
-                        ? 'Item returned with only one serial and added to Return List' 
-                        : 'Item returned and added to Return List',
+                    'Action' => $actionMessage,
                 ]);
             }
             
             DB::commit();
             
-            if ($switcheruFound && $switcheruData) {
-                try {
-                    DB::table('tblswitcherus')->insert($switcheruData);
-                    Log::info("✓ Switcheru inserted", $switcheruData);
-                } catch (\Exception $e) {
-                    Log::error("✗ Failed to insert switcheru", ['error' => $e->getMessage()]);
+            // ✅ FIXED: Insert switcheru records ONLY if switcheru was detected
+            if ($switcheruFound && !empty($switcheruRecords)) {
+                $insertedCount = 0;
+                foreach ($switcheruRecords as $switcheruRecord) {
+                    try {
+                        DB::table('tblswitcherus')->insert($switcheruRecord);
+                        $insertedCount++;
+                        Log::info("✅ Switcheru record inserted", $switcheruRecord);
+                    } catch (\Exception $e) {
+                        Log::error("❌ Failed to insert switcheru", [
+                            'error' => $e->getMessage(),
+                            'record' => $switcheruRecord
+                        ]);
+                    }
                 }
+                Log::info("✅ Total switcheru records inserted: {$insertedCount}");
             }
             
             $successMessage = "Successfully processed " . count($serialsToProcess) . " items";
             if ($switcheruFound) {
-                $successMessage .= " (Switcheru detected)";
+                $successMessage .= " - ⚠️ SWITCHERU DETECTED (" . count($switcheruRecords) . " record(s))";
+            } else if (!empty($serialsNotReturned) && empty($newSwitchedSerials)) {
+                $successMessage .= " - ℹ️ Partial return (" . count($serialsNotReturned) . " item(s) not returned)";
             }
             
             return response()->json([
@@ -1023,6 +1340,8 @@ public function processScan(Request $request)
                 'item' => [
                     'serial_number' => $serial,
                     'second_serial' => $secondSerial,
+                    'third_serial' => $thirdSerial,
+                    'fourth_serial' => $fourthSerial,
                     'location' => $location,
                     'return_id' => $returnId,
                     'lpn_id' => $currentLpnId,
@@ -1032,10 +1351,18 @@ public function processScan(Request $request)
                     'fnsku' => $originalFnsku,
                     'product_id' => $existingItem->ProductID,
                     'switcheru_found' => $switcheruFound,
-                    'is_serial_known' => $isSerialKnown
+                    'is_serial_known' => $isSerialKnown,
+                    'total_serials_processed' => count($serialsToProcess)
                 ],
                 'createdItems' => $createdItems,
-                'imagesReceived' => count($images)
+                'imagesReceived' => count($images),
+                'switcheru' => [
+                    'detected' => $switcheruFound,
+                    'count' => count($switcheruRecords),
+                    'records' => $switcheruRecords,
+                    'serialsNotReturned' => array_values($serialsNotReturned),
+                    'newSwitchedSerials' => array_values($newSwitchedSerials)
+                ]
             ]);
         } else {
             DB::rollBack();
@@ -1266,5 +1593,20 @@ private function returnFnskuUnits($fnskuViewer)
         Log::error("Error returning FNSKU units: " . $e->getMessage());
         return false;
     }
+}
+
+private function isValidSerial($serial)
+{
+    if ($serial === null) return false;
+    if (!is_string($serial)) return false;
+    
+    $trimmed = trim($serial);
+    if ($trimmed === '') return false;
+    if (strtoupper($trimmed) === 'N/A') return false;
+    if (strtoupper($trimmed) === 'NA') return false;
+    if (strtoupper($trimmed) === 'NULL') return false;
+    if ($trimmed === '0') return false;
+    
+    return true;
 }
 }
