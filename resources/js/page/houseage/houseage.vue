@@ -658,7 +658,8 @@
                                                             v-model="item[key]"
                                                             @blur="
                                                                 checkDuplicateSerial(
-                                                                    item[key]
+                                                                    item[key],
+                                                                    key,
                                                                 )
                                                             "
                                                         />
@@ -1298,7 +1299,7 @@ export default {
                 { label: "Check", value: "Check" },
             ],
             rowsPerPage: ROWS_PER_PAGE,
-            showPricingSection: showPricingForPH()
+            showPricingSection: showPricingForPH(),
         };
     },
     computed: {
@@ -1341,15 +1342,15 @@ export default {
                 })),
             ];
         },
-           updatePricingView() {
+        updatePricingView() {
             this.showPricingSection = showPricingForPH();
-        }
+        },
     },
-         mounted() {
-        window.addEventListener('resize', this.updatePricingView);
+    mounted() {
+        window.addEventListener("resize", this.updatePricingView);
     },
     beforeUnmount() {
-        window.removeEventListener('resize', this.updatePricingView);
+        window.removeEventListener("resize", this.updatePricingView);
     },
 };
 </script>

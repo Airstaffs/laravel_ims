@@ -202,27 +202,79 @@ export default {
     },
     
     // Scanner camera controls
-    startScanner() {
+    async startScanner() {
       if (!this.enableCamera) return;
-      
-      // Start scanner camera here
+
       this.scannerCameraActive = true;
-      
-      // Example: Access the camera via navigator.mediaDevices
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-        .then(stream => {
-          const video = document.getElementById('scanner-camera-preview');
-          if (video) {
-            video.srcObject = stream;
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            focusMode: 'continuous' // hint for autofocus
           }
-        })
-        .catch(error => {
-          console.error('Camera error:', error);
-          this.showScanError('Could not access camera');
-          this.scannerCameraActive = false;
         });
+
+        const video = document.getElementById('scanner-camera-preview');
+        if (video) {
+          video.srcObject = stream;
+          await video.play();
+        }
+
+        // 🎯 Apply autofocus if supported
+        const track = stream.getVideoTracks()[0];
+
+        if (track && track.getCapabilities) {
+          const capabilities = track.getCapabilities();
+
+          if (capabilities.focusMode) {
+            await track.applyConstraints({
+              advanced: [{ focusMode: 'continuous' }]
+            });
+          }
+
+          // 🔦 Optional: torch helps autofocus (Android only)
+          if (capabilities.torch) {
+            await track.applyConstraints({
+              advanced: [{ torch: true }]
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Camera error:', error);
+        this.showScanError('Could not access camera');
+        this.scannerCameraActive = false;
+      }
     },
-    
+
+    async tapToFocus() {
+      try {
+        const video = document.getElementById('scanner-camera-preview');
+        if (!video || !video.srcObject) return;
+
+        const track = video.srcObject.getVideoTracks()[0];
+        if (!track || !track.getCapabilities) return;
+
+        const capabilities = track.getCapabilities();
+
+        if (!capabilities.focusMode) {
+          console.warn('Focus not supported on this device');
+          return;
+        }
+
+        // 🔁 Force autofocus cycle
+        await track.applyConstraints({
+          advanced: [{ focusMode: 'continuous' }]
+        });
+
+        console.log('🎯 Tap-to-focus triggered');
+      } catch (err) {
+        console.error('Tap-to-focus failed:', err);
+      }
+    },
+
     stopScanner() {
       if (!this.scannerCameraActive) return;
       
@@ -336,41 +388,50 @@ export default {
     },
     
     // Capture from the scanner camera
-    captureFromScanner() {
+    async captureFromScanner() {
       const video = document.getElementById('scanner-camera-preview');
       if (!video || !this.scannerCameraActive) return;
-      
-      // Check if we've reached the max images
+
+      // 🎯 Auto-refocus before capture (safe)
+      const track = video.srcObject?.getVideoTracks?.()[0];
+      if (track?.getCapabilities?.()?.focusMode) {
+        try {
+          await track.applyConstraints({
+            advanced: [{ focusMode: 'continuous' }]
+          });
+        } catch (e) {
+          console.warn('Autofocus not supported', e);
+        }
+      }
+
+      // 🚫 Max images check
       if (this.capturedImages.length >= this.maxImages) {
         this.showScanError(`Maximum of ${this.maxImages} images allowed`);
         return;
       }
-      
+
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
+
       const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      // Get current timestamp
-      const now = new Date();
-      const timestamp = now.toLocaleTimeString();
-      
-      // Add image to captured images
+
+      const timestamp = new Date().toLocaleTimeString();
+
       this.capturedImages.push({
         data: canvas.toDataURL('image/jpeg'),
-        timestamp: timestamp
+        timestamp
       });
-      
-      // Show success notification
+
       this.showSuccessNotification = true;
       this.lastScannedItem = 'Image captured';
-      
+
       setTimeout(() => {
         this.showSuccessNotification = false;
       }, 2000);
     },
-    
+
     // Delete captured image
     deleteImage(index) {
       this.capturedImages.splice(index, 1);
