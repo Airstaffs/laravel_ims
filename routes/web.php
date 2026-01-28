@@ -554,6 +554,8 @@ Route::prefix('api/fbm-orders')->group(function () {
 
     Route::post('/work-history', [WorkhistoryController::class, 'fetchWorkHistory']);
     Route::post('/export-work-history', [WorkhistoryController::class, 'exportWorkHistory']);
+
+    Route::post('/cancel-single-dispense', [FbmOrderController::class, 'cancelSingleDispense']);
 });
 
 // Routes Not Found
