@@ -136,8 +136,14 @@
             </div>
             
             <!-- When camera is active, show the live camera feed here -->
-            <video v-if="scannerCameraActive" id="scanner-camera-preview" autoplay playsinline></video>
-            
+            <video
+              v-if="scannerCameraActive"
+              id="scanner-camera-preview"
+              autoplay
+              playsinline
+              @click="tapToFocus"
+            />
+
             <!-- Camera restart overlay -->
             <div v-if="!scannerCameraActive && showScannerModal" class="camera-restart-overlay">
               <button 
@@ -1825,7 +1831,8 @@ input:checked + .toggle-slider:before {
   }
   
   .scanner-view {
-    height: 180px;
+    /* height: 180px; */
+    height: 380px;
   }
   
   .scanner-view.compact-view {

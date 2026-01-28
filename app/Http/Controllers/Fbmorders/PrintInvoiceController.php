@@ -161,6 +161,7 @@ class PrintInvoiceController extends Controller
     // =========================================================
     // ✅ NEW: Temp folder helpers
     // =========================================================
+
     protected function makeTempDir(string $prefix = 'invoice_'): string
     {
         $dir = storage_path('app/tmp/' . $prefix . Str::random(12));
@@ -353,6 +354,14 @@ class PrintInvoiceController extends Controller
 
         $warehouseDetails = $this->addWarehouseDetails($platformOrderId, $ItemsForWarehouse);
 
+        $warehouseByOrderItemId = [];
+        foreach ($warehouseDetails as $wd) {
+            $oid = (string) ($wd['OrderItemId'] ?? '');
+            if ($oid === '')
+                continue;
+            $warehouseByOrderItemId[$oid] = $wd['pairs'] ?? [];
+        }
+
         $itemsText = '';
         foreach ($warehouseDetails as $entry) {
             if (empty($entry['pairs']))
@@ -379,7 +388,7 @@ class PrintInvoiceController extends Controller
                 $qrPayload .= ' ' . $t;
         }
         $qrPayload = trim(preg_replace('/\s+/', ' ', $qrPayload));
-        $qrImgBase64 = $qrPayload !== '' ? $this->makeQrBase64($qrPayload, 6, 2) : '';
+        $qrImgBase64 = $qrPayload !== '' ? $this->makeQrBase64($qrPayload, 4, 2) : '';
 
         $html = '<!DOCTYPE html><html lang="en"><head>';
         $html .= '<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">';
@@ -389,7 +398,7 @@ class PrintInvoiceController extends Controller
         .container{width:100%;max-width:9in;padding:0.5in;box-sizing:border-box;}
         .header-and-right{display:flex;justify-content:space-between;align-items:flex-start;gap:0px;}
         .divider{border-top:1px solid #000;margin:0.2in 0;}
-        .shipping-info,.order-info,.product-table{margin-bottom:0.2in;}
+        .shipping-info,.order-info,.product-table{margin-bottom:0.01in;}
         .product-table table{width:100%;border-collapse:collapse;}
         .product-table th,.product-table td{border:1px solid #000;padding:10px 10px;text-align:left;}
         .product-table th{background-color:#f2f2f2;}
@@ -404,6 +413,32 @@ class PrintInvoiceController extends Controller
 
         .qrbox{ margin-top:10px; text-align:right; }
         .qrbox img{ width:140px; height:140px; display:inline-block; image-rendering:pixelated; }
+.pd-wrap { width:100%; }
+.pd-title { font-weight:bold; margin-bottom:6px; }
+
+.pd-serials { width:100%; border-collapse:collapse; margin:6px 0 8px 0; font-size:14px; }
+.pd-serials th, .pd-serials td { border:1px solid #000; padding:4px 6px; vertical-align:top; }
+.pd-serials th { background-color:#f2f2f2; }
+
+.pd-meta { width:100%; border-collapse:collapse; margin-top:6px; font-size:14px; }
+.pd-meta td { border:none; padding:2px 0; vertical-align:top; }
+.pd-meta .label { font-weight:bold; }
+
+.pd-barcode-asin { height:40px; display:block; margin:6px 0; }
+.pd-barcode-serial { height:32px; display:block; margin:2px 0; }
+
+/* ✅ product-table: make the LEFT column narrower */
+.product-table table { table-layout: fixed; width: 100%; } /* important for mPDF */
+.product-table col.pt-label { width: 18%; }   /* try 18% first */
+.product-table col.pt-content { width: 82%; }
+
+/* keep left label tight but readable */
+.product-table td:first-child {
+  padding: 8px 8px;          /* less padding = less width */
+  vertical-align: middle;
+  font-weight: bold;
+  white-space: nowrap;       /* prevents "Product Details" wrapping */
+}
     </style>';
         $html .= '</head><body><div class="container">';
 
@@ -411,6 +446,11 @@ class PrintInvoiceController extends Controller
         if ($itemCount > 1) {
             // Items table first
             $html .= '<div class="product-table">';
+            $html .= '<table>';
+            $html .= '<colgroup>';
+            $html .= '<col class="pt-label">';
+            $html .= '<col class="pt-content">';
+            $html .= '</colgroup>';
             $html .= '<p style="text-align:right;">' . htmlspecialchars($invoiceDisplay) . '</p>';
             $html .= '<table>';
 
@@ -441,17 +481,58 @@ class PrintInvoiceController extends Controller
                     $html .= '<em>Invalid ASIN for barcode</em><br>';
                 }
 
+                $html .= '<strong>Order Item ID:</strong> ' . htmlspecialchars((string) $orderItemId) . '<br>';
+
+
+
                 $condId = $item["ConditionId"] ?? '';
                 $condSub = $item["ConditionSubtypeId"] ?? '';
                 $html .= '<strong>Condition:</strong> ' . htmlspecialchars($condId . ' - ' . $condSub) . '<br>';
-                $html .= '<strong>Order Item ID:</strong> ' . htmlspecialchars((string) $orderItemId) . '<br>';
+                $pairs = $warehouseByOrderItemId[(string) $orderItemId] ?? [];
+
+                if (!empty($pairs)) {
+                    $html .= '<strong>Serials:</strong><br>';
+
+                    foreach ($pairs as $p) {
+                        $loc = (string) ($p['warehouselocation'] ?? '');
+                        $sn = (string) ($p['serialnumber'] ?? '');
+
+                        if ($sn === '')
+                            continue;
+
+                        $html .= htmlspecialchars($loc) . ' - ' . htmlspecialchars($sn) . '<br>';
+
+                        // Barcode for serial
+                        $cleanSn = preg_replace('/[^A-Za-z0-9]/', '', $sn);
+                        if ($cleanSn !== '') {
+                            try {
+                                $barcode_SN = $generator->getBarcode(
+                                    $cleanSn,
+                                        $generator::TYPE_CODE_128,
+                                    2,   // widthFactor
+                                    35   // height
+                                );
+                                $html .= '<img src="data:image/png;base64,' . base64_encode($barcode_SN) . '" alt="Serial Barcode" style="height:35px;">';
+                            } catch (\Throwable $e) {
+                                $html .= '<em>Serial barcode failed.</em><br>';
+                            }
+                        } else {
+                            $html .= '<em>Invalid serial for barcode.</em><br>';
+                        }
+
+                        $html .= '<br>';
+                    }
+                } else {
+                    // Optional: show something if no serials
+                    $html .= '<br><em>No serials found.</em><br>';
+                }
 
                 $p = $item["unit_price"] ?? 0.00;
                 $s = $item["shippingPrice"] ?? 0.00;
 
-                $html .= '<strong>P Code:</strong> $' . htmlspecialchars(convertNumberToCustomCode($p)) . '<br>';
-                $html .= '<strong>S Code:</strong> $' . htmlspecialchars(convertNumberToCustomCode($s)) . '<br>';
-                $html .= '<strong>L Code:</strong> $' . htmlspecialchars(convertNumberToCustomCode($LCode)) . '';
+                $html .= '<strong>P Code:</strong> $' . htmlspecialchars(convertNumberToCustomCode($p)) . '&nbsp;&nbsp;|&nbsp;&nbsp;';
+                $html .= '<strong>S Code:</strong> $' . htmlspecialchars(convertNumberToCustomCode($s)) . '&nbsp;&nbsp;|&nbsp;&nbsp;';
+                $html .= '<strong>L Code:</strong> $' . htmlspecialchars(convertNumberToCustomCode($LCode));
 
                 $html .= '</td></tr>';
 
@@ -573,6 +654,7 @@ class PrintInvoiceController extends Controller
             $html .= '</div>'; // shipping-info
 
             // Warehouse block + user
+            /*
             if ($itemsText !== '') {
                 $html .= '
             <div style="display:flex; justify-content:space-between; align-items:flex-start; width:100%; font-size:16px; color:#555; margin-top:20px;">
@@ -581,7 +663,7 @@ class PrintInvoiceController extends Controller
             </div>';
             } else {
                 $html .= '<div style="text-align:right;transform:translate(-50px,0px);font-size:16px;color:#555;">- ' . htmlspecialchars($user ?: ' ') . '</div>';
-            }
+            }*/
         }
 
         // ---------------- SINGLE ITEM BRANCH ----------------
@@ -627,7 +709,7 @@ class PrintInvoiceController extends Controller
             $html .= '<div class="divider"></div>';
 
             $storeName = $items[0]['storename'] ?? ($orderData['storename'] ?? '');
-            $html .= '<div class="order-info">';
+            $html .= '<div class="order-info" style="margin-bottom:0.2in;">';
             $html .= '<strong>Order ID: ' . htmlspecialchars($platformOrderId) . '</strong><br>';
             $html .= '<img style="background:#fff;padding:10px;display:block" src="data:image/png;base64,' . base64_encode($barcode_AmazonOrderId) . '" alt="Amazon Order Barcode">';
             $html .= '<p>Thank you for buying from ' . htmlspecialchars($storeName) . ' on Amazon Marketplace.</p>';
@@ -677,7 +759,7 @@ class PrintInvoiceController extends Controller
             }
 
             $html .= '</div>'; // shipping-info
-
+            /*
             if ($itemsText !== '') {
                 $html .= '
             <div style="display:flex; justify-content:space-between; align-items:flex-start; width:100%; font-size:16px; color:#555; margin-top:20px;">
@@ -687,9 +769,15 @@ class PrintInvoiceController extends Controller
             } else {
                 $html .= '<div style="text-align:right;transform:translate(-50px,0px);font-size:16px;color:#555;">- ' . htmlspecialchars($user ?: ' ') . '</div>';
             }
+            */
 
             // Product table (single item)
-            $html .= '<div class="product-table"><table>';
+            $html .= '<div class="product-table">';
+            $html .= '<table>';
+            $html .= '<colgroup>';
+            $html .= '<col class="pt-label">';
+            $html .= '<col class="pt-content">';
+            $html .= '</colgroup>';
 
             foreach ($items as $item) {
                 $qty = $item['QuantityOrdered'] ?? ($item['QuantityShipped'] ?? 1);
@@ -703,8 +791,7 @@ class PrintInvoiceController extends Controller
                 $orderItemId = $item["platform_order_item_id"] ?? '';
 
                 $html .= htmlspecialchars($title) . '<br>';
-                $html .= '<strong>SKU:</strong> ' . htmlspecialchars($sku) . '<br>';
-                $html .= '<strong>ASIN:</strong> ' . htmlspecialchars($asin) . '<br>';
+
 
                 $cleanAsin = preg_replace('/[^A-Za-z0-9]/', '', (string) $asin);
                 if ($cleanAsin !== '') {
@@ -718,17 +805,75 @@ class PrintInvoiceController extends Controller
                     $html .= '<em>Invalid ASIN for barcode</em><br>';
                 }
 
-                $condId = $item["ConditionId"] ?? '';
-                $condSub = $item["ConditionSubtypeId"] ?? '';
-                $html .= '<strong>Condition:</strong> ' . htmlspecialchars($condId . ' - ' . $condSub) . '<br>';
-                $html .= '<strong>Order Item ID:</strong> ' . htmlspecialchars((string) $orderItemId) . '<br>';
+
+                $pairs = $warehouseByOrderItemId[(string) $orderItemId] ?? [];
+
+                if (!empty($pairs)) {
+                    // $html .= '<strong>Serials:</strong><br>';
+
+                    foreach ($pairs as $p) {
+                        $loc = (string) ($p['warehouselocation'] ?? '');
+                        $sn = (string) ($p['serialnumber'] ?? '');
+
+                        if ($sn === '')
+                            continue;
+
+                        $html .= htmlspecialchars($loc) . ' - ' . htmlspecialchars($sn) . '<br>';
+
+                        // Barcode for serial
+                        $cleanSn = preg_replace('/[^A-Za-z0-9]/', '', $sn);
+                        if ($cleanSn !== '') {
+                            try {
+                                $barcode_SN = $generator->getBarcode(
+                                    $cleanSn,
+                                        $generator::TYPE_CODE_128,
+                                    2,   // widthFactor
+                                    35   // height
+                                );
+                                $html .= '<img src="data:image/png;base64,' . base64_encode($barcode_SN) . '" alt="Serial Barcode" style="height:35px;">';
+                            } catch (\Throwable $e) {
+                                $html .= '<em>Serial barcode failed.</em><br>';
+                            }
+                        } else {
+                            $html .= '<em>Invalid serial for barcode.</em><br>';
+                        }
+
+                        $html .= '<br>';
+                    }
+                } else {
+                    // Optional: show something if no serials
+                    $html .= '<br><em>No serials found.</em><br>';
+                }
 
                 $p = $item["unit_price"] ?? 0.00;
                 $s = $item["shippingPrice"] ?? 0.00;
+                $condId = $item["ConditionId"] ?? '';
+                $condSub = $item["ConditionSubtypeId"] ?? '';
 
-                $html .= '<strong>P Code:</strong> $' . htmlspecialchars(convertNumberToCustomCode($p)) . '<br>';
-                $html .= '<strong>S Code:</strong> $' . htmlspecialchars(convertNumberToCustomCode($s)) . '<br>';
-                $html .= '<strong>L Code:</strong> $' . htmlspecialchars(convertNumberToCustomCode($LCode)) . '';
+                $condText = trim($condId . ' - ' . $condSub, " -");
+
+                $html .= '<table class="pd-meta">';
+
+                $html .= '<tr>';
+                $html .= '<td><span class="label">SKU:</span><strong>' . htmlspecialchars($sku) . '</strong></td>';
+                $html .= '<td><span class="label">ASIN:</span> <strong>' . htmlspecialchars($asin) . '</strong></td>';
+                $html .= '</tr>';
+
+                $html .= '<tr>';
+                $html .= '<td><span class="label">Condition:</span> <strong>' . htmlspecialchars($condText) . '</strong></td>';
+                $html .= '<td><span class="label">Order Item ID:</span> <strong>' . htmlspecialchars($orderItemId) . '</strong></td>';
+                $html .= '</tr>';
+
+                $html .= '<tr>';
+                $html .= '<td><span class="label">P Code:</span> <strong>$' . htmlspecialchars(convertNumberToCustomCode($p)) . '</strong></td>';
+                $html .= '<td><span class="label">S Code:</span> <strong>$' . htmlspecialchars(convertNumberToCustomCode($s)) . '</strong></td>';
+                $html .= '</tr>';
+
+                $html .= '<tr>';
+                $html .= '<td colspan="2"><span class="label">L Code:</span> <strong>$' . htmlspecialchars(convertNumberToCustomCode($LCode)) . '</strong></td>';
+                $html .= '</tr>';
+
+                $html .= '</table>';
 
                 $html .= '</td></tr>';
 

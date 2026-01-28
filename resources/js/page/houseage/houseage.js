@@ -86,7 +86,7 @@ export default {
                 ...new Set(
                     this.inventory
                         .map((item) => item.ProductModuleLoc)
-                        .filter(Boolean)
+                        .filter(Boolean),
                 ),
             ];
             return modules.sort();
@@ -98,7 +98,7 @@ export default {
                 return this.inventory;
             }
             return this.inventory.filter(
-                (item) => item.ProductModuleLoc === this.moduleFilter
+                (item) => item.ProductModuleLoc === this.moduleFilter,
             );
         },
 
@@ -144,7 +144,7 @@ export default {
                     ) {
                         // Use full path for captured images
                         images.push(
-                            `/images/product_images/${companyFolder}/${this.item.capturedImages[fieldName]}`
+                            `/images/product_images/${companyFolder}/${this.item.capturedImages[fieldName]}`,
                         );
                     }
                 }
@@ -174,12 +174,12 @@ export default {
 
         serialKeys() {
             return Object.keys(this.item).filter((k) =>
-                /^serialnumber[a-z]?$/.test(k)
+                /^serialnumber[a-z]?$/.test(k),
             );
         },
         trackingKeys() {
             return Object.keys(this.item).filter((k) =>
-                /^trackingnumber\d*$/.test(k)
+                /^trackingnumber\d*$/.test(k),
             );
         },
 
@@ -234,7 +234,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.materialtype)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -244,7 +244,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.sourceType)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -254,7 +254,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.carrier)
-                        .filter((c) => c && c.trim() !== "")
+                        .filter((c) => c && c.trim() !== ""),
                 ),
             ].sort();
         },
@@ -264,7 +264,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.storename)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -274,7 +274,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.priorityrank)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -284,7 +284,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.validation_status)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -489,9 +489,8 @@ export default {
                 for (let i = 1; i <= 12; i++) {
                     const capturedImg = data.capturedImages[`capturedimg${i}`];
                     if (capturedImg) {
-                        transformedData[
-                            `img${i}`
-                        ] = `/images/product_images/${companyFolder}/${capturedImg}`;
+                        transformedData[`img${i}`] =
+                            `/images/product_images/${companyFolder}/${capturedImg}`;
                     } else {
                         transformedData[`img${i}`] = null;
                     }
@@ -544,7 +543,7 @@ export default {
 
                 console.log(
                     "🔍 Processing captured images:",
-                    capturedImagesObj
+                    capturedImagesObj,
                 );
 
                 // Load capturedimg1 - capturedimg12
@@ -576,7 +575,7 @@ export default {
 
             console.log(
                 "📸 Total captured images loaded:",
-                this.capturedImages.length
+                this.capturedImages.length,
             );
 
             // Fallback if no images exist
@@ -705,7 +704,7 @@ export default {
                             include_images: true,
                         },
                         timeout: 30000, // 30 second timeout
-                    }
+                    },
                 );
 
                 console.log("✅ Response received:", {
@@ -871,7 +870,7 @@ export default {
                 (fnsku) =>
                     fnsku.FNSKU?.toLowerCase().includes(search) ||
                     fnsku.ASIN?.toLowerCase().includes(search) ||
-                    fnsku.astitle?.toLowerCase().includes(search)
+                    fnsku.astitle?.toLowerCase().includes(search),
             );
         },
 
@@ -900,7 +899,7 @@ export default {
                         headers: {
                             "X-CSRF-TOKEN": csrfToken,
                         },
-                    }
+                    },
                 );
 
                 console.log("Update FNSKU response:", response.data);
@@ -944,7 +943,7 @@ export default {
                         headers: {
                             "X-CSRF-TOKEN": csrfToken,
                         },
-                    }
+                    },
                 );
 
                 console.log("Move to Validation response:", response.data);
@@ -952,14 +951,14 @@ export default {
                 if (response.data.success) {
                     // Show success message
                     alert(
-                        `Item ${item.rtcounter} successfully moved to Validation`
+                        `Item ${item.rtcounter} successfully moved to Validation`,
                     );
                     // Refresh the inventory list
                     this.fetchInventory();
                 } else {
                     alert(
                         response.data.message ||
-                            "Failed to move item to Validation"
+                            "Failed to move item to Validation",
                     );
                 }
             } catch (error) {
@@ -993,7 +992,7 @@ export default {
                         headers: {
                             "X-CSRF-TOKEN": csrfToken,
                         },
-                    }
+                    },
                 );
 
                 console.log("Move to Stockroom response:", response.data);
@@ -1001,14 +1000,14 @@ export default {
                 if (response.data.success) {
                     // Show success message
                     alert(
-                        `Item ${item.rtcounter} successfully moved to Stockroom`
+                        `Item ${item.rtcounter} successfully moved to Stockroom`,
                     );
                     // Refresh the inventory list
                     this.fetchInventory();
                 } else {
                     alert(
                         response.data.message ||
-                            "Failed to move item to Stockroom"
+                            "Failed to move item to Stockroom",
                     );
                 }
             } catch (error) {
@@ -1166,7 +1165,7 @@ export default {
                 !/^(BKT|SI|ENV)\d+$/i.test(this.item.basketnumber)
             ) {
                 errors.push(
-                    "Basket/Shelf/Envelope Number must start with 'BKT', 'SI', or 'ENV' followed by numbers."
+                    "Basket/Shelf/Envelope Number must start with 'BKT', 'SI', or 'ENV' followed by numbers.",
                 );
             }
 
@@ -1251,7 +1250,7 @@ export default {
                             "Content-Type": "application/json",
                         },
                         withCredentials: true,
-                    }
+                    },
                 );
 
                 console.log("✅ Update response:", response.data);
@@ -1267,14 +1266,14 @@ export default {
                 if (!updated || !updated.ProductID) {
                     console.error(
                         "❌ Invalid response structure:",
-                        response.data
+                        response.data,
                     );
                     throw new Error("Invalid response from server");
                 }
 
                 // ✅ FIXED: Update items array (Vue 3 compatible)
                 const index = this.items.findIndex(
-                    (p) => p.ProductID === updated.ProductID
+                    (p) => p.ProductID === updated.ProductID,
                 );
 
                 if (index !== -1) {
@@ -1286,7 +1285,7 @@ export default {
 
                 // ✅ FIXED: Update inventory array (Vue 3 compatible)
                 const invIndex = this.inventory.findIndex(
-                    (p) => p.ProductID === updated.ProductID
+                    (p) => p.ProductID === updated.ProductID,
                 );
 
                 if (invIndex !== -1) {
@@ -1470,7 +1469,7 @@ export default {
                         if (searchInput) {
                             searchInput.value = duplicateSerial;
                             searchInput.dispatchEvent(
-                                new Event("input", { bubbles: true })
+                                new Event("input", { bubbles: true }),
                             );
                         }
                     }, 500);
@@ -1480,7 +1479,7 @@ export default {
             }
         },
 
-        async checkDuplicateSerial(serial) {
+        async checkDuplicateSerial(serial, serialKey) {
             if (!serial) return;
 
             const token = document
@@ -1498,14 +1497,18 @@ export default {
                             "X-Requested-With": "XMLHttpRequest",
                             ...(token ? { "X-CSRF-TOKEN": token } : {}),
                         },
-                        body: JSON.stringify({ serial }),
-                    }
+                        body: JSON.stringify({
+                            serial,
+                            current_product_id:
+                                this.item.ProductID || this.item.id, // Use the correct property name
+                        }),
+                    },
                 );
 
                 if (!response.ok) {
                     const text = await response.text();
                     throw new Error(
-                        `HTTP ${response.status}: ${text.slice(0, 200)}`
+                        `HTTP ${response.status}: ${text.slice(0, 200)}`,
                     );
                 }
 
@@ -1516,31 +1519,30 @@ export default {
                         icon: "warning",
                         title: "Duplicate Serial Found",
                         html: `
-            <p>This serial already exists.</p>
-            <p><b>Product ID:</b> ${data.product_id ?? "N/A"}</p>
-            <p><b>Title:</b> ${data.product_title ?? "N/A"}</p>
-          `,
+          <p>This serial already exists in another product.</p>
+          <p><b>Product ID:</b> ${data.product_id ?? "N/A"}</p>
+          <p><b>Title:</b> ${data.product_title ?? "N/A"}</p>
+        `,
                         showCancelButton: true,
                         confirmButtonText: "View Original Item",
                         cancelButtonText: "OK",
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            // 1) close the modal
+                            // Close the modal
                             if (typeof this.closeEditModal === "function") {
                                 this.closeEditModal();
                             } else {
-                                // fallback if closeEditModal isn't available
                                 this.showEditModal = false;
                             }
 
-                            // 2) after a short delay, set the search box value and trigger input
+                            // Set search box value and trigger search
                             setTimeout(() => {
                                 const searchInput =
                                     document.querySelector("#appsearch input");
                                 if (searchInput) {
-                                    searchInput.value = serial; // use decodeURIComponent(serial) if needed
+                                    searchInput.value = serial;
                                     searchInput.dispatchEvent(
-                                        new Event("input", { bubbles: true })
+                                        new Event("input", { bubbles: true }),
                                     );
                                 }
                             }, 500);
@@ -1560,7 +1562,7 @@ export default {
         getFirstNonEmptySerial() {
             if (!Array.isArray(this.serialKeys)) return "";
             const i = this.serialKeys.findIndex(
-                (k) => (this.item?.[k] ?? "").toString().trim() !== ""
+                (k) => (this.item?.[k] ?? "").toString().trim() !== "",
             );
             return i === -1
                 ? ""
@@ -1618,7 +1620,7 @@ export default {
             // Serial number still required for validation
             const idx = Array.isArray(this.serialKeys)
                 ? this.serialKeys.findIndex(
-                      (k) => (this.item[k] ?? "").toString().trim() !== ""
+                      (k) => (this.item[k] ?? "").toString().trim() !== "",
                   )
                 : -1;
 
@@ -1670,11 +1672,11 @@ export default {
                             if (progressEvent.total) {
                                 this.uploadProgress = Math.round(
                                     (progressEvent.loaded * 100) /
-                                        progressEvent.total
+                                        progressEvent.total,
                                 );
 
                                 const progressBar = document.getElementById(
-                                    "upload-progress-bar"
+                                    "upload-progress-bar",
                                 );
                                 if (progressBar) {
                                     progressBar.style.width =
@@ -1684,7 +1686,7 @@ export default {
                                 }
                             }
                         },
-                    }
+                    },
                 );
 
                 // ✅ Update the serial image path immediately
@@ -1763,7 +1765,7 @@ export default {
             try {
                 console.log(
                     "🔄 Refetching product data for ProductID:",
-                    productId
+                    productId,
                 );
 
                 const response = await axios.get(
@@ -1772,7 +1774,7 @@ export default {
                         params: {
                             include_images: true,
                         },
-                    }
+                    },
                 );
 
                 const updatedProduct = response.data;
@@ -1786,7 +1788,7 @@ export default {
 
                     // ✅ FIXED: Update in the inventory array (Vue 3 compatible)
                     const index = this.inventory.findIndex(
-                        (p) => p.ProductID === productId
+                        (p) => p.ProductID === productId,
                     );
 
                     if (index !== -1) {

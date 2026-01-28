@@ -78,7 +78,8 @@
           <div class="d-flex align-items-center gap-2">
             <Checkbox v-model="selections[data.orderId].label" :binary="true" :disabled="isProcessing" />
             <small v-if="getStatus(data.orderId, 'label')" :class="statusClass(getStatus(data.orderId, 'label'))">
-              <a v-if="isClickableStatus(data.orderId, 'label')" href="#" @click.prevent="openOrderDocs(data.orderId)">
+              <a v-if="isClickableStatus(data.orderId, 'label')" href="#"
+                @click.prevent="openOrderDoc(data.orderId, 'label')">
                 {{ getStatus(data.orderId, 'label') }}
               </a>
               <span v-else>
@@ -95,7 +96,7 @@
             <Checkbox v-model="selections[data.orderId].invoice" :binary="true" :disabled="isProcessing" />
             <small v-if="getStatus(data.orderId, 'invoice')" :class="statusClass(getStatus(data.orderId, 'invoice'))">
               <a v-if="isClickableStatus(data.orderId, 'invoice')" href="#"
-                @click.prevent="openOrderDocs(data.orderId)">
+                @click.prevent="openOrderDoc(data.orderId, 'invoice')">
                 {{ getStatus(data.orderId, 'invoice') }}
               </a>
               <span v-else>

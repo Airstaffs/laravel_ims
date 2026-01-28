@@ -97,32 +97,51 @@ function handleFiles(selected) {
 }
 
 async function uploadBulk() {
-  if (!files.value.length) return alert('Please select images or a zip file.')
+  if (!files.value.length) {
+    alert('Please select images or a ZIP file.')
+    return
+  }
+
+  // Option 1: batch only
+  if (
+    files.value.length === 1 &&
+    !files.value[0].name.toLowerCase().endsWith('.zip')
+  ) {
+    alert('Please upload multiple images or a ZIP file to apply train/val split.')
+    return
+  }
 
   const formData = new FormData()
-  files.value.forEach(f => formData.append('dataset', f))
+
+  // ✅ IMPORTANT: files[]
+  files.value.forEach(f => formData.append('files[]', f))
+
   formData.append('dataset_name', props.dataset.name)
   formData.append('split', split.value)
 
   try {
     const res = await axios.post(
-      `${API_BASE}/upload-dataset`,
+      '/api/training/upload-bulk-dataset',
       formData,
       {
-        onUploadProgress: e =>
-          progress.value = Math.round((e.loaded * 100) / e.total),
+        onUploadProgress: e => {
+          if (e.total) {
+            progress.value = Math.round((e.loaded * 100) / e.total)
+          }
+        },
       }
     )
 
     alert(res.data.message || 'Upload completed')
     emit('close')
   } catch (err) {
-    console.error('❌ Upload failed:', err)
+    console.error(err)
     alert('Upload failed.')
   } finally {
     progress.value = 0
   }
 }
+
 </script>
 
 
