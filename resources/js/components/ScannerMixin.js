@@ -236,11 +236,11 @@ export default {
           }
 
           // 🔦 Optional: torch helps autofocus (Android only)
-          if (capabilities.torch) {
-            await track.applyConstraints({
-              advanced: [{ torch: true }]
-            });
-          }
+          // if (capabilities.torch) {
+          //   await track.applyConstraints({
+          //     advanced: [{ torch: true }]
+          //   });
+          // }
         }
       } catch (error) {
         console.error('Camera error:', error);
