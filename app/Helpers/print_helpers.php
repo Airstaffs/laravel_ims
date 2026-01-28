@@ -161,6 +161,8 @@ if (!function_exists('fetchNote')) {
                 ->where('platform_order_id', $amazonOrderId)
                 ->value('ordernote');
 
+                $note = "N/A";
+
             return $note ?? 'N/A';
         } catch (\Exception $e) {
             Log::error("Error fetching note: " . $e->getMessage());
