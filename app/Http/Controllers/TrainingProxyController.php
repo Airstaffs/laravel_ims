@@ -309,4 +309,42 @@ class TrainingProxyController extends Controller
         )->throw()->body();
     }
 
+    /* ===============================
+    | 📦 Bulk image upload (NEW)
+    =============================== */
+    public function uploadBulkDataset(Request $request)
+    {
+        // Accept either "files" or "files[]"
+        $uploaded = $request->file('files') ?? $request->file('files[]');
+
+        if (!$uploaded) {
+            return response()->json(['error' => 'No files received'], 400);
+        }
+
+        // Ensure array
+        $files = is_array($uploaded) ? $uploaded : [$uploaded];
+
+        $http = Http::timeout(0)->asMultipart();
+
+        // ✅ Attach each file ONCE فقط
+        foreach ($files as $file) {
+            $http = $http->attach(
+                'files',
+                fopen($file->getRealPath(), 'r'),
+                $file->getClientOriginalName()
+            );
+        }
+
+        $res = $http->post(
+            rtrim(config('services.training.url'), '/') . '/api/upload-bulk-dataset',
+            [
+                'dataset_name' => $request->input('dataset_name'),
+                'split'        => (int) $request->input('split', 80),
+            ]
+        );
+
+        return response()->json($res->json(), $res->status());
+    }
+
+
 }

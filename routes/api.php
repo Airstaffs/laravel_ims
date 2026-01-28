@@ -128,6 +128,11 @@ Route::prefix('training')->group(function () {
         [TrainingProxyController::class, 'deleteImage']
     )->where('file', '.*');
 
+    Route::post(
+        '/upload-bulk-dataset',
+        [TrainingProxyController::class, 'uploadBulkDataset']
+    );
+
 });
 
 Route::post('/fbm-orders-invoice', [PrintInvoiceController::class, 'printInvoice']);
