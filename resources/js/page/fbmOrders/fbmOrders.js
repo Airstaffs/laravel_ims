@@ -286,7 +286,49 @@ export default {
         },
     },
     methods: {
-        // Check if an order can be selected (has dispensed items)
+       getTrackingNumber(order) {
+    if (!order || !order.items || !Array.isArray(order.items)) {
+        return 'N/A';
+    }
+    const itemWithTracking = order.items.find(item => item.tracking_number);
+    return itemWithTracking ? itemWithTracking.tracking_number : 'N/A';
+},
+
+        /**
+         * Get tracking status from order items
+         */
+        getTrackingStatusFromItems(order) {
+            if (!order || !order.items || !Array.isArray(order.items)) {
+                return 'N/A';
+            }
+            const itemWithTracking = order.items.find(item => item.tracking_status);
+            return itemWithTracking ? itemWithTracking.tracking_status : 'N/A';
+        },
+
+        /**
+         * Get carrier info (carrier + carrier_description)
+         */
+        getCarrierInfo(order) {
+            if (!order || !order.items || !Array.isArray(order.items)) {
+                return 'N/A';
+            }
+            
+            const itemWithCarrier = order.items.find(item => 
+                item.carrier || item.carrier_description
+            );
+            
+            if (!itemWithCarrier) return 'N/A';
+            
+            const carrier = itemWithCarrier.carrier || '';
+            const description = itemWithCarrier.carrier_description || '';
+            
+            // Concatenate with space if both exist
+            if (carrier && description) {
+                return `${carrier} ${description}`;
+            }
+            
+            return carrier || description || 'N/A';
+        },
 
         canSelectOrder(order) {
             return this.hasDispensedItems(order);
@@ -2572,6 +2614,124 @@ export default {
                 alert("Failed to cancel dispense. Please try again.");
             }
         },
+
+        async cancelSingleDispensedProduct(productId, item) {
+    try {
+        const result = await Swal.fire({
+            title: 'Cancel This Dispense?',
+            html: `
+                <div style="text-align:left;">
+                    <p><strong>Product ID:</strong> ${productId}</p>
+                    <p><strong>Item:</strong> ${item.platform_title}</p>
+                    <p class="text-warning mt-2">This will remove this specific product from the order and make it available again.</p>
+                </div>
+            `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, cancel it',
+            confirmButtonColor: '#d33',
+            cancelButtonText: 'No, keep it'
+        });
+
+        if (!result.isConfirmed) return;
+
+        console.log('🗑️ Canceling single dispensed product:', {
+            product_id: productId,
+            item_id: item.outboundorderitemid,
+            order_id: this.currentProcessOrder.outboundorderid
+        });
+
+        const response = await axios.post(
+            `${API_BASE_URL}/api/fbm-orders/cancel-single-dispense`,
+            {
+                product_id: productId,
+                item_id: item.outboundorderitemid,
+                order_id: this.currentProcessOrder.outboundorderid
+            },
+            {
+                withCredentials: true,
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    "X-CSRF-TOKEN": document.querySelector(
+                        'meta[name="csrf-token"]',
+                    )?.content,
+                },
+            }
+        );
+
+        if (response.data && response.data.success) {
+            await Swal.fire({
+                icon: 'success',
+                title: 'Dispense Canceled',
+                text: 'Product dispense canceled successfully',
+                confirmButtonText: 'Ok',
+            });
+
+            // COMPREHENSIVE REFRESH
+            const orderId = this.currentProcessOrder.outboundorderid;
+            console.log('🔄 Starting comprehensive refresh after single cancel dispense');
+
+            // Step 1: Refresh main orders list
+            await this.fetchOrders();
+
+            // Step 2: Update process modal
+            if (this.currentProcessOrder && this.currentProcessOrder.outboundorderid === orderId) {
+                const updatedOrderFromList = this.orders.find(
+                    (o) => o.outboundorderid === orderId
+                );
+                if (updatedOrderFromList) {
+                    const wasChecked = this.currentProcessOrder.checked;
+                    this.currentProcessOrder = {
+                        ...updatedOrderFromList,
+                        checked: wasChecked,
+                    };
+
+                    this.selectedItems = this.currentProcessOrder.items
+                        ? this.currentProcessOrder.items.map(
+                              (item) => item.outboundorderitemid
+                          )
+                        : [];
+                }
+            }
+
+            // Step 3: Update details modal if open
+            if (this.selectedOrder && this.selectedOrder.outboundorderid === orderId) {
+                const updatedOrder = this.orders.find(
+                    (o) => o.outboundorderid === orderId
+                );
+                if (updatedOrder) {
+                    this.selectedOrder = { ...updatedOrder };
+                }
+            }
+
+            // Step 4: Reinitialize dispense items
+            this.initializeDispenseItems();
+
+            // Step 5: Force Vue update
+            this.$nextTick(() => {
+                this.$forceUpdate();
+            });
+
+            console.log('✅ Single dispense cancel refresh completed');
+        } else {
+            await Swal.fire({
+                icon: 'error',
+                title: 'Operation Failed',
+                text: response.data.message || 'Failed to cancel dispense',
+                confirmButtonText: 'Ok',
+            });
+        }
+    } catch (error) {
+        console.error('Error canceling single dispense:', error);
+        await Swal.fire({
+            icon: 'error',
+            title: 'Operation Failed',
+            text: 'Failed to cancel dispense. Please try again.',
+            confirmButtonText: 'Ok',
+        });
+    }
+    },
 
         // Add remaining methods...
         async startAutoDispenseInProcess() {

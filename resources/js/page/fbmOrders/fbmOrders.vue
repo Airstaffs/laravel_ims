@@ -374,23 +374,37 @@
                         </div>
                     </div>
                 </template>
-                <template #orderStatus="{ data }">
-                    <div>
-                        <div class="detail-item-container">
-                            <span>Order Status: </span>
-                            <Badge :style="{ backgroundColor: getStatusColor(data.order_status) }"
-                                :value="data.order_status" />
-                        </div>
-                        <div class="detail-item-container">
-                            <span>Ship Status: </span>
-                            <span>{{ getShipStatus(data) }}</span>
-                        </div>
-                        <div class="detail-item-container">
-                            <span>Store Name: </span>
-                            <span>{{ data.storename || "N/A" }}</span>
-                        </div>
-                    </div>
-                </template>
+<template #orderStatus="{ data }">
+    <div class="d-flex flex-column gap-2">
+        <div class="detail-item-container">
+            <span>Order Status: </span>
+            <Badge :style="{ backgroundColor: getStatusColor(data.order_status) }"
+                :value="data.order_status" />
+        </div>
+        <div class="detail-item-container">
+            <span>Ship Status: </span>
+            <span>{{ getShipStatus(data) }}</span>
+        </div>
+        <div class="detail-item-container">
+            <span>Store Name: </span>
+            <span>{{ data.storename || "N/A" }}</span>
+        </div>
+        
+        <!-- ✅ ADD THESE 3 LINES -->
+        <div class="detail-item-container">
+            <span>Tracking #: </span>
+            <span>{{ getTrackingNumber(data) }}</span>
+        </div>
+        <div class="detail-item-container">
+            <span>Tracking Status: </span>
+            <span>{{ getTrackingStatusFromItems(data) }}</span>
+        </div>
+        <div class="detail-item-container">
+            <span>Carrier: </span>
+            <span>{{ getCarrierInfo(data) }}</span>
+        </div>
+    </div>
+</template>
                 <template #actions="{ data }">
                     <div class="d-flex flex-column align-items-start gap-2">
                         <Select optionLabel="label" optionValue="value" :options="[
@@ -996,57 +1010,31 @@ dispensedProduct, dpIndex
                                 </div>
 
                                 <!-- Dispensed Products Display -->
-                                <div v-if="isItemDispensed(item)" class="bg-green-50 border-round p-3 mt-3">
+                            <div v-if="isItemDispensed(item)" class="bg-green-50 border-round p-3 mt-3">
                                     <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)"
                                         :key="'process-dp-' + dpIndex" class="mb-3">
                                         <div class="grid gap-1 text-sm mb-2">
                                             <div><strong>Title:</strong> {{ dispensedProduct.title || 'N/A' }}</div>
                                             <div><strong>ASIN:</strong> {{ dispensedProduct.asin || 'N/A' }}</div>
-                                            <div><strong>Location:</strong> {{ dispensedProduct.warehouseLocation ||
-                                                'N/A' }}
-                                            </div>
-                                            <div v-if="dispensedProduct.serialNumber"><strong>Serial #:</strong> {{
-                                                dispensedProduct.serialNumber }}</div>
-                                            <div v-if="dispensedProduct.rtCounter"><strong>RT Counter:</strong> {{
-                                                dispensedProduct.rtCounter }}</div>
-                                            <div v-if="dispensedProduct.FNSKU"><strong>FNSKU:</strong> {{
-                                                dispensedProduct.FNSKU
-                                                }}</div>
+                                            <div><strong>Location:</strong> {{ dispensedProduct.warehouseLocation || 'N/A' }}</div>
+                                            <div v-if="dispensedProduct.serialNumber"><strong>Serial #:</strong> {{ dispensedProduct.serialNumber }}</div>
+                                            <div v-if="dispensedProduct.rtCounter"><strong>RT Counter:</strong> {{ dispensedProduct.rtCounter }}</div>
+                                            <div v-if="dispensedProduct.FNSKU"><strong>FNSKU:</strong> {{ dispensedProduct.FNSKU }}</div>
                                         </div>
-                                        <Button label="Not Found" icon="pi pi-exclamation-triangle" severity="warning"
-                                            size="small" text
-                                            @click="markProductNotFound(dispensedProduct.product_id, item)" />
-                                        <Divider v-if="dpIndex < getDispensedProductsDisplay(item).length - 1"
-                                            class="my-2" />
+                                        <div class="flex gap-2">
+                                            <Button label="Not Found" icon="pi pi-exclamation-triangle" severity="warning"
+                                                size="small" text
+                                                @click="markProductNotFound(dispensedProduct.product_id, item)" />
+                                            <Button label="Cancel This Dispense" icon="pi pi-times" severity="danger"
+                                                size="small" text
+                                                @click="cancelSingleDispensedProduct(dispensedProduct.product_id, item)" />
+                                        </div>
+                                        <Divider v-if="dpIndex < getDispensedProductsDisplay(item).length - 1" class="my-2" />
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Process Form -->
-                    <Panel header="Shipment Details" class="w-full mt-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="field">
-                                <label class="font-semibold mb-2 block">Shipment Type</label>
-                                <select v-model="processData.shipmentType" class="form-select w-full border-round">
-                                    <option value="Standard">Standard</option>
-                                    <option value="Express">Express</option>
-                                    <option value="Priority">Priority</option>
-                                </select>
-                            </div>
-                            <div class="field mt-4">
-                                <label class="font-semibold mb-2 block">Tracking Number</label>
-                                <InputText fluid v-model="processData.trackingNumber"
-                                    placeholder="Enter tracking number..." class="w-full" />
-                            </div>
-                        </div>
-                        <div class="field mt-4">
-                            <label class="font-semibold mb-2 block">Notes (optional)</label>
-                            <Textarea fluid v-model="processData.notes" placeholder="Add notes about this process..."
-                                :rows="3" class="w-full" />
-                        </div>
-                    </Panel>
                 </div>
             </div>
 
