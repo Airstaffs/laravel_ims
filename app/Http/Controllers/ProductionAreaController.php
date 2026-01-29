@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 
 class ProductionAreaController extends BasetablesController
 {
@@ -25,168 +24,135 @@ class ProductionAreaController extends BasetablesController
             $location = $request->input('location', 'Production Area');
             $includeImages = $request->boolean('include_images', false);
 
-            // ✅ Get base products first (no joins = no duplicates)
-            $baseProductsQuery = DB::table($this->productTable.' as prod')
-                ->where('prod.ProductModuleLoc', $location);
+            // Build base select array
+            $selectColumns = [
+                'prod.*',
+                'fnsku.ASIN',
+                'fnsku.MSKU',
+                'fnsku.FNSKU',
+                'fnsku.grading',
+                'fnsku.storename',
+                DB::raw("COALESCE(
+                    NULLIF(TRIM(asin.system_title), ''), 
+                    NULLIF(TRIM(asin.internal), ''), 
+                    NULLIF(TRIM(prod.ProductTitle), '')
+                ) as AStitle"),
+                'asin.internal',
+                'asin.system_title',
+                'asin.metakeyword',
+            ];
 
-            // Apply search on product fields only
-            if (!empty($search)) {
-                $baseProductsQuery->where(function ($q) use ($search) {
+            // Add image columns if requested
+            if ($includeImages) {
+                $selectColumns = array_merge($selectColumns, [
+                    'img.capturedimg1',
+                    'img.capturedimg2',
+                    'img.capturedimg3',
+                    'img.capturedimg4',
+                    'img.capturedimg5',
+                    'img.capturedimg6',
+                    'img.capturedimg7',
+                    'img.capturedimg8',
+                    'img.capturedimg9',
+                    'img.capturedimg10',
+                    'img.capturedimg11',
+                    'img.capturedimg12',
+                    'img.serialimg1',
+                    'img.serialimg2',
+                ]);
+            }
+
+            // Build query with MSKU join instead of FNSKU join
+            $productsQuery = DB::table($this->productTable.' as prod')
+                ->leftJoin($this->fnskuTable.' as fnsku', 'prod.MSKUviewer', '=', 'fnsku.MSKU')
+                ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN');
+
+            // Only join images table if images are requested
+            if ($includeImages) {
+                $productsQuery->leftJoin($this->capturedImagesTable.' as img', 'prod.ProductID', '=', 'img.ProductID');
+            }
+
+            $productsQuery->select($selectColumns)
+                ->where('prod.ProductModuleLoc', $location)
+                ->distinct();
+
+            // Apply comprehensive search including ASIN and metakeyword
+            if (! empty($search)) {
+                $productsQuery->where(function ($q) use ($search) {
                     $q->where('prod.serialnumber', 'like', "%{$search}%")
                         ->orWhere('prod.ProductTitle', 'like', "%{$search}%")
-                        ->orWhere('prod.rtid', 'like', "%{$search}%")
-                        ->orWhere('prod.itemnumber', 'like', "%{$search}%")
-                        ->orWhere('prod.trackingnumber', 'like', '%'.substr($search, -12).'%')
                         ->orWhere('prod.PCN', 'like', "%{$search}%")
                         ->orWhere('prod.RPN', 'like', "%{$search}%")
                         ->orWhere('prod.PRD', 'like', "%{$search}%")
                         ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
-                        ->orWhere('prod.rtcounter', 'like', "%{$search}%");
+                        ->orWhere('prod.MSKUviewer', 'like', "%{$search}%")
+                        ->orWhere('prod.trackingnumber', 'like', "%{$search}%")
+                        ->orWhere('prod.rtcounter', 'like', "%{$search}%")
+                        ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
+                        ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
+                        ->orWhere('fnsku.FNSKU', 'like', "%{$search}%")
+                        ->orWhere('asin.internal', 'like', "%{$search}%")
+                        ->orWhere('asin.system_title', 'like', "%{$search}%")
+                        ->orWhere('asin.metakeyword', 'like', "%{$search}%");
                 });
             }
 
-            // Get paginated products
-            $products = $baseProductsQuery->paginate($perPage);
-            
-            Log::info('Base products fetched', [
-                'count' => $products->count(),
-                'total' => $products->total()
-            ]);
+            $products = $productsQuery->paginate($perPage);
+            Log::info('Products fetched successfully with joins', ['count' => $products->count()]);
 
-            // ✅ Now enrich each product with FNSKU/ASIN data
-            $products->getCollection()->transform(function ($product) {
-                // Extract base FNSKU for lookup
-                $baseFnsku = $product->FNSKUviewer;
-                if (preg_match('/^C\d+(.+)$/', $baseFnsku, $matches)) {
-                    $baseFnsku = $matches[1];
+            // Transform products to organize data properly
+            $products->getCollection()->transform(function ($product) use ($includeImages) {
+                // Keep the original FNSKU as displayed (from the join or FNSKUviewer)
+                if (empty($product->FNSKU) && ! empty($product->FNSKUviewer)) {
+                    $product->FNSKU = $product->FNSKUviewer;
                 }
 
-                // Fetch FNSKU data for this product
-                $fnskuData = DB::table($this->fnskuTable.' as fnsku')
-                    ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                    ->select([
-                        'fnsku.ASIN',
-                        'fnsku.MSKU',
-                        'fnsku.grading',
-                        'fnsku.storename',
-                        'asin.internal',
-                        'asin.system_title',
-                        'asin.metakeyword',
-                    ])
-                    ->where('fnsku.FNSKU', $baseFnsku)
-                    ->first();
-
-                // Merge FNSKU/ASIN data into product
-                if ($fnskuData) {
-                    $product->ASIN = $fnskuData->ASIN;
-                    $product->MSKU = $fnskuData->MSKU;
-                    $product->grading = $fnskuData->grading;
-                    $product->storename = $fnskuData->storename;
-                    $product->internal = $fnskuData->internal;
-                    $product->system_title = $fnskuData->system_title;
-                    $product->metakeyword = $fnskuData->metakeyword;
-                    
-                    // Calculate AStitle
-                    $product->AStitle = !empty(trim($fnskuData->system_title)) 
-                        ? trim($fnskuData->system_title)
-                        : (!empty(trim($fnskuData->internal)) 
-                            ? trim($fnskuData->internal)
-                            : trim($product->ProductTitle ?? ''));
-                } else {
-                    // No FNSKU data found
-                    $product->ASIN = null;
-                    $product->MSKU = null;
-                    $product->grading = null;
-                    $product->storename = null;
-                    $product->internal = null;
-                    $product->system_title = null;
-                    $product->metakeyword = null;
-                    $product->AStitle = $product->ProductTitle ?? '';
+                // Keep MSKUviewer from product table
+                if (empty($product->MSKU) && ! empty($product->MSKUviewer)) {
+                    $product->MSKU = $product->MSKUviewer;
                 }
 
-                // Add MSKUviewer (derived from MSKU)
-                $product->MSKUviewer = $product->MSKU;
-
-                // Keep original FNSKU as displayed
-                $product->FNSKU = $product->FNSKUviewer;
+                // Ensure we have the company for proper path construction
                 $product->company = $this->company;
+
+                // Organize captured images into an object if images were requested
+                if ($includeImages) {
+                    $capturedImages = (object) [];
+
+                    for ($i = 1; $i <= 12; $i++) {
+                        $imgKey = "capturedimg{$i}";
+                        if (! empty($product->$imgKey)) {
+                            $capturedImages->$imgKey = $product->$imgKey;
+                        }
+                        // Remove from main product object to keep it clean
+                        unset($product->$imgKey);
+                    }
+
+                    // Handle serial images
+                    if (! empty($product->serialimg1)) {
+                        $capturedImages->serialimg1 = $product->serialimg1;
+                    }
+
+                    if (! empty($product->serialimg2)) {
+                        $capturedImages->serialimg2 = $product->serialimg2;
+                    }
+
+                    unset($product->serialimg1);
+                    unset($product->serialimg2);
+
+                    $product->capturedImages = $capturedImages;
+
+                    // Set img1 directly for the main thumbnail display if capturedimg1 exists
+                    if (! empty($capturedImages->capturedimg1)) {
+                        $product->img1 = $capturedImages->capturedimg1;
+                    }
+                } else {
+                    // Initialize empty capturedImages if not requested
+                    $product->capturedImages = (object) [];
+                }
 
                 return $product;
             });
-
-            // Handle images
-            if ($includeImages) {
-                try {
-                    $productIds = $products->pluck('ProductID')->toArray();
-                    Log::info('Product IDs for image fetch', ['count' => count($productIds), 'ids' => $productIds]);
-
-                    $capturedImagesTableName = $this->capturedImagesTable;
-
-                    if (!Schema::hasTable($capturedImagesTableName)) {
-                        Log::warning('Captured images table does not exist', [
-                            'table' => $capturedImagesTableName,
-                        ]);
-
-                        $products->getCollection()->transform(function ($product) {
-                            $product->capturedImages = (object) [];
-                            return $product;
-                        });
-                    } else {
-                        Log::info('Captured images table exists', ['table' => $capturedImagesTableName]);
-
-                        $capturedImages = DB::table($capturedImagesTableName)
-                            ->whereIn('ProductID', $productIds)
-                            ->get();
-
-                        Log::info('Captured images fetched', [
-                            'count' => $capturedImages->count(),
-                        ]);
-
-                        $imagesByProductId = [];
-                        foreach ($capturedImages as $img) {
-                            $imagesByProductId[$img->ProductID] = $img;
-                        }
-
-                        $products->getCollection()->transform(function ($product) use ($imagesByProductId) {
-                            if (isset($imagesByProductId[$product->ProductID])) {
-                                $product->capturedImages = $imagesByProductId[$product->ProductID];
-
-                                if (empty($product->img1) && !empty($product->capturedImages->capturedimg1)) {
-                                    $product->img1 = $product->capturedImages->capturedimg1;
-                                }
-
-                                Log::info('Added captured images to product', [
-                                    'ProductID' => $product->ProductID,
-                                    'capturedImages' => json_encode($product->capturedImages),
-                                ]);
-                            } else {
-                                Log::info('No captured images found for product', [
-                                    'ProductID' => $product->ProductID,
-                                ]);
-
-                                $product->capturedImages = (object) [];
-                            }
-
-                            return $product;
-                        });
-                    }
-                } catch (\Exception $e) {
-                    Log::error('Error fetching images', [
-                        'message' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString(),
-                    ]);
-
-                    $products->getCollection()->transform(function ($product) {
-                        $product->capturedImages = (object) [];
-                        return $product;
-                    });
-                }
-            } else {
-                $products->getCollection()->transform(function ($product) {
-                    $product->capturedImages = (object) [];
-                    return $product;
-                });
-            }
 
             return response()->json($products);
         } catch (\Exception $e) {
