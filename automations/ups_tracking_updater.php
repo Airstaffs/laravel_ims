@@ -1,25 +1,80 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
 error_reporting(E_ALL);
 
 /**
- * IMPORTANT:
- * - Do NOT echo credentials.
- * - Rotate the secrets you pasted earlier (DB + UPS client_secret + refresh/access tokens).
+ * CRON-SAFE UPS TRACKER (cPanel/WHM)
+ * - Writes logs to: __DIR__/logs/ups_tracker.log
+ * - No echo/print_r (cron friendly)
+ * - Handles queue + UPS errors with logging
+ * - Adds basic log rotation
  */
 
-// $imsv1_connect = dbDatabase("hostinger");
+/* =========================
+   Cron file logger + rotation
+========================= */
+
+define('CRON_LOG_FILE', __DIR__ . '/logs/ups_tracker.log');
+define('CRON_LOG_MAX_BYTES', 10 * 1024 * 1024); // 10MB
+
+function cron_log_rotate_if_needed(): void
+{
+    if (file_exists(CRON_LOG_FILE) && filesize(CRON_LOG_FILE) > CRON_LOG_MAX_BYTES) {
+        $rotated = CRON_LOG_FILE . '.' . date('Ymd_His');
+        @rename(CRON_LOG_FILE, $rotated);
+    }
+}
+
+function cron_log(string $message, array $context = []): void
+{
+    cron_log_rotate_if_needed();
+
+    $ts = date('Y-m-d H:i:s');
+
+    if (!empty($context)) {
+        // Keep logs compact
+        $message .= ' | ' . json_encode($context, JSON_UNESCAPED_SLASHES);
+    }
+
+    $line = "[{$ts}] {$message}\n";
+
+    // Ensure directory exists
+    $dir = dirname(CRON_LOG_FILE);
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+
+    @file_put_contents(CRON_LOG_FILE, $line, FILE_APPEND | LOCK_EX);
+}
+
+/* =========================
+   Main
+========================= */
+
+cron_log("UPS tracker started", [
+    'php' => PHP_VERSION,
+    'cwd' => getcwd(),
+    'script' => __FILE__,
+]);
+
 $imsv2_connect = dbDatabase("laravel_ims");
 
-// Fetch UPS credentials (and refresh if needed)
+// Fetch UPS credentials from main app
 $credentials = fetchUpsCredentialsFromMainApp();
 
 if (!empty($credentials['error'])) {
-    die("UPS credential fetch failed: " . ($credentials['message'] ?? 'Unknown') . "\n");
+    cron_log("UPS credential fetch failed", [
+        'message' => $credentials['message'] ?? 'Unknown',
+        'http_code' => $credentials['http']['http_code'] ?? ($credentials['http_code'] ?? null),
+    ]);
+    cron_log("UPS tracker finished (credentials error)");
+    exit;
 }
 if (!$credentials) {
-    die("UPS API credentials not found.\n");
+    cron_log("UPS API credentials not found (empty response)");
+    cron_log("UPS tracker finished (credentials missing)");
+    exit;
 }
 
 // Toggle test queue
@@ -44,40 +99,83 @@ $queue = $USE_TEST_QUEUE
 
 // Handle queue error shape
 if (isset($queue['error']) && $queue['error'] === true) {
-    die("Queue error: " . ($queue['message'] ?? 'Unknown') . "\n");
+    cron_log("Queue error", [
+        'message' => $queue['message'] ?? 'Unknown',
+    ]);
+    cron_log("UPS tracker finished (queue error)");
+    exit;
 }
+
+if (!is_array($queue) || count($queue) === 0) {
+    cron_log("Queue empty (nothing to process)");
+    cron_log("UPS tracker finished (no work)");
+    exit;
+}
+
+cron_log("Queue loaded", ['count' => count($queue)]);
+
+$processed = 0;
+$skipped = 0;
+$upsErrors = 0;
+$statusErrors = 0;
+$deliveredCount = 0;
+$updatedCount = 0;
 
 foreach ($queue as $row) {
 
-    // ✅ Skip incomplete rows
+    // Skip incomplete rows
     $trackingNumber = trim((string) ($row['trackingnumber'] ?? ''));
     $outboundId = (int) ($row['outboundorderitemid'] ?? 0);
     $productId = (int) ($row['productid'] ?? 0);
 
     if ($trackingNumber === '' || $outboundId <= 0 || $productId <= 0) {
+        $skipped++;
+        cron_log("Skipped row (missing required fields)", [
+            'trackingnumber' => $trackingNumber,
+            'outboundorderitemid' => $outboundId,
+            'productid' => $productId,
+        ]);
         continue;
     }
+
+    $processed++;
+
+    cron_log("Processing row", [
+        'trackingnumber' => $trackingNumber,
+        'outboundorderitemid' => $outboundId,
+        'productid' => $productId,
+    ]);
 
     // 1) Fetch UPS details
     $resp = UPS_fetchDetails($trackingNumber, $credentials);
 
     // If token expired/invalid, refetch from main app and retry once
     if (!empty($resp['http_code']) && (int) $resp['http_code'] === 401) {
-        $credentials = fetchUpsCredentialsFromMainApp();
-        if (empty($credentials['error'])) {
+        cron_log("UPS returned 401, refetching credentials and retrying once", [
+            'trackingnumber' => $trackingNumber,
+        ]);
+
+        $credentials2 = fetchUpsCredentialsFromMainApp();
+        if (empty($credentials2['error']) && !empty($credentials2['access_token'])) {
+            $credentials = $credentials2;
             $resp = UPS_fetchDetails($trackingNumber, $credentials);
+        } else {
+            cron_log("Credential refetch failed after 401", [
+                'trackingnumber' => $trackingNumber,
+                'message' => $credentials2['message'] ?? 'Unknown',
+            ]);
         }
     }
 
     if (!empty($resp['error'])) {
-        echo "<pre>";
-        print_r([
+        $upsErrors++;
+        cron_log("UPS fetch error", [
             'trackingnumber' => $trackingNumber,
             'outboundorderitemid' => $outboundId,
             'productid' => $productId,
-            'error' => $resp,
+            'http_code' => $resp['http_code'] ?? null,
+            'message' => $resp['message'] ?? 'Unknown error',
         ]);
-        echo "</pre>";
         continue;
     }
 
@@ -85,39 +183,44 @@ foreach ($queue as $row) {
     $package_status = ups_extract_package_status_like_old($resp);
 
     if ($package_status === '') {
-        echo "<pre>";
-        print_r([
+        $statusErrors++;
+        cron_log("Could not extract UPS package status", [
             'trackingnumber' => $trackingNumber,
             'outboundorderitemid' => $outboundId,
             'productid' => $productId,
-            'error' => 'Could not extract UPS package status',
-            'ups' => $resp,
         ]);
-        echo "</pre>";
         continue;
     }
 
-    // 3) Delivered-ish statuses are complex → skip for later
+    cron_log("UPS status extracted", [
+        'trackingnumber' => $trackingNumber,
+        'status' => $package_status,
+    ]);
+
+    // 3) Delivered-ish statuses
     if ($package_status === 'Delivered' || $package_status === 'Delivered by Local Post Office') {
 
         $fnsku = trim((string) ($row['fnskuviewer'] ?? ''));
 
         $done = handleDeliveredTransaction(
             $imsv2_connect,
-            (int) $row['outboundorderitemid'],
-            (int) $row['productid'],
+            $outboundId,
+            $productId,
             $fnsku
         );
 
-        echo "<pre>";
-        print_r([
-            'trackingnumber' => $trackingNumber,
-            'package_status' => $package_status,
-            'delivered_update' => $done,
-        ]);
-        echo "</pre>";
+        $deliveredCount++;
 
-        continue; // done
+        cron_log("Delivered transaction result", [
+            'trackingnumber' => $trackingNumber,
+            'outboundorderitemid' => $outboundId,
+            'productid' => $productId,
+            'ok' => $done['ok'] ?? false,
+            'error' => $done['error'] ?? null,
+            'fnsku_updates' => $done['fnsku_updates'] ?? null,
+        ]);
+
+        continue;
     }
 
     // 4) Simple update only (tbloutboundordersitem.trackingstatus)
@@ -127,19 +230,32 @@ foreach ($queue as $row) {
         $package_status
     );
 
-    echo "<pre>";
-    print_r([
+    if (!empty($upd['ok'])) {
+        $updatedCount++;
+    }
+
+    cron_log("Tracking status update result", [
         'trackingnumber' => $trackingNumber,
         'outboundorderitemid' => $outboundId,
         'productid' => $productId,
-        'package_status' => $package_status,
-        'update' => $upd,
+        'status' => $package_status,
+        'ok' => $upd['ok'] ?? false,
+        'rowsAffected' => $upd['rowsAffected'] ?? null,
+        'error' => $upd['error'] ?? null,
     ]);
-    echo "</pre>";
 
     // optional: avoid rate limits
     // sleep(1);
 }
+
+cron_log("UPS tracker finished", [
+    'processed' => $processed,
+    'skipped' => $skipped,
+    'upsErrors' => $upsErrors,
+    'statusErrors' => $statusErrors,
+    'deliveredCount' => $deliveredCount,
+    'updatedCount' => $updatedCount,
+]);
 
 /* =========================
    Status extraction (OLD-first)
@@ -148,8 +264,9 @@ foreach ($queue as $row) {
 function ups_extract_package_status_like_old(array $resp): string
 {
     $ups = $resp['ups'] ?? null;
-    if (!is_array($ups))
+    if (!is_array($ups)) {
         return '';
+    }
 
     // OLD script main path
     $status =
@@ -190,8 +307,9 @@ function update_outbound_trackingstatus_by_outboundorderitemid(mysqli $db, int $
             WHERE outboundorderitemid = ?";
 
     $stmt = $db->prepare($sql);
-    if (!$stmt)
+    if (!$stmt) {
         return ['ok' => false, 'error' => $db->error];
+    }
 
     $stmt->bind_param("si", $trackingstatus, $outboundorderitemid);
     $stmt->execute();
@@ -200,8 +318,9 @@ function update_outbound_trackingstatus_by_outboundorderitemid(mysqli $db, int $
     $err = $stmt->error;
     $stmt->close();
 
-    if ($err)
+    if ($err) {
         return ['ok' => false, 'error' => $err];
+    }
 
     return ['ok' => true, 'rowsAffected' => $affected];
 }
@@ -242,12 +361,17 @@ function dbDatabase($servertype)
             break;
 
         default:
-            die("❌ Invalid server type: {$servertype}");
+            cron_log("Invalid server type", ['servertype' => $servertype]);
+            exit;
     }
 
     $db = new mysqli($hostname, $username, $password, $database);
     if ($db->connect_errno) {
-        die("❌ DB connect failed ({$servertype}): " . $db->connect_error);
+        cron_log("DB connect failed", [
+            'servertype' => $servertype,
+            'error' => $db->connect_error,
+        ]);
+        exit;
     }
 
     $db->set_charset('utf8mb4');
@@ -275,6 +399,10 @@ function UPS_fetchDetails($trackingnumber, array $credentials)
         CURLOPT_URL => "https://onlinetools.ups.com/api/track/v1/details/" . rawurlencode($inquiry) . "?" . http_build_query($query),
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CUSTOMREQUEST => "GET",
+        CURLOPT_TIMEOUT => 25,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_HTTPHEADER => [
             "Authorization: Bearer {$token}",
             "transId: " . uniqid("ims_", true),
@@ -300,7 +428,7 @@ function UPS_fetchDetails($trackingnumber, array $credentials)
             'error' => true,
             'message' => 'Invalid JSON response from UPS Track API.',
             'http_code' => $httpCode,
-            'raw' => $raw,
+            'raw' => substr((string)$raw, 0, 5000), // cap
         ];
     }
 
@@ -349,8 +477,9 @@ function getUpsTrackingQueueLatestDispense(mysqli $db): array
     ";
 
     $res = $db->query($sql);
-    if (!$res)
+    if (!$res) {
         return ['error' => true, 'message' => 'Query failed: ' . $db->error];
+    }
 
     $items = [];
     while ($row = $res->fetch_assoc()) {
@@ -373,17 +502,15 @@ function handleDeliveredTransaction(mysqli $db, int $outboundId, int $productId,
     try {
         $db->begin_transaction();
 
-        /* =========================
-           1) Lock + update outbound item
-        ========================= */
-
+        // 1) Update outbound item (Delivered)
         $stmt1 = $db->prepare("
             UPDATE tbloutboundordersitem
             SET order_status = 'Delivered'
             WHERE outboundorderitemid = ? AND order_status = 'Shipped'
         ");
-        if (!$stmt1)
+        if (!$stmt1) {
             throw new Exception($db->error);
+        }
         $stmt1->bind_param("i", $outboundId);
         $stmt1->execute();
         if ($stmt1->affected_rows <= 0) {
@@ -391,17 +518,15 @@ function handleDeliveredTransaction(mysqli $db, int $outboundId, int $productId,
         }
         $stmt1->close();
 
-        /* =========================
-           2) Move ONLY dispensed product
-        ========================= */
-
+        // 2) Move ONLY dispensed product to SoldList
         $stmt2 = $db->prepare("
             UPDATE tblproduct
             SET ProductModuleLoc = 'SoldList'
             WHERE ProductID = ?
         ");
-        if (!$stmt2)
+        if (!$stmt2) {
             throw new Exception($db->error);
+        }
         $stmt2->bind_param("i", $productId);
         $stmt2->execute();
         if ($stmt2->affected_rows <= 0) {
@@ -409,18 +534,15 @@ function handleDeliveredTransaction(mysqli $db, int $outboundId, int $productId,
         }
         $stmt2->close();
 
-        /* =========================
-           3) Resolve pack / FNSKU increments
-        ========================= */
-
-        // Fetch mergeId + rtcounter of dispensed product
+        // 3) Resolve pack / FNSKU increments
         $stmt = $db->prepare("
             SELECT mergeId, rtcounter
             FROM tblproduct
             WHERE ProductID = ?
         ");
-        if (!$stmt)
+        if (!$stmt) {
             throw new Exception($db->error);
+        }
         $stmt->bind_param("i", $productId);
         $stmt->execute();
         $prod = $stmt->get_result()->fetch_assoc();
@@ -432,9 +554,8 @@ function handleDeliveredTransaction(mysqli $db, int $outboundId, int $productId,
         if (empty($prod['mergeId'])) {
             $baseFnsku = extractBaseFnsku($fnskuviewer);
             $fnskuCounts[$baseFnsku] = 1;
-        }
-        // CASE B: Pack parent → expand children
-        else {
+        } else {
+            // CASE B: Pack parent → expand children
             $rtcounter = (int) $prod['rtcounter'];
 
             $stmt = $db->prepare("
@@ -442,8 +563,9 @@ function handleDeliveredTransaction(mysqli $db, int $outboundId, int $productId,
                 FROM tblproduct
                 WHERE mergeTO = ?
             ");
-            if (!$stmt)
+            if (!$stmt) {
                 throw new Exception($db->error);
+            }
             $stmt->bind_param("i", $rtcounter);
             $stmt->execute();
             $res = $stmt->get_result();
@@ -460,17 +582,15 @@ function handleDeliveredTransaction(mysqli $db, int $outboundId, int $productId,
             $stmt->close();
         }
 
-        /* =========================
-           4) Apply FNSKU unit increments
-        ========================= */
-
+        // 4) Apply FNSKU unit increments
         $stmt = $db->prepare("
             UPDATE tblfnsku
             SET units = COALESCE(units,0) + ?
             WHERE FNSKU = ?
         ");
-        if (!$stmt)
+        if (!$stmt) {
             throw new Exception($db->error);
+        }
 
         foreach ($fnskuCounts as $fnsku => $qty) {
             $stmt->bind_param("is", $qty, $fnsku);
@@ -513,7 +633,7 @@ function fetchUpsCredentialsFromMainApp(): array
 {
     $url = 'https://ims.tecniquality.com/dbserver/ups/ups_credentials.php';
 
-    // ✅ Must match EXPECTED_KEY on the main app endpoint
+    // MUST match EXPECTED_KEY on the main app endpoint
     $secret = 'REPLACE_WITH_LONG_RANDOM_SECRET';
 
     $ch = curl_init();
@@ -522,11 +642,13 @@ function fetchUpsCredentialsFromMainApp(): array
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CUSTOMREQUEST => 'POST',
         CURLOPT_TIMEOUT => 20,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_HTTPHEADER => [
             'Accept: application/json',
             'X-IMS-KEY: ' . $secret,
         ],
-        // optional body if you want to log caller identity
         CURLOPT_POSTFIELDS => http_build_query([
             'caller' => 'ups_tracker_second_app',
         ]),
@@ -544,7 +666,12 @@ function fetchUpsCredentialsFromMainApp(): array
     $data = json_decode($raw, true);
 
     if (!is_array($data) || empty($data['ok'])) {
-        return ['error' => true, 'message' => 'Invalid response from main app', 'raw' => $raw, 'http' => $info];
+        return [
+            'error' => true,
+            'message' => 'Invalid response from main app',
+            'http' => $info,
+            'raw' => substr((string)$raw, 0, 2000),
+        ];
     }
 
     $token = (string) ($data['access_token'] ?? '');
@@ -554,8 +681,9 @@ function fetchUpsCredentialsFromMainApp(): array
         return ['error' => true, 'message' => 'Main app returned missing token/expiry', 'raw' => $data];
     }
 
+    // Keep same keys your script expects
     return [
         'access_token' => $token,
-        'expires_in' => $exp, // keep same key name your script expects (absolute unix)
+        'expires_in' => $exp, // absolute unix (as you implemented)
     ];
 }
