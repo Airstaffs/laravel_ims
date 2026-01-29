@@ -408,7 +408,7 @@ class PrintInvoiceController extends Controller
 
         .qrbox{ margin-top:10px; text-align:right; }
         .qrbox img{ width:140px; height:140px; display:inline-block; image-rendering:pixelated;}
-        .pd-meta {border-collapse: collapse;margin: 8px auto 0 auto;  font-size: 50px;width: auto;}
+        .pd-meta {border-collapse: collapse;margin: 8px auto 0 auto;  font-size: 20px;width: auto;}
         .pd-meta td {border: none;padding: 3px 10px;vertical-align: top;white-space: nowrap;}
         .pd-meta .label {font-weight: bold;}
 
@@ -610,7 +610,7 @@ class PrintInvoiceController extends Controller
                 $qty = $item['QuantityOrdered'] ?? ($item['QuantityShipped'] ?? 1);
 
                 $html .= '<tr><td style="width:19%;">Quantity</td><td>' . htmlspecialchars((string) $qty) . '</td></tr>';
-                $html .= '<tr><td style="width:19%;">Product Details</td>';
+                $html .= '<tr><td style="width:19%;">Product Details</td><td>';
 
                 $title = $item["platform_title"] ?? '';
                 $sku = $item["platform_sku"] ?? '';
@@ -668,16 +668,16 @@ class PrintInvoiceController extends Controller
                 // mini table for the " | " fields
                 $html .= '<table class="pd-meta">';
                 $html .= '<tr>
-                    <td><span class="label">SKU:</span>             <strong style="font-size: 30px;">' . htmlspecialchars($sku) . '</strong></td>
-                    <td><span class="label">Condition:</span>       <strong style="font-size: 30px;">' . htmlspecialchars($condText) . '</strong></td>
+                    <td><span class="label">SKU:</span>             <strong>' . htmlspecialchars($sku) . '</strong></td>
+                    <td><span class="label">Condition:</span>       <strong>' . htmlspecialchars($condText) . '</strong></td>
                 </tr>';
                 $html .= '<tr>
-                    <td><span class="label">P Code:</span>          <strong style="font-size: 30px;">$' . htmlspecialchars(convertNumberToCustomCode($p)) . '</strong></td>
-                    <td><span class="label">Order Item ID:</span>   <strong style="font-size: 30px;">' . htmlspecialchars($orderItemId) . '</strong></td>
+                    <td><span class="label">Order Item ID:</span>   <strong>' . htmlspecialchars($orderItemId) . '</strong></td>
+                    <td><span class="label">P Code:</span>          <strong>$' . htmlspecialchars(convertNumberToCustomCode($p)) . '</strong></td>
                 </tr>';
                 $html .= '<tr>
-                    <td><span class="label">L Code:</span>          <strong style="font-size: 30px;">$' . htmlspecialchars(convertNumberToCustomCode($LCode)) . '</strong></td>
-                    <td><span class="label">S Code:</span>          <strong style="font-size: 30px;">$' . htmlspecialchars(convertNumberToCustomCode($s)) . '</strong></td>
+                    <td><span class="label">L Code:</span>          <strong>$' . htmlspecialchars(convertNumberToCustomCode($LCode)) . '</strong></td>
+                    <td><span class="label">S Code:</span>          <strong>$' . htmlspecialchars(convertNumberToCustomCode($s)) . '</strong></td>
                 </tr>';
                 $html .= '</table>';
 
@@ -707,7 +707,7 @@ class PrintInvoiceController extends Controller
             'margin_right' => 1,
             'margin_top' => 0,
             'margin_bottom' => 1,
-            'margin_header' => 1,
+            'margin_header' => 0,
             'margin_footer' => 1
         ]);
 
