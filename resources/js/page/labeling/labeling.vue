@@ -72,6 +72,7 @@
                         />
                     </div>
                 </template>
+
                 <template #ProductTitle="{ data }">
                     <div class="d-flex align-items-start gap-4">
                         <div
@@ -104,11 +105,13 @@
                         </div>
                     </div>
                 </template>
+
                 <template #quantity="{ data }">
                     <div>
                         <p>{{ data.quantity }} unit</p>
                     </div>
                 </template>
+
                 <template #actions="{ data }">
                     <div class="d-flex flex-column align-items-start">
                         <Button
@@ -336,6 +339,16 @@
                                 :disabled="isProcessing"
                                 icon="pi pi-box"
                                 label="Move to Stockroom"
+                                severity="warn"
+                                size="small"
+                            />
+                        </div>
+                        <div class="flex-shrink-0">
+                            <Button
+                                @click=""
+                                :disabled="isProcessing"
+                                icon="pi pi-box"
+                                label="Back to Received"
                                 severity="warn"
                                 size="small"
                             />
@@ -1874,7 +1887,7 @@ export default {
     },
     async mounted() {
         await this.loadUserTimezone();
-        
+
         window.addEventListener("resize", this.updatePricingView);
 
         this.checkMobile();
@@ -1910,6 +1923,11 @@ export default {
                     label: "Move to Stockroom",
                     icon: "pi pi-box",
                     command: () => this.confirmMoveToStockroom(item),
+                },
+                {
+                    label: "Back to Received",
+                    icon: "pi pi-box",
+                    command: () => this.confirmBackToReceived(item),
                 },
             ];
         },

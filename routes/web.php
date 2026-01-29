@@ -7,6 +7,7 @@ use App\Http\Controllers\Amzn\OutboundOrders\ShippingLabel\ShippingLabelControll
 use App\Http\Controllers\ASINlistController;
 use App\Http\Controllers\AsinMappingController;
 use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\AuxiliaryController;
 use App\Http\Controllers\AwsInventoryController;
 use App\Http\Controllers\CleaningController;
 use App\Http\Controllers\Ebay\EbayController;
@@ -28,6 +29,7 @@ use App\Http\Controllers\LabelingController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\notfoundController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OrderIdentifierController;
 use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\PackagingController;
 use App\Http\Controllers\printer\PrinterController;
@@ -50,9 +52,6 @@ use App\Http\Controllers\UserLogsController;
 use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
-use App\Http\Controllers\AuxiliaryController;
-
-use App\Http\Controllers\OrderIdentifierController;
 use App\Http\Middleware\PreventBackHistory;
 use App\Http\Models\Store;
 use App\Models\User;
@@ -85,7 +84,7 @@ Route::get('/dev-login', function () {
     // Find the first SuperAdmin user
     $user = User::where('role', 'SuperAdmin')->first();
 
-    if (!$user) {
+    if (! $user) {
         return '❌ No SuperAdmin found. Please create one in phpMyAdmin first.';
     }
 
@@ -94,7 +93,7 @@ Route::get('/dev-login', function () {
     session()->regenerate();
 
     return redirect()->route('dashboard.system')
-        ->with('login_success', '✅ Dev bypass active — logged in as ' . $user->username);
+        ->with('login_success', '✅ Dev bypass active — logged in as '.$user->username);
 });
 
 Route::get('/dashboard', [LoginController::class, 'showSystemDashboard'])->name('dashboard');
@@ -121,7 +120,7 @@ Route::post('/logout', function (Request $request) {
 
         // Force logout regardless of token issues
         if (Auth::check()) {
-            \Log::info('User logout: ' . Auth::user()->username);
+            \Log::info('User logout: '.Auth::user()->username);
         }
 
         Auth::logout();
@@ -140,7 +139,7 @@ Route::post('/logout', function (Request $request) {
         // FIXED: Use 'logout_success' instead of 'success' to avoid audio confusion
         return redirect('/login')->with('logout_success', 'You have been logged out successfully.');
     } catch (\Exception $e) {
-        \Log::error('Logout error: ' . $e->getMessage());
+        \Log::error('Logout error: '.$e->getMessage());
 
         // Even if there's an error, try to clear session
         try {
@@ -148,7 +147,7 @@ Route::post('/logout', function (Request $request) {
             $request->session()->invalidate();
             $request->session()->regenerateToken();
         } catch (\Exception $sessionError) {
-            \Log::error('Session clearing error: ' . $sessionError->getMessage());
+            \Log::error('Session clearing error: '.$sessionError->getMessage());
         }
 
         if ($request->ajax() || $request->wantsJson()) {
@@ -199,7 +198,7 @@ Route::middleware(['auth', PreventBackHistory::class])->group(function () {
     Route::post('/keep-alive', function () {
         try {
             // Check authentication first
-            if (!auth()->check()) {
+            if (! auth()->check()) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Not authenticated',
@@ -366,7 +365,7 @@ Route::get('/apis/ebay-login', action: function () {
     $redirectUrl = 'https://test.tecniquality.com/apis/ebay-callback';
     $scopes = 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.marketing.readonly https://api.ebay.com/oauth/api_scope/sell.inventory.readonly https://api.ebay.com/oauth/api_scope/sell.account.readonly https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly';
 
-    $authUrl = "https://auth.ebay.com/oauth2/authorize?client_id={$clientId}&redirect_uri={$redirectUrl}&response_type=code&scope=" . urlencode($scopes);
+    $authUrl = "https://auth.ebay.com/oauth2/authorize?client_id={$clientId}&redirect_uri={$redirectUrl}&response_type=code&scope=".urlencode($scopes);
 
     echo "<a href='{$authUrl}'>Authorize with eBay</a>";
 });
@@ -513,6 +512,7 @@ Route::prefix('api/labeling')->group(function () {
     // ADD THESE MISSING ROUTES:
     Route::post('move-to-validation', [LabelingController::class, 'moveToValidation']);
     Route::post('move-to-stockroom', [LabelingController::class, 'moveToStockroom']);
+    Route::post('move-back-to-received', [LabelingController::class, 'moveBackToReceived']);
 });
 
 // Routes for RTS Function
@@ -699,7 +699,6 @@ Route::prefix('api/printer-management')->middleware(['auth'])->group(function ()
     Route::delete('divorce-printers/{id}', [PrinterManagementController::class, 'divorcePrinters']);
 });
 
-
 // Auxiliary Label Management Routes
 Route::prefix('api/auxiliary')->middleware(['auth'])->group(function () {
     // Get all auxiliaries (with optional search)
@@ -743,7 +742,7 @@ Route::post('/amzn/fbm-orders/purchase-label/rates', [ShippingLabelController::c
 Route::post('/amzn/fbm-orders/purchase-label/createshipment', [ShippingLabelController::class, 'create_shipment']);
 Route::post('/amzn/fbm-orders/purchase-label/manualshipment', [ShippingLabelController::class, 'manual_shipment']);
 Route::post('/amzn/fbm-orders/shippinghistory/shipmentlabel', [ShippingLabelController::class, 'shipmentLabelHistory']);
-Route::post('/amzn/fbm-orders/shippinghistory/shipmentlabel/cancel', [ShippingLabelController::class,'cancelShipmentLabel']);
+Route::post('/amzn/fbm-orders/shippinghistory/shipmentlabel/cancel', [ShippingLabelController::class, 'cancelShipmentLabel']);
 
 Route::match(['get', 'post'], '/fbmorders/fetch-work-history', [WorkhistoryController::class, 'fetchWorkHistory']);
 
@@ -832,8 +831,6 @@ Route::post('/user/kanban/getActivityLogs', [KanbanActivityLogController::class,
 Route::get('/settings/getOrderIdentifiers', [OrderIdentifierController::class, 'getOrderIdentifiers']);
 Route::post('/settings/updateStartCount', [OrderIdentifierController::class, 'updateStartCount']);
 Route::post('/print/processPrintRPN_PCN_SH', [OrderIdentifierController::class, 'processPrintRPN_PCN_SH']);
-
-
 
 Route::get('/session-warmup', function () {
     return response()->noContent(); // Or just return 200 OK
