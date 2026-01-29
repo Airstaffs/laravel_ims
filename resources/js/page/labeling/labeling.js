@@ -1836,6 +1836,104 @@ export default {
             }
         },
 
+        async confirmBackToReceived(item) {
+            if (!item || !item.ProductID) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Invalid Item",
+                    text: "The selected item does not have a valid Product ID.",
+                });
+                return;
+            }
+
+            const result = await Swal.fire({
+                title: "Confirm Move Back to Received",
+                html: `
+                        <p>Are you sure you want to move 
+                        <strong>${item.ProductTitle || "—"}</strong>
+                        back to <strong>Received</strong>?</p>
+                    `,
+                icon: "question",
+                showCancelButton: true,
+                confirmButtonText: "Yes, move it",
+                cancelButtonText: "Cancel",
+                reverseButtons: true,
+            });
+
+            if (result.isConfirmed) {
+                this.moveBackToReceived(item);
+            }
+        },
+
+        async moveBackToReceived(item) {
+            if (!item || !item.ProductID) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Invalid Item",
+                    text: "The selected item does not have a valid Product ID.",
+                });
+                return;
+            }
+
+            try {
+                const csrfToken = document
+                    .querySelector('meta[name="csrf-token"]')
+                    .getAttribute("content");
+
+                Swal.fire({
+                    title: "Moving Back to Received...",
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    },
+                });
+
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/labeling/move-back-to-received`,
+                    {
+                        product_id: item.ProductID,
+                        rt_counter: item.rtcounter,
+                        current_location: "Labeling",
+                        new_location: "Received",
+                    },
+                    {
+                        headers: {
+                            "X-CSRF-TOKEN": csrfToken,
+                        },
+                    },
+                );
+
+                Swal.close();
+
+                if (response.data.success) {
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Success",
+                        text: `Item ${item.rtcounter} successfully moved back to Received.`,
+                        confirmButtonText: "OK",
+                    });
+                    if (this && typeof this.fetchInventory === "function") {
+                        this.fetchInventory();
+                    }
+                } else {
+                    await Swal.fire({
+                        icon: "warning",
+                        title: "Failed",
+                        text:
+                            response.data.message ||
+                            "Failed to move item back to Received.",
+                    });
+                }
+            } catch (error) {
+                console.error("Error moving item back to Received:", error);
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: "An error occurred while moving the item back to Received. Please try again.",
+                });
+            }
+        },
+
         // Method to handle the cancellation
         cancelConfirmation() {
             this.showConfirmationModal = false;
@@ -1853,13 +1951,12 @@ export default {
                 this.moveToValidation(this.currentItemForAction);
             } else if (this.confirmationActionType === "stockroom") {
                 this.moveToStockroom(this.currentItemForAction);
+            } else if (this.confirmationActionType === "received") {
+                this.moveBackToReceived(this.currentItemForAction);
             }
 
-            // Close the modal
             this.showConfirmationModal = false;
             this.currentItemForAction = null;
-
-            // Re-enable scrolling
             document.body.style.overflow = "auto";
         },
 
