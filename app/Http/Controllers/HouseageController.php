@@ -646,23 +646,45 @@ class HouseageController extends BasetablesController
             // Add history tracking
             if (! empty($changes)) {
                 $employeeName = auth()->user()->username ?? 'System';
+
+                // Build RT# prefix using ProductID
+                $rtPrefix = "RT#{$product->ProductID} | ";
+
+                // Build separate before/after strings
+                $beforeParts = [];
+                $afterParts = [];
+
+                foreach ($changes as $change) {
+                    // Parse "fieldname: oldvalue → newvalue"
+                    if (preg_match('/^(.+?): (.+?) → (.+)$/', $change, $matches)) {
+                        $field = $matches[1];
+                        $oldValue = $matches[2];
+                        $newValue = $matches[3];
+
+                        $beforeParts[] = "$field: $oldValue";
+                        $afterParts[] = "$field: $newValue";
+                    }
+                }
+
+                // Add RT# prefix to both before and after (limit to 5 changes)
+                $beforeString = $rtPrefix.implode(', ', array_slice($beforeParts, 0, 5));
+                $afterString = $rtPrefix.implode(', ', array_slice($afterParts, 0, 5));
+
+                // Add count if more than 5 changes
+                $changeCount = count($changes);
+                if ($changeCount > 5) {
+                    $beforeString .= ' (+'.($changeCount - 5).' more)';
+                    $afterString .= ' (+'.($changeCount - 5).' more)';
+                }
+
                 $identifier = "Item #{$product->itemnumber}".
                               (! empty($product->ProductTitle) ? " - {$product->ProductTitle}" : '');
-
-                // Log up to 5 changes, show count if more
-                $changeCount = count($changes);
-                $changesToLog = array_slice($changes, 0, 5);
-                $changeDescription = implode(', ', $changesToLog);
-
-                if ($changeCount > 5) {
-                    $changeDescription .= ' (+'.($changeCount - 5).' more)';
-                }
 
                 $this->trackUpdate(
                     'Houseage',
                     $identifier,
-                    $changeDescription,
-                    null,
+                    $beforeString,  // BEFORE column with RT# prefix
+                    $afterString,   // AFTER column with RT# prefix
                     $employeeName
                 );
             }

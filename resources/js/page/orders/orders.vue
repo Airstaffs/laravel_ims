@@ -262,6 +262,7 @@
             :onThumbnailError="onThumbnailError"
             @close="closeImageModal"
         />
+
         <Dialog
             v-model:visible="showEditModal"
             modal
@@ -559,7 +560,7 @@
                                                             item.materialtype
                                                         "
                                                         :options="
-                                                            materialTypesOptions
+                                                            materialOptions
                                                         "
                                                         optionLabel="label"
                                                         optionValue="value"
@@ -890,6 +891,12 @@ export default {
         return {
             selectedRows: [],
             columns: TABLE_COLUMNS,
+            materialOptions: [
+                { label: "Inventory", value: "Inventory" },
+                { label: "Supplies", value: "Supplies" },
+                { label: "Components", value: "Components" },
+                { label: "Office Equipment", value: "Office Equipment" },
+            ],
             sourceTypeOptions: [
                 { label: "ES", value: "ES" },
                 { label: "AS", value: "AS" },
@@ -929,12 +936,6 @@ export default {
         window.addEventListener("resize", this.updatePricingView);
     },
     computed: {
-        materialTypesOptions() {
-            return this.materialTypes.map((type) => ({
-                value: type,
-                label: type,
-            }));
-        },
         courierOptions() {
             return this.carrierOptions.map((carrier) => ({
                 value: carrier,

@@ -188,23 +188,38 @@ class OrdersController extends BasetablesController
         // 🔥 ONLY TRACK HISTORY IF THERE ARE CHANGES
         if ($isUpdate && ! empty($changes)) {
             $employeeName = auth()->user()->username ?? 'System';
+
+            // Build RT# prefix using ProductID
+            $rtPrefix = "RT#{$product->ProductID} | ";
+
+            // Build separate before/after strings
+            $beforeParts = [];
+            $afterParts = [];
+
+            foreach ($changes as $change) {
+                // Parse "fieldname: oldvalue → newvalue"
+                if (preg_match('/^(.+?): (.+?) → (.+)$/', $change, $matches)) {
+                    $field = $matches[1];
+                    $oldValue = $matches[2];
+                    $newValue = $matches[3];
+
+                    $beforeParts[] = "$field: $oldValue";
+                    $afterParts[] = "$field: $newValue";
+                }
+            }
+
+            // Add RT# prefix to both before and after
+            $beforeString = $rtPrefix.implode(', ', array_slice($beforeParts, 0, 5));
+            $afterString = $rtPrefix.implode(', ', array_slice($afterParts, 0, 5));
+
             $identifier = "Item #{$product->itemnumber}".
                           (! empty($product->ProductTitle) ? " - {$product->ProductTitle}" : '');
-
-            // Log up to 5 changes, show count if more
-            $changeCount = count($changes);
-            $changesToLog = array_slice($changes, 0, 5);
-            $changeDescription = implode(', ', $changesToLog);
-
-            if ($changeCount > 5) {
-                $changeDescription .= ' (+'.($changeCount - 5).' more)';
-            }
 
             $this->trackUpdate(
                 'Orders',
                 $identifier,
-                $changeDescription,
-                null,
+                $beforeString,
+                $afterString,
                 $employeeName
             );
         } elseif (! $isUpdate) {
