@@ -863,7 +863,7 @@
                                                         optionValue="value"
                                                         size="small"
                                                         fluid
-                                                        placeholder="Select Priority Bank"
+                                                        placeholder="Select Priority Rank"
                                                     />
                                                 </fieldset>
                                                 <fieldset>

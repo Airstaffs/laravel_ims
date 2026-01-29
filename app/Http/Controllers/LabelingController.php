@@ -31,6 +31,7 @@ class LabelingController extends BasetablesController
         return $fnsku; // Return as-is if not prefixed
     }
 
+
 public function index(Request $request)
 {
     try {
@@ -53,6 +54,7 @@ public function index(Request $request)
             'prod.*',
             'fnsku.ASIN',
             'fnsku.MSKU',
+            'fnsku.FNSKU',
             'fnsku.grading',
             'fnsku.storename',
             DB::raw("COALESCE(
@@ -85,15 +87,9 @@ public function index(Request $request)
             ]);
         }
 
-        // Build query with proper joins including tblcapturedimages
+        // Build query with MSKU join instead of FNSKU join
         $productsQuery = DB::table($this->productTable.' as prod')
-            ->leftJoin($this->fnskuTable.' as fnsku', function ($join) {
-                $join->on(DB::raw("CASE 
-                WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
-                THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
-                ELSE prod.FNSKUviewer 
-            END"), '=', 'fnsku.FNSKU');
-            })
+            ->leftJoin($this->fnskuTable.' as fnsku', 'prod.MSKUviewer', '=', 'fnsku.MSKU')
             ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN');
 
         // Only join images table if images are requested
@@ -103,7 +99,7 @@ public function index(Request $request)
 
         $productsQuery->select($selectColumns)
             ->where('prod.ProductModuleLoc', $location)
-            ->distinct(); // ✅ ADD ONLY THIS ONE LINE
+            ->distinct();
 
         // Apply comprehensive search including ASIN and metakeyword
         if (!empty($search)) {
@@ -114,10 +110,12 @@ public function index(Request $request)
                     ->orWhere('prod.RPN', 'like', "%{$search}%")
                     ->orWhere('prod.PRD', 'like', "%{$search}%")
                     ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
+                    ->orWhere('prod.MSKUviewer', 'like', "%{$search}%")
                     ->orWhere('prod.trackingnumber', 'like', "%{$search}%")
                     ->orWhere('prod.rtcounter', 'like', "%{$search}%")
                     ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
                     ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
+                    ->orWhere('fnsku.FNSKU', 'like', "%{$search}%")
                     ->orWhere('asin.internal', 'like', "%{$search}%")
                     ->orWhere('asin.system_title', 'like', "%{$search}%")
                     ->orWhere('asin.metakeyword', 'like', "%{$search}%");
@@ -129,9 +127,15 @@ public function index(Request $request)
 
         // Transform products to organize data properly
         $products->getCollection()->transform(function ($product) use ($includeImages) {
-            // Keep the original FNSKU as displayed (with prefix if it exists)
-            $product->FNSKU = $product->FNSKUviewer;
-            $product->MSKUviewer = $product->MSKU; // Add this
+            // Keep the original FNSKU as displayed (from the join or FNSKUviewer)
+            if (empty($product->FNSKU) && !empty($product->FNSKUviewer)) {
+                $product->FNSKU = $product->FNSKUviewer;
+            }
+            
+            // Keep MSKUviewer from product table
+            if (empty($product->MSKU) && !empty($product->MSKUviewer)) {
+                $product->MSKU = $product->MSKUviewer;
+            }
 
             // Ensure we have the company for proper path construction
             $product->company = $this->company;
