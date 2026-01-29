@@ -1926,7 +1926,7 @@ export default {
                 },
                 {
                     label: "Back to Received",
-                    icon: "pi pi-box",
+                    icon: "pi pi-replay",
                     command: () => this.confirmBackToReceived(item),
                 },
             ];
