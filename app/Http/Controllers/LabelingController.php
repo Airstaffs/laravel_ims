@@ -53,6 +53,7 @@ public function index(Request $request)
             'prod.*',
             'fnsku.ASIN',
             'fnsku.MSKU',
+            'fnsku.FNSKU',
             'fnsku.grading',
             'fnsku.storename',
             DB::raw("COALESCE(
@@ -85,15 +86,9 @@ public function index(Request $request)
             ]);
         }
 
-        // Build query with proper joins including tblcapturedimages
+        // Build query with MSKU join instead of FNSKU join
         $productsQuery = DB::table($this->productTable.' as prod')
-            ->leftJoin($this->fnskuTable.' as fnsku', function ($join) {
-                $join->on(DB::raw("CASE 
-                WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
-                THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
-                ELSE prod.FNSKUviewer 
-            END"), '=', 'fnsku.FNSKU');
-            })
+            ->leftJoin($this->fnskuTable.' as fnsku', 'prod.MSKUviewer', '=', 'fnsku.MSKU')
             ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN');
 
         // Only join images table if images are requested
@@ -103,7 +98,7 @@ public function index(Request $request)
 
         $productsQuery->select($selectColumns)
             ->where('prod.ProductModuleLoc', $location)
-            ->distinct(); // ✅ ADD ONLY THIS ONE LINE
+            ->distinct();
 
         // Apply comprehensive search including ASIN and metakeyword
         if (!empty($search)) {
@@ -114,10 +109,12 @@ public function index(Request $request)
                     ->orWhere('prod.RPN', 'like', "%{$search}%")
                     ->orWhere('prod.PRD', 'like', "%{$search}%")
                     ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
+                    ->orWhere('prod.MSKUviewer', 'like', "%{$search}%")
                     ->orWhere('prod.trackingnumber', 'like', "%{$search}%")
                     ->orWhere('prod.rtcounter', 'like', "%{$search}%")
                     ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
                     ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
+                    ->orWhere('fnsku.FNSKU', 'like', "%{$search}%")
                     ->orWhere('asin.internal', 'like', "%{$search}%")
                     ->orWhere('asin.system_title', 'like', "%{$search}%")
                     ->orWhere('asin.metakeyword', 'like', "%{$search}%");
@@ -129,9 +126,15 @@ public function index(Request $request)
 
         // Transform products to organize data properly
         $products->getCollection()->transform(function ($product) use ($includeImages) {
-            // Keep the original FNSKU as displayed (with prefix if it exists)
-            $product->FNSKU = $product->FNSKUviewer;
-            $product->MSKUviewer = $product->MSKU; // Add this
+            // Keep the original FNSKU as displayed (from the join or FNSKUviewer)
+            if (empty($product->FNSKU) && !empty($product->FNSKUviewer)) {
+                $product->FNSKU = $product->FNSKUviewer;
+            }
+            
+            // Keep MSKUviewer from product table
+            if (empty($product->MSKU) && !empty($product->MSKUviewer)) {
+                $product->MSKU = $product->MSKUviewer;
+            }
 
             // Ensure we have the company for proper path construction
             $product->company = $this->company;
@@ -655,6 +658,130 @@ public function index(Request $request)
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to move product to Stockroom',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function moveBackToReceived(Request $request)
+    {
+        Log::info('=== MOVE BACK TO RECEIVED CALLED ===');
+        Log::info('Request method: '.$request->method());
+        Log::info('Request URL: '.$request->fullUrl());
+        Log::info('Request headers: ', $request->headers->all());
+        Log::info('Request body: ', $request->all());
+        Log::info('Product table: '.$this->productTable);
+
+        try {
+            // Validate the incoming request
+            $validator = Validator::make($request->all(), [
+                'product_id' => 'required',
+                'rt_counter' => 'required',
+            ]);
+
+            if ($validator->fails()) {
+                Log::error('Validation failed in moveBackToReceived', [
+                    'errors' => $validator->errors(),
+                    'request_data' => $request->all(),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            Log::info('Validation passed, attempting to update product', [
+                'product_id' => $request->product_id,
+                'rt_counter' => $request->rt_counter,
+            ]);
+
+            // Check if product exists first
+            $existingProduct = DB::table($this->productTable)
+                ->where('ProductID', $request->product_id)
+                ->first();
+
+            if (! $existingProduct) {
+                Log::error('Product not found for moveBackToReceived', [
+                    'product_id' => $request->product_id,
+                    'table' => $this->productTable,
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found',
+                ], 404);
+            }
+
+            Log::info('Product found, current location: '.$existingProduct->ProductModuleLoc);
+
+            // Extract base FNSKU for tracking purposes
+            $baseFnsku = $this->extractBaseFnsku($existingProduct->FNSKUviewer);
+
+            // Update the product location and clear serial number
+            $updateResult = DB::table($this->productTable)
+                ->where('ProductID', $request->product_id)
+                ->update([
+                    'ProductModuleLoc' => 'Received',
+                    'serialnumber' => null,
+                    'serialnumberb' => null,
+                    'serialnumberc' => null,
+                    'serialnumberd' => null,
+                    'PCN' => null,
+                    'basketnumber' => null,
+                    'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
+                ]);
+
+            Log::info('Update result: '.$updateResult.' rows affected');
+
+            // Delete captured images from tblcapturedimages
+            $deletedImages = DB::table($this->capturedImagesTable)
+                ->where('ProductID', $request->product_id)
+                ->delete();
+
+            Log::info('Deleted captured images', [
+                'product_id' => $request->product_id,
+                'rows_deleted' => $deletedImages,
+            ]);
+
+            // ✅ Track successful move with TracksHistory
+            $this->trackLocationChange(
+                'Labeling',
+                "RTC: {$request->rt_counter}".($baseFnsku ? " | FNSKU: {$baseFnsku}" : ''),
+                $existingProduct->ProductModuleLoc,
+                'Received'
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Product successfully moved back to Received',
+                'debug_info' => [
+                    'rows_affected' => $updateResult,
+                    'images_deleted' => $deletedImages,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Exception in moveBackToReceived', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'request_data' => $request->all(),
+            ]);
+
+            // ✅ Track error with TracksHistory
+            if (isset($request->rt_counter)) {
+                $this->trackHistory(
+                    'Labeling',
+                    'Move Back to Received Error',
+                    "RTC: {$request->rt_counter}",
+                    "Error: {$e->getMessage()}"
+                );
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to move product back to Received',
                 'error' => $e->getMessage(),
             ], 500);
         }

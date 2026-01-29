@@ -35,181 +35,206 @@ class StockroomController extends BasetablesController
     /**
      * Generate the next available FNSKU with incremental prefix based on remaining units
      */
-private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
-{
-    try {
-        // ✅ Lock FNSKU record
-        $fnskuRecord = DB::table($this->fnskuTable)
-            ->where('FNSKU', $baseFnsku)
-            ->where('ASIN', $asin)
-            ->where('grading', $grading)
-            ->where('storename', $storename)
-            ->lockForUpdate()
-            ->first();
+   private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $storename)
+    {
+        try {
+            // ✅ Lock FNSKU record using MSKU as the unique identifier
+            $fnskuRecord = DB::table($this->fnskuTable)
+                ->where('MSKU', $msku)
+                ->where('ASIN', $asin)
+                ->where('grading', $grading)
+                ->where('storename', $storename)
+                ->lockForUpdate()
+                ->first();
 
-        if (!$fnskuRecord) {
-            Log::warning("FNSKU not found in database", [
-                'base_fnsku' => $baseFnsku,
-                'asin' => $asin,
-                'grading' => $grading,
-                'storename' => $storename
+            if (!$fnskuRecord) {
+                Log::warning("FNSKU not found in database", [
+                    'base_fnsku' => $baseFnsku,
+                    'msku' => $msku,
+                    'asin' => $asin,
+                    'grading' => $grading,
+                    'storename' => $storename
+                ]);
+                
+                return [
+                    'actual_fnsku' => $baseFnsku,
+                    'actual_msku' => $msku,
+                    'times_used' => 0,
+                    'remaining_units' => 0
+                ];
+            }
+
+            $currentUnits = $fnskuRecord->Units;
+
+            if ($currentUnits <= 0) {
+                throw new \Exception("No remaining units for MSKU: {$msku} (Units: {$currentUnits})");
+            }
+
+            // ✅ MATCHES FnskuController - Get ALL active FNSKUs using this MSKU
+            $activeFnskus = DB::table($this->productTable)
+                ->select('FNSKUviewer', 'MSKUviewer')
+                ->where('MSKUviewer', $msku)  // ✅ Search by MSKU (more accurate)
+                ->whereNotIn('ProductModuleLoc', ['Shipment', 'Soldlist', 'Returnlist', 'Merged', 'RTS'])
+                ->lockForUpdate()
+                ->get();
+
+            Log::info("Active products found for MSKU", [
+                'msku' => $msku,
+                'active_count' => $activeFnskus->count(),
+                'remaining_units' => $currentUnits
             ]);
+
+            // ✅ Extract used prefixes from active FNSKUs
+            $usedPrefixes = [];
             
+            foreach ($activeFnskus as $product) {
+                $fnsku = $product->FNSKUviewer;
+                
+                if ($fnsku === $baseFnsku) {
+                    $usedPrefixes[] = 0;
+                } elseif (preg_match('/^C(\d+)' . preg_quote($baseFnsku, '/') . '$/', $fnsku, $matches)) {
+                    $usedPrefixes[] = (int)$matches[1];
+                }
+            }
+
+            sort($usedPrefixes);
+            $maxAllowedPrefix = 9;
+
+            Log::info("Prefix analysis for MSKU", [
+                'msku' => $msku,
+                'base_fnsku' => $baseFnsku,
+                'used_prefixes' => $usedPrefixes,
+                'used_count' => count($usedPrefixes),
+                'remaining_units_in_db' => $currentUnits
+            ]);
+
+            // ✅ Find first UNUSED prefix
+            $nextPrefix = null;
+
+            for ($i = 0; $i <= $maxAllowedPrefix; $i++) {
+                if (!in_array($i, $usedPrefixes)) {
+                    $nextPrefix = $i;
+                    break;
+                }
+            }
+
+            if ($nextPrefix === null) {
+                throw new \Exception(
+                    "All prefix slots exhausted for MSKU: {$msku} / FNSKU: {$baseFnsku}. " .
+                    "All " . ($maxAllowedPrefix + 1) . " prefixes (C0-C9) are in use. " .
+                    "Used prefixes: " . implode(', ', $usedPrefixes)
+                );
+            }
+
+            // ✅ Generate FNSKU with correct prefix
+            if ($nextPrefix === 0) {
+                $actualFnsku = $baseFnsku;
+            } else {
+                $actualFnsku = "C{$nextPrefix}{$baseFnsku}";
+            }
+
+            Log::info("✅ Generated FNSKU with available prefix for MSKU", [
+                'msku' => $msku,
+                'base_fnsku' => $baseFnsku,
+                'used_prefixes' => $usedPrefixes,
+                'next_prefix' => $nextPrefix,
+                'actual_fnsku' => $actualFnsku,
+                'remaining_units' => $currentUnits
+            ]);
+
             return [
-                'actual_fnsku' => $baseFnsku,
-                'times_used' => 0,
-                'remaining_units' => 0
+                'actual_fnsku' => $actualFnsku,
+                'actual_msku' => $msku,
+                'times_used' => count($usedPrefixes),
+                'remaining_units' => $currentUnits,
+                'next_prefix' => $nextPrefix
             ];
+
+        } catch (\Exception $e) {
+            Log::error("Error in getNextAvailableFnsku: " . $e->getMessage(), [
+                'base_fnsku' => $baseFnsku,
+                'msku' => $msku,
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            throw $e;
         }
-
-        $currentUnits = $fnskuRecord->Units;
-
-        // ✅ Check if units are available
-        if ($currentUnits <= 0) {
-            throw new \Exception("No remaining units for FNSKU: {$baseFnsku} (Units: {$currentUnits})");
-        }
-
-        // ✅ Get ALL active FNSKUs (with and without prefix) currently in use
-        $activeFnskus = DB::table($this->productTable)
-            ->select('FNSKUviewer')
-            ->where(function($query) use ($baseFnsku) {
-                $query->where('FNSKUviewer', $baseFnsku)
-                      ->orWhere('FNSKUviewer', 'LIKE', 'C%' . $baseFnsku);
-            })
-            ->whereNotIn('ProductModuleLoc', ['Shipment', 'Soldlist', 'Returnlist', 'Merged', 'RTS'])
-            ->lockForUpdate()
-            ->pluck('FNSKUviewer')
-            ->toArray();
-
-        Log::info("Active FNSKUs found", [
-            'base_fnsku' => $baseFnsku,
-            'active_fnskus' => $activeFnskus,
-            'active_count' => count($activeFnskus),
-            'remaining_units' => $currentUnits
-        ]);
-
-        // ✅ Extract used prefixes from active products
-        $usedPrefixes = [];
-        
-        foreach ($activeFnskus as $fnsku) {
-            if ($fnsku === $baseFnsku) {
-                // Base FNSKU (no prefix) is used
-                $usedPrefixes[] = 0;
-            } elseif (preg_match('/^C(\d+)' . preg_quote($baseFnsku, '/') . '$/', $fnsku, $matches)) {
-                // Extract prefix number (e.g., "C3" -> 3)
-                $usedPrefixes[] = (int)$matches[1];
-            }
-        }
-
-        sort($usedPrefixes);
-
-        // ✅ Maximum prefix is 9 (C0 through C9 = 10 total slots)
-        $maxAllowedPrefix = 9;
-
-        Log::info("Prefix analysis", [
-            'base_fnsku' => $baseFnsku,
-            'used_prefixes' => $usedPrefixes,
-            'used_count' => count($usedPrefixes),
-            'max_allowed_prefix' => $maxAllowedPrefix,
-            'remaining_units_in_db' => $currentUnits
-        ]);
-
-        // ✅ Find first UNUSED prefix within the allowed range
-        $nextPrefix = null;
-
-        for ($i = 0; $i <= $maxAllowedPrefix; $i++) {
-            if (!in_array($i, $usedPrefixes)) {
-                $nextPrefix = $i;
-                break;
-            }
-        }
-
-        // ✅ Check if we found an available prefix slot
-        if ($nextPrefix === null) {
-            throw new \Exception(
-                "All prefix slots exhausted for FNSKU: {$baseFnsku}. " .
-                "All " . ($maxAllowedPrefix + 1) . " prefixes (C0-C9) are in use. " .
-                "Used prefixes: " . implode(', ', $usedPrefixes)
-            );
-        }
-
-        // ✅ Generate FNSKU with correct prefix
-        if ($nextPrefix === 0) {
-            $actualFnsku = $baseFnsku; // No prefix
-        } else {
-            $actualFnsku = "C{$nextPrefix}{$baseFnsku}";
-        }
-
-        Log::info("✅ Generated FNSKU with available prefix", [
-            'base_fnsku' => $baseFnsku,
-            'used_prefixes' => $usedPrefixes,
-            'next_prefix' => $nextPrefix,
-            'actual_fnsku' => $actualFnsku,
-            'remaining_units' => $currentUnits
-        ]);
-
-        return [
-            'actual_fnsku' => $actualFnsku,
-            'times_used' => count($usedPrefixes),
-            'remaining_units' => $currentUnits,
-            'next_prefix' => $nextPrefix
-        ];
-
-    } catch (\Exception $e) {
-        Log::error("Error in getNextAvailableFnsku: " . $e->getMessage(), [
-            'base_fnsku' => $baseFnsku,
-            'trace' => $e->getTraceAsString()
-        ]);
-
-        throw $e;
     }
-}
 
     /**
      * Check if an FNSKU (with or without prefix) is available
      */
-    private function checkFnskuAvailabilityWithPrefix($inputFnsku)
+ private function checkFnskuAvailabilityWithPrefix($inputFnsku, $inputMsku = null)
     {
-        // First, try to find it as-is (for original FNSKUs)
-        $directMatch = DB::table($this->fnskuTable)
-            ->where('FNSKU', $inputFnsku)
+        // Extract base FNSKU if prefixed
+        $baseFnsku = $this->extractBaseFnsku($inputFnsku);
+        
+        // ✅ PRIORITY 1: Search by MSKU if provided (most unique)
+        if (!empty($inputMsku)) {
+            $fnskuRecord = DB::table($this->fnskuTable)
+                ->where('MSKU', $inputMsku)
+                ->where('fnsku_status', 'available')
+                ->where('Units', '>', 0)
+                ->first();
+            
+            if ($fnskuRecord) {
+                Log::info("✅ Found FNSKU by MSKU (most accurate)", [
+                    'input_msku' => $inputMsku,
+                    'found_fnsku' => $fnskuRecord->FNSKU,
+                    'found_msku' => $fnskuRecord->MSKU
+                ]);
+                
+                return [
+                    'available' => true,
+                    'base_fnsku' => $fnskuRecord->FNSKU,
+                    'msku' => $fnskuRecord->MSKU,
+                    'asin' => $fnskuRecord->ASIN,
+                    'grading' => $fnskuRecord->grading,
+                    'storename' => $fnskuRecord->storename,
+                    'record' => $fnskuRecord
+                ];
+            }
+        }
+        
+        // ✅ PRIORITY 2: Search by FNSKU (fallback or when MSKU not provided)
+        $fnskuRecord = DB::table($this->fnskuTable)
+            ->where('FNSKU', $baseFnsku)
             ->where('fnsku_status', 'available')
             ->where('Units', '>', 0)
             ->first();
 
-        if ($directMatch) {
+        if ($fnskuRecord) {
+            Log::info("✅ Found FNSKU by FNSKU search", [
+                'input_fnsku' => $inputFnsku,
+                'base_fnsku' => $baseFnsku,
+                'found_msku' => $fnskuRecord->MSKU
+            ]);
+            
             return [
                 'available' => true,
-                'base_fnsku' => $inputFnsku, // This IS the base FNSKU
-                'record' => $directMatch
+                'base_fnsku' => $baseFnsku,
+                'msku' => $fnskuRecord->MSKU,
+                'asin' => $fnskuRecord->ASIN,
+                'grading' => $fnskuRecord->grading,
+                'storename' => $fnskuRecord->storename,
+                'record' => $fnskuRecord
             ];
         }
 
-        // Check if it's a prefixed FNSKU (starts with C followed by digits)
-        if (preg_match('/^C(\d+)(.+)$/', $inputFnsku, $matches)) {
-            $baseFnsku = $matches[2]; // Extract the base FNSKU
-            
-            $baseRecord = DB::table($this->fnskuTable)
-                ->where('FNSKU', $baseFnsku)
-                ->where('fnsku_status', 'available')
-                ->where('Units', '>', 0)
-                ->first();
-
-            if ($baseRecord) {
-                return [
-                    'available' => true,
-                    'base_fnsku' => $baseFnsku,
-                    'record' => $baseRecord
-                ];
-            }
-        }
+        Log::warning("❌ FNSKU not found or not available", [
+            'input_fnsku' => $inputFnsku,
+            'input_msku' => $inputMsku,
+            'base_fnsku' => $baseFnsku
+        ]);
 
         return [
             'available' => false,
             'base_fnsku' => null,
+            'msku' => null,
             'record' => null
         ];
     }
+
 
     /**
      * Find related ASINs with full recursive search - exact conversion from original function
@@ -620,31 +645,41 @@ public function index(Request $request)
     /**
      * UPDATED checkFnsku method with prefix system
      */
-    public function checkFnsku(Request $request)
+ public function checkFnsku(Request $request)
     {
         $fnsku = $request->input('fnsku');
+        $msku = $request->input('msku'); // ✅ Optional MSKU parameter
 
-        if (empty($fnsku)) {
+        if (empty($fnsku) && empty($msku)) {
             return response()->json([
                 'exists' => false,
                 'status' => 'invalid',
-                'message' => 'FNSKU is required'
+                'message' => 'FNSKU or MSKU is required'
             ]);
         }
 
         try {
-            $normalizedFnsku = $this->normalizeFnsku($fnsku);
+            $normalizedFnsku = !empty($fnsku) ? $this->normalizeFnsku($fnsku) : null;
             
-            // Check availability with prefix system
-            $availability = $this->checkFnskuAvailabilityWithPrefix($normalizedFnsku);
+            Log::info("🔍 Checking FNSKU availability", [
+                'input_fnsku' => $fnsku,
+                'normalized_fnsku' => $normalizedFnsku,
+                'input_msku' => $msku,
+                'priority' => !empty($msku) ? 'MSKU (more unique)' : 'FNSKU'
+            ]);
+            
+            // ✅ Pass MSKU to get more accurate results
+            $availability = $this->checkFnskuAvailabilityWithPrefix($normalizedFnsku, $msku);
 
             if ($availability['available']) {
                 $record = $availability['record'];
                 $baseFnsku = $availability['base_fnsku'];
+                $msku = $availability['msku'];
                 
                 try {
                     $fnskuInfo = $this->getNextAvailableFnsku(
                         $baseFnsku,
+                        $msku,  // ✅ Pass MSKU
                         $record->ASIN,
                         $record->grading,
                         $record->storename
@@ -657,7 +692,12 @@ public function index(Request $request)
                         'normalized_fnsku' => $normalizedFnsku,
                         'original_fnsku' => $fnsku,
                         'base_fnsku' => $baseFnsku,
+                        'msku' => $msku,  // ✅ Return MSKU
+                        'asin' => $record->ASIN,  // ✅ Return ASIN
+                        'grading' => $record->grading,
+                        'storename' => $record->storename,
                         'next_fnsku_to_use' => $fnskuInfo['actual_fnsku'],
+                        'next_msku_to_use' => $fnskuInfo['actual_msku'],
                         'remaining_units' => $record->Units,
                         'times_used' => $fnskuInfo['times_used'],
                         'units_after_use' => $fnskuInfo['remaining_units']
@@ -668,20 +708,26 @@ public function index(Request $request)
                         'status' => 'exhausted',
                         'message' => $e->getMessage(),
                         'normalized_fnsku' => $normalizedFnsku,
-                        'original_fnsku' => $fnsku
+                        'original_fnsku' => $fnsku,
+                        'msku' => $msku
                     ]);
                 }
             } else {
                 return response()->json([
                     'exists' => false,
                     'status' => 'not_found',
-                    'message' => 'FNSKU not found or no units remaining',
+                    'message' => 'FNSKU/MSKU not found or no units remaining',
                     'normalized_fnsku' => $normalizedFnsku,
-                    'original_fnsku' => $fnsku
+                    'original_fnsku' => $fnsku,
+                    'input_msku' => $msku
                 ]);
             }
         } catch (\Exception $e) {
-            Log::error('Error checking FNSKU', $e, ['fnsku' => $fnsku]);
+            Log::error('Error checking FNSKU', [
+                'fnsku' => $fnsku,
+                'msku' => $msku,
+                'error' => $e->getMessage()
+            ]);
 
             return response()->json([
                 'exists' => false,
@@ -699,209 +745,325 @@ public function index(Request $request)
 
 
 public function processScan(Request $request)
-{
-    DB::beginTransaction();
+    {
+        DB::beginTransaction();
 
-    try {
         try {
-            $validatedData = $request->validate([
-                'SerialNumber' => 'required|string',
-                'Location' => 'required|string',
-                'FNSKU' => 'nullable|string',  // FNSKU is optional
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed: ' . implode(', ', $e->errors()),
-                'reason' => 'validation_error'
-            ], 422);
-        }
+            try {
+                $validatedData = $request->validate([
+                    'SerialNumber' => 'required|string',
+                    'Location' => 'required|string',
+                    'FNSKU' => 'nullable|string',
+                ]);
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed: ' . implode(', ', $e->errors()),
+                    'reason' => 'validation_error'
+                ], 422);
+            }
 
-        $User = $this->getCurrentUserName();
-        $serial = trim($request->input('SerialNumber', ''));
-        $location = trim($request->input('Location', ''));
-        $scannedFNSKU = trim($request->input('FNSKU', ''));
+            $User = $this->getCurrentUserName();
+            $serial = trim($request->input('SerialNumber', ''));
+            $location = trim($request->input('Location', ''));
+            $scannedFNSKU = trim($request->input('FNSKU', ''));
 
-        if (!empty($scannedFNSKU)) {
-            $scannedFNSKU = $this->normalizeFnsku($scannedFNSKU);
-        }
+            if (!empty($scannedFNSKU)) {
+                $scannedFNSKU = $this->normalizeFnsku($scannedFNSKU);
+            }
 
-        $Module = "Stockroom";
-        $Action = "Scanned and insert to Stockroom";
+            $Module = "Stockroom";
+            $Action = "Scanned and insert to Stockroom";
 
-        $california_timezone = new DateTimeZone('America/Los_Angeles');
-        $currentDatetime = new DateTime('now', $california_timezone);
-        $curentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
+            $california_timezone = new DateTimeZone('America/Los_Angeles');
+            $currentDatetime = new DateTime('now', $california_timezone);
+            $curentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
 
-        // Validate serial format
-        if (!preg_match('/^[a-zA-Z0-9]+$/', $serial) || strpos($serial, 'X00') !== false) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid Serial Number',
-                'reason' => 'invalid_serial'
-            ]);
-        }
-
-        // Validate location format
-        if (!preg_match('/^L\d{3}[A-G]$/i', $location) && $location !== 'Floor' && $location !== 'L800G') {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid Location Format',
-                'reason' => 'invalid_location'
-            ]);
-        }
-
-        $modulelocation = (substr($location, 0, 4) === 'L800') ? 'Production Area' : 'Stockroom';
-
-        // ============================================
-        // CHECK 1: Does item exist in Stockroom/Production Area?
-        // ============================================
-        $existingItem = DB::table($this->productTable)
-            ->where(function ($query) use ($serial) {
-                $query->where('serialnumber', $serial)
-                    ->orWhere('serialnumberb', $serial)
-                    ->orWhere('serialnumberc', $serial)
-                    ->orWhere('serialnumberd', $serial);
-            })
-            ->where(function ($query) {
-                $query->where('ProductModuleLoc', 'Stockroom')
-                    ->orWhere('ProductModuleLoc', 'Production Area');
-            })
-            ->first();
-
-        if ($existingItem) {
-            // Item already in Stockroom/Production - just update location
-            $id = $existingItem->ProductID;
-            $rt = $existingItem->rtcounter;
-
-            if ($existingItem->ProductModuleLoc === 'Production Area' && $modulelocation === 'Production Area') {
+            // Validate serial format
+            if (!preg_match('/^[a-zA-Z0-9]+$/', $serial) || strpos($serial, 'X00') !== false) {
                 DB::rollBack();
                 return response()->json([
                     'success' => false,
-                    'message' => 'Data Already in Production Area',
-                    'reason' => 'duplicate_data'
+                    'message' => 'Invalid Serial Number',
+                    'reason' => 'invalid_serial'
                 ]);
             }
 
-            if ($existingItem->ProductModuleLoc === 'Stockroom' && $modulelocation === 'Stockroom') {
+            // Validate location format
+            if (!preg_match('/^L\d{3}[A-G]$/i', $location) && $location !== 'Floor' && $location !== 'L800G') {
                 DB::rollBack();
                 return response()->json([
                     'success' => false,
-                    'message' => 'Duplicate Data in Stockroom',
-                    'reason' => 'duplicate_data'
+                    'message' => 'Invalid Location Format',
+                    'reason' => 'invalid_location'
                 ]);
             }
 
-            // Moving between Production Area and Stockroom
-            DB::table($this->productTable)
-                ->where('ProductID', $id)
-                ->update([
-                    'ProductModuleLoc' => $modulelocation,
-                    'warehouselocation' => $location,
-                    'stockroom_insert_date' => $curentDatetimeString
+            $modulelocation = (substr($location, 0, 4) === 'L800') ? 'Production Area' : 'Stockroom';
+
+            // CHECK 1: Does item exist in Stockroom/Production Area?
+            $existingItem = DB::table($this->productTable)
+                ->where(function ($query) use ($serial) {
+                    $query->where('serialnumber', $serial)
+                        ->orWhere('serialnumberb', $serial)
+                        ->orWhere('serialnumberc', $serial)
+                        ->orWhere('serialnumberd', $serial);
+                })
+                ->where(function ($query) {
+                    $query->where('ProductModuleLoc', 'Stockroom')
+                        ->orWhere('ProductModuleLoc', 'Production Area');
+                })
+                ->first();
+
+            if ($existingItem) {
+                $id = $existingItem->ProductID;
+                $rt = $existingItem->rtcounter;
+
+                if ($existingItem->ProductModuleLoc === 'Production Area' && $modulelocation === 'Production Area') {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Data Already in Production Area',
+                        'reason' => 'duplicate_data'
+                    ]);
+                }
+
+                if ($existingItem->ProductModuleLoc === 'Stockroom' && $modulelocation === 'Stockroom') {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Duplicate Data in Stockroom',
+                        'reason' => 'duplicate_data'
+                    ]);
+                }
+
+                DB::table($this->productTable)
+                    ->where('ProductID', $id)
+                    ->update([
+                        'ProductModuleLoc' => $modulelocation,
+                        'warehouselocation' => $location,
+                        'stockroom_insert_date' => $curentDatetimeString
+                    ]);
+
+                DB::table($this->itemProcessHistoryTable)->insert([
+                    'rtcounter' => $rt,
+                    'employeeName' => $User,
+                    'editDate' => $curentDatetimeString,
+                    'Module' => "Stockroom",
+                    'Action' => "Updated location to {$location}"
                 ]);
 
-            DB::table($this->itemProcessHistoryTable)->insert([
-                'rtcounter' => $rt,
-                'employeeName' => $User,
-                'editDate' => $curentDatetimeString,
-                'Module' => "Stockroom",
-                'Action' => "Updated location to {$location}"
-            ]);
-
-            DB::commit();
-            $this->clearStockroomCaches();
-            
-            return response()->json([
-                'success' => true,
-                'message' => "Location updated successfully"
-            ]);
-        }
-
-        // ============================================
-        // CHECK 2: Does item exist in Validation?
-        // ============================================
-        $existingInValidation = DB::table($this->productTable)
-            ->where(function ($query) use ($serial) {
-                $query->where('serialnumber', $serial)
-                    ->orWhere('serialnumberb', $serial)
-                    ->orWhere('serialnumberc', $serial)
-                    ->orWhere('serialnumberd', $serial);
-            })
-            ->where('returnstatus', 'Not Returned')
-            ->where('ProductModuleLoc', 'Validation')
-            ->first();
-
-        if ($existingInValidation) {
-            // ✅ Item exists in Validation
-            
-            // Check if validated
-            if ($existingInValidation->validation_status !== 'validated') {
-                DB::rollBack();
-                Log::warning('Attempted to scan non-validated item from Validation', [
-                    'productId' => $existingInValidation->ProductID,
-                    'rtcounter' => $existingInValidation->rtcounter,
-                    'serial' => $serial,
-                    'validation_status' => $existingInValidation->validation_status
-                ]);
+                DB::commit();
+                $this->clearStockroomCaches();
                 
                 return response()->json([
-                    'success' => false,
-                    'message' => 'Item not validated yet. Please complete validation first.',
-                    'reason' => 'not_validated'
+                    'success' => true,
+                    'message' => "Location updated successfully"
                 ]);
             }
 
-            // ✅ Validated item - move to stockroom
-            // ✅ DON'T check FNSKU availability (already has FNSKU from validation)
-            // ✅ DON'T deduct units (already deducted during validation)
-            
-            $id = $existingInValidation->ProductID;
-            $rtnumberofitem = $existingInValidation->rtcounter;
-            $existingFNSKU = $existingInValidation->FNSKUviewer;
+            // CHECK 2: Does item exist in Validation?
+            $existingInValidation = DB::table($this->productTable)
+                ->where(function ($query) use ($serial) {
+                    $query->where('serialnumber', $serial)
+                        ->orWhere('serialnumberb', $serial)
+                        ->orWhere('serialnumberc', $serial)
+                        ->orWhere('serialnumberd', $serial);
+                })
+                ->where('returnstatus', 'Not Returned')
+                ->where('ProductModuleLoc', 'Validation')
+                ->first();
 
-            // Item MUST have FNSKU from validation
-            if (empty($existingFNSKU)) {
-                DB::rollBack();
-                Log::warning('Validated item missing FNSKU', [
+            if ($existingInValidation) {
+                if ($existingInValidation->validation_status !== 'validated') {
+                    DB::rollBack();
+                    Log::warning('Attempted to scan non-validated item from Validation', [
+                        'productId' => $existingInValidation->ProductID,
+                        'rtcounter' => $existingInValidation->rtcounter,
+                        'serial' => $serial,
+                        'validation_status' => $existingInValidation->validation_status
+                    ]);
+                    
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Item not validated yet. Please complete validation first.',
+                        'reason' => 'not_validated'
+                    ]);
+                }
+
+                $id = $existingInValidation->ProductID;
+                $rtnumberofitem = $existingInValidation->rtcounter;
+                $existingFNSKU = $existingInValidation->FNSKUviewer;
+                $existingMSKU = $existingInValidation->MSKUviewer;  // ✅ Get existing MSKU
+                $existingASIN = $existingInValidation->ASINviewer;  // ✅ Get existing ASIN
+
+                if (empty($existingFNSKU) || empty($existingMSKU) || empty($existingASIN)) {
+                    DB::rollBack();
+                    Log::warning('Validated item missing data', [
+                        'productId' => $id,
+                        'rtcounter' => $rtnumberofitem,
+                        'serial' => $serial,
+                        'existing_fnsku' => $existingFNSKU,
+                        'existing_msku' => $existingMSKU,
+                        'existing_asin' => $existingASIN
+                    ]);
+                    
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Item has incomplete data. Please complete validation first.',
+                        'reason' => 'incomplete_validation_data'
+                    ]);
+                }
+
+                Log::info('✅ Moving validated item from Validation to Stockroom', [
                     'productId' => $id,
                     'rtcounter' => $rtnumberofitem,
+                    'existing_fnsku' => $existingFNSKU,
+                    'existing_msku' => $existingMSKU,
+                    'existing_asin' => $existingASIN,
+                    'scanned_location' => $location,
+                    'no_fnsku_check' => true
+                ]);
+
+                DB::table($this->productTable)
+                    ->where('ProductID', $id)
+                    ->update([
+                        'ProductModuleLoc' => $modulelocation,
+                        'warehouselocation' => $location,
+                        'stockroom_insert_date' => $curentDatetimeString
+                    ]);
+
+                DB::table($this->itemProcessHistoryTable)->insert([
+                    'rtcounter' => $rtnumberofitem,
+                    'employeeName' => $User,
+                    'editDate' => $curentDatetimeString,
+                    'Module' => "Stockroom",
+                    'Action' => "Scanned and insert to {$modulelocation}"
+                ]);
+
+                DB::commit();
+                $this->clearStockroomCaches();
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => "Scanned and Forwarded to {$modulelocation} Successfully",
+                    'fnsku_preserved' => true,
+                    'existing_fnsku' => $existingFNSKU,
+                    'existing_msku' => $existingMSKU
+                ]);
+            }
+
+            // CHECK 3: Brand New Item (Floating Item) - FNSKU REQUIRED
+            Log::info('🆕 Creating new item - checking FNSKU availability', [
+                'serial' => $serial,
+                'scanned_fnsku' => $scannedFNSKU,
+                'reason' => 'Item not found in system (floating item)'
+            ]);
+
+            if (empty($scannedFNSKU)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'FNSKU is required for new items',
+                    'reason' => 'fnsku_required_for_new_item'
+                ]);
+            }
+
+            // ✅ Check FNSKU availability (no MSKU yet for new items, will get from lookup)
+            $fnskuAvailability = $this->checkFnskuAvailabilityWithPrefix($scannedFNSKU, null);
+
+            if (!$fnskuAvailability['available']) {
+                DB::rollBack();
+                
+                Log::warning('❌ FNSKU not available for new item', [
+                    'fnsku' => $scannedFNSKU,
                     'serial' => $serial
                 ]);
                 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Item has incomplete data - Missing FNSKU. Please complete validation first.',
-                    'reason' => 'incomplete_validation_data'
+                    'message' => 'FNSKU not found or not available: ' . $scannedFNSKU,
+                    'reason' => 'fnsku_not_found'
                 ]);
             }
 
-            Log::info('✅ Moving validated item from Validation to Stockroom', [
-                'productId' => $id,
-                'rtcounter' => $rtnumberofitem,
-                'existing_fnsku' => $existingFNSKU,
-                'scanned_location' => $location,
-                'no_fnsku_check' => true,
-                'reason' => 'Item already in system with FNSKU assigned'
+            $baseFnsku = $fnskuAvailability['base_fnsku'];
+            $msku = $fnskuAvailability['msku'];  // ✅ Get MSKU from lookup
+            $asin = $fnskuAvailability['asin'];  // ✅ Get ASIN from lookup
+            $fnskuRecord = $fnskuAvailability['record'];
+
+            Log::info('✅ Found FNSKU record for new item', [
+                'base_fnsku' => $baseFnsku,
+                'msku' => $msku,
+                'asin' => $asin,
+                'grading' => $fnskuRecord->grading,
+                'storename' => $fnskuRecord->storename
             ]);
 
-            // Just move the item - preserve existing FNSKU
-            DB::table($this->productTable)
-                ->where('ProductID', $id)
-                ->update([
-                    'ProductModuleLoc' => $modulelocation,
-                    'warehouselocation' => $location,
-                    'stockroom_insert_date' => $curentDatetimeString
+            try {
+                // ✅ Pass MSKU to getNextAvailableFnsku
+                $fnskuInfo = $this->getNextAvailableFnsku(
+                    $baseFnsku,
+                    $msku,
+                    $asin,
+                    $fnskuRecord->grading,
+                    $fnskuRecord->storename
+                );
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'reason' => 'fnsku_exhausted'
                 ]);
+            }
+
+            $actualFnskuToUse = $fnskuInfo['actual_fnsku'];
+            $actualMskuToUse = $fnskuInfo['actual_msku'];
+
+            $maxxrt = DB::table($this->productTable)->max('rtcounter');
+            $newrt = $maxxrt + 1;
+
+            Log::info('✅ Creating new item with FNSKU, MSKU, and ASIN', [
+                'rt' => $newrt,
+                'serial' => $serial,
+                'base_fnsku' => $baseFnsku,
+                'actual_fnsku' => $actualFnskuToUse,
+                'msku' => $actualMskuToUse,
+                'asin' => $asin,
+                'location' => $location
+            ]);
+
+            // ✅ Insert with FNSKU, MSKU, and ASIN
+            $newItemId = DB::table($this->productTable)->insertGetId([
+                'rtcounter' => $newrt,
+                'serialnumber' => $serial,
+                'ProductModuleLoc' => $modulelocation,
+                'warehouselocation' => $location,
+                'FNSKUviewer' => $actualFnskuToUse,
+                'MSKUviewer' => $actualMskuToUse,  // ✅ Set MSKU from lookup
+                'ASINviewer' => $asin,              // ✅ Set ASIN from lookup
+                'FbmAvailable' => 1,
+                'Fulfilledby' => 'FBM',
+                'validation_status' => 'validated',
+                'quantity' => 1,
+                'stockroom_insert_date' => $curentDatetimeString,
+            ]);
+
+            // ✅ Deduct FNSKU units using MSKU
+            $this->updateFnskuUnits(
+                $msku,
+                $asin,
+                $fnskuRecord->grading,
+                $fnskuRecord->storename
+            );
 
             DB::table($this->itemProcessHistoryTable)->insert([
-                'rtcounter' => $rtnumberofitem,
+                'rtcounter' => $newrt,
                 'employeeName' => $User,
                 'editDate' => $curentDatetimeString,
-                'Module' => "Stockroom",
-                'Action' => "Scanned and insert to {$modulelocation}"
+                'Module' => $Module,
+                'Action' => $Action
             ]);
 
             DB::commit();
@@ -909,137 +1071,28 @@ public function processScan(Request $request)
             
             return response()->json([
                 'success' => true,
-                'message' => "Scanned and Forwarded to {$modulelocation} Successfully",
-                'fnsku_preserved' => true,
-                'existing_fnsku' => $existingFNSKU
+                'message' => "New item scanned and inserted successfully",
+                'fnsku_used' => $actualFnskuToUse,
+                'msku_used' => $actualMskuToUse,
+                'asin' => $asin,
+                'remaining_units' => $fnskuInfo['remaining_units'],
+                'new_item' => true
             ]);
-        }
 
-        // ============================================
-        // CHECK 3: Brand New Item (Floating Item)
-        // ✅ THIS IS WHERE WE CHECK FNSKU AVAILABILITY
-        // ============================================
-        
-        Log::info('🆕 Creating new item - checking FNSKU availability', [
-            'serial' => $serial,
-            'scanned_fnsku' => $scannedFNSKU,
-            'reason' => 'Item not found in system (floating item)'
-        ]);
-
-        // For new items, FNSKU is REQUIRED
-        if (empty($scannedFNSKU)) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'FNSKU is required for new items',
-                'reason' => 'fnsku_required_for_new_item'
-            ]);
-        }
-
-        // ✅ NOW check FNSKU availability (only for new items)
-        $fnskuAvailability = $this->checkFnskuAvailabilityWithPrefix($scannedFNSKU);
-
-        if (!$fnskuAvailability['available']) {
-            DB::rollBack();
-            
-            Log::warning('❌ FNSKU not available for new item', [
-                'fnsku' => $scannedFNSKU,
-                'serial' => $serial
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'FNSKU not found or not available: ' . $scannedFNSKU,
-                'reason' => 'fnsku_not_found'
-            ]);
-        }
-
-        $baseFnsku = $fnskuAvailability['base_fnsku'];
-        $fnskuRecord = $fnskuAvailability['record'];
-
-        try {
-            $fnskuInfo = $this->getNextAvailableFnsku(
-                $baseFnsku, 
-                $fnskuRecord->ASIN, 
-                $fnskuRecord->grading, 
-                $fnskuRecord->storename
-            );
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Unhandled error in processScan', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
-                'reason' => 'fnsku_exhausted'
-            ]);
+                'message' => 'Error processing scan: ' . $e->getMessage(),
+                'reason' => 'server_error'
+            ], 500);
         }
-
-        $actualFnskuToUse = $fnskuInfo['actual_fnsku'];
-
-        $maxxrt = DB::table($this->productTable)->max('rtcounter');
-        $newrt = $maxxrt + 1;
-
-        Log::info('✅ Creating new item with FNSKU', [
-            'rt' => $newrt,
-            'serial' => $serial,
-            'base_fnsku' => $baseFnsku,
-            'actual_fnsku' => $actualFnskuToUse,
-            'location' => $location
-        ]);
-
-        $newItemId = DB::table($this->productTable)->insertGetId([
-            'rtcounter' => $newrt,
-            'serialnumber' => $serial,
-            'ProductModuleLoc' => $modulelocation,
-            'warehouselocation' => $location,
-            'FNSKUviewer' => $actualFnskuToUse,
-            'FbmAvailable' => 1,
-            'Fulfilledby' => 'FBM',
-            'validation_status' => 'validated',
-            'quantity' => 1,
-            'stockroom_insert_date' => $curentDatetimeString,
-        ]);
-
-        // ✅ Deduct FNSKU units (only for new items)
-        $this->updateFnskuUnits(
-            $baseFnsku, 
-            $fnskuRecord->ASIN, 
-            $fnskuRecord->grading, 
-            $fnskuRecord->storename
-        );
-
-        DB::table($this->itemProcessHistoryTable)->insert([
-            'rtcounter' => $newrt,
-            'employeeName' => $User,
-            'editDate' => $curentDatetimeString,
-            'Module' => $Module,
-            'Action' => $Action
-        ]);
-
-        DB::commit();
-        $this->clearStockroomCaches();
-        
-        return response()->json([
-            'success' => true,
-            'message' => "New item scanned and inserted successfully",
-            'fnsku_used' => $actualFnskuToUse,
-            'remaining_units' => $fnskuInfo['remaining_units'],
-            'new_item' => true
-        ]);
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        Log::error('Unhandled error in processScan', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Error processing scan: ' . $e->getMessage(),
-            'reason' => 'server_error'
-        ], 500);
     }
-}
 
 public function checkSerial(Request $request)
 {
@@ -1108,8 +1161,13 @@ public function checkSerial(Request $request)
     // Continue with other methods (mergeItems, updateLocation, etc.) - they remain the same
     // but I'll include them for completeness
 
+/**
+ * ✅ COMPLETE: Merge items with MSKU-based FNSKU operations
+ */
 public function mergeItems(Request $request)
 {
+    Log::info('🔍 MERGE DEBUG: Request received', $request->all());
+
     $validated = $request->validate([
         'items' => 'required|array|min:1',
         'title' => 'sometimes|string',
@@ -1117,11 +1175,17 @@ public function mergeItems(Request $request)
         'asin' => 'sometimes|string',
         'store' => 'sometimes|string',
         'serialNumbers' => 'sometimes|array',
-        'fnsku' => 'nullable|string'
+        'fnsku' => 'nullable|string',
+        'msku' => 'nullable|string'
     ]);
 
     $selectedIds = $request->items;
     $numOfSerial = count($selectedIds);
+
+    Log::info('🔍 MERGE DEBUG: Validated data', [
+        'selected_ids' => $selectedIds,
+        'num_items' => $numOfSerial
+    ]);
 
     if (empty($selectedIds)) {
         return response()->json([
@@ -1133,30 +1197,53 @@ public function mergeItems(Request $request)
     try {
         DB::beginTransaction();
 
-        // ============================================
-        // GET SELECTED ITEMS WITH ASIN DATA
-        // ============================================
-            $serialNumberResults = DB::table($this->productTable . ' as prod')
-                ->select('prod.*')
-                ->whereIn('prod.ProductID', $selectedIds)
-                ->get();
+        Log::info('🔍 MERGE DEBUG: Transaction started');
 
-            // Now enrich with FNSKU data using PHP
-            $serialNumberResults = $serialNumberResults->map(function($item) {
-                // Extract base FNSKU
-                $baseFnsku = $this->extractBaseFnsku($item->FNSKUviewer);
-                
-                // Get FNSKU record
+        // Get selected items
+        $serialNumberResults = DB::table($this->productTable . ' as prod')
+            ->select('prod.*')
+            ->whereIn('prod.ProductID', $selectedIds)
+            ->get();
+
+        Log::info('🔍 MERGE DEBUG: Products fetched', [
+            'count' => $serialNumberResults->count(),
+            'product_ids' => $serialNumberResults->pluck('ProductID')->toArray()
+        ]);
+
+        if ($serialNumberResults->isEmpty()) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'No products found with the selected IDs'
+            ]);
+        }
+
+        // Enrich with FNSKU data using MSKU
+        $serialNumberResults = $serialNumberResults->map(function($item) {
+            $msku = $item->MSKUviewer;
+            
+            Log::info('🔍 MERGE DEBUG: Enriching product', [
+                'ProductID' => $item->ProductID,
+                'MSKUviewer' => $msku
+            ]);
+            
+            if (!empty($msku)) {
                 $fnskuRecord = DB::table($this->fnskuTable)
-                    ->where('FNSKU', $baseFnsku)
+                    ->where('MSKU', $msku)
                     ->first();
                 
                 if ($fnskuRecord) {
                     $item->ASIN = $fnskuRecord->ASIN;
                     $item->grading = $fnskuRecord->grading;
                     $item->storename = $fnskuRecord->storename;
+                    $item->FNSKU = $fnskuRecord->FNSKU;
                     
-                    // Get ASIN data
+                    Log::info('🔍 MERGE DEBUG: FNSKU record found', [
+                        'MSKU' => $msku,
+                        'ASIN' => $fnskuRecord->ASIN,
+                        'grading' => $fnskuRecord->grading
+                    ]);
+                    
                     $asinRecord = DB::table($this->asinTable)
                         ->where('ASIN', $fnskuRecord->ASIN)
                         ->first();
@@ -1165,23 +1252,41 @@ public function mergeItems(Request $request)
                         $item->ProductTitle = $asinRecord->internal;
                         $item->color = $asinRecord->color;
                         $item->QuantityInside = $asinRecord->QuantityInside;
+                        
+                        Log::info('🔍 MERGE DEBUG: ASIN record found', [
+                            'ASIN' => $fnskuRecord->ASIN,
+                            'title' => $asinRecord->internal,
+                            'QuantityInside' => $asinRecord->QuantityInside
+                        ]);
+                    } else {
+                        Log::warning('🔍 MERGE DEBUG: ASIN record NOT found', [
+                            'ASIN' => $fnskuRecord->ASIN
+                        ]);
                     }
+                } else {
+                    Log::warning('🔍 MERGE DEBUG: FNSKU record NOT found', [
+                        'MSKU' => $msku
+                    ]);
                 }
-                
-                return $item;
-            });
-        // ============================================
-        // VALIDATION: Check items are compatible for merging
-        // ============================================
-        $firstItem = $serialNumberResults->first();
-        $firstAsin = $firstItem->ASIN;
-        $firstColor = $firstItem->color;
-        $firstQuantityInside = $firstItem->QuantityInside ?? 1;
-        $firstTitle = $firstItem->ProductTitle;
-        $firstStoreName = $firstItem->storename;
-        $firstCondition = $firstItem->grading;
+            } else {
+                Log::warning('🔍 MERGE DEBUG: MSKUviewer is empty', [
+                    'ProductID' => $item->ProductID
+                ]);
+            }
+            
+            return $item;
+        });
 
-        Log::info('Validating items for merge', [
+        // Validation checks
+        $firstItem = $serialNumberResults->first();
+        $firstAsin = $firstItem->ASIN ?? null;
+        $firstColor = $firstItem->color ?? null;
+        $firstQuantityInside = $firstItem->QuantityInside ?? 1;
+        $firstTitle = $firstItem->ProductTitle ?? '';
+        $firstStoreName = $firstItem->storename ?? '';
+        $firstCondition = $firstItem->grading ?? '';
+
+        Log::info('🔍 MERGE DEBUG: First item validation data', [
             'first_asin' => $firstAsin,
             'first_color' => $firstColor,
             'first_quantity_inside' => $firstQuantityInside,
@@ -1191,16 +1296,27 @@ public function mergeItems(Request $request)
             'total_items' => $numOfSerial
         ]);
 
+        if (empty($firstAsin)) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot merge: First item has no ASIN. Make sure all items have valid MSKU with FNSKU records.',
+                'debug' => [
+                    'first_product_id' => $firstItem->ProductID,
+                    'first_msku' => $firstItem->MSKUviewer ?? 'null'
+                ]
+            ]);
+        }
+
         $incompatibleItems = [];
         foreach ($serialNumberResults as $item) {
-            $itemAsin = $item->ASIN;
-            $itemColor = $item->color;
+            $itemAsin = $item->ASIN ?? null;
+            $itemColor = $item->color ?? null;
             $itemQuantityInside = $item->QuantityInside ?? 1;
             $itemSerial = $item->serialnumber;
-            $itemStoreName = $item->storename;
-            $itemCondition = $item->grading;
+            $itemStoreName = $item->storename ?? '';
+            $itemCondition = $item->grading ?? '';
 
-            // Check ASIN match
             if ($itemAsin !== $firstAsin) {
                 $incompatibleItems[] = [
                     'serial' => $itemSerial,
@@ -1210,17 +1326,15 @@ public function mergeItems(Request $request)
                 ];
             }
 
-            // Check Color match
             if ($itemColor !== $firstColor) {
                 $incompatibleItems[] = [
                     'serial' => $itemSerial,
                     'reason' => 'Different Color',
-                    'expected' => $firstColor ?? 'none',
-                    'actual' => $itemColor ?? 'none'
+                    'expected' => $firstColor ?: 'none',
+                    'actual' => $itemColor ?: 'none'
                 ];
             }
 
-            // Check QuantityInside match
             if ($itemQuantityInside !== $firstQuantityInside) {
                 $incompatibleItems[] = [
                     'serial' => $itemSerial,
@@ -1230,39 +1344,36 @@ public function mergeItems(Request $request)
                 ];
             }
 
-            // Check Store Name match
             if ($itemStoreName !== $firstStoreName) {
                 $incompatibleItems[] = [
                     'serial' => $itemSerial,
                     'reason' => 'Different Store',
-                    'expected' => $firstStoreName ?? 'none',
-                    'actual' => $itemStoreName ?? 'none'
+                    'expected' => $firstStoreName ?: 'none',
+                    'actual' => $itemStoreName ?: 'none'
                 ];
             }
 
-            // Check Condition match
             if ($itemCondition !== $firstCondition) {
                 $incompatibleItems[] = [
                     'serial' => $itemSerial,
                     'reason' => 'Different Condition',
-                    'expected' => $firstCondition ?? 'none',
-                    'actual' => $itemCondition ?? 'none'
+                    'expected' => $firstCondition ?: 'none',
+                    'actual' => $itemCondition ?: 'none'
                 ];
             }
         }
 
-        // If there are incompatible items, return error
         if (!empty($incompatibleItems)) {
             DB::rollBack();
+            
+            Log::warning('🔍 MERGE DEBUG: Validation failed - incompatible items', [
+                'incompatible_items' => $incompatibleItems
+            ]);
             
             $errorMessage = "Cannot merge items - incompatible products detected:\n";
             foreach ($incompatibleItems as $issue) {
                 $errorMessage .= "- Serial {$issue['serial']}: {$issue['reason']} (Expected: {$issue['expected']}, Got: {$issue['actual']})\n";
             }
-            
-            Log::warning('Merge validation failed', [
-                'incompatible_items' => $incompatibleItems
-            ]);
 
             return response()->json([
                 'success' => false,
@@ -1272,14 +1383,9 @@ public function mergeItems(Request $request)
             ]);
         }
 
-        Log::info('✅ All items validated - compatible for merge', [
-            'validated_storename' => $firstStoreName,
-            'validated_condition' => $firstCondition
-        ]);
+        Log::info('🔍 MERGE DEBUG: ✅ Validation passed');
 
-        // ============================================
-        // COLLECT SERIAL NUMBERS AND PRICES
-        // ============================================
+        // Collect serial numbers
         $serialNumberA = null;
         $serialNumberB = null;
         $serialNumberC = null;
@@ -1290,24 +1396,20 @@ public function mergeItems(Request $request)
         $productAsin = $request->asin ?? '';
         $firstStore = $request->store ?? '';
         $providedFnsku = $request->fnsku ?? '';
+        $providedMsku = $request->msku ?? '';
 
         if (!empty($providedFnsku)) {
             $providedFnsku = $this->normalizeFnsku($providedFnsku);
-            Log::info('Merge items with normalized FNSKU', [
-                'original_fnsku' => $request->fnsku ?? '',
-                'normalized_fnsku' => $providedFnsku
-            ]);
         }
 
-        // Get serials in the order of selectedIds
         $orderedSerials = [];
+
         foreach ($selectedIds as $productId) {
             $matchingItem = $serialNumberResults->firstWhere('ProductID', $productId);
             if ($matchingItem) {
                 $orderedSerials[] = $matchingItem->serialnumber;
                 $totalPrice += $matchingItem->price ?? 0;
                 
-                // Get title and store from first item
                 if (empty($title)) {
                     $title = $matchingItem->ProductTitle ?? $matchingItem->AStitle ?? '';
                     $firstStore = $matchingItem->storename ?? $matchingItem->StoreName ?? '';
@@ -1315,38 +1417,38 @@ public function mergeItems(Request $request)
             }
         }
 
-        // Assign serials to A, B, C, D based on order
         if (count($orderedSerials) > 0) $serialNumberA = $orderedSerials[0];
         if (count($orderedSerials) > 1) $serialNumberB = $orderedSerials[1];
         if (count($orderedSerials) > 2) $serialNumberC = $orderedSerials[2];
         if (count($orderedSerials) > 3) $serialNumberD = $orderedSerials[3];
 
-        // Extract color from title (if it exists in parentheses)
+        Log::info('🔍 MERGE DEBUG: Serials collected', [
+            'serials' => $orderedSerials,
+            'title' => $title
+        ]);
+
         preg_match('/\((.*?)\)/', $title, $matches);
         $colorFromTitle = isset($matches[1]) ? $matches[1] : $firstColor;
 
-        // Remove color and pack info from title to get base title
         $baseTitle = trim(preg_replace('/\s*\(.*?\)\s*/', '', $title));
         $baseTitle = trim(preg_replace('/\s+\d+-Pack\s*/', ' ', $baseTitle));
 
-        // ============================================
-        // CALCULATE TARGET QUANTITY FOR MERGED PACK
-        // ============================================
         $targetQuantityInside = $numOfSerial * $firstQuantityInside;
 
-        // ============================================
-        // VALIDATE PACK SIZE (ONLY 2-PACK OR 4-PACK ALLOWED)
-        // ============================================
+        Log::info('🔍 MERGE DEBUG: Pack calculation', [
+            'base_title' => $baseTitle,
+            'color_from_title' => $colorFromTitle,
+            'target_quantity_inside' => $targetQuantityInside
+        ]);
+
         $allowedPackSizes = [2, 4];
         
         if (!in_array($targetQuantityInside, $allowedPackSizes)) {
             DB::rollBack();
             
-            Log::warning('Invalid pack size for merge', [
+            Log::warning('🔍 MERGE DEBUG: Invalid pack size', [
                 'target_quantity_inside' => $targetQuantityInside,
-                'num_items_merging' => $numOfSerial,
-                'each_item_quantity_inside' => $firstQuantityInside,
-                'allowed_pack_sizes' => $allowedPackSizes
+                'allowed' => $allowedPackSizes
             ]);
 
             return response()->json([
@@ -1365,17 +1467,7 @@ public function mergeItems(Request $request)
             ]);
         }
 
-        Log::info('✅ Pack size validation passed', [
-            'num_items_merging' => $numOfSerial,
-            'each_item_quantity_inside' => $firstQuantityInside,
-            'target_quantity_inside' => $targetQuantityInside,
-            'base_title' => $baseTitle,
-            'color' => $colorFromTitle
-        ]);
-
-        // ============================================
-        // ACCURATE ASIN SELECTION - NO FALLBACKS
-        // ============================================
+        // Find exact matching ASIN for pack
         $asinResult = DB::table($this->asinTable)
             ->where('internal', 'like', '%' . $baseTitle . '%')
             ->where('QuantityInside', $targetQuantityInside)
@@ -1386,16 +1478,17 @@ public function mergeItems(Request $request)
             })
             ->first();
 
-        // If no exact match found, REJECT the merge
+        Log::info('🔍 MERGE DEBUG: Pack ASIN search', [
+            'base_title' => $baseTitle,
+            'target_quantity' => $targetQuantityInside,
+            'color' => $colorFromTitle,
+            'found' => $asinResult ? 'YES' : 'NO'
+        ]);
+
         if (!$asinResult) {
             DB::rollBack();
             
-            Log::error('No exact matching ASIN found for merge', [
-                'base_title' => $baseTitle,
-                'target_quantity_inside' => $targetQuantityInside,
-                'color' => $colorFromTitle,
-                'num_items' => $numOfSerial
-            ]);
+            Log::error('🔍 MERGE DEBUG: No pack ASIN found');
 
             return response()->json([
                 'success' => false,
@@ -1414,142 +1507,105 @@ public function mergeItems(Request $request)
             ]);
         }
 
-        Log::info('✅ Found exact matching ASIN', [
-            'ASIN' => $asinResult->ASIN,
-            'internal' => $asinResult->internal,
-            'QuantityInside' => $asinResult->QuantityInside,
-            'color' => $asinResult->color
-        ]);
-
         $asinTitle = $asinResult->internal;
         $targetAsin = $asinResult->ASIN;
         $asinColor = $asinResult->color ?? '';
         $asinQuantityInside = $asinResult->QuantityInside ?? 1;
         $store = $firstStore;
 
-        // Construct title using ASIN data
         $constructedTitle = $asinTitle;
         
-        // Add pack info if QuantityInside > 1
         if ($asinQuantityInside > 1 && stripos($constructedTitle, '-pack') === false) {
             $constructedTitle .= ' ' . $asinQuantityInside . '-Pack';
         }
         
-        // Add color if exists and not already in title
         if (!empty($asinColor) && stripos($constructedTitle, '(' . $asinColor . ')') === false) {
             $constructedTitle .= ' (' . $asinColor . ')';
         }
 
-        Log::info('Using constructed title from ASIN data', [
-            'originalTitle' => $asinTitle,
-            'constructedTitle' => $constructedTitle,
-            'color' => $asinColor,
-            'QuantityInside' => $asinQuantityInside
+        Log::info('🔍 MERGE DEBUG: Pack ASIN found', [
+            'target_asin' => $targetAsin,
+            'title' => $constructedTitle
         ]);
 
-        // ============================================
-        // MERGE FNSKU LOGIC WITH RELATED ASIN FALLBACK
-        // Find PACK FNSKU for target ASIN
-        // ============================================
-        $baseFnskuToUse = null;
-        $actualFnskuToUse = null;
-        
-        // Use the validated condition and storename from first item
+        // Find pack FNSKU
         $condition = $firstCondition;
         $storename = $firstStoreName;
+        $packFnsku = null;
+
+        Log::info('🔍 MERGE DEBUG: Starting pack FNSKU search', [
+            'target_asin' => $targetAsin,
+            'condition' => $condition,
+            'storename' => $storename,
+            'quantity_inside' => $asinQuantityInside
+        ]);
 
         try {
-            // Override with provided FNSKU info if it exists (shouldn't change condition/store)
-            if ($providedFnsku) {
-                $baseFnsku = $this->extractBaseFnsku($providedFnsku);
+            // Priority 1: Search by MSKU if provided
+            if (!empty($providedMsku)) {
+                Log::info('🔍 MERGE DEBUG: Searching by provided MSKU', [
+                    'provided_msku' => $providedMsku
+                ]);
                 
-                $originalFnskuInfo = DB::table($this->fnskuTable)
-                    ->where('FNSKU', $baseFnsku)
+                $packFnsku = DB::table($this->fnskuTable . ' as fnsku')
+                    ->select('fnsku.*')
+                    ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                    ->where('fnsku.MSKU', $providedMsku)
+                    ->where('fnsku.fnsku_status', 'available')
+                    ->where('fnsku.amazon_status', 'Existed')
+                    ->where('fnsku.LimitStatus', 'False')
+                    ->where('fnsku.Units', '>', 0)
+                    ->where('asin.quantityinside', $asinQuantityInside)
+                    ->where('fnsku.grading', $condition)
+                    ->where('fnsku.storename', $storename)
+                    ->when($asinColor, function($query) use ($asinColor) {
+                        return $query->where('asin.color', $asinColor);
+                    })
                     ->first();
                 
-                if ($originalFnskuInfo) {
-                    // Verify provided FNSKU matches the validated condition and store
-                    if ($originalFnskuInfo->grading !== $condition) {
-                        DB::rollBack();
-                        return response()->json([
-                            'success' => false,
-                            'message' => "Provided FNSKU condition ({$originalFnskuInfo->grading}) does not match items' condition ({$condition})",
-                            'reason' => 'fnsku_condition_mismatch'
-                        ]);
-                    }
-                    
-                    if ($originalFnskuInfo->storename !== $storename) {
-                        DB::rollBack();
-                        return response()->json([
-                            'success' => false,
-                            'message' => "Provided FNSKU store ({$originalFnskuInfo->storename}) does not match items' store ({$storename})",
-                            'reason' => 'fnsku_store_mismatch'
-                        ]);
-                    }
-                    
-                    Log::info("Validated provided FNSKU matches condition and store", [
-                        'original_fnsku' => $baseFnsku,
-                        'condition' => $condition,
-                        'storename' => $storename
-                    ]);
-                }
+                Log::info('🔍 MERGE DEBUG: MSKU search result', [
+                    'found' => $packFnsku ? 'YES' : 'NO'
+                ]);
             }
-
-            // ============================================
-            // STEP 1: SEARCH FOR PACK FNSKU - EXACT ASIN MATCH
-            // ALL CRITERIA MUST MATCH: QuantityInside + Color + Condition + Store
-            // ============================================
-            Log::info("Searching for PACK FNSKU (exact ASIN)", [
-                'target_asin' => $targetAsin,
-                'quantity_inside' => $asinQuantityInside,
-                'color' => $asinColor ?: 'Any',
-                'condition' => $condition,
-                'storename' => $storename
-            ]);
-
-            $packFnsku = DB::table($this->fnskuTable . ' as fnsku')
-                ->select('fnsku.*')
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->where('fnsku.ASIN', $targetAsin)
-                ->where('fnsku.fnsku_status', 'available')
-                ->where('fnsku.amazon_status', 'Existed')
-                ->where('fnsku.LimitStatus', 'False')
-                ->where('fnsku.Units', '>', 0)
-                ->where('asin.quantityinside', $asinQuantityInside)
-                ->where('fnsku.grading', $condition) // Must match validated condition
-                ->where('fnsku.storename', $storename) // Must match validated storename
-                ->when($asinColor, function($query) use ($asinColor) {
-                    return $query->where('asin.color', $asinColor);
-                })
-                ->orderByDesc('fnsku.FNSKUID')
-                ->first();
             
-            if ($packFnsku) {
-                $baseFnskuToUse = $packFnsku->FNSKU;
-                Log::info("✅ Found exact PACK FNSKU (primary ASIN)", [
-                    'fnsku' => $baseFnskuToUse,
-                    'asin' => $packFnsku->ASIN,
-                    'condition' => $packFnsku->grading,
-                    'store' => $packFnsku->storename,
-                    'units' => $packFnsku->Units
+            // Priority 2: Search by ASIN
+            if (!$packFnsku) {
+                Log::info('🔍 MERGE DEBUG: Searching by ASIN');
+                
+                $packFnsku = DB::table($this->fnskuTable . ' as fnsku')
+                    ->select('fnsku.*')
+                    ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                    ->where('fnsku.ASIN', $targetAsin)
+                    ->where('fnsku.fnsku_status', 'available')
+                    ->where('fnsku.amazon_status', 'Existed')
+                    ->where('fnsku.LimitStatus', 'False')
+                    ->where('fnsku.Units', '>', 0)
+                    ->where('asin.quantityinside', $asinQuantityInside)
+                    ->where('fnsku.grading', $condition)
+                    ->where('fnsku.storename', $storename)
+                    ->when($asinColor, function($query) use ($asinColor) {
+                        return $query->where('asin.color', $asinColor);
+                    })
+                    ->orderByDesc('fnsku.FNSKUID')
+                    ->first();
+                
+                Log::info('🔍 MERGE DEBUG: ASIN search result', [
+                    'found' => $packFnsku ? 'YES' : 'NO'
                 ]);
             }
 
-            // ============================================
-            // STEP 2: FALLBACK TO RELATED ASINs
-            // SAME CRITERIA ENFORCED: QuantityInside + Color + Condition + Store
-            // ============================================
+            // Priority 3: Related ASINs
             if (!$packFnsku) {
-                Log::info("Exact ASIN not found, trying related ASINs...");
+                Log::info('🔍 MERGE DEBUG: Trying related ASINs');
                 
                 $relatedAsins = $this->findRelatedAsins($targetAsin);
                 
+                Log::info('🔍 MERGE DEBUG: Related ASINs found', [
+                    'count' => count($relatedAsins),
+                    'asins' => $relatedAsins
+                ]);
+                
                 if (!empty($relatedAsins)) {
-                    Log::info("Found related ASINs to search", [
-                        'count' => count($relatedAsins),
-                        'asins' => $relatedAsins
-                    ]);
-                    
                     $packFnsku = DB::table($this->fnskuTable . ' as fnsku')
                         ->select('fnsku.*')
                         ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
@@ -1558,111 +1614,79 @@ public function mergeItems(Request $request)
                         ->where('fnsku.amazon_status', 'Existed')
                         ->where('fnsku.LimitStatus', 'False')
                         ->where('fnsku.Units', '>', 0)
-                        ->where('asin.quantityinside', $asinQuantityInside)  // ✅ Same pack size required
-                        ->where('fnsku.grading', $condition)  // ✅ Same condition required
-                        ->where('fnsku.storename', $storename)  // ✅ Same store required
+                        ->where('asin.quantityinside', $asinQuantityInside)
+                        ->where('fnsku.grading', $condition)
+                        ->where('fnsku.storename', $storename)
                         ->when($asinColor, function($query) use ($asinColor) {
-                            return $query->where('asin.color', $asinColor);  // ✅ Same color required
+                            return $query->where('asin.color', $asinColor);
                         })
                         ->orderByDesc('fnsku.FNSKUID')
                         ->first();
                     
-                    if ($packFnsku) {
-                        $baseFnskuToUse = $packFnsku->FNSKU;
-                        Log::info("✅ Found PACK FNSKU from related ASIN", [
-                            'related_asin' => $packFnsku->ASIN,
-                            'original_asin' => $targetAsin,
-                            'fnsku' => $baseFnskuToUse,
-                            'condition' => $packFnsku->grading,
-                            'storename' => $packFnsku->storename,
-                            'quantity_inside' => $asinQuantityInside,
-                            'color' => $asinColor ?: 'Any'
-                        ]);
-                    } else {
-                        Log::warning("❌ No matching FNSKU in related ASINs", [
-                            'searched_asins' => $relatedAsins,
-                            'required_quantity_inside' => $asinQuantityInside,
-                            'required_color' => $asinColor ?: 'Any',
-                            'required_condition' => $condition,
-                            'required_storename' => $storename
-                        ]);
-                    }
-                } else {
-                    Log::info("No related ASINs found for {$targetAsin}");
+                    Log::info('🔍 MERGE DEBUG: Related ASIN search result', [
+                        'found' => $packFnsku ? 'YES' : 'NO'
+                    ]);
                 }
             }
 
-            // ============================================
-            // STEP 3: FINAL CHECK - REJECT IF NOTHING FOUND
-            // ============================================
             if (!$packFnsku) {
                 DB::rollBack();
                 
-                $relatedAsinsList = isset($relatedAsins) && !empty($relatedAsins) 
-                    ? implode(', ', array_slice($relatedAsins, 0, 5)) . (count($relatedAsins) > 5 ? ' +' . (count($relatedAsins) - 5) . ' more' : '')
-                    : 'None';
-                
-                Log::error('No matching PACK FNSKU found (checked related ASINs)', [
-                    'target_asin' => $targetAsin,
-                    'related_asins_checked' => isset($relatedAsins) ? count($relatedAsins) : 0,
-                    'required_quantity_inside' => $asinQuantityInside,
-                    'required_color' => $asinColor ?: 'Not specified',
-                    'required_condition' => $condition,
-                    'required_storename' => $storename
-                ]);
+                Log::error('🔍 MERGE DEBUG: No pack FNSKU found after all searches');
 
                 return response()->json([
                     'success' => false,
-                    'message' => "Cannot merge: No available FNSKU found.\n\n" .
-                                "Searched ASINs:\n" .
-                                "• Primary: {$targetAsin}\n" .
-                                "• Related: {$relatedAsinsList}\n\n" .
-                                "Required (ALL must match):\n" .
+                    'message' => "Cannot merge: No available pack FNSKU found.\n\n" .
+                                "Required:\n" .
+                                "• ASIN: {$targetAsin}\n" .
                                 "• Pack Size: {$asinQuantityInside}-pack\n" .
                                 "• Color: " . ($asinColor ?: 'Any') . "\n" .
                                 "• Condition: {$condition}\n" .
                                 "• Store: {$storename}\n" .
                                 "• Status: Available with units\n\n" .
                                 "Please create an FNSKU matching all criteria.",
-                    'reason' => 'no_pack_fnsku_available',
-                    'search_details' => [
-                        'primary_asin' => $targetAsin,
-                        'related_asins' => $relatedAsins ?? [],
-                        'required' => [
-                            'quantity_inside' => $asinQuantityInside,
-                            'color' => $asinColor ?: null,
-                            'condition' => $condition,
-                            'storename' => $storename
-                        ]
-                    ]
+                    'reason' => 'no_pack_fnsku_available'
                 ]);
             }
 
+            Log::info('🔍 MERGE DEBUG: Pack FNSKU found!', [
+                'fnsku' => $packFnsku->FNSKU,
+                'msku' => $packFnsku->MSKU,
+                'units' => $packFnsku->Units
+            ]);
+
             // Generate prefixed FNSKU
             $fnskuInfo = $this->getNextAvailableFnsku(
-                $baseFnskuToUse,
+                $packFnsku->FNSKU,
+                $packFnsku->MSKU,
                 $targetAsin,
                 $condition,
                 $storename
             );
             $actualFnskuToUse = $fnskuInfo['actual_fnsku'];
+            $actualMskuToUse = $fnskuInfo['actual_msku'];
 
-            Log::info('✅ Generated prefixed FNSKU for merge', [
-                'base_fnsku' => $baseFnskuToUse,
+            Log::info('🔍 MERGE DEBUG: Generated prefixed FNSKU', [
                 'actual_fnsku' => $actualFnskuToUse,
-                'target_asin' => $targetAsin,
-                'times_used' => $fnskuInfo['times_used'],
+                'actual_msku' => $actualMskuToUse,
                 'remaining_units' => $fnskuInfo['remaining_units']
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
+            
+            Log::error('🔍 MERGE DEBUG: Exception during FNSKU search', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Error getting FNSKU for merge: ' . $e->getMessage()
             ]);
         }
 
+        // Create merge record
         $california_timezone = new DateTimeZone('America/Los_Angeles');
         $currentDatetime = new DateTime('now', $california_timezone);
         $currentDate = $currentDatetime->format('Y-m-d');
@@ -1675,6 +1699,12 @@ public function mergeItems(Request $request)
         $maxRt = DB::table($this->productTable)->max('rtcounter') ?? 0;
         $newRt = $maxRt + 1;
 
+        Log::info('🔍 MERGE DEBUG: Creating merged product', [
+            'merge_id' => $mergeId,
+            'new_rt' => $newRt
+        ]);
+
+        // Insert merged product
         $productData = [
             'rtcounter' => $newRt,
             'mergeID' => $mergeId,
@@ -1687,25 +1717,30 @@ public function mergeItems(Request $request)
             'serialnumberc' => $serialNumberC,
             'serialnumberd' => $serialNumberD,
             'validation_status' => 'validated',
-            'FNSKUviewer' => $actualFnskuToUse
+            'FNSKUviewer' => $actualFnskuToUse,
+            'MSKUviewer' => $actualMskuToUse,
+            'ASINviewer' => $targetAsin
         ];
 
         $productId = DB::table($this->productTable)->insertGetId($productData);
 
+        Log::info('🔍 MERGE DEBUG: Merged product created', [
+            'product_id' => $productId
+        ]);
+
         // Update FNSKU units
         $becameUnavailable = $this->updateFnskuUnits(
-            $baseFnskuToUse,
+            $actualMskuToUse,
             $targetAsin,
             $condition,
             $storename
         );
 
-        Log::info('Updated FNSKU Units count for merge', [
-            'base_fnsku' => $baseFnskuToUse,
-            'actual_fnsku_used' => $actualFnskuToUse,
+        Log::info('🔍 MERGE DEBUG: FNSKU units updated', [
             'became_unavailable' => $becameUnavailable
         ]);
 
+        // Update original items to Merged status
         DB::table($this->productTable)
             ->whereIn('ProductID', $selectedIds)
             ->update([
@@ -1713,31 +1748,12 @@ public function mergeItems(Request $request)
                 'mergedTO' => $newRt
             ]);
 
-        if (!empty($providedFnsku)) {
-            $baseFnskuProvided = $this->extractBaseFnsku($providedFnsku);
-            if ($baseFnskuProvided !== $baseFnskuToUse) {
-                $fnskuResult1 = DB::table($this->fnskuTable)
-                    ->where('FNSKU', $baseFnskuProvided)
-                    ->first();
-
-                if ($fnskuResult1) {
-                    $oldunit = $fnskuResult1->Units ?? 0;
-                    $returnOldUNIT = $oldunit + $numOfSerial;
-
-                    DB::table($this->fnskuTable)
-                        ->where('FNSKU', $baseFnskuProvided)
-                        ->update([
-                            'fnsku_status' => 'available',
-                            'Units' => $returnOldUNIT
-                        ]);
-                }
-            }
-        }
+        Log::info('🔍 MERGE DEBUG: Original items marked as Merged');
 
         DB::commit();
-
-        // ✅ CLEAR CACHES IMMEDIATELY AFTER COMMIT
         $this->clearStockroomCaches();
+
+        Log::info('🔍 MERGE DEBUG: ✅ Transaction committed successfully!');
 
         return response()->json([
             'success' => true,
@@ -1748,7 +1764,10 @@ public function mergeItems(Request $request)
             'store' => $store,
             'title' => $constructedTitle,
             'fnsku' => $actualFnskuToUse,
+            'msku' => $actualMskuToUse,
+            'asin' => $targetAsin,
             'units' => $fnskuInfo['remaining_units'],
+            'merged_items_count' => count($selectedIds),
             'asin_data' => [
                 'ASIN' => $targetAsin,
                 'color' => $asinColor,
@@ -1758,52 +1777,63 @@ public function mergeItems(Request $request)
 
     } catch (\Exception $e) {
         DB::rollBack();
-        Log::error('Error in mergeItems: ' . $e->getMessage());
-        Log::error($e->getTraceAsString());
+        
+        Log::error('🔍 MERGE DEBUG: ❌ FATAL ERROR', [
+            'error' => $e->getMessage(),
+            'line' => $e->getLine(),
+            'file' => $e->getFile(),
+            'trace' => $e->getTraceAsString()
+        ]);
 
         return response()->json([
             'success' => false,
             'message' => 'Error during merge operation: ' . $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ]);
+            'debug' => [
+                'error' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => basename($e->getFile())
+            ]
+        ], 500);
     }
 }
 
-private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
-{
-    try {
-        $fnskuRecord = DB::table($this->fnskuTable)
-            ->where('FNSKU', $baseFnsku)
+  private function updateFnskuUnits($msku, $asin, $grading, $storename)
+    {
+        // Decrement the units using MSKU
+        $affected = DB::table($this->fnskuTable)
+            ->where('MSKU', $msku)
+            ->where('ASIN', $asin)
+            ->where('grading', $grading)
+            ->where('storename', $storename)
+            ->where('Units', '>', 0)
+            ->decrement('Units');
+
+        if ($affected == 0) {
+            throw new \Exception("Could not update FNSKU units for MSKU: {$msku} - no available units");
+        }
+
+        // Check if FNSKU should become unavailable
+        $updatedRecord = DB::table($this->fnskuTable)
+            ->where('MSKU', $msku)
             ->where('ASIN', $asin)
             ->where('grading', $grading)
             ->where('storename', $storename)
             ->first();
 
-        if (!$fnskuRecord) {
-            return false;
+        $becameUnavailable = false;
+        if ($updatedRecord && $updatedRecord->Units <= 0) {
+            DB::table($this->fnskuTable)
+                ->where('MSKU', $msku)
+                ->where('ASIN', $asin)
+                ->where('grading', $grading)
+                ->where('storename', $storename)
+                ->update(['fnsku_status' => 'unavailable']);
+            $becameUnavailable = true;
         }
 
-        $currentUnits = $fnskuRecord->Units ?? 0;
-        $newUnits = max(0, $currentUnits - 1);
-        $newStatus = ($newUnits <= 0) ? 'Unavailable' : 'available';
-
-        DB::table($this->fnskuTable)
-            ->where('FNSKU', $baseFnsku)
-            ->where('ASIN', $asin)
-            ->where('grading', $grading)
-            ->where('storename', $storename)
-            ->update([
-                'Units' => $newUnits,
-                'fnsku_status' => $newStatus
-            ]);
-
-        return ($newStatus === 'Unavailable');
-
-    } catch (\Exception $e) {
-        Log::error("Error updating FNSKU units: " . $e->getMessage());
-        return false;
+        return $becameUnavailable;
     }
-}
+
 
     public function updateLocation(Request $request)
     {
@@ -2411,7 +2441,7 @@ private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
     }
 
 
-    public function unmergeItem(Request $request)
+public function unmergeItem(Request $request)
 {
     $validated = $request->validate([
         'productId' => 'required|integer'
@@ -2442,7 +2472,6 @@ private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
         $mergeId = $mergedItem->mergeID;
         $rtCounter = $mergedItem->rtcounter;
 
-        // Find all original items that were merged into this item
         $originalItems = DB::table($this->productTable)
             ->where('mergedTO', $rtCounter)
             ->where('ProductModuleLoc', 'Merged')
@@ -2460,7 +2489,6 @@ private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
         $currentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
         $user = $this->getCurrentUserName();
 
-        // Restore original items back to Stockroom
         $restoredCount = 0;
         foreach ($originalItems as $item) {
             DB::table($this->productTable)
@@ -2471,7 +2499,6 @@ private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
                     'stockroom_insert_date' => $currentDatetimeString
                 ]);
 
-            // Log history
             DB::table($this->itemProcessHistoryTable)->insert([
                 'rtcounter' => $item->rtcounter,
                 'employeeName' => $user,
@@ -2483,14 +2510,38 @@ private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
             $restoredCount++;
         }
 
-        // Return FNSKU units if the merged item used one
-        if (!empty($mergedItem->FNSKUviewer)) {
-            $baseFnsku = $this->extractBaseFnsku($mergedItem->FNSKUviewer);
-            $this->returnFnskuUnits($baseFnsku);
-            Log::info("Returned FNSKU units after unmerge", [
-                'fnsku' => $baseFnsku
+        // ✅ ONLY Return the 1 unit to the pack FNSKU (reverse the merge deduction)
+        if (!empty($mergedItem->MSKUviewer) && !empty($mergedItem->ASINviewer)) {
+            $returnSuccess = $this->returnFnskuUnits(
+                $mergedItem->MSKUviewer,  // Pack MSKU
+                $mergedItem->ASINviewer   // Pack ASIN
+            );
+            
+            if ($returnSuccess) {
+                Log::info("✅ Returned 1 unit to pack FNSKU after unmerge", [
+                    'pack_msku' => $mergedItem->MSKUviewer,
+                    'pack_asin' => $mergedItem->ASINviewer,
+                    'pack_fnsku' => $mergedItem->FNSKUviewer,
+                    'rt_counter' => $rtCounter,
+                    'action' => 'Reversed merge deduction'
+                ]);
+            } else {
+                Log::warning("⚠️ Failed to return unit to pack FNSKU", [
+                    'pack_msku' => $mergedItem->MSKUviewer,
+                    'pack_asin' => $mergedItem->ASINviewer,
+                    'pack_fnsku' => $mergedItem->FNSKUviewer
+                ]);
+            }
+        } else {
+            Log::warning("⚠️ Cannot return unit - Missing pack MSKU or ASIN", [
+                'pack_msku' => $mergedItem->MSKUviewer ?? 'null',
+                'pack_asin' => $mergedItem->ASINviewer ?? 'null',
+                'pack_fnsku' => $mergedItem->FNSKUviewer ?? 'null',
+                'rt_counter' => $rtCounter
             ]);
         }
+
+        // ❌ DO NOT deduct units from original items - they keep their existing state
 
         // Delete the merged item
         DB::table($this->productTable)
@@ -2512,14 +2563,13 @@ private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
             ->delete();
 
         DB::commit();
-
-         // ✅ CLEAR CACHES IMMEDIATELY AFTER COMMIT
         $this->clearStockroomCaches();
 
         return response()->json([
             'success' => true,
             'message' => "Successfully unmerged item. Restored {$restoredCount} original items to Stockroom.",
-            'restored_count' => $restoredCount
+            'restored_count' => $restoredCount,
+            'units_returned' => !empty($mergedItem->MSKUviewer) && !empty($mergedItem->ASINviewer)
         ]);
 
     } catch (\Exception $e) {
@@ -2532,41 +2582,57 @@ private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
             'message' => 'Error unmerging item: ' . $e->getMessage()
         ], 500);
     }
- }
+}
+
+/**
+ * ✅ Verify returnFnskuUnits signature (for reference)
+ */
+
 
  /**
  * Return FNSKU units (increment by 1) - helper for unmerge
  */
-private function returnFnskuUnits($fnskuViewer)
-{
-    try {
-        $baseFnsku = $this->extractBaseFnsku($fnskuViewer);
-
-        $fnskuRecord = DB::table($this->fnskuTable)
-            ->where('FNSKU', $baseFnsku)
-            ->first();
-
-        if (!$fnskuRecord) {
+ private function returnFnskuUnits($mskuViewer, $asinViewer)
+    {
+        if (empty($mskuViewer) || empty($asinViewer)) {
+            Log::warning("Missing MSKU or ASIN for unit return", [
+                'msku' => $mskuViewer,
+                'asin' => $asinViewer
+            ]);
             return false;
         }
 
-        $currentUnits = $fnskuRecord->Units ?? 0;
-        $newUnits = $currentUnits + 1;
+        // Find the FNSKU record using MSKU
+        $fnskuRecord = DB::table($this->fnskuTable)
+            ->where('MSKU', $mskuViewer)
+            ->where('ASIN', $asinViewer)
+            ->first();
 
+        if (!$fnskuRecord) {
+            Log::warning("FNSKU record not found for return", [
+                'msku' => $mskuViewer,
+                'asin' => $asinViewer
+            ]);
+            return false;
+        }
+
+        // Increment the units (return the unit)
         DB::table($this->fnskuTable)
-            ->where('FNSKU', $baseFnsku)
+            ->where('MSKU', $mskuViewer)
+            ->where('ASIN', $asinViewer)
             ->update([
-                'Units' => $newUnits,
-                'fnsku_status' => 'available'
+                'Units' => DB::raw('Units + 1'),
+                'fnsku_status' => 'available',
             ]);
 
-        return true;
+        Log::info('Successfully returned 1 unit using MSKU', [
+            'msku' => $mskuViewer,
+            'asin' => $asinViewer,
+            'fnsku' => $fnskuRecord->FNSKU
+        ]);
 
-    } catch (\Exception $e) {
-        Log::error("Error returning FNSKU units: " . $e->getMessage());
-        return false;
+        return true;
     }
-}
 
 
 private function clearStockroomCaches()

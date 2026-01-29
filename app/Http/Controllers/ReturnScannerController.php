@@ -31,78 +31,86 @@ class ReturnScannerController extends BasetablesController
     /**
      * Display a listing of products in return list with joined LPN data
      */
-    public function index(Request $request)
-    {
-        $perPage = $request->input('per_page', 10);
-        $search = $request->input('search', '');
-        $location = $request->input('location', 'Returnlist');
+ public function index(Request $request)
+{
+    $perPage = $request->input('per_page', 10);
+    $search = $request->input('search', '');
+    $location = $request->input('location', 'Returnlist');
+    
+    try {
+        $products = DB::table($this->productTable . ' as prod')
+            ->select(
+                'prod.ProductID',
+                'prod.rtcounter',
+                'prod.rtid',
+                'prod.serialnumber',
+                'prod.serialnumberb',
+                'prod.FNSKUviewer',
+                'prod.MSKUviewer',
+                'prod.warehouselocation',
+                'prod.returnstatus',
+                'prod.img1',
+                'prod.img2',
+                'prod.img3',
+                'prod.img4',
+                'prod.img5',
+                'prod.img6',
+                'prod.img7',
+                'prod.img8',
+                'prod.img9',
+                'prod.img10',
+                'prod.img11',
+                'prod.img12',
+                'prod.img13',
+                'prod.img14',
+                'prod.img15',
+                'tbllpn.LPN',
+                'tbllpn.LPNDATE',
+                'tbllpn.BuyerName',
+                'fnsku.storename',
+                'fnsku.ASIN',
+                'fnsku.MSKU',
+                'fnsku.FNSKU',
+                DB::raw("COALESCE(
+                    NULLIF(TRIM(asin.system_title), ''), 
+                    NULLIF(TRIM(asin.internal), ''), 
+                    NULLIF(TRIM(prod.ProductTitle), '')
+                ) as ProductTitle"),
+                'asin.internal',
+                'asin.system_title',
+                'asin.metakeyword'
+            )
+            ->leftJoin('tbllpn', 'prod.ProductID', '=', 'tbllpn.ProdID')
+            ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.MSKUviewer', '=', 'fnsku.MSKU')
+            ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+            ->where('prod.ProductModuleLoc', $location)
+            ->when($search, function($query) use ($search) {
+                return $query->where(function($q) use ($search) {
+                    $q->where('prod.serialnumber', 'like', "%{$search}%")
+                      ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
+                      ->orWhere('prod.MSKUviewer', 'like', "%{$search}%")
+                      ->orWhere('prod.rtcounter', 'like', "%{$search}%")
+                      ->orWhere('tbllpn.LPN', 'like', "%{$search}%")
+                      ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
+                      ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
+                      ->orWhere('fnsku.FNSKU', 'like', "%{$search}%")
+                      ->orWhere('asin.internal', 'like', "%{$search}%")
+                      ->orWhere('asin.system_title', 'like', "%{$search}%")
+                      ->orWhere('asin.metakeyword', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('prod.ProductID', 'desc')
+            ->paginate($perPage);
         
-        try {
-            $products = DB::table($this->productTable . ' as prod')
-                ->select(
-                    'prod.ProductID',
-                    'prod.rtcounter',
-                    'prod.rtid',
-                    'prod.serialnumber',
-                    'prod.serialnumberb',
-                    'prod.FNSKUviewer',
-                    'prod.warehouselocation',
-                    'prod.returnstatus',
-                    'prod.img1',
-                    'prod.img2',
-                    'prod.img3',
-                    'prod.img4',
-                    'prod.img5',
-                    'prod.img6',
-                    'prod.img7',
-                    'prod.img8',
-                    'prod.img9',
-                    'prod.img10',
-                    'prod.img11',
-                    'prod.img12',
-                    'prod.img13',
-                    'prod.img14',
-                    'prod.img15',
-                    'tbllpn.LPN',
-                    'tbllpn.LPNDATE',
-                    'tbllpn.BuyerName',
-                    'fnsku.storename',
-                    'fnsku.ASIN',
-                    'asin.internal as ProductTitle'
-                )
-                ->leftJoin('tbllpn', 'prod.ProductID', '=', 'tbllpn.ProdID')
-                ->leftJoin($this->fnskuTable . ' as fnsku', function ($join) {
-                    $join->on(DB::raw("CASE 
-                        WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
-                        THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
-                        ELSE prod.FNSKUviewer 
-                    END"), '=', 'fnsku.FNSKU');
-                })
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->where('prod.ProductModuleLoc', $location)
-                ->when($search, function($query) use ($search) {
-                    return $query->where(function($q) use ($search) {
-                        $q->where('prod.serialnumber', 'like', "%{$search}%")
-                          ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
-                          ->orWhere('prod.rtcounter', 'like', "%{$search}%")
-                          ->orWhere('tbllpn.LPN', 'like', "%{$search}%")
-                          ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
-                          ->orWhere('asin.internal', 'like', "%{$search}%")
-                          ->orWhere('asin.metakeyword', 'like', "%{$search}%");
-                    });
-                })
-                ->orderBy('prod.ProductID', 'desc')
-                ->paginate($perPage);
-            
-            return response()->json($products);
-        } catch (\Exception $e) {
-            Log::error('Error fetching return products: ' . $e->getMessage());
-            return response()->json([
-                'error' => 'Database error occurred',
-                'message' => $e->getMessage()
-            ], 500);
-        }
+        return response()->json($products);
+    } catch (\Exception $e) {
+        Log::error('Error fetching return products: ' . $e->getMessage());
+        return response()->json([
+            'error' => 'Database error occurred',
+            'message' => $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Get list of store names for the dropdown
