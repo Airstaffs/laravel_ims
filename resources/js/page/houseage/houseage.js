@@ -1499,7 +1499,8 @@ export default {
                         },
                         body: JSON.stringify({
                             serial,
-                            current_rtid: this.item.rtid || this.item.id,
+                            current_product_id:
+                                this.item.ProductID || this.item.id,
                         }),
                     },
                 );
@@ -1513,15 +1514,19 @@ export default {
 
                 const data = await response.json();
 
+                console.log(data);
+
                 if (data.duplicate) {
+                    const product = data.product;
+
                     Swal.fire({
                         icon: "warning",
                         title: "Duplicate Serial Found",
                         html: `
-          <p>This serial already exists in another product.</p>
-          <p><b>RTID:</b> ${data.rtid ?? "N/A"}</p>
-          <p><b>Title:</b> ${data.product_title ?? "N/A"}</p>
-        `,
+                        <p>This serial already exists in another product.</p>
+                        <p><b>RT Counter:</b> ${product.rtcounter ?? "N/A"}</p>
+                        <p><b>Title:</b> ${product.ProductTitle ?? "N/A"}</p>
+                        `,
                         showCancelButton: true,
                         confirmButtonText: "View Original Item",
                         cancelButtonText: "OK",
