@@ -126,7 +126,7 @@ export default defineComponent({
         const formData = new FormData();
         formData.append("file", blob, "capture.jpg");
 
-        const response = await fetch("http://127.0.0.1:8001/detect", {
+        const response = await fetch("/api/ai/detect", {
           method: "POST",
           body: formData
         });
@@ -285,7 +285,7 @@ export default defineComponent({
             const formData = new FormData();
             formData.append('file', lastFrameBlob.value, 'frame.jpg');
 
-            const response = await fetch("http://127.0.0.1:8001/detect-camera-frame", {
+            const response = await fetch("/api/ai/detect-camera-frame", {
               method: 'POST',
               body: formData
             });
@@ -372,10 +372,11 @@ export default defineComponent({
         const formData = new FormData();
         formData.append('file', blob, 'fallback.jpg');
 
-        const response = await fetch("http://127.0.0.1:8001/detect", {
+        const response = await fetch("/api/ai/detect", {
           method: 'POST',
           body: formData
         });
+
         if (!response.ok) {
           console.error('[FallbackDetect] HTTP error', response.status);
           return;

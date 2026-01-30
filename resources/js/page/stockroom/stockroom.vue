@@ -4,7 +4,7 @@
 
         <!-- Scanner Component (with hideButton prop to hide the scanner button) -->
         <scanner-component scanner-title="Stockroom Scanner" storage-prefix="stockroom" :enable-camera="true"
-            :display-fields="['Serial', 'FNSKU', 'Location']" :api-endpoint="'/api/stockroom/process-scan'"
+            :display-fields="['Serial', 'FNSKU', 'Location', 'Message']" :api-endpoint="'/api/stockroom/process-scan'"
             :hide-button="true" @process-scan="handleScanProcess" @hardware-scan="handleHardwareScan"
             @scanner-opened="handleScannerOpened" @scanner-closed="handleScannerClosed"
             @scanner-reset="handleScannerReset" @mode-changed="handleModeChange" ref="scanner">

@@ -618,6 +618,24 @@
                                     selectedAsin.fnsku_count
                                 }}</span>
                             </div>
+                            <div class="asin-details-row ">
+                                <span class="asin-details-label">FNSKU Usage Limit:</span>
+                                
+                                <span class="asin-details-value ">
+                                    <span class="d-flex justify-content-end align-items-center">
+                                        <!-- Editable input -->
+
+                                        <input 
+                                            v-if="editMode" 
+                                            type="number" 
+                                            v-model="editedAsin.asin_limit" 
+                                            class="details-input" 
+                                            style="width: 60px;"
+                                        />
+                                        <span v-else>{{ selectedAsin.asin_limit || 0 }}</span>
+                                    </span>
+                                </span>
+                            </div>
 
                             <!-- Save button for ASIN details -->
                             <div v-if="editMode" class="asin-details-actions">
@@ -829,6 +847,11 @@
                                     data.grading ||
                                     "-"
                                     }}</p>
+                            </template>
+                               <template #timesused="{ data }">
+                               <p :class="selectedAsin.asin_limit > 0 && (10 - data.Units) >= selectedAsin.asin_limit ? 'text-danger' : 'text-primary'">
+                                    {{ `${10 - data.Units} / ${selectedAsin.asin_limit || 0}` }}
+                                </p>
                             </template>
                         </XDataTable>
                     </div>
@@ -1912,6 +1935,11 @@ const FNSKU_COLUMNS = [
         header: "Grade",
         field: "grading",
         slot: "grading",
+        bodyStyle: "font-size: 14px"
+    },
+    {
+        header: "Times Used",
+        slot: "timesused",
         bodyStyle: "font-size: 14px"
     }
 ]

@@ -1019,13 +1019,14 @@ export default {
         },
 
         // Select and save the chosen FNSKU
-        async selectFnsku(fnsku) {
+        async selectFnsku(fnsku, currentfnsku) {
             console.log("=== FNSKU SELECTION START ===");
             console.log(
                 "Selecting FNSKU:",
                 fnsku.FNSKU,
                 "for product:",
                 this.currentItem?.ProductID,
+                currentfnsku
             );
 
             if (!this.currentItem || !this.currentItem.ProductID) {
@@ -1044,7 +1045,7 @@ export default {
                 const availabilityResponse = await axios.get(
                     `${API_BASE_URL}/api/fnsku/availability`,
                     {
-                        params: { fnsku: fnsku.FNSKU },
+                        params: { fnsku: fnsku.FNSKU, msku: fnsku.MSKU, currentfnsku },
                         withCredentials: true,
                     },
                 );
@@ -1115,6 +1116,7 @@ export default {
                         msku: fnsku.MSKU,
                         asin: fnsku.ASIN,
                         grading: fnsku.grading,
+                        currentFnsku: currentfnsku
                     },
                     {
                         headers: {
@@ -1498,6 +1500,39 @@ export default {
             };
         },
 
+        //validate serialnumbers
+        validateItemSerials(item) {
+            const RESTRICTED_PREFIXES = ['SI', 'BKT', 'PCN', 'RPN'];
+            const serialRegex = new RegExp(`^(${RESTRICTED_PREFIXES.join('|')})\\d+$`, 'i');
+
+            const serialFields = [
+                item.serialnumber,
+                item.serialnumberb,
+                item.serialnumberc,
+                item.serialnumberd
+            ];
+
+            const invalidSerials = []; // Collect all invalid serials
+
+            for (const serial of serialFields) {
+                if (!serial) continue;
+                const value = serial.trim();
+
+                if (serialRegex.test(value)) {
+                    invalidSerials.push(value);
+                }
+            }
+
+            if (invalidSerials.length > 0) {
+                return {
+                    valid: false,
+                    invalidSerials: invalidSerials // Array of all invalid serials
+                };
+            }
+
+            return { valid: true };
+        },
+
         /**
          * Method to validate FNSKU before assignment
          */
@@ -1519,6 +1554,22 @@ export default {
         },
 
         async confirmMoveToValidation(item) {
+            const serialValidationResult = this.validateItemSerials(item);
+
+            if (!serialValidationResult.valid) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Invalid Serial Number",
+                    html: `
+                        <strong>Detected serial numbers:</strong><br>
+                        ${serialValidationResult.invalidSerials.map(s => `• ${s}`).join('<br>')}
+                        <br><br>
+                        Please input valid serial number.
+                    `
+                });
+                return;
+            }
+
             if (!item || !item.ProductID) {
                 await Swal.fire({
                     icon: "error",
@@ -1705,6 +1756,22 @@ export default {
         },
 
         async confirmMoveToStockroom(item) {
+            const serialValidationResult = this.validateItemSerials(item);
+
+            if (!serialValidationResult.valid) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Invalid Serial Number",
+                    html: `
+                        <strong>Detected serial numbers:</strong><br>
+                        ${serialValidationResult.invalidSerials.map(s => `• ${s}`).join('<br>')}
+                        <br><br>
+                        Please input valid serial number.
+                    `
+                });
+                return;
+            }
+            
             if (!item || !item.ProductID) {
                 await Swal.fire({
                     icon: "error",

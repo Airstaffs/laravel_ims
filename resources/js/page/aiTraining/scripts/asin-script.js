@@ -9,20 +9,15 @@ const API_BASE = "/api";
 export async function fetchAsinsForClass(className) {
   try {
     const res = await axios.get(
-      `${API_BASE}/asin-details/${encodeURIComponent(className)}`
+      `/api/asin-details/${encodeURIComponent(className)}`
     );
 
-    const asins = res.data.asins || [];
-
-    return asins.map(code => ({
+    return (res.data.asins || []).map(code => ({
       code,
-      updated: new Date().toISOString().split("T")[0],
+      updated: res.data.updated_at || new Date().toISOString().split("T")[0],
     }));
   } catch (err) {
-    console.error(
-      `[❌ ERROR] Failed to fetch ASINs for "${className}":`,
-      err
-    );
+    console.error(`[ASIN FETCH FAILED] ${className}`, err);
     return [];
   }
 }

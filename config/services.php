@@ -46,7 +46,7 @@ return [
     ],
 
     'backend_ai' => [
-        'url' => env('BACKEND_AI_URL'),
+        'url' => env('BACKEND_AI_URL', 'http://127.0.0.1:8001'),
     ],
 
 ];
