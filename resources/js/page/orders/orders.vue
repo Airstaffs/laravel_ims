@@ -1,83 +1,157 @@
 <template>
     <div class="vue-container orders-module">
-        <TitlePage
-            title="Order Module"
-            subtitle="View and manage all current and past shipment orders, including tracking information and status."
-        />
+       <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
+            <TitlePage
+                title="Order Module"
+                subtitle="View and manage all current and past shipment orders, including tracking information and status."
+            />
+            <Button
+                class="mx-4"
+                @click="openIncomingCounter"
+                label="Incoming Order"
+                size="small"
+                icon="pi pi-calculator"
+                severity="info"
+                outlined
+            />
+        </div>
 
         <!-- Desktop Table Container -->
         <AnimateDiv :delay="200" class="px-4">
-            <XDataTable
-                :value="sortedInventory"
-                :loading="loading"
-                :columns="columns"
-                :paginator="false"
-                selectionMode="multiple"
-                selection="multiple"
-                tableClass="desktop-view"
-                dataKey="ProductID"
-            >
-                <template #gallery="{ data }">
-                    <div
-                        class="d-flex justify-content-center align-items-center"
-                    >
-                        <TableGallery
-                            :data="data"
-                            :openImageModal="openImageModal"
-                            :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages"
-                        />
-                    </div>
-                </template>
+           <XDataTable
+        :value="sortedInventory"
+        :loading="loading"
+        :columns="columns"
+        :paginator="false"
+        selectionMode="multiple"
+        selection="multiple"
+        tableClass="desktop-view"
+        dataKey="ProductID"
+    >
+        <!-- Gallery Column -->
+        <template #gallery="{ data }">
+            <div class="d-flex justify-content-center align-items-center">
+                <TableGallery
+                    :data="data"
+                    :openImageModal="openImageModal"
+                    :handleImageError="handleImageError"
+                    :countAdditionalImages="countAdditionalImages"
+                />
+            </div>
+        </template>
 
-                <template #ProductTitle="{ data }">
-                    <div class="d-flex align-items-start gap-4">
-                        <div
-                            style="
-                                word-break: break-word;
-                                white-space: normal;
-                                overflow-wrap: break-word;
-                                flex: 1;
-                            "
-                        >
-                            <p style="font-size: 0.8rem">
-                                RT# {{ data.rtcounter }}
-                            </p>
-                            <p class="fw-semibold">
-                                {{ data.ProductTitle }}
-                            </p>
-                        </div>
-                    </div>
-                </template>
+        <!-- Product Title Column -->
+        <template #ProductTitle="{ data }">
+            <div class="d-flex align-items-start gap-4">
+                <div
+                    style="
+                        word-break: break-word;
+                        white-space: normal;
+                        overflow-wrap: break-word;
+                        flex: 1;
+                    "
+                >
+                    <p style="font-size: 0.8rem">
+                        RT# {{ data.rtcounter }}
+                    </p>
+                    <p class="fw-semibold">
+                        {{ data.ProductTitle }}
+                    </p>
+                </div>
+            </div>
+        </template>
 
-                <template #orderdate="{ data }">
-                    {{ convertToLocalDate(data.orderdate) }}
-                </template>
+        <!-- ASIN Column -->
+        <template #asin="{ data }">
+            <div class="asin-cell">
+                <span v-if="data.display_asin || data.ASIN" class="badge bg-primary">
+                    {{ data.display_asin || data.ASIN }}
+                </span>
+                <span v-else class="text-muted small">
+                    No ASIN
+                </span>
+            </div>
+        </template>
 
-                <template #status="{ data }">
-                    <Badge
-                        :severity="
-                            {
-                                Working: 'success',
-                                Pending: 'warning',
-                            }[data.itemstatus] || 'secondary'
-                        "
-                        :value="data.itemstatus"
-                    />
-                </template>
-
-                <template #actions="{ data }">
-                    <Button
+        <!-- Quantity Column with Inline Editing -->
+        <template #quantity="{ data }">
+            <div class="quantity-cell">
+                <div v-if="editingQuantity === data.ProductID" class="quantity-edit">
+                    <InputText
+                        v-model="tempQuantity"
+                        type="number"
                         size="small"
-                        severity="contrast"
-                        class="text-primary"
-                        variant="text"
-                        icon="pi pi-pencil"
-                        @click="openEditModal(data)"
-                        label="Edit"
+                        style="width: 60px"
+                        @keyup.enter="saveQuantity(data)"
+                        @keyup.esc="cancelQuantityEdit"
+                        @blur="saveQuantity(data)"
+                        :ref="`quantityInput-${data.ProductID}`"
                     />
-                </template>
-            </XDataTable>
+                </div>
+                <div v-else class="quantity-display" @click="startQuantityEdit(data)">
+                    <span class="quantity-value">{{ data.quantity || 0 }}</span>
+                    <i class="pi pi-pencil text-muted ms-1" style="font-size: 0.7rem"></i>
+                </div>
+            </div>
+        </template>
+
+        <!-- Order Date Column -->
+        <template #orderdate="{ data }">
+            {{ convertToLocalDate(data.orderdate) }}
+        </template>
+
+        <!-- Status Column -->
+        <template #status="{ data }">
+            <Badge
+                :severity="
+                    {
+                        Working: 'success',
+                        Pending: 'warning',
+                    }[data.itemstatus] || 'secondary'
+                "
+                :value="data.itemstatus"
+            />
+        </template>
+
+        <!-- Actions Column -->
+<template #actions="{ data }">
+    <div class="action-buttons">
+        <!-- Edit Button (always visible) -->
+        <Button
+            size="small"
+            icon="pi pi-pencil"
+            @click="openEditModal(data)"
+            label="Edit"
+            severity="contrast"
+            text
+        />
+
+        <!-- Set ASIN Button (show when NO ASIN) -->
+        <Button
+            v-if="!data.ASINviewer && !data.display_asin"
+            size="small"
+            icon="pi pi-link"
+            @click="openSetAsinModal(data)"
+            label="Set ASIN"
+            severity="success"
+            text
+            class="set-asin-btn"
+        />
+        
+        <!-- Remove ASIN Button (show when HAS ASIN) -->
+        <Button
+            v-if="data.ASINviewer || data.display_asin"
+            size="small"
+            icon="pi pi-unlink"
+            @click="removeAsin(data)"
+            label="Remove ASIN"
+            severity="danger"
+            text
+            class="remove-asin-btn"
+        />
+    </div>
+</template>
+    </XDataTable>
         </AnimateDiv>
 
         <!-- Mobile Cards View -->
@@ -782,8 +856,27 @@
         </Dialog>
 
         <ScrollTop />
-    </div>
+
+
+        
+            <!-- Set ASIN Modal -->
+          <SetASINModal
+            v-model:visible="showSetAsinModal"
+            :productId="selectedItem?.ProductID"
+            :rtCounter="selectedItem?.rtcounter"
+            :productTitle="selectedItem?.ProductTitle"
+            @asin-selected="handleAsinSelected"
+        />
+
+
+          <!-- Incoming Counter Modal -->
+        <IncomingCountItem
+            v-model:visible="showIncomingCounter"
+            @close="showIncomingCounter = false"
+        />
+   </div>
 </template>
+
 
 <script>
 import Orders from "./orders.js";
@@ -805,6 +898,8 @@ import {
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
+import SetASINModal from './modals/setASIN.vue';
+import IncomingCountItem from './modals/IncomingCountItem.vue';  
 import { ROWS_PER_PAGE } from "../../constant.js";
 import { showPricingForPH } from "../../utils/helpers.js";
 
@@ -822,6 +917,14 @@ const TABLE_COLUMNS = [
         headerStyle: "font-size: 16px;",
         slot: "ProductTitle",
         style: { minWidth: "15rem", maxWidth: "20rem" },
+    },
+     {
+        field: "display_asin",
+        header: "ASIN",
+        sortable: true,
+        headerStyle: "font-size: 16px;",
+        slot: "asin",
+        style: { fontSize: "14px", minWidth: "120px" },
     },
     {
         field: "Ebay_seller_location",
@@ -851,6 +954,14 @@ const TABLE_COLUMNS = [
         sortable: true,
         headerStyle: "font-size: 16px;",
         style: { textAlign: "center" },
+    },
+    {
+        field: "quantity",
+        header: "Qty",
+        sortable: true,
+        headerStyle: "font-size: 16px;",
+        slot: "quantity", 
+        style: { fontSize: "14px", minWidth: "100px", textAlign: "center" },
     },
     {
         field: "orderdate",
@@ -886,6 +997,8 @@ export default {
         ViewImageModal,
         AnimateDiv,
         Tag,
+        SetASINModal,
+        IncomingCountItem
     },
     data() {
         return {
@@ -926,6 +1039,9 @@ export default {
             currentTimezone: "UTC",
             timezoneLabel: "Loading...",
             showPricingSection: showPricingForPH(),
+            showSetAsinModal: false,
+            selectedItem: null,
+            showIncomingCounter: false
         };
     },
     beforeUnmount() {
@@ -978,7 +1094,12 @@ export default {
         },
     },
     methods: {
-        convertToLocalDate(dateString) {
+
+        openIncomingCounter() {
+            this.showIncomingCounter = true;
+        },
+
+         convertToLocalDate(dateString) {
             if (!dateString) return "";
 
             try {
@@ -1082,6 +1203,63 @@ export default {
         updatePricingView() {
             this.showPricingSection = showPricingForPH();
         },
+
+     
+     
     },
 };
 </script>
+
+
+<style scoped>
+/* Vertical stacked layout */
+.action-buttons-vertical {
+    display: flex;
+    flex-direction: column;  /* Stack vertically */
+    gap: 0.25rem;
+    align-items: flex-start; /* Align to left */
+}
+
+/* Make buttons full width of container */
+.action-buttons-vertical .p-button {
+    width: 100%;
+    justify-content: flex-start;
+}
+
+/* Fix button visibility - remove fade effect */
+.set-asin-btn,
+.remove-asin-btn {
+    opacity: 1 !important;
+}
+
+/* Ensure buttons are visible on hover */
+.set-asin-btn:hover {
+    background-color: rgba(34, 197, 94, 0.1) !important;
+}
+
+.remove-asin-btn:hover {
+    background-color: rgba(239, 68, 68, 0.1) !important;
+}
+
+/* Make sure text buttons have proper color */
+:deep(.set-asin-btn .p-button-label) {
+    color: #22c55e !important;
+}
+
+:deep(.remove-asin-btn .p-button-label) {
+    color: #ef4444 !important;
+}
+
+.search-field :deep(.p-input-icon-left) {
+    width: 100%;
+}
+
+.search-field :deep(.p-input-icon-left > i) {
+    left: 0.75rem;
+    color: #6c757d;
+}
+
+.search-field :deep(.p-input-icon-left > .p-inputtext) {
+    padding-left: 2.5rem;
+}
+</style>
