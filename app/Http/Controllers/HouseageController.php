@@ -34,171 +34,174 @@ class HouseageController extends BasetablesController
         return $fnsku; // Return as-is if not prefixed
     }
 
-public function index(Request $request)
-{
-    try {
-        Log::info('Tables being used:', [
-            'productTable' => $this->productTable,
-            'capturedImagesTable' => $this->capturedImagesTable,
-            'fnskuTable' => $this->fnskuTable,
-            'asinTable' => $this->asinTable,
-            'company' => $this->company,
-        ]);
+    public function index(Request $request)
+    {
+        try {
+            Log::info('Tables being used:', [
+                'productTable' => $this->productTable,
+                'capturedImagesTable' => $this->capturedImagesTable,
+                'fnskuTable' => $this->fnskuTable,
+                'asinTable' => $this->asinTable,
+                'company' => $this->company,
+            ]);
 
-        $perPage = $request->input('per_page', 10);
-        $search = $request->input('search', '');
-        $includeImages = $request->boolean('include_images', false);
+            $perPage = $request->input('per_page', 10);
+            $search = $request->input('search', '');
+            $includeImages = $request->boolean('include_images', false);
 
-        // ✅ Build query with MSKU join instead of FNSKU
-        $baseProductsQuery = DB::table($this->productTable.' as prod')
-            ->leftJoin($this->fnskuTable.' as fnsku', 'prod.MSKUviewer', '=', 'fnsku.MSKU')
-            ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-            ->select([
-                'prod.*',
-                'fnsku.ASIN',
-                'fnsku.MSKU',
-                'fnsku.FNSKU',
-                'fnsku.grading',
-                'fnsku.storename',
-                DB::raw("COALESCE(
+            // ✅ Build query with MSKU join instead of FNSKU
+            $baseProductsQuery = DB::table($this->productTable.' as prod')
+                ->leftJoin($this->fnskuTable.' as fnsku', 'prod.MSKUviewer', '=', 'fnsku.MSKU')
+                ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->select([
+                    'prod.*',
+                    'fnsku.ASIN',
+                    'fnsku.MSKU',
+                    'fnsku.FNSKU',
+                    'fnsku.grading',
+                    'fnsku.storename',
+                    DB::raw("COALESCE(
                     NULLIF(TRIM(asin.system_title), ''), 
                     NULLIF(TRIM(asin.internal), ''), 
                     NULLIF(TRIM(prod.ProductTitle), '')
                 ) as AStitle"),
-                'asin.internal',
-                'asin.system_title',
-                'asin.metakeyword',
+                    'asin.internal',
+                    'asin.system_title',
+                    'asin.metakeyword',
+                ]);
+
+            // Apply search on product fields and joined data
+            if (! empty($search)) {
+                $baseProductsQuery->where(function ($q) use ($search) {
+                    $q->where('prod.serialnumber', 'like', "%{$search}%")
+                        ->orWhere('prod.ProductTitle', 'like', "%{$search}%")
+                        ->orWhere('prod.rtid', 'like', "%{$search}%")
+                        ->orWhere('prod.itemnumber', 'like', "%{$search}%")
+                        ->orWhere('prod.trackingnumber', 'like', '%'.substr($search, -12).'%')
+                        ->orWhere('prod.PCN', 'like', "%{$search}%")
+                        ->orWhere('prod.RPN', 'like', "%{$search}%")
+                        ->orWhere('prod.PRD', 'like', "%{$search}%")
+                        ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
+                        ->orWhere('prod.MSKUviewer', 'like', "%{$search}%")
+                        ->orWhere('prod.rtcounter', 'like', "%{$search}%")
+                        ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
+                        ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
+                        ->orWhere('fnsku.FNSKU', 'like', "%{$search}%")
+                        ->orWhere('asin.internal', 'like', "%{$search}%")
+                        ->orWhere('asin.system_title', 'like', "%{$search}%")
+                        ->orWhere('asin.metakeyword', 'like', "%{$search}%");
+                });
+            }
+
+            $products = $baseProductsQuery->paginate($perPage);
+
+            Log::info('Products fetched with MSKU join', [
+                'count' => $products->count(),
+                'total' => $products->total(),
             ]);
 
-        // Apply search on product fields and joined data
-        if (!empty($search)) {
-            $baseProductsQuery->where(function ($q) use ($search) {
-                $q->where('prod.serialnumber', 'like', "%{$search}%")
-                    ->orWhere('prod.ProductTitle', 'like', "%{$search}%")
-                    ->orWhere('prod.rtid', 'like', "%{$search}%")
-                    ->orWhere('prod.itemnumber', 'like', "%{$search}%")
-                    ->orWhere('prod.trackingnumber', 'like', '%'.substr($search, -12).'%')
-                    ->orWhere('prod.PCN', 'like', "%{$search}%")
-                    ->orWhere('prod.RPN', 'like', "%{$search}%")
-                    ->orWhere('prod.PRD', 'like', "%{$search}%")
-                    ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
-                    ->orWhere('prod.MSKUviewer', 'like', "%{$search}%")
-                    ->orWhere('prod.rtcounter', 'like', "%{$search}%")
-                    ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
-                    ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
-                    ->orWhere('fnsku.FNSKU', 'like', "%{$search}%")
-                    ->orWhere('asin.internal', 'like', "%{$search}%")
-                    ->orWhere('asin.system_title', 'like', "%{$search}%")
-                    ->orWhere('asin.metakeyword', 'like', "%{$search}%");
+            // ✅ Transform products
+            $products->getCollection()->transform(function ($product) {
+                // Set FNSKU - prefer from join, fallback to FNSKUviewer
+                if (empty($product->FNSKU) && ! empty($product->FNSKUviewer)) {
+                    $product->FNSKU = $product->FNSKUviewer;
+                }
+
+                // Set MSKUviewer - prefer from join, fallback to MSKUviewer
+                if (empty($product->MSKU) && ! empty($product->MSKUviewer)) {
+                    $product->MSKU = $product->MSKUviewer;
+                }
+
+                $product->company = $this->company;
+
+                return $product;
             });
-        }
 
-        $products = $baseProductsQuery->paginate($perPage);
+            // ✅ Handle images
+            if ($includeImages) {
+                try {
+                    $productIds = $products->pluck('ProductID')->toArray();
+                    Log::info('Product IDs for image fetch', ['count' => count($productIds), 'ids' => $productIds]);
 
-        Log::info('Products fetched with MSKU join', [
-            'count' => $products->count(),
-            'total' => $products->total(),
-        ]);
+                    $capturedImagesTableName = $this->capturedImagesTable;
 
-        // ✅ Transform products
-        $products->getCollection()->transform(function ($product) {
-            // Set FNSKU - prefer from join, fallback to FNSKUviewer
-            if (empty($product->FNSKU) && !empty($product->FNSKUviewer)) {
-                $product->FNSKU = $product->FNSKUviewer;
-            }
-            
-            // Set MSKUviewer - prefer from join, fallback to MSKUviewer
-            if (empty($product->MSKU) && !empty($product->MSKUviewer)) {
-                $product->MSKU = $product->MSKUviewer;
-            }
+                    if (! Schema::hasTable($capturedImagesTableName)) {
+                        $products->getCollection()->transform(function ($product) {
+                            $product->capturedImages = (object) [];
 
-            $product->company = $this->company;
+                            return $product;
+                        });
+                    } else {
+                        $capturedImages = DB::table($capturedImagesTableName)
+                            ->whereIn('ProductID', $productIds)
+                            ->get();
 
-            return $product;
-        });
+                        $imagesByProductId = [];
+                        foreach ($capturedImages as $img) {
+                            $imagesByProductId[$img->ProductID] = $img;
+                        }
 
-        // ✅ Handle images
-        if ($includeImages) {
-            try {
-                $productIds = $products->pluck('ProductID')->toArray();
-                Log::info('Product IDs for image fetch', ['count' => count($productIds), 'ids' => $productIds]);
+                        $products->getCollection()->transform(function ($product) use ($imagesByProductId) {
+                            if (isset($imagesByProductId[$product->ProductID])) {
+                                $capturedImg = $imagesByProductId[$product->ProductID];
+                                $capturedImagesObj = [];
 
-                $capturedImagesTableName = $this->capturedImagesTable;
+                                for ($i = 1; $i <= 12; $i++) {
+                                    $field = "capturedimg{$i}";
+                                    if (! empty($capturedImg->$field)) {
+                                        $capturedImagesObj[$field] = $capturedImg->$field;
+                                    }
+                                }
 
-                if (!Schema::hasTable($capturedImagesTableName)) {
+                                if (! empty($capturedImg->serialimg1)) {
+                                    $capturedImagesObj['serialimg1'] = $capturedImg->serialimg1;
+                                }
+                                if (! empty($capturedImg->serialimg2)) {
+                                    $capturedImagesObj['serialimg2'] = $capturedImg->serialimg2;
+                                }
+
+                                $product->capturedImages = (object) $capturedImagesObj;
+
+                                if (empty($product->img1) && ! empty($capturedImg->capturedimg1)) {
+                                    $product->img1 = $capturedImg->capturedimg1;
+                                }
+                            } else {
+                                $product->capturedImages = (object) [];
+                            }
+
+                            return $product;
+                        });
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Error fetching images', ['message' => $e->getMessage()]);
                     $products->getCollection()->transform(function ($product) {
                         $product->capturedImages = (object) [];
-                        return $product;
-                    });
-                } else {
-                    $capturedImages = DB::table($capturedImagesTableName)
-                        ->whereIn('ProductID', $productIds)
-                        ->get();
-
-                    $imagesByProductId = [];
-                    foreach ($capturedImages as $img) {
-                        $imagesByProductId[$img->ProductID] = $img;
-                    }
-
-                    $products->getCollection()->transform(function ($product) use ($imagesByProductId) {
-                        if (isset($imagesByProductId[$product->ProductID])) {
-                            $capturedImg = $imagesByProductId[$product->ProductID];
-                            $capturedImagesObj = [];
-
-                            for ($i = 1; $i <= 12; $i++) {
-                                $field = "capturedimg{$i}";
-                                if (!empty($capturedImg->$field)) {
-                                    $capturedImagesObj[$field] = $capturedImg->$field;
-                                }
-                            }
-
-                            if (!empty($capturedImg->serialimg1)) {
-                                $capturedImagesObj['serialimg1'] = $capturedImg->serialimg1;
-                            }
-                            if (!empty($capturedImg->serialimg2)) {
-                                $capturedImagesObj['serialimg2'] = $capturedImg->serialimg2;
-                            }
-
-                            $product->capturedImages = (object) $capturedImagesObj;
-
-                            if (empty($product->img1) && !empty($capturedImg->capturedimg1)) {
-                                $product->img1 = $capturedImg->capturedimg1;
-                            }
-                        } else {
-                            $product->capturedImages = (object) [];
-                        }
 
                         return $product;
                     });
                 }
-            } catch (\Exception $e) {
-                Log::error('Error fetching images', ['message' => $e->getMessage()]);
+            } else {
                 $products->getCollection()->transform(function ($product) {
                     $product->capturedImages = (object) [];
+
                     return $product;
                 });
             }
-        } else {
-            $products->getCollection()->transform(function ($product) {
-                $product->capturedImages = (object) [];
-                return $product;
-            });
+
+            return response()->json($products);
+        } catch (\Exception $e) {
+            Log::error('Error in HouseageController index', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'error' => true,
+                'message' => 'An error occurred while fetching products',
+                'details' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
-
-        return response()->json($products);
-    } catch (\Exception $e) {
-        Log::error('Error in HouseageController index', [
-            'message' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-        ]);
-
-        return response()->json([
-            'error' => true,
-            'message' => 'An error occurred while fetching products',
-            'details' => config('app.debug') ? $e->getMessage() : null,
-        ], 500);
     }
-}
 
     public function store(Request $request)
     {
@@ -700,7 +703,7 @@ public function index(Request $request)
     public function checkDuplicateSerial(Request $request)
     {
         $serial = $request->input('serial');
-        $currentProductId = $request->input('current_product_id');
+        $currentRtid = $request->input('current_rtid');
 
         if (empty($serial)) {
             return response()->json(['duplicate' => false]);
@@ -712,7 +715,7 @@ public function index(Request $request)
         );
 
         $query = DB::table($this->productTable)
-            ->select('ProductID', 'ProductTitle')
+            ->select('rtid', 'ProductTitle')
             ->where(function ($q) use ($cols, $serial) {
                 foreach ($cols as $c) {
                     $q->orWhere($c, $serial);
@@ -720,8 +723,8 @@ public function index(Request $request)
             });
 
         // Exclude the current product if provided
-        if (! empty($currentProductId)) {
-            $query->where('ProductID', '!=', $currentProductId);
+        if (! empty($currentRtid)) {
+            $query->where('rtid', '!=', $currentRtid);
         }
 
         $existing = $query->first();
@@ -729,7 +732,7 @@ public function index(Request $request)
         if ($existing) {
             return response()->json([
                 'duplicate' => true,
-                'product_id' => $existing->ProductID,
+                'rtid' => $existing->rtid,
                 'product_title' => $existing->ProductTitle,
             ]);
         }

@@ -127,10 +127,7 @@ class ShippingLabelController extends Controller
         $path = '/mfn/v0/eligibleShippingServices';
         $customParams = [];
 
-        $companydetails = $this->fetchCompanyDetails();
-        if (!$companydetails) {
-            return response()->json(['error' => 'Company not found'], 404);
-        }
+
 
         $allRates = [];
 
@@ -149,6 +146,10 @@ class ShippingLabelController extends Controller
 
             $store = $storeMap[$storeKey] ?? ucfirst($storeKey);
 
+            $companydetails = $this->fetchCompanyDetails($store);
+            if (!$companydetails) {
+                return response()->json(['error' => 'Company not found'], 404);
+            }
 
             $form = $forms[$platformOrderId] ?? null;
 
@@ -300,10 +301,7 @@ class ShippingLabelController extends Controller
         $path = '/mfn/v0/shipments';
         $customParams = [];
 
-        $companydetails = $this->fetchCompanyDetails();
-        if (!$companydetails) {
-            return response()->json(['error' => 'Company not found'], 404);
-        }
+
 
         $Results = [];
 
@@ -318,6 +316,11 @@ class ShippingLabelController extends Controller
             ];
 
             $store = $storeMap[$storeKey] ?? ucfirst($storeKey);
+
+            $companydetails = $this->fetchCompanyDetails($store);
+            if (!$companydetails) {
+                return response()->json(['error' => 'Company not found'], 404);
+            }
 
             $form = $forms[$platformOrderId] ?? null;
 
@@ -724,9 +727,17 @@ class ShippingLabelController extends Controller
     {
     }
 
-    protected function fetchCompanyDetails()
+    protected function fetchCompanyDetails($store)
     {
-        return DB::table('tblcompanydetails')->where('id', 1)->first();
+        if ($store === 'Allrenewed') {
+            return DB::table('tblcompanydetails')->where('id', 3)->first();
+        }
+
+        if ($store === 'Renovartech') {
+            return DB::table('tblcompanydetails')->where('id', 1)->first();
+        }
+
+        return null;
     }
 
     protected function JsonCreation($action, $companydetails, $marketplaceID, $data_additionale)
@@ -742,7 +753,7 @@ class ShippingLabelController extends Controller
                     "AmazonOrderId" => $data_additionale['AmazonOrderId'],
                     "ItemList" => $data_additionale['orderitems'],
                     "ShipFromAddress" => [
-                        "Name" => $companydetails['Name'],
+                        "Name" => $companydetails['CompanyName'],
                         "AddressLine1" => $companydetails['StreetAddress'],
                         "Email" => $companydetails['Email'],
                         "City" => $companydetails['City'],
@@ -783,7 +794,7 @@ class ShippingLabelController extends Controller
                     "AmazonOrderId" => $data_additionale['AmazonOrderId'],
                     "ItemList" => $data_additionale['orderitems'],
                     "ShipFromAddress" => [
-                        "Name" => $companydetails['Name'],
+                        "Name" => $companydetails['CompanyName'],
                         "AddressLine1" => $companydetails['StreetAddress'],
                         "Email" => $companydetails['Email'],
                         "City" => $companydetails['City'],

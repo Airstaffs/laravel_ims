@@ -153,6 +153,8 @@ async function addAsinHandler() {
 // 🗑 Delete
 async function deleteAsinHandler(index) {
   const asin = asinList.value[index];
+  if (!asin || !asin.code) return;
+
   if (confirm(`Delete ASIN "${asin.code}"?`)) {
     await deleteAsin(asin.code);
     await loadAsins();
@@ -171,11 +173,28 @@ function cancelEdit() {
 }
 
 async function saveEdit(index) {
-  const updatedCode = asinEditValue.value.code.toUpperCase();
-  await addAsin(props.dataset.name, updatedCode);
-  await deleteAsin(asinList.value[index].code);
-  editIndex.value = null;
-  await loadAsins();
+  const oldCode = asinList.value[index].code;
+  const newCode = asinEditValue.value.code.trim().toUpperCase();
+
+  if (newCode.length !== 10) {
+    return alert("ASIN must be exactly 10 characters.");
+  }
+
+  try {
+    // add first
+    await addAsin(props.dataset.name, newCode);
+
+    // delete only if add succeeded
+    if (newCode !== oldCode) {
+      await deleteAsin(oldCode);
+    }
+
+    editIndex.value = null;
+    await loadAsins();
+  } catch (err) {
+    alert("Failed to update ASIN.");
+    console.error(err);
+  }
 }
 
 

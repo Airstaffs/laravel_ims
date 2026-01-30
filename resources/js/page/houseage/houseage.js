@@ -1499,8 +1499,7 @@ export default {
                         },
                         body: JSON.stringify({
                             serial,
-                            current_product_id:
-                                this.item.ProductID || this.item.id, // Use the correct property name
+                            current_rtid: this.item.rtid || this.item.id,
                         }),
                     },
                 );
@@ -1520,7 +1519,7 @@ export default {
                         title: "Duplicate Serial Found",
                         html: `
           <p>This serial already exists in another product.</p>
-          <p><b>Product ID:</b> ${data.product_id ?? "N/A"}</p>
+          <p><b>RTID:</b> ${data.rtid ?? "N/A"}</p>
           <p><b>Title:</b> ${data.product_title ?? "N/A"}</p>
         `,
                         showCancelButton: true,

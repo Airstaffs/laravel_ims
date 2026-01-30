@@ -48,199 +48,137 @@ class RTSController extends BasetablesController
             $location = $request->input('location', 'RTS');
             $includeImages = $request->boolean('include_images', false);
 
-            Log::info('Request parameters:', [
-                'per_page' => $perPage,
-                'search' => $search,
-                'location' => $location,
-                'include_images' => $includeImages,
-            ]);
-
-            // UPDATED: Build query with proper joins to include ASIN and metakeyword in search
-            $productsQuery = DB::table($productTable.' as prod')
-                ->leftJoin($fnskuTable.' as fnsku', function ($join) {
-                    $join->on(DB::raw("CASE 
-                    WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
-                    THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
-                    ELSE prod.FNSKUviewer 
-                END"), '=', 'fnsku.FNSKU');
-                })
-                ->leftJoin($asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->select([
-                    'prod.*',
-                    'fnsku.ASIN',
-                    'fnsku.MSKU',
-                    'fnsku.grading',
-                    'fnsku.storename',
-                    DB::raw("COALESCE(
+            // Build base select array
+            $selectColumns = [
+                'prod.*',
+                'fnsku.ASIN',
+                'fnsku.MSKU',
+                'fnsku.FNSKU',
+                'fnsku.grading',
+                'fnsku.storename',
+                DB::raw("COALESCE(
                     NULLIF(TRIM(asin.system_title), ''), 
                     NULLIF(TRIM(asin.internal), ''), 
                     NULLIF(TRIM(prod.ProductTitle), '')
                 ) as AStitle"),
-                    'asin.internal',
-                    'asin.system_title',
-                    'asin.metakeyword',
-                ]);
+                'asin.internal',
+                'asin.system_title',
+                'asin.metakeyword',
+            ];
 
-            // Apply location filter - show only products in RTS module
-            if (! empty($location)) {
-                $productsQuery->where('prod.ProductModuleLoc', $location);
-                Log::info('Applied location filter', ['location' => $location]);
+            // Add image columns if requested
+            if ($includeImages) {
+                $selectColumns = array_merge($selectColumns, [
+                    'img.capturedimg1',
+                    'img.capturedimg2',
+                    'img.capturedimg3',
+                    'img.capturedimg4',
+                    'img.capturedimg5',
+                    'img.capturedimg6',
+                    'img.capturedimg7',
+                    'img.capturedimg8',
+                    'img.capturedimg9',
+                    'img.capturedimg10',
+                    'img.capturedimg11',
+                    'img.capturedimg12',
+                    'img.serialimg1',
+                    'img.serialimg2',
+                ]);
             }
 
-            // IMPORTANT: Exclude products that should not be shown in RTS
-            $productsQuery->where(function ($query) {
-                $query->whereNotIn('prod.ProductModuleLoc', ['Stockroom', 'Shipment', 'Soldlist'])
-                    ->where(function ($subQuery) {
-                        $subQuery->whereNull('prod.returnstatus')
-                            ->orWhere('prod.returnstatus', '!=', 'Returned');
-                    });
-            });
+            // Build query with MSKU join instead of FNSKU join
+            $productsQuery = DB::table($this->productTable.' as prod')
+                ->leftJoin($this->fnskuTable.' as fnsku', 'prod.MSKUviewer', '=', 'fnsku.MSKU')
+                ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN');
 
-            // Apply search filters
+            // Only join images table if images are requested
+            if ($includeImages) {
+                $productsQuery->leftJoin($this->capturedImagesTable.' as img', 'prod.ProductID', '=', 'img.ProductID');
+            }
+
+            $productsQuery->select($selectColumns)
+                ->where('prod.ProductModuleLoc', $location)
+                ->distinct();
+
+            // Apply comprehensive search including ASIN and metakeyword
             if (! empty($search)) {
                 $productsQuery->where(function ($q) use ($search) {
                     $q->where('prod.serialnumber', 'like', "%{$search}%")
-                        ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
-                        ->orWhere('prod.rtcounter', 'like', "%{$search}%")
                         ->orWhere('prod.ProductTitle', 'like', "%{$search}%")
                         ->orWhere('prod.PCN', 'like', "%{$search}%")
                         ->orWhere('prod.RPN', 'like', "%{$search}%")
                         ->orWhere('prod.PRD', 'like', "%{$search}%")
-                        // Add FNSKU table search
+                        ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
+                        ->orWhere('prod.MSKUviewer', 'like', "%{$search}%")
+                        ->orWhere('prod.trackingnumber', 'like', "%{$search}%")
+                        ->orWhere('prod.rtcounter', 'like', "%{$search}%")
                         ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
                         ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
-                        // Add ASIN table search
+                        ->orWhere('fnsku.FNSKU', 'like', "%{$search}%")
                         ->orWhere('asin.internal', 'like', "%{$search}%")
                         ->orWhere('asin.system_title', 'like', "%{$search}%")
                         ->orWhere('asin.metakeyword', 'like', "%{$search}%");
                 });
-                Log::info('Applied search filter', ['search' => $search]);
             }
 
-            // Log the generated SQL for debugging
-            Log::info('Generated SQL Query:', [
-                'sql' => $productsQuery->toSql(),
-                'bindings' => $productsQuery->getBindings(),
-            ]);
-
-            // Execute the query
             $products = $productsQuery->paginate($perPage);
+            Log::info('Products fetched successfully with joins', ['count' => $products->count()]);
 
-            Log::info('Products query executed:', [
-                'count' => $products->count(),
-                'total' => $products->total(),
-                'current_page' => $products->currentPage(),
-                'last_page' => $products->lastPage(),
-            ]);
+            // Transform products to organize data properly
+            $products->getCollection()->transform(function ($product) use ($includeImages) {
+                // Keep the original FNSKU as displayed (from the join or FNSKUviewer)
+                if (empty($product->FNSKU) && ! empty($product->FNSKUviewer)) {
+                    $product->FNSKU = $product->FNSKUviewer;
+                }
 
-            // If no products found, return early with debug info
-            if ($products->count() === 0) {
-                Log::warning('No products found matching criteria');
+                // Keep MSKUviewer from product table
+                if (empty($product->MSKU) && ! empty($product->MSKUviewer)) {
+                    $product->MSKU = $product->MSKUviewer;
+                }
 
-                // Debug query - check if any products exist at all
-                $totalProducts = DB::table($productTable)->count();
-                Log::info('Total products in table:', ['count' => $totalProducts]);
+                // Ensure we have the company for proper path construction
+                $product->company = $this->company;
 
-                // Check products by location
-                $productsByLocation = DB::table($productTable)
-                    ->select('ProductModuleLoc', DB::raw('count(*) as count'))
-                    ->groupBy('ProductModuleLoc')
-                    ->get();
-                Log::info('Products by location:', $productsByLocation->toArray());
+                // Organize captured images into an object if images were requested
+                if ($includeImages) {
+                    $capturedImages = (object) [];
 
-                return response()->json($products);
-            }
+                    for ($i = 1; $i <= 12; $i++) {
+                        $imgKey = "capturedimg{$i}";
+                        if (! empty($product->$imgKey)) {
+                            $capturedImages->$imgKey = $product->$imgKey;
+                        }
+                        // Remove from main product object to keep it clean
+                        unset($product->$imgKey);
+                    }
 
-            // Transform products to add company field and set defaults
-            $products->getCollection()->transform(function ($product) use ($company) {
-                $product->company = $company;
-                $product->FNSKU = $product->FNSKUviewer ?? '';
+                    // Handle serial images
+                    if (! empty($product->serialimg1)) {
+                        $capturedImages->serialimg1 = $product->serialimg1;
+                    }
 
-                // Ensure required fields have default values
-                $product->quantity = $product->quantity ?? 1;
-                $product->serialnumber = $product->serialnumber ?? '';
-                $product->fulfillment_status = $product->fulfillment_status ?? '';
-                $product->returnstatus = $product->returnstatus ?? '';
+                    if (! empty($product->serialimg2)) {
+                        $capturedImages->serialimg2 = $product->serialimg2;
+                    }
+
+                    unset($product->serialimg1);
+                    unset($product->serialimg2);
+
+                    $product->capturedImages = $capturedImages;
+
+                    // Set img1 directly for the main thumbnail display if capturedimg1 exists
+                    if (! empty($capturedImages->capturedimg1)) {
+                        $product->img1 = $capturedImages->capturedimg1;
+                    }
+                } else {
+                    // Initialize empty capturedImages if not requested
+                    $product->capturedImages = (object) [];
+                }
 
                 return $product;
             });
 
-            // If images are requested, check for captured image files
-            if ($includeImages) {
-                try {
-                    $publicPath = public_path('images/product_images/'.$company);
-
-                    Log::info('Checking for captured images in path', ['path' => $publicPath]);
-
-                    // Add captured images data to each product
-                    $products->getCollection()->transform(function ($product) use ($publicPath) {
-                        $capturedImages = (object) [];
-
-                        // Check for up to 12 captured images
-                        for ($i = 1; $i <= 12; $i++) {
-                            $filename = $product->ProductID.'_img'.$i.'.jpg';
-                            $filePath = $publicPath.'/'.$filename;
-
-                            if (file_exists($filePath)) {
-                                $capturedImages->{"capturedimg{$i}"} = $filename;
-                            }
-                        }
-
-                        // Check for serial images
-                        $serialImg1 = $product->ProductID.'_serialimg1.jpg';
-                        $serialImg2 = $product->ProductID.'_serialimg2.jpg';
-
-                        if (file_exists($publicPath.'/'.$serialImg1)) {
-                            $capturedImages->serialimg1 = $serialImg1;
-                        }
-                        if (file_exists($publicPath.'/'.$serialImg2)) {
-                            $capturedImages->serialimg2 = $serialImg2;
-                        }
-
-                        $product->capturedImages = $capturedImages;
-
-                        // Set img1 directly for the main thumbnail display if capturedimg1 exists
-                        if (! empty($capturedImages->capturedimg1)) {
-                            $product->img1 = $capturedImages->capturedimg1;
-                        }
-
-                        Log::info('Added captured images to product', [
-                            'ProductID' => $product->ProductID,
-                            'capturedImagesCount' => count((array) $capturedImages),
-                            'hasImg1' => ! empty($product->img1),
-                        ]);
-
-                        return $product;
-                    });
-                } catch (\Exception $e) {
-                    Log::error('Error checking for image files', [
-                        'message' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString(),
-                    ]);
-
-                    // Continue without images but add empty capturedImages object
-                    $products->getCollection()->transform(function ($product) {
-                        $product->capturedImages = (object) [];
-
-                        return $product;
-                    });
-                }
-            } else {
-                // Even if images are not requested, initialize empty capturedImages
-                $products->getCollection()->transform(function ($product) {
-                    $product->capturedImages = (object) [];
-
-                    return $product;
-                });
-            }
-
-            Log::info('Final products prepared for response', [
-                'count' => $products->count(),
-                'sample_product' => $products->count() > 0 ? $products->items()[0] : null,
-            ]);
-
             return response()->json($products);
-
         } catch (\Exception $e) {
             Log::error('Error in RTSController index', [
                 'message' => $e->getMessage(),
@@ -256,9 +194,6 @@ class RTSController extends BasetablesController
         }
     }
 
-    /**
-     * Save RTS Options for a product
-     */
     /**
      * Save RTS Options for a product
      */
