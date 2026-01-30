@@ -34,7 +34,7 @@ class PrintShippingLabelController extends Controller
         foreach ($platform_order_ids as $platform_order_id) {
             $labelRow = DB::table('tbllabelhistoryitems')
                 ->where('AmazonOrderId', $platform_order_id)
-                ->orderBy('id', 'asc')
+                ->orderBy('id', 'desc')
                 ->first();
 
             if (!$labelRow || empty($labelRow->PDFLabel)) {
