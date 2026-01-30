@@ -480,9 +480,22 @@ Route::prefix('api/orders')->middleware(['auth'])->group(function () {
     Route::get('products', [OrdersController::class, 'index']);
     Route::post('products', [OrdersController::class, 'store']);
     Route::get('next-product-id', [OrdersController::class, 'getNextProductId']);
+    
+    // ✅ ADD THIS NEW ROUTE FOR QUANTITY EDITING
+    Route::put('products/{id}/quantity', [OrdersController::class, 'updateQuantity']);
+    
     Route::patch('{id}/status', [OrdersController::class, 'updateStatus']);
     Route::patch('{id}/tracking', [OrdersController::class, 'updateTracking']);
     Route::delete('{id}', [OrdersController::class, 'destroy']);
+    Route::get('asin-list', [OrdersController::class, 'getAsinList']);
+    Route::post('set-asin', [OrdersController::class, 'setAsin']);
+    Route::post('remove-asin', [OrdersController::class, 'removeAsin']);
+
+        // ✅ NEW: Incoming Counter Routes
+    Route::get('incoming-count', [OrdersController::class, 'getIncomingCount'])
+        ->name('orders.incoming.count');
+    Route::get('incoming-count-details', [OrdersController::class, 'getIncomingCountDetails'])
+        ->name('orders.incoming.details');
 });
 
 // Routes Production Area

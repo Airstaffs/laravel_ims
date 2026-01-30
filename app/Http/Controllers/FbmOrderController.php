@@ -2335,6 +2335,13 @@ public function cancelDispense(Request $request)
         // Start transaction
         DB::beginTransaction();
 
+        // ✅ Get tracking status for all items
+        $itemsWithTracking = DB::table('tbloutboundordersitem')
+            ->select('outboundorderitemid', 'trackingnumber')
+            ->whereIn('outboundorderitemid', $request->item_ids)
+            ->get()
+            ->keyBy('outboundorderitemid');
+
         // Get the dispensed products for these items
         $dispensedProducts = DB::table('tblorderitemdispense')
             ->whereIn('orderitemid', $request->item_ids)
@@ -2349,14 +2356,38 @@ public function cancelDispense(Request $request)
         
         Log::info("Deleted {$deletedCount} dispense records");
         
-        // Increment FBMAvailable for each product
+        $returnedToStockroom = 0;
+        $notUpdated = 0;
+        
+        // Increment FBMAvailable and conditionally update ProductModuleLoc for each product
         if (Schema::hasColumn('tblproduct', 'FBMAvailable')) {
             foreach ($dispensedProducts as $dispense) {
+                // Increment FBMAvailable
                 DB::table('tblproduct')
                     ->where('ProductID', $dispense->productid)
                     ->increment('FBMAvailable', 1);
                     
-                Log::info("Incremented FBMAvailable for product {$dispense->productid}");
+                Log::info("✅ Incremented FBMAvailable for product {$dispense->productid}");
+                
+                // ✅ Check if this item has tracking
+                $itemTracking = $itemsWithTracking->get($dispense->orderitemid);
+                $hasTracking = $itemTracking && !empty($itemTracking->trackingnumber);
+                
+                // ✅ If tracking is NOT NULL, update ProductModuleLoc to Stockroom
+                if ($hasTracking) {
+                    DB::table('tblproduct')
+                        ->where('ProductID', $dispense->productid)
+                        ->update([
+                            'ProductModuleLoc' => 'Stockroom'
+                        ]);
+                    
+                    Log::info("✅ Updated ProductModuleLoc to 'Stockroom' for product {$dispense->productid} (tracking exists)");
+                    $returnedToStockroom++;
+                } else {
+                    // If tracking is NULL, do NOT update ProductModuleLoc
+                    Log::info("ℹ️ ProductModuleLoc NOT updated for product {$dispense->productid} (no tracking)");
+                    $notUpdated++;
+                }
             }
         }
 
@@ -2369,6 +2400,10 @@ public function cancelDispense(Request $request)
         $timestamp = $dateTime->format('Y-m-d H:i:s');
         $cancelNote = $timestamp . " - Dispense canceled for " . count($dispensedProducts) . " products";
         
+        if ($returnedToStockroom > 0) {
+            $cancelNote .= " [{$returnedToStockroom} returned to Stockroom]";
+        }
+        
         $newNote = $currentNote ? $currentNote . "\n\n" . $cancelNote : $cancelNote;
         
         DB::table('tbloutboundorders')
@@ -2380,12 +2415,17 @@ public function cancelDispense(Request $request)
 
         DB::commit();
         
-        Log::info("✅ Cancel dispense successful");
+        Log::info("✅ Cancel dispense successful", [
+            'total_canceled' => count($dispensedProducts),
+            'returned_to_stockroom' => $returnedToStockroom,
+            'not_updated' => $notUpdated
+        ]);
         
         return response()->json([
             'success' => true,
             'message' => 'Dispense canceled successfully',
-            'canceled_count' => count($dispensedProducts)
+            'canceled_count' => count($dispensedProducts),
+            'returned_to_stockroom' => $returnedToStockroom
         ]);
 
     } catch (\Exception $e) {
@@ -2440,6 +2480,27 @@ public function cancelSingleDispense(Request $request)
             ], 404);
         }
 
+        // ✅ Get order item to check tracking status
+        $orderItem = DB::table('tbloutboundordersitem')
+            ->select('trackingnumber')
+            ->where('outboundorderitemid', $itemId)
+            ->first();
+
+        if (!$orderItem) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Order item not found'
+            ], 404);
+        }
+
+        $hasTracking = !empty($orderItem->trackingnumber);
+
+        Log::info("Tracking status for item {$itemId}", [
+            'has_tracking' => $hasTracking,
+            'tracking_number' => $orderItem->trackingnumber ?? 'NULL'
+        ]);
+
         // Delete the specific dispense record
         $deleted = DB::table('tblorderitemdispense')
             ->where('productid', $productId)
@@ -2465,6 +2526,20 @@ public function cancelSingleDispense(Request $request)
             Log::info("✅ Incremented FBMAvailable for product {$productId}");
         }
 
+        // ✅ If tracking is NOT NULL, update ProductModuleLoc to Stockroom
+        if ($hasTracking) {
+            DB::table('tblproduct')
+                ->where('ProductID', $productId)
+                ->update([
+                    'ProductModuleLoc' => 'Stockroom'
+                ]);
+            
+            Log::info("✅ Updated ProductModuleLoc to 'Stockroom' for product {$productId} (tracking exists)");
+        } else {
+            // If tracking is NULL, do NOT update ProductModuleLoc
+            Log::info("ℹ️ ProductModuleLoc NOT updated for product {$productId} (no tracking)");
+        }
+
         // Get product details for the note
         $product = DB::table('tblproduct')
             ->where('ProductID', $productId)
@@ -2483,6 +2558,10 @@ public function cancelSingleDispense(Request $request)
         
         $cancelNote = $timestamp . " - Single dispense canceled: Product {$productId} (Location: {$productLocation}, Serial: {$productSerial}) removed from item {$itemId}";
         
+        if ($hasTracking) {
+            $cancelNote .= " [Returned to Stockroom]";
+        }
+        
         $newNote = $currentNote ? $currentNote . "\n\n" . $cancelNote : $cancelNote;
         
         DB::table('tbloutboundorders')
@@ -2500,7 +2579,8 @@ public function cancelSingleDispense(Request $request)
             'success' => true,
             'message' => 'Single product dispense canceled successfully',
             'product_id' => $productId,
-            'item_id' => $itemId
+            'item_id' => $itemId,
+            'returned_to_stockroom' => $hasTracking
         ]);
 
     } catch (\Exception $e) {
