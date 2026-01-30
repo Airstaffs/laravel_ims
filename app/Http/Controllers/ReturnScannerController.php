@@ -47,6 +47,7 @@ class ReturnScannerController extends BasetablesController
                 'prod.serialnumberb',
                 'prod.FNSKUviewer',
                 'prod.MSKUviewer',
+                'prod.ASINviewer',
                 'prod.warehouselocation',
                 'prod.returnstatus',
                 'prod.img1',
@@ -761,6 +762,7 @@ public function processScan(Request $request)
                     }
                     
                     $asinToUse = $fnskuInfo->ASIN ?? null;
+                    $mskuToUse = $fnskuInfo->MSKU ?? null;
                     $condition = $fnskuInfo->grading ?? null;
                     $storename = $fnskuInfo->storename ?? null;
                     $OriginalFnskuUnitCount = $fnskuInfo->Units ?? 0;
@@ -1018,6 +1020,7 @@ public function processScan(Request $request)
                 if ($baseFnskuToUse) {
                     $fnskuGenerationInfo = $this->getNextAvailableFnsku(
                         $baseFnskuToUse,
+                        $mskuToUse,
                         $asinToUse,
                         $condition,
                         $storename
@@ -1051,7 +1054,9 @@ public function processScan(Request $request)
                         'warehouselocation' => $location,
                         'FNSKUviewer' => $actualFnskuToUse,
                         'stockroom_insert_date' => $insertedDate,
-                        'validation_status' => 'validated'
+                        'validation_status' => 'validated',
+                        'ASINviewer' => $asinToUse,
+                        'MSKUviewer' => $mskuToUse
                     ]);
                     
                     DB::table($this->itemProcessHistoryTable)->insert([
@@ -1063,6 +1068,7 @@ public function processScan(Request $request)
                     ]);
                     
                     $becameUnavailable = $this->updateFnskuUnits(
+                        $mskuToUse,
                         $baseFnskuToUse,
                         $asinToUse,
                         $condition,
@@ -1281,7 +1287,7 @@ public function processScan(Request $request)
 
                 if ($originalFnsku) {
                     $baseFnsku = $this->extractBaseFnsku($originalFnsku);
-                    $this->returnFnskuUnits($baseFnsku);
+                    $this->returnFnskuUnits($mskuToUse, $baseFnsku);
                     Log::info("Restored units to original FNSKU {$baseFnsku}");
                 }
                 
@@ -1400,15 +1406,17 @@ public function processScan(Request $request)
  * Get the next available FNSKU with usage prefix
  * SIMPLIFIED VERSION - NO originalUnits column needed
  */
-private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
+private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $storename)
 {
     try {
         // ✅ Lock FNSKU record
         $fnskuRecord = DB::table($this->fnskuTable)
             ->where('FNSKU', $baseFnsku)
             ->where('ASIN', $asin)
+            ->where('MSKU', $msku)
             ->where('grading', $grading)
             ->where('storename', $storename)
+            ->where('LimitStatus', 'False')
             ->lockForUpdate()
             ->first();
 
@@ -1533,10 +1541,11 @@ private function getNextAvailableFnsku($baseFnsku, $asin, $grading, $storename)
 /**
  * Update FNSKU units (decrement by 1)
  */
-private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
+private function updateFnskuUnits($msku, $baseFnsku, $asin, $grading, $storename)
 {
     try {
         $fnskuRecord = DB::table($this->fnskuTable)
+            ->where('MSKU', $msku)
             ->where('FNSKU', $baseFnsku)
             ->where('ASIN', $asin)
             ->where('grading', $grading)
@@ -1552,6 +1561,7 @@ private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
         $newStatus = ($newUnits <= 0) ? 'Unavailable' : 'available';
 
         DB::table($this->fnskuTable)
+            ->where('MSKU', $msku)
             ->where('FNSKU', $baseFnsku)
             ->where('ASIN', $asin)
             ->where('grading', $grading)
@@ -1560,6 +1570,13 @@ private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
                 'Units' => $newUnits,
                 'fnsku_status' => $newStatus
             ]);
+        
+        $asin = $fnskuRecord->ASIN;
+        $grading = $fnskuRecord->grading;
+        $storename = $storename->storename;
+        
+        //update fnsku limit status
+        $this->updateFnskuLimitStatus($asin, $msku);
 
         return ($newStatus === 'Unavailable');
 
@@ -1572,12 +1589,13 @@ private function updateFnskuUnits($baseFnsku, $asin, $grading, $storename)
 /**
  * Return FNSKU units (increment by 1)
  */
-private function returnFnskuUnits($fnskuViewer)
+private function returnFnskuUnits($mskuViewer, $fnskuViewer)
 {
     try {
         $baseFnsku = $this->extractBaseFnsku($fnskuViewer);
 
         $fnskuRecord = DB::table($this->fnskuTable)
+            ->where('MSKU', $mskuViewer)
             ->where('FNSKU', $baseFnsku)
             ->first();
 
@@ -1589,11 +1607,19 @@ private function returnFnskuUnits($fnskuViewer)
         $newUnits = $currentUnits + 1;
 
         DB::table($this->fnskuTable)
+            ->where('MSKU', $mskuViewer)
             ->where('FNSKU', $baseFnsku)
             ->update([
                 'Units' => $newUnits,
                 'fnsku_status' => 'available'
             ]);
+
+        $asin = $fnskuRecord->ASIN;
+        $grading = $fnskuRecord->grading;
+        $storename = $storename->storename;
+        
+        //update fnsku limit status
+        $this->updateFnskuLimitStatus($asin, $mskuViewer);
 
         return true;
 
@@ -1616,5 +1642,28 @@ private function isValidSerial($serial)
     if ($trimmed === '0') return false;
     
     return true;
+}
+
+    public function updateFnskuLimitStatus($asin, $msku) {
+
+    //get asin limit
+    $asinLimit = (int) (DB::table($this->asinTable)
+            ->where('ASIN', $asin)
+            ->value('asin_limit') ?? 0);
+
+    //get current units
+    $currentUnits = (int) DB::table($this->fnskuTable)
+                        ->where('MSKU', $msku)
+                        ->where('ASIN', $asin)
+                        ->value('Units');
+
+    $maximumUnits = 10;
+    $usedUnits = max(0, $maximumUnits - $currentUnits);
+
+    DB::table($this->fnskuTable)
+        ->where('MSKU', $msku)
+        ->where('ASIN', $asin)
+        ->update(['LimitStatus' => ($asinLimit > 0 && $usedUnits >= $asinLimit) ? 'True' : 'False']);
+
 }
 }

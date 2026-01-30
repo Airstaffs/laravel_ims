@@ -289,7 +289,7 @@ const TABLE_COLUMNS = [
     { field: "returnstatus", header: "Status", slot: "status", bodyStyle: "font-size: 14px", sortable: true },
     { header: "Buyer", slot: "buyer", bodyStyle: "font-size: 14px", sortable: true },
 
-     { header: "Actions", slot: "actions", bodyStyle: "font-size: 14px" },
+    //  { header: "Actions", slot: "actions", bodyStyle: "font-size: 14px" },
 ];
 
 export default {

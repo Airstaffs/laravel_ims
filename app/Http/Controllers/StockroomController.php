@@ -44,6 +44,7 @@ class StockroomController extends BasetablesController
                 ->where('ASIN', $asin)
                 ->where('grading', $grading)
                 ->where('storename', $storename)
+                ->where('LimitStatus', 'False')
                 ->lockForUpdate()
                 ->first();
 
@@ -235,7 +236,14 @@ class StockroomController extends BasetablesController
         ];
     }
 
-
+    //Check if FNSKU already reached its limit
+    private function isFnskuLimitReached($fnsku)
+    {
+        return DB::table($this->fnskuTable)
+            ->where('FNSKU', $fnsku)
+            ->where('LimitStatus', 'True')
+            ->exists();
+    }
     /**
      * Find related ASINs with full recursive search - exact conversion from original function
      */
@@ -659,6 +667,17 @@ public function index(Request $request)
         }
 
         try {
+
+            $isLimitReached = $this->isFnskuLimitReached($fnsku);
+
+            if ($isLimitReached) {
+                return response()->json([
+                    'exist' => false,
+                    'status' => 'limit_reached',
+                    'message' => 'FNSKU has already reached its usage limit.',
+                    'fnsku' => $fnsku,
+                ], 409);
+            }
             $normalizedFnsku = !empty($fnsku) ? $this->normalizeFnsku($fnsku) : null;
             
             Log::info("🔍 Checking FNSKU availability", [
@@ -767,6 +786,17 @@ public function processScan(Request $request)
             $serial = trim($request->input('SerialNumber', ''));
             $location = trim($request->input('Location', ''));
             $scannedFNSKU = trim($request->input('FNSKU', ''));
+
+            $isReached = $this->isFnskuLimitReached($scannedFNSKU);
+
+        if ($isReached) {
+            return response()->json([
+                'exist' => false,
+                'status' => 'limit_reached',
+                'message' => 'FNSKU has already reached its usage limit.',
+                'fnsku' => $scannedFNSKU,
+            ], 409);
+        }
 
             if (!empty($scannedFNSKU)) {
                 $scannedFNSKU = $this->normalizeFnsku($scannedFNSKU);
@@ -1820,6 +1850,8 @@ public function mergeItems(Request $request)
             ->where('storename', $storename)
             ->first();
 
+        $this->updateFnskuLimitStatus($asin, $msku);
+
         $becameUnavailable = false;
         if ($updatedRecord && $updatedRecord->Units <= 0) {
             DB::table($this->fnskuTable)
@@ -2625,6 +2657,8 @@ public function unmergeItem(Request $request)
                 'fnsku_status' => 'available',
             ]);
 
+        $this->updateFnskuLimitStatus($asinViewer, $mskuViewer);
+        
         Log::info('Successfully returned 1 unit using MSKU', [
             'msku' => $mskuViewer,
             'asin' => $asinViewer,
@@ -2699,6 +2733,29 @@ private function clearStockroomCaches()
         Log::error('❌ Error clearing caches: ' . $e->getMessage());
         return false;
     }
+}
+
+    public function updateFnskuLimitStatus($asin, $msku) {
+
+    //get asin limit
+    $asinLimit = (int) (DB::table($this->asinTable)
+            ->where('ASIN', $asin)
+            ->value('asin_limit') ?? 0);
+
+    //get current units
+    $currentUnits = (int) DB::table($this->fnskuTable)
+                        ->where('MSKU', $msku)
+                        ->where('ASIN', $asin)
+                        ->value('Units');
+
+    $maximumUnits = 10;
+    $usedUnits = max(0, $maximumUnits - $currentUnits);
+
+    DB::table($this->fnskuTable)
+        ->where('MSKU', $msku)
+        ->where('ASIN', $asin)
+        ->update(['LimitStatus' => ($asinLimit > 0 && $usedUnits >= $asinLimit) ? 'True' : 'False']);
+
 }
 
 
