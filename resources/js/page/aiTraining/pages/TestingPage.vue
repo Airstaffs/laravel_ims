@@ -120,9 +120,9 @@ const summary = ref({
   asinInfo: null
 })
 
-const SITE_URL = window.location.origin.includes('localhost')
-  ? 'http://localhost:8001'
-  : 'https://test.techniquyality.com'
+// const SITE_URL = window.location.origin.includes('localhost')
+//   ? 'http://localhost:8001'
+//   : 'https://test.techniquyality.com'
 
 const triggerFileInput = () => fileInput.value?.click()
 
@@ -176,9 +176,9 @@ async function testModel() {
     formData.append('image', file)
 
     try {
-      const res = await axios.post(`${SITE_URL}/api/test-model`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      const res = await axios.post('/api/ai/asin-test', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
 
       testResults.value.push({
         asin: res.data.asin,

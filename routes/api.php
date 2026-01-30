@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AsinMappingController;
 use App\Http\Controllers\TrainingProxyController;
 use App\Http\Controllers\DatasetProxyController;
+use App\Http\Controllers\AIExecutionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -136,3 +137,13 @@ Route::prefix('training')->group(function () {
 });
 
 Route::post('/fbm-orders-invoice', [PrintInvoiceController::class, 'printInvoice']);
+
+Route::prefix('ai')->group(function () {
+    Route::post('/detect', [AIExecutionController::class, 'detect']);
+    Route::post('/detect-camera-frame', [AIExecutionController::class, 'detectCameraFrame']);
+    Route::post('/asin-test', [AIExecutionController::class, 'asinTest']);
+
+    Route::post('/update-model', [AIExecutionController::class, 'updateAsinModel'])
+        ->middleware('auth'); // protect this
+});
+
