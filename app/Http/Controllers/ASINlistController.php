@@ -60,6 +60,7 @@ class ASINlistController extends BasetablesController
                     'asin.white_height',
                     'asin.white_value',
                     'asin.white_unit',
+                    'asin.asin_limit',
                     DB::raw('COUNT(fnsku.FNSKU) as fnsku_count')
                 ])
                 ->leftJoin($this->fnskuTable . ' as fnsku', 'asin.ASIN', '=', 'fnsku.ASIN')
@@ -115,7 +116,8 @@ class ASINlistController extends BasetablesController
                 'asin.white_width',
                 'asin.white_height',
                 'asin.white_value',
-                'asin.white_unit'
+                'asin.white_unit',
+                'asin.asin_limit'
             )
                 ->having('fnsku_count', '>', 0);
 
@@ -739,7 +741,8 @@ class ASINlistController extends BasetablesController
                 'metakeyword' => 'nullable|string|max:500',
                 'transparency_qr_status' => 'nullable|string|max:1000',
                 'quantity_inside' => 'nullable|integer|min:1|max:4',
-                'system_title' => 'nullable|string|max:500'
+                'system_title' => 'nullable|string|max:500',
+                'asin_limit' => 'required|integer|min:0|max:10'
             ]);
 
             // Check if ASIN exists
@@ -762,8 +765,11 @@ class ASINlistController extends BasetablesController
                 'metakeyword' => $validated['metakeyword'],
                 'TRANSPARENCY_QR_STATUS' => $validated['transparency_qr_status'],
                 'QuantityInside' => $validated['quantity_inside'],
-                'system_title' => $validated['system_title'] // Added system_title
+                'system_title' => $validated['system_title'], // Added system_title
+                'asin_limit' => $validated['asin_limit']
             ];
+
+            $this->updateAllFnskuLimitStatus($validated['asin_limit'], $validated['asin']);
 
             // Update ASIN details
             $updated = DB::table($this->asinTable)
@@ -1503,6 +1509,19 @@ class ASINlistController extends BasetablesController
             ], 500);
         }
     }
+
+  public function updateAllFnskuLimitStatus($newLimit, $asin) {
+    $maximumUnits = 10;
+    
+    DB::table($this->fnskuTable)
+        ->where('ASIN', $asin)
+        ->update(['LimitStatus' => DB::raw("
+            CASE 
+                WHEN $newLimit > 0 AND ($maximumUnits - Units) >= $newLimit THEN 'True' 
+                ELSE 'False' 
+            END
+        ")]);
+}
 
 
 

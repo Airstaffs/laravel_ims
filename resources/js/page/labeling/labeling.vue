@@ -232,7 +232,7 @@
                                 <span style="font-size: 1rem"
                                     >RT# : {{ item.rtcounter }}</span
                                 >
-                                <span>{{ getDisplayTitle(item) }}</span>
+                                <span>{{ item.ProductTitle }}</span>
                             </h6>
                         </div>
                     </div>
@@ -240,6 +240,16 @@
                     <Divider />
 
                     <div class="mobile-card-details">
+                          <div v-if="
+                                    item.ProductTitle !== getDisplayTitle(item)
+                                " class="mobile-detail-row mb-2 ">
+                            <span class="mobile-detail-label" style="min-width: 6rem;"
+                                >Internal Title:</span
+                            >
+                            <span class="mobile-detal-value">
+                                {{  getDisplayTitle(item) }}</span
+                            >
+                        </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label"
                                 >Date Delivered:</span
@@ -1331,7 +1341,7 @@
                                             ? 'Recommended'
                                             : 'Select'
                                     "
-                                    @click="selectFnsku(data)"
+                                    @click="selectFnsku(data, currentItem)"
                                 />
                                 <Button
                                     size="small"

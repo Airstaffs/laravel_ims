@@ -6,7 +6,9 @@ export default {
   data() {
     return {
       searchQuery: "",
-      highlightTimer: null,
+      searchTimer: null,     // Timer for search debounce
+      highlightTimer: null,  // Timer for highlight debounce
+      delay: 3000,           // Delay in ms for both search and highlight
     };
   },
 
@@ -16,9 +18,11 @@ export default {
 
     if (search) {
       this.searchQuery = search;
-      this.onSearch();
-      
-      // Highlight the text after component is fully mounted
+
+      // Perform search immediately on mount
+      this.performSearch();
+
+      // Highlight input after mount
       this.$nextTick(() => {
         this.highlightSearchText();
       });
@@ -27,8 +31,18 @@ export default {
 
   methods: {
     onSearch() {
-      const params = new URLSearchParams(window.location.search);
+      // Clear previous search timer
+      if (this.searchTimer) clearTimeout(this.searchTimer);
 
+      // Set new timer for debounced search
+      this.searchTimer = setTimeout(() => {
+        this.performSearch();
+      }, 1000);
+    },
+
+    performSearch() {
+      // Update URL params
+      const params = new URLSearchParams(window.location.search);
       if (this.searchQuery.trim()) {
         params.set("search", this.searchQuery);
       } else {
@@ -43,23 +57,18 @@ export default {
 
       // Update global search
       eventBus.updateSearchQuery(this.searchQuery);
-      
-      // Clear previous timer
-      if (this.highlightTimer) {
-        clearTimeout(this.highlightTimer);
-      }
-      
-      // Highlight text after user stops typing (500ms delay)
+
+      // Delay highlighting separately
+      if (this.highlightTimer) clearTimeout(this.highlightTimer);
       this.highlightTimer = setTimeout(() => {
         this.highlightSearchText();
-      }, 500);
+      }, this.delay);
     },
 
     clearSearch() {
       this.searchQuery = "";
       this.onSearch();
-      
-      // Focus back on input after clearing
+
       this.$nextTick(() => {
         if (this.$refs.searchInput) {
           this.$refs.searchInput.$el.focus();
@@ -69,16 +78,13 @@ export default {
 
     highlightSearchText() {
       if (this.$refs.searchInput && this.searchQuery) {
-        // PrimeVue InputText uses $el to access the native input
         this.$refs.searchInput.$el.select();
       }
     },
   },
 
   beforeUnmount() {
-    // Clean up timer when component is destroyed
-    if (this.highlightTimer) {
-      clearTimeout(this.highlightTimer);
-    }
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    if (this.highlightTimer) clearTimeout(this.highlightTimer);
   },
 };

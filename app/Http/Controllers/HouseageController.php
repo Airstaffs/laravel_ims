@@ -703,7 +703,7 @@ class HouseageController extends BasetablesController
     public function checkDuplicateSerial(Request $request)
     {
         $serial = $request->input('serial');
-        $currentRtid = $request->input('current_rtid');
+        $currentProductId = $request->input('current_product_id');
 
         if (empty($serial)) {
             return response()->json(['duplicate' => false]);
@@ -715,7 +715,7 @@ class HouseageController extends BasetablesController
         );
 
         $query = DB::table($this->productTable)
-            ->select('rtid', 'ProductTitle')
+            ->select('*')
             ->where(function ($q) use ($cols, $serial) {
                 foreach ($cols as $c) {
                     $q->orWhere($c, $serial);
@@ -723,8 +723,8 @@ class HouseageController extends BasetablesController
             });
 
         // Exclude the current product if provided
-        if (! empty($currentRtid)) {
-            $query->where('rtid', '!=', $currentRtid);
+        if (! empty($currentProductId)) {
+            $query->where('ProductID', '!=', $currentProductId);
         }
 
         $existing = $query->first();
@@ -732,8 +732,7 @@ class HouseageController extends BasetablesController
         if ($existing) {
             return response()->json([
                 'duplicate' => true,
-                'rtid' => $existing->rtid,
-                'product_title' => $existing->ProductTitle,
+                'product' => $existing,
             ]);
         }
 

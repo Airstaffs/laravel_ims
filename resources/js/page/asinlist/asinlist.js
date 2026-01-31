@@ -478,6 +478,7 @@ export default {
         // Modal management
         viewAsinDetails(item) {
             this.selectedAsin = item;
+            this.fnskuLimit = item.asin_limit || 0
             this.showAsinDetailsModal = true;
         },
 
@@ -563,6 +564,7 @@ export default {
                     CousinASIN: this.selectedAsin.CousinASIN || "",
                     UpgradeASIN: this.selectedAsin.UpgradeASIN || "",
                     GrandASIN: this.selectedAsin.GrandASIN || "",
+                    asin_limit: this.selectedAsin.asin_limit || 0,
                     // Default dimensions (editable)
                     def_length: this.selectedAsin.white_length || "",
                     def_width: this.selectedAsin.white_width || "",
@@ -608,6 +610,7 @@ export default {
                             this.editedAsin.TRANSPARENCY_QR_STATUS || null,
                          quantity_inside: this.editedAsin.QuantityInside || null,     
                          system_title: this.editedAsin.system_title || null, // Added system_title
+                         asin_limit: this.editedAsin.asin_limit || 0,
                     },
                     {
                         withCredentials: true,
@@ -631,6 +634,7 @@ export default {
                         this.editedAsin.TRANSPARENCY_QR_STATUS;
                  this.selectedAsin.QuantityInside = this.editedAsin.QuantityInside;    
                  this.selectedAsin.system_title = this.editedAsin.system_title; // Added system_title
+                 this.selectedAsin.asin_limit = this.editedAsin.asin_limit;
 
                 // Update display_title based on system_title priority
                 this.selectedAsin.display_title = this.editedAsin.system_title || this.selectedAsin.AStitle;
@@ -651,6 +655,7 @@ export default {
                         this.asinData[asinIndex].QuantityInside = this.editedAsin.QuantityInside;    
                          this.asinData[asinIndex].system_title = this.editedAsin.system_title; // Added system_title
                          this.asinData[asinIndex].display_title = this.editedAsin.system_title || this.asinData[asinIndex].AStitle;
+                         this.asinData[asinIndex].asin_limit = this.editedAsin.asin_limit;  
 
                     }
 

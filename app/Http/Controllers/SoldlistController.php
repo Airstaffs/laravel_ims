@@ -157,7 +157,7 @@ class SoldlistController extends BasetablesController
 
             return response()->json($products);
         } catch (\Exception $e) {
-            Log::error('Error in ProductionAreaController index', [
+            Log::error('Error in SoldlistController index', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);

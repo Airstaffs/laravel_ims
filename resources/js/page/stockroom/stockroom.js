@@ -1614,9 +1614,15 @@ async fetchAvailablePrinters() {
                 }
             } catch (error) {
                 console.error("Error checking FNSKU:", error);
+                console.log(error, error.status === 409)
+                if(error.status === 409) {
+                    this.fnskuStatus = "limit_reached";
+                } else {
+                this.fnskuStatus = "error";
+                }
                 this.fnskuChecking = false;
                 this.fnskuValid = false;
-                this.fnskuStatus = "error";
+
                 return false;
             }
         },
@@ -1772,6 +1778,9 @@ async fetchAvailablePrinters() {
                                 break;
                             case "error":
                                 errorMessage = "Error checking FNSKU status";
+                                break;
+                            case "limit_reached":
+                                errorMessage = "FNSKU usage limit reached";
                                 break;
                         }
 
@@ -1979,7 +1988,11 @@ async fetchAvailablePrinters() {
         } catch (error) {
             this.$refs.scanner.stopLoading();
             console.error("Error processing scan:", error);
-            this.$refs.scanner.showScanError("Network or server error");
+            if(error.status === 409) {
+                 this.$refs.scanner.showScanError("FNSKU has already reached its usage limit.");
+            } else {
+                 this.$refs.scanner.showScanError("Network or server errorss");
+            }
             SoundService.scanRejected(true);
         }
     },
