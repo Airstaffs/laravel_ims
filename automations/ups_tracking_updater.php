@@ -200,13 +200,17 @@ foreach ($queue as $row) {
     // 3) Delivered-ish statuses
     if ($package_status === 'Delivered' || $package_status === 'Delivered by Local Post Office') {
 
-        $fnsku = trim((string) ($row['fnskuviewer'] ?? ''));
+        $fnskuviewer = trim((string) ($row['fnskuviewer'] ?? ''));
+        $mskuviewer = trim((string) ($row['mskuviewer'] ?? ''));
+        $asinviewer = trim((string) ($row['asinviewer'] ?? ''));
 
         $done = handleDeliveredTransaction(
             $imsv2_connect,
             $outboundId,
             $productId,
-            $fnsku
+            $fnskuviewer,
+            $mskuviewer,
+            $asinviewer
         );
 
         $deliveredCount++;
@@ -428,7 +432,7 @@ function UPS_fetchDetails($trackingnumber, array $credentials)
             'error' => true,
             'message' => 'Invalid JSON response from UPS Track API.',
             'http_code' => $httpCode,
-            'raw' => substr((string)$raw, 0, 5000), // cap
+            'raw' => substr((string) $raw, 0, 5000), // cap
         ];
     }
 
@@ -454,7 +458,9 @@ function getUpsTrackingQueueLatestDispense(mysqli $db): array
             oi.trackingnumber,
             oi.outboundorderitemid,
             d2.productid,
-            p.FNSKUviewer AS fnskuviewer
+            p.FNSKUviewer AS fnskuviewer,
+            p.MSKUviewer  AS mskuviewer,
+            p.ASINviewer  AS asinviewer
         FROM tbloutboundordersitem oi
         INNER JOIN (
             SELECT d.orderitemid, d.productid
@@ -471,8 +477,6 @@ function getUpsTrackingQueueLatestDispense(mysqli $db): array
           AND oi.trackingnumber <> ''
           AND oi.order_status = 'Shipped'
           AND d2.productid IS NOT NULL
-          AND p.FNSKUviewer IS NOT NULL
-          AND p.FNSKUviewer <> ''
         ORDER BY oi.outboundorderitemid DESC
     ";
 
@@ -487,16 +491,26 @@ function getUpsTrackingQueueLatestDispense(mysqli $db): array
             'trackingnumber' => (string) $row['trackingnumber'],
             'outboundorderitemid' => (int) $row['outboundorderitemid'],
             'productid' => (int) $row['productid'],
-            'fnskuviewer' => (string) $row['fnskuviewer'],
+            'fnskuviewer' => (string) ($row['fnskuviewer'] ?? ''),
+            'mskuviewer' => (string) ($row['mskuviewer'] ?? ''),
+            'asinviewer' => (string) ($row['asinviewer'] ?? ''),
         ];
     }
+
     return $items;
 }
 
-function handleDeliveredTransaction(mysqli $db, int $outboundId, int $productId, string $fnskuviewer): array
-{
-    if ($outboundId <= 0 || $productId <= 0 || trim($fnskuviewer) === '') {
-        return ['ok' => false, 'error' => 'Missing outboundId/productId/fnsku'];
+
+function handleDeliveredTransaction(
+    mysqli $db,
+    int $outboundId,
+    int $productId,
+    string $fnskuviewer,
+    string $mskuviewer,
+    string $asinviewer
+): array {
+    if ($outboundId <= 0 || $productId <= 0) {
+        return ['ok' => false, 'error' => 'Missing outboundId/productId'];
     }
 
     try {
@@ -508,9 +522,9 @@ function handleDeliveredTransaction(mysqli $db, int $outboundId, int $productId,
             SET order_status = 'Delivered'
             WHERE outboundorderitemid = ? AND order_status = 'Shipped'
         ");
-        if (!$stmt1) {
+        if (!$stmt1)
             throw new Exception($db->error);
-        }
+
         $stmt1->bind_param("i", $outboundId);
         $stmt1->execute();
         if ($stmt1->affected_rows <= 0) {
@@ -524,9 +538,9 @@ function handleDeliveredTransaction(mysqli $db, int $outboundId, int $productId,
             SET ProductModuleLoc = 'SoldList'
             WHERE ProductID = ?
         ");
-        if (!$stmt2) {
+        if (!$stmt2)
             throw new Exception($db->error);
-        }
+
         $stmt2->bind_param("i", $productId);
         $stmt2->execute();
         if ($stmt2->affected_rows <= 0) {
@@ -534,38 +548,50 @@ function handleDeliveredTransaction(mysqli $db, int $outboundId, int $productId,
         }
         $stmt2->close();
 
-        // 3) Resolve pack / FNSKU increments
+        // 3) Load product info (to detect pack)
         $stmt = $db->prepare("
-            SELECT mergeId, rtcounter
+            SELECT mergeId, rtcounter, FNSKUviewer, MSKUviewer, ASINviewer
             FROM tblproduct
             WHERE ProductID = ?
         ");
-        if (!$stmt) {
+        if (!$stmt)
             throw new Exception($db->error);
-        }
+
         $stmt->bind_param("i", $productId);
         $stmt->execute();
         $prod = $stmt->get_result()->fetch_assoc();
         $stmt->close();
 
-        $fnskuCounts = [];
+        if (!$prod) {
+            throw new Exception("Product not found for ProductID={$productId}");
+        }
+
+        // Prefer DB values (row values are fine, but DB is source of truth)
+        $fnskuviewer = trim((string) ($prod['FNSKUviewer'] ?? $fnskuviewer));
+        $mskuviewer = trim((string) ($prod['MSKUviewer'] ?? $mskuviewer));
+        $asinviewer = trim((string) ($prod['ASINviewer'] ?? $asinviewer));
+
+        // This will hold unique “identifier tuples” => qty
+        // Keyed by json string for easy dedupe
+        $idCounts = [];
 
         // CASE A: Single item (no mergeId)
         if (empty($prod['mergeId'])) {
-            $baseFnsku = extractBaseFnsku($fnskuviewer);
-            $fnskuCounts[$baseFnsku] = 1;
+            $tuple = normalizeIdentifierTuple($fnskuviewer, $mskuviewer, $asinviewer);
+            $key = json_encode($tuple, JSON_UNESCAPED_SLASHES);
+            $idCounts[$key] = ($idCounts[$key] ?? 0) + 1;
         } else {
             // CASE B: Pack parent → expand children
             $rtcounter = (int) $prod['rtcounter'];
 
             $stmt = $db->prepare("
-                SELECT FNSKUviewer
+                SELECT FNSKUviewer, MSKUviewer, ASINviewer
                 FROM tblproduct
                 WHERE mergeTO = ?
             ");
-            if (!$stmt) {
+            if (!$stmt)
                 throw new Exception($db->error);
-            }
+
             $stmt->bind_param("i", $rtcounter);
             $stmt->execute();
             $res = $stmt->get_result();
@@ -575,37 +601,48 @@ function handleDeliveredTransaction(mysqli $db, int $outboundId, int $productId,
             }
 
             while ($row = $res->fetch_assoc()) {
-                $baseFnsku = extractBaseFnsku($row['FNSKUviewer']);
-                $fnskuCounts[$baseFnsku] = ($fnskuCounts[$baseFnsku] ?? 0) + 1;
+                $tuple = normalizeIdentifierTuple(
+                    (string) ($row['FNSKUviewer'] ?? ''),
+                    (string) ($row['MSKUviewer'] ?? ''),
+                    (string) ($row['ASINviewer'] ?? '')
+                );
+                $key = json_encode($tuple, JSON_UNESCAPED_SLASHES);
+                $idCounts[$key] = ($idCounts[$key] ?? 0) + 1;
             }
 
             $stmt->close();
         }
 
-        // 4) Apply FNSKU unit increments
-        $stmt = $db->prepare("
-            UPDATE tblfnsku
-            SET units = COALESCE(units,0) + ?
-            WHERE FNSKU = ?
-        ");
-        if (!$stmt) {
-            throw new Exception($db->error);
-        }
+        // 4) Apply increments to tblfnsku by matching FNSKU OR MSKU OR ASIN
+        $updates = [];
+        foreach ($idCounts as $key => $qty) {
+            $tuple = json_decode($key, true);
+            $r = increment_tblfnsku_units_by_any_identifier(
+                $db,
+                (int) $qty,
+                (string) ($tuple['fnsku'] ?? ''),
+                (string) ($tuple['msku'] ?? ''),
+                (string) ($tuple['asin'] ?? '')
+            );
 
-        foreach ($fnskuCounts as $fnsku => $qty) {
-            $stmt->bind_param("is", $qty, $fnsku);
-            $stmt->execute();
-            if ($stmt->affected_rows <= 0) {
-                throw new Exception("Failed updating FNSKU units for {$fnsku}");
+            if (empty($r['ok'])) {
+                throw new Exception($r['error'] ?? "Failed updating tblfnsku for key={$key}");
             }
+
+            $updates[] = [
+                'qty' => $qty,
+                'fnsku' => $tuple['fnsku'],
+                'msku' => $tuple['msku'],
+                'asin' => $tuple['asin'],
+                'rowsAffected' => $r['rowsAffected'] ?? null,
+            ];
         }
-        $stmt->close();
 
         $db->commit();
 
         return [
             'ok' => true,
-            'fnsku_updates' => $fnskuCounts,
+            'fnsku_updates' => $updates,
         ];
 
     } catch (Throwable $e) {
@@ -670,7 +707,7 @@ function fetchUpsCredentialsFromMainApp(): array
             'error' => true,
             'message' => 'Invalid response from main app',
             'http' => $info,
-            'raw' => substr((string)$raw, 0, 2000),
+            'raw' => substr((string) $raw, 0, 2000),
         ];
     }
 
@@ -686,4 +723,112 @@ function fetchUpsCredentialsFromMainApp(): array
         'access_token' => $token,
         'expires_in' => $exp, // absolute unix (as you implemented)
     ];
+}
+
+function normalizeIdentifierTuple(string $fnskuviewer, string $mskuviewer, string $asinviewer): array
+{
+    $fnsku = normalizeFnskuViewer($fnskuviewer);
+    $msku  = strtoupper(trim($mskuviewer));
+    $asin  = strtoupper(trim($asinviewer));
+
+    return [
+        'fnsku' => $fnsku,
+        'msku'  => $msku,
+        'asin'  => $asin,
+    ];
+}
+
+/**
+ * Normalize FNSKUviewer -> base FNSKU used in tblfnsku.FNSKU
+ * Handles:
+ *  - No prefix:          X00ABC12345
+ *  - 2-letter prefix:    AAX00ABC12345   (example)
+ *  - Old pattern:        A1X00ABC12345   (your previous logic)
+ */
+function normalizeFnskuViewer(string $fnsku): string
+{
+    $s = strtoupper(trim($fnsku));
+    if ($s === '') return '';
+
+    // If it contains X... somewhere, keep from first X onward (common safest rule)
+    // e.g. "AAX00ABC" -> "X00ABC"
+    $pos = strpos($s, 'X');
+    if ($pos !== false) {
+        $candidate = substr($s, $pos);
+        // basic sanity: starts with X and has letters/numbers only
+        if (preg_match('/^X[0-9A-Z]+$/', $candidate)) {
+            return $candidate;
+        }
+    }
+
+    // Legacy exact strip rules (kept as fallback)
+    if (preg_match('/^[A-Z][0-9](X[0-9A-Z]+)$/', $s, $m)) return $m[1];
+    if (preg_match('/^[A-Z]{2}(X[0-9A-Z]+)$/', $s, $m)) return $m[1];
+
+    return $s;
+}
+
+/**
+ * Increment tblfnsku.units by matching ANY of:
+ *  - tblfnsku.FNSKU = normalized fnsku
+ *  - tblfnsku.MSKU  = msku
+ *  - tblfnsku.ASIN  = asin
+ *
+ * Only includes non-empty identifiers in the WHERE clause.
+ */
+function increment_tblfnsku_units_by_any_identifier(
+    mysqli $db,
+    int $qty,
+    string $fnsku,
+    string $msku,
+    string $asin
+): array {
+    if ($qty <= 0) return ['ok' => false, 'error' => 'qty must be > 0'];
+
+    $conds = [];
+    $types = "i";
+    $params = [$qty];
+
+    if ($fnsku !== '') { $conds[] = "FNSKU = ?"; $types .= "s"; $params[] = $fnsku; }
+    if ($msku  !== '') { $conds[] = "MSKU  = ?"; $types .= "s"; $params[] = $msku; }
+    if ($asin  !== '') { $conds[] = "ASIN  = ?"; $types .= "s"; $params[] = $asin; }
+
+    if (count($conds) === 0) {
+        return ['ok' => false, 'error' => 'No identifiers (fnsku/msku/asin) provided'];
+    }
+
+    $sql = "
+        UPDATE tblfnsku
+        SET units = COALESCE(units, 0) + ?
+        WHERE " . implode(" OR ", $conds) . "
+    ";
+
+    $stmt = $db->prepare($sql);
+    if (!$stmt) return ['ok' => false, 'error' => $db->error];
+
+    // bind_param requires references
+    $bind = [];
+    $bind[] = $types;
+    foreach ($params as $k => $v) {
+        $bind[] = &$params[$k];
+    }
+
+    call_user_func_array([$stmt, 'bind_param'], $bind);
+
+    $stmt->execute();
+    $affected = $stmt->affected_rows;
+    $err = $stmt->error;
+    $stmt->close();
+
+    if ($err) return ['ok' => false, 'error' => $err];
+
+    // NOTE: affected_rows can be 0 if record exists but value unchanged (rare) or no match
+    if ($affected <= 0) {
+        return [
+            'ok' => false,
+            'error' => "No tblfnsku rows matched for fnsku={$fnsku} msku={$msku} asin={$asin}"
+        ];
+    }
+
+    return ['ok' => true, 'rowsAffected' => $affected];
 }
