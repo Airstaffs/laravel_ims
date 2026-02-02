@@ -45,6 +45,7 @@ class StockroomController extends BasetablesController
                 ->where('grading', $grading)
                 ->where('storename', $storename)
                 ->where('LimitStatus', 'False')
+                ->whereIn('amazon_status', ['Active', 'Notposted'])
                 ->lockForUpdate()
                 ->first();
 

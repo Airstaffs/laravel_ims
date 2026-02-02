@@ -1927,7 +1927,6 @@ const FNSKU_COLUMNS = [
     },
     {
         header: "Units",
-        field: "Units",
         slot: "Units",
         bodyStyle: "font-size: 14px"
     },
@@ -1940,7 +1939,9 @@ const FNSKU_COLUMNS = [
     {
         header: "Times Used",
         slot: "timesused",
-        bodyStyle: "font-size: 14px"
+        field: "Units",
+        bodyStyle: "font-size: 14px",
+        sortable: true
     }
 ]
 export default {
