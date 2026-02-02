@@ -235,13 +235,35 @@ foreach ($stores as $store) {
                     $stmtCheck->execute();
                     $resultCheck = $stmtCheck->get_result();
 
-                    if ($resultCheck->num_rows == 0) {
-                        $hehe = "Available";
+                    $rawStatus = getNewlyCreatedItemStatus($Connect, $merchantId, $MSKU);
+                    $amazon_status = mapNewlyCreatedStatusToAmazonStatus($rawStatus);
 
-                        // Inserts into the Connect!
-                        $insertQuery = "INSERT INTO $tblname (FNSKU, MSKU, grading, ASIN, insert_date, fnsku_status, storename, addedby) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?)";
+
+                    if ($resultCheck->num_rows == 0) {
+                        $insertQuery = "
+                            INSERT INTO $tblname
+                                (FNSKU, MSKU, grading, ASIN, insert_date, fnsku_status, storename, addedby, amazon_status, Units)
+                            VALUES
+                                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ";
                         $stmt = $Connect->prepare($insertQuery);
-                        $stmt->bind_param("ssssssss", $FNSKU, $MSKU, $skucondition, $ASIN, $currentDateTime, $hehe, $storename, $user);
+
+                        $units = 10;
+                        $hehe = "available";
+
+                        $stmt->bind_param(
+                            "sssssssssi",
+                            $FNSKU,
+                            $MSKU,
+                            $skucondition,
+                            $ASIN,
+                            $currentDateTime,
+                            $hehe,
+                            $storename,
+                            $user,
+                            $amazon_status,
+                            $units
+                        );
 
                         if ($stmt->execute()) {
                             $logMessage = "Record inserted successfully for FNSKU: $FNSKU MSKU: $MSKU";
@@ -345,7 +367,7 @@ foreach ($stores as $store) {
             echo "<br>No summaries available for SKU: " . ($pta['sku'] ?? 'Unknown SKU') . "<br>";
         }
 
-        
+
     }
 }
 
@@ -909,4 +931,58 @@ function archiveOldNewlyCreatedItems(mysqli $Connect): int
     mysqli_stmt_close($stmt);
 
     return $affected; // number of rows archived
+}
+
+function getNewlyCreatedItemStatus(mysqli $Connect, string $merchantId, string $sku): ?string
+{
+    $sql = "
+        SELECT status
+        FROM tblnewlycreatedamznitems
+        WHERE seller_id = ?
+          AND sku = ?
+        ORDER BY id DESC
+        LIMIT 1
+    ";
+    $stmt = $Connect->prepare($sql);
+    $stmt->bind_param("ss", $merchantId, $sku);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $row = $res ? $res->fetch_assoc() : null;
+    $stmt->close();
+
+    return $row['status'] ?? null;
+}
+
+function mapNewlyCreatedStatusToAmazonStatus($raw): string
+{
+    // NULL / empty / [] => Problematic
+    if ($raw === null)
+        return 'Problematic';
+
+    $raw = trim((string) $raw);
+    if ($raw === '' || $raw === '[]')
+        return 'Problematic';
+
+    // If it's JSON array like ["BUYABLE","DISCOVERABLE"]
+    $decoded = json_decode($raw, true);
+
+    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+        $upper = array_map(fn($v) => strtoupper(trim((string) $v)), $decoded);
+
+        if (in_array('DELETED', $upper, true))
+            return 'Deleted';
+        if (in_array('DISCOVERABLE', $upper, true) || in_array('BUYABLE', $upper, true))
+            return 'Active';
+
+        return 'Problematic';
+    }
+
+    // Fallback (in case you stored plain text)
+    $u = strtoupper($raw);
+    if (strpos($u, 'DELETED') !== false)
+        return 'Deleted';
+    if (strpos($u, 'DISCOVERABLE') !== false || strpos($u, 'BUYABLE') !== false)
+        return 'Active';
+
+    return 'Problematic';
 }

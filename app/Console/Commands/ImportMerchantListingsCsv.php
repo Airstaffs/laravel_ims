@@ -132,9 +132,8 @@ class ImportMerchantListingsCsv extends Command
                     ->exists();
 
                 $fnData = [
-                    'Units' => 10,
                     'amazon_status' => $amazonStatus,
-                    'addedby' => 'Auto_Insert_Code',
+                    'addedby' => 'Auto_Insert_Code_Import',
                     'ASIN' => $asin,
                 ];
 
