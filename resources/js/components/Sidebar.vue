@@ -103,6 +103,8 @@
 import { Drawer, Divider, Avatar } from "primevue";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import InventoryStatistics from "../page/inventoryStatistics/inventoryStatistics.vue";
+import soldlist from "../page/soldlist/soldlist";
 
 const router = useRouter();
 
@@ -153,13 +155,16 @@ const modules = ref({
     rts: "RTS",
     returnscanner: "Return Scanner",
     fbmorder: "FBM Order",
+    shipment: "Shipment",
     notfound: "Not Found",
     houseage: "Houseage",
     printer: "Printer",
-    auxiliary: "Auxillary Label",
+    auxiliary: "Auxiliary Label",
+    inventorystatistics: "Inventory Statistics",
     asinlist: "ASIN List",
     fnsku: "FNSKU List",
     mskucreation: "FNSKU Creation",
+
 });
 
 // Icons for each module
@@ -179,6 +184,8 @@ const moduleIcons = {
     rts: "pi-truck",
     returnscanner: "pi-qrcode",
     fbmorder: "pi-shopping-bag",
+    shipment: "pi-list",
+    soldlist: "pi-chart-line",
     notfound: "pi-ban",
     houseage: "pi-home",
     asinlist: "pi-list",
@@ -186,6 +193,7 @@ const moduleIcons = {
     mskucreation: "pi-plus-circle",
     printer: "pi-print",
     auxiliary: "pi-print",
+    inventorystatistics: "pi-chart-bar",
 };
 
 // Get array of ASIN sub-item IDs

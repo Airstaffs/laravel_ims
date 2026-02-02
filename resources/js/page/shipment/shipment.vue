@@ -1,0 +1,683 @@
+<template>
+    <div class="vue-container shipment-module">
+        <!-- Header Section -->
+        <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
+            <TitlePage 
+                title="Shipments Module"
+                subtitle="Track all products currently in shipment. Monitor delivery status, carrier information, and customer orders." 
+            />
+            
+            <div class="d-flex justify-content-center gap-2 me-4 flex-wrap desktop-view">
+                <Button 
+                    severity="secondary" 
+                    size="small" 
+                    outlined 
+                    @click="refreshData"
+                    label="Refresh" 
+                    icon="pi pi-refresh" 
+                />
+                <Button 
+                    severity="info" 
+                    size="small" 
+                    outlined 
+                    @click="openStatsModal"
+                    label="View Statistics" 
+                    icon="pi pi-chart-bar" 
+                />
+            </div>
+            
+            <div class="mobile-view w-100 ms-2">
+                <Button 
+                    label="Actions" 
+                    fluid 
+                    size="small" 
+                    severity="secondary" 
+                    outlined 
+                    icon="pi pi-list"
+                    @click="toggleMenuButton($event)" 
+                    aria-haspopup="true" 
+                    aria-controls="overlay_menu" 
+                />
+            </div>
+
+            <Menu ref="menu" id="overlay_menu" :model="menuActions" :popup="true" />
+        </div>
+
+        <!-- Statistics Cards -->
+        <AnimateDiv :delay="100" class="px-4 mb-4">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <i class="pi pi-box"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-label">Total Shipments</div>
+                        <div class="stat-value">{{ stats.total_shipments || 0 }}</div>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                        <i class="pi pi-calendar-times"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-label">Shipped Today</div>
+                        <div class="stat-value">{{ stats.shipped_today || 0 }}</div>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                        <i class="pi pi-calendar"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-label">This Week</div>
+                        <div class="stat-value">{{ stats.shipped_this_week || 0 }}</div>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                        <i class="pi pi-calendar-plus"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-label">This Month</div>
+                        <div class="stat-value">{{ stats.shipped_this_month || 0 }}</div>
+                    </div>
+                </div>
+            </div>
+        </AnimateDiv>
+
+        <!-- Filters Section -->
+        <AnimateDiv :delay="200" class="px-4">
+            <div class="search-container">
+                <fieldset class="d-flex align-items-center gap-3">
+                    <label for="storeFilter">Store</label>
+                    <Select 
+                        :options="storeOptions" 
+                        v-model="selectedStore" 
+                        optionLabel="label" 
+                        optionValue="value"
+                        size="small" 
+                        class="select-form" 
+                        @change="changeStore" 
+                        placeholder="Select a store" 
+                    />
+                </fieldset>
+                
+                <fieldset class="d-flex align-items-center gap-3">
+                    <label for="carrierFilter">Carrier</label>
+                    <Select 
+                        :options="carrierOptions" 
+                        v-model="selectedCarrier" 
+                        optionLabel="label" 
+                        optionValue="value"
+                        size="small" 
+                        class="select-form" 
+                        @change="changeCarrier" 
+                        placeholder="Select carrier" 
+                    />
+                </fieldset>
+
+                <fieldset class="d-flex align-items-center gap-3">
+                    <label for="orderByFilter">Order</label>
+                    <Select 
+                        :options="orderByOptions" 
+                        v-model="orderByFilter" 
+                        optionLabel="label" 
+                        optionValue="value"
+                        size="small" 
+                        class="select-form" 
+                        @change="changeOrderBy" 
+                        placeholder="Order by" 
+                    />
+                </fieldset>
+            </div>
+
+            <!-- Desktop Table -->
+            <XDataTable 
+                :value="shipments" 
+                :loading="loading" 
+                :columns="columns" 
+                :pagination="false"
+                tableClass="desktop-view" 
+                dataKey="product_id"
+                scrollable 
+                scrollHeight="600px"
+            >
+                <template #productInfo="{ data }">
+                    <div class="d-flex flex-column gap-2">
+                        <div class="detail-item-container">
+                            <span>Product ID: </span>
+                            <span class="text-primary fw-bold">{{ data.product_id }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Title: </span>
+                            <span>{{ data.product_title }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>ASIN: </span>
+                            <span>{{ data.asin || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>FNSKU: </span>
+                            <span>{{ data.fnsku || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>MSKU: </span>
+                            <span>{{ data.msku || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Condition: </span>
+                            <Badge :value="data.condition || 'N/A'" severity="info" />
+                        </div>
+                    </div>
+                </template>
+
+                <template #locationInfo="{ data }">
+                    <div class="d-flex flex-column gap-2">
+                        <div class="detail-item-container">
+                            <span>Location: </span>
+                            <span class="fw-bold text-info">{{ data.warehouse_location || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Serial #: </span>
+                            <span>{{ data.serial_number || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>RT Counter: </span>
+                            <span>{{ data.rt_counter || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Price: </span>
+                            <span>${{ parseFloat(data.price || 0).toFixed(2) }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Qty: </span>
+                            <span>{{ data.quantity || 1 }}</span>
+                        </div>
+                    </div>
+                </template>
+
+                <template #orderInfo="{ data }">
+                    <div class="d-flex flex-column gap-2">
+                        <div class="detail-item-container">
+                            <span>Order ID: </span>
+                            <span class="text-primary">{{ data.order_id || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Customer: </span>
+                            <span>{{ data.customer_name || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Store: </span>
+                            <span>{{ data.store_name || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Order Date: </span>
+                            <span>{{ formatDate(data.order_date) }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Status: </span>
+                            <Badge :value="data.order_status || 'N/A'" 
+                                   :severity="getStatusSeverity(data.order_status)" />
+                        </div>
+                    </div>
+                </template>
+
+                <template #trackingInfo="{ data }">
+                    <div class="d-flex flex-column gap-2">
+                        <div class="detail-item-container">
+                            <span>Tracking #: </span>
+                            <span class="fw-bold">{{ data.tracking_number || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Carrier: </span>
+                            <Tag :value="data.carrier || 'N/A'" 
+                                 :style="{ backgroundColor: getCarrierColor(data.carrier) }" />
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Status: </span>
+                            <span>{{ data.tracking_status || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Ship Date: </span>
+                            <span>{{ formatDate(data.ship_date) }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Delivery Date: </span>
+                            <span>{{ formatDate(data.delivery_date) }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Shipment Date: </span>
+                            <span>{{ formatDate(data.shipment_date) }}</span>
+                        </div>
+                    </div>
+                </template>
+
+                <template #actions="{ data }">
+                    <div class="d-flex flex-column gap-2">
+                        <Button 
+                            label="View Details" 
+                            icon="pi pi-eye" 
+                            size="small" 
+                            severity="info"
+                            outlined
+                            @click="viewDetails(data)" 
+                        />
+                        <Button 
+                            label="Track Package" 
+                            icon="pi pi-map-marker" 
+                            size="small" 
+                            severity="success"
+                            outlined
+                            v-if="data.tracking_number"
+                            @click="trackPackage(data)" 
+                        />
+                    </div>
+                </template>
+            </XDataTable>
+        </AnimateDiv>
+
+        <!-- Mobile Cards View -->
+        <div class="mobile-view px-3">
+            <div v-if="loading" class="loading-spinner-mobile">
+                <i class="pi pi-spin pi-spinner"></i> Loading shipments...
+            </div>
+            <div v-else-if="shipments.length === 0" class="no-data-mobile">
+                No shipments found
+            </div>
+            <div v-else class="mobile-cards">
+                <div v-for="shipment in shipments" :key="shipment.product_id" class="mobile-card">
+                    <div class="mobile-card-header">
+                        <div class="mobile-id fw-bold">
+                            Product ID: {{ shipment.product_id }}
+                        </div>
+                        <Badge :value="shipment.order_status || 'N/A'" 
+                               :severity="getStatusSeverity(shipment.order_status)" />
+                    </div>
+
+                    <div class="mobile-product-title fw-bold mb-2">
+                        {{ shipment.product_title }}
+                    </div>
+
+                    <Divider />
+
+                    <div class="mobile-section">
+                        <div class="mobile-detail">
+                            <span class="mobile-detail-label">Location:</span>
+                            <span class="mobile-detail-value text-info fw-bold">
+                                {{ shipment.warehouse_location || 'N/A' }}
+                            </span>
+                        </div>
+                        <div class="mobile-detail">
+                            <span class="mobile-detail-label">ASIN:</span>
+                            <span class="mobile-detail-value">{{ shipment.asin || 'N/A' }}</span>
+                        </div>
+                        <div class="mobile-detail">
+                            <span class="mobile-detail-label">Tracking #:</span>
+                            <span class="mobile-detail-value fw-bold">{{ shipment.tracking_number || 'N/A' }}</span>
+                        </div>
+                        <div class="mobile-detail">
+                            <span class="mobile-detail-label">Carrier:</span>
+                            <Tag :value="shipment.carrier || 'N/A'" 
+                                 :style="{ backgroundColor: getCarrierColor(shipment.carrier) }" />
+                        </div>
+                    </div>
+
+                    <Divider />
+
+                    <div class="d-flex gap-2">
+                        <Button 
+                            label="Details" 
+                            icon="pi pi-eye" 
+                            size="small" 
+                            outlined
+                            class="flex-1"
+                            @click="viewDetails(shipment)" 
+                        />
+                        <Button 
+                            label="Track" 
+                            icon="pi pi-map-marker" 
+                            size="small" 
+                            severity="success"
+                            outlined
+                            class="flex-1"
+                            v-if="shipment.tracking_number"
+                            @click="trackPackage(shipment)" 
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-container">
+            <div class="pagination-wrapper">
+                <div class="per-page-selector">
+                    <span>Rows per page</span>
+                    <Select 
+                        v-model="perPage" 
+                        @change="changePerPage" 
+                        :options="rowsPerPageOptions" 
+                        size="small"
+                        optionLabel="label" 
+                        optionValue="value" 
+                    />
+                </div>
+
+                <div class="pagination">
+                    <Button 
+                        @click="prevPage" 
+                        :disabled="currentPage === 1" 
+                        class="pagination-button" 
+                        size="small"
+                        label="Back" 
+                        icon="pi pi-angle-left" 
+                        severity="info" 
+                    />
+                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
+                    <Button 
+                        @click="nextPage" 
+                        :disabled="currentPage === totalPages" 
+                        class="pagination-button"
+                        size="small" 
+                        label="Next" 
+                        icon="pi pi-angle-right" 
+                        severity="info" 
+                        iconPos="right" 
+                    />
+                </div>
+            </div>
+        </div>
+
+        <!-- Details Modal -->
+        <Dialog 
+            v-model:visible="showDetailsModal" 
+            modal 
+            header="Shipment Details" 
+            :style="{ width: '95%', maxWidth: '800px' }"
+            :pt="{ root: { class: 'mobile-fullscreen-dialog' } }"
+        >
+            <div v-if="selectedShipment" class="details-modal-content">
+                <div class="details-section">
+                    <h4><i class="pi pi-box"></i> Product Information</h4>
+                    <div class="details-grid">
+                        <div class="detail-row">
+                            <span class="label">Product ID:</span>
+                            <span class="value fw-bold">{{ selectedShipment.product_id }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Title:</span>
+                            <span class="value">{{ selectedShipment.product_title }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">ASIN:</span>
+                            <span class="value">{{ selectedShipment.asin || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">FNSKU:</span>
+                            <span class="value">{{ selectedShipment.fnsku || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">MSKU:</span>
+                            <span class="value">{{ selectedShipment.msku || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Condition:</span>
+                            <Badge :value="selectedShipment.condition || 'N/A'" severity="info" />
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Location:</span>
+                            <span class="value fw-bold text-info">{{ selectedShipment.warehouse_location || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Serial Number:</span>
+                            <span class="value">{{ selectedShipment.serial_number || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">RT Counter:</span>
+                            <span class="value">{{ selectedShipment.rt_counter || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Price:</span>
+                            <span class="value">${{ parseFloat(selectedShipment.price || 0).toFixed(2) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <Divider />
+
+                <div class="details-section" v-if="selectedShipment.order_id">
+                    <h4><i class="pi pi-shopping-cart"></i> Order Information</h4>
+                    <div class="details-grid">
+                        <div class="detail-row">
+                            <span class="label">Order ID:</span>
+                            <span class="value text-primary">{{ selectedShipment.order_id }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Customer:</span>
+                            <span class="value">{{ selectedShipment.customer_name || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Store:</span>
+                            <span class="value">{{ selectedShipment.store_name || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Order Date:</span>
+                            <span class="value">{{ formatDate(selectedShipment.order_date) }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Status:</span>
+                            <Badge :value="selectedShipment.order_status || 'N/A'" 
+                                   :severity="getStatusSeverity(selectedShipment.order_status)" />
+                        </div>
+                    </div>
+                </div>
+
+                <Divider v-if="selectedShipment.tracking_number" />
+
+                <div class="details-section" v-if="selectedShipment.tracking_number">
+                    <h4><i class="pi pi-map-marker"></i> Tracking Information</h4>
+                    <div class="details-grid">
+                        <div class="detail-row">
+                            <span class="label">Tracking Number:</span>
+                            <span class="value fw-bold">{{ selectedShipment.tracking_number }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Carrier:</span>
+                            <Tag :value="selectedShipment.carrier || 'N/A'" 
+                                 :style="{ backgroundColor: getCarrierColor(selectedShipment.carrier) }" />
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Tracking Status:</span>
+                            <span class="value">{{ selectedShipment.tracking_status || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Ship Date:</span>
+                            <span class="value">{{ formatDate(selectedShipment.ship_date) }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Expected Delivery:</span>
+                            <span class="value">{{ formatDate(selectedShipment.delivery_date) }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Shipment Date:</span>
+                            <span class="value">{{ formatDate(selectedShipment.shipment_date) }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <template #footer>
+                <Button 
+                    label="Close" 
+                    icon="pi pi-times" 
+                    @click="closeDetailsModal" 
+                    severity="secondary"
+                />
+                <Button 
+                    label="Track Package" 
+                    icon="pi pi-map-marker" 
+                    @click="trackPackage(selectedShipment)" 
+                    severity="success"
+                    v-if="selectedShipment && selectedShipment.tracking_number"
+                />
+            </template>
+        </Dialog>
+
+        <!-- Statistics Modal -->
+        <Dialog 
+            v-model:visible="showStatsModal" 
+            modal 
+            header="Shipment Statistics" 
+            :style="{ width: '95%', maxWidth: '900px' }"
+        >
+            <div class="stats-modal-content">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <h5>By Carrier</h5>
+                        <div class="chart-container">
+                            <div v-for="carrier in stats.by_carrier" :key="carrier.carrier" class="stat-bar">
+                                <div class="stat-bar-label">{{ carrier.carrier || 'Unknown' }}</div>
+                                <div class="stat-bar-bg">
+                                    <div class="stat-bar-fill" :style="{ width: getPercentage(carrier.count, stats.total_shipments) + '%' }"></div>
+                                </div>
+                                <div class="stat-bar-value">{{ carrier.count }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <h5>By Store</h5>
+                        <div class="chart-container">
+                            <div v-for="store in stats.by_store" :key="store.storename" class="stat-bar">
+                                <div class="stat-bar-label">{{ store.storename || 'Unknown' }}</div>
+                                <div class="stat-bar-bg">
+                                    <div class="stat-bar-fill" :style="{ width: getPercentage(store.count, stats.total_shipments) + '%' }"></div>
+                                </div>
+                                <div class="stat-bar-value">{{ store.count }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Dialog>
+
+        <ScrollTop />
+    </div>
+</template>
+
+<script>
+import { Badge, Button, Dialog, Divider, Menu, ScrollTop, Select, Tag } from "primevue";
+import XDataTable from "../../components/DataTable/XDataTable.vue";
+import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
+import shipmentModule from "./shipment.js";
+import { ROWS_PER_PAGE } from "../../constant.js";
+
+const TABLE_COLUMNS = [
+    {
+        header: "Product Info",
+        slot: "productInfo",
+        bodyStyle: "font-size: 14px",
+        style: { minWidth: "20rem" }
+    },
+    {
+        header: "Location Info",
+        slot: "locationInfo",
+        bodyStyle: "font-size: 14px",
+        style: { minWidth: "15rem" }
+    },
+    {
+        header: "Order Info",
+        slot: "orderInfo",
+        bodyStyle: "font-size: 14px",
+        style: { minWidth: "18rem" }
+    },
+    {
+        header: "Tracking Info",
+        slot: "trackingInfo",
+        bodyStyle: "font-size: 14px",
+        style: { minWidth: "18rem" }
+    },
+    {
+        header: "Actions",
+        slot: "actions",
+        bodyStyle: "font-size: 14px",
+        style: { minWidth: "10rem" }
+    }
+];
+
+export default {
+    mixins: [shipmentModule],
+    components: {
+        XDataTable,
+        Button,
+        Select,
+        Badge,
+        Tag,
+        Dialog,
+        Divider,
+        ScrollTop,
+        Menu,
+        TitlePage,
+        AnimateDiv
+    },
+    data() {
+        return {
+            columns: TABLE_COLUMNS,
+            menuActions: [],
+            rowsPerPageOptions: ROWS_PER_PAGE,
+            storeOptions: [{ label: "All Stores", value: '' }],
+            carrierOptions: [{ label: "All Carriers", value: '' }],
+            orderByOptions: [
+                { value: "desc", label: "Newest First" },
+                { value: "asc", label: "Oldest First" }
+            ]
+        }
+    },
+    methods: {
+        toggleMenuButton(event) {
+            this.menuActions = this.getMenuActions();
+            if (this.$refs.menu) {
+                this.$refs.menu.toggle(event);
+            }
+        },
+        getMenuActions() {
+            return [
+                {
+                    label: "Refresh",
+                    icon: "pi pi-refresh",
+                    command: () => this.refreshData()
+                },
+                {
+                    label: "View Statistics",
+                    icon: "pi pi-chart-bar",
+                    command: () => this.openStatsModal()
+                }
+            ]
+        },
+        getStatusSeverity(status) {
+            switch(status) {
+                case 'Shipped': return 'success';
+                case 'Pending': return 'warning';
+                case 'Canceled': return 'danger';
+                default: return 'info';
+            }
+        },
+        getCarrierColor(carrier) {
+            if (!carrier) return '#6c757d';
+            const c = carrier.toUpperCase();
+            if (c.includes('UPS')) return '#351c15';
+            if (c.includes('FEDEX')) return '#4d148c';
+            if (c.includes('USPS')) return '#004b87';
+            if (c.includes('DHL')) return '#ffcc00';
+            return '#6c757d';
+        }
+    }
+};
+</script>
+
+<style scoped>
+@import './shipment.css';
+</style>

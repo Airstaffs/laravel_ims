@@ -551,6 +551,7 @@ import Validation from "./page/validation/validation.vue";
 import ProductionArea from "./page/production/production.vue";
 import ReturnScanner from "./page/returnScanner/returnscanner.vue";
 import FBMorders from "./page/fbmOrders/fbmOrders.vue";
+import Shipment from "./page/shipment/shipment.vue";
 import Notfound from "./page/notfound/notfound.vue";
 import Houseage from "./page/houseage/houseage.vue";
 import ASINList from "./page/asinlist/asinlist.vue";
@@ -563,6 +564,7 @@ import History from "./page/history/history.vue";
 import Soldlist from "./page/soldlist/soldlist.vue";
 import Returnedlist from "./page/returnlist/returnlist.vue";
 import AuxiliaryLabel from "./page/auxiliary/auxiliary.vue";
+import inventoryStatistics from "./page/inventoryStatistics/inventoryStatistics.vue";
 
 
 
@@ -621,6 +623,7 @@ const componentMapping = {
     "fbm order": "fbmorder",
     "FBM Order": "fbmorder",
     "ASIN List": "asinlist",
+    Shipment: "shipment",
     printer: "printer",
     Printer: "printer",
     "Human Resource": "humanresource",
@@ -631,6 +634,7 @@ const componentMapping = {
     "Sold Items": "soldlist",
     "Returned Items": "returnlist",
     "Auxiliary Label": "auxiliary",
+    "Inventory Statistics": "inventorystatistics",
 };
 
 // ============================================
@@ -941,6 +945,7 @@ const app = createApp({
         fnsku: FNSKU,
         fbashipmentinbound: FbaInboundShipment,
         fbmorder: FBMorders,
+        shipment: Shipment,
         notfound: Notfound,
         houseage: Houseage,
         asinlist: ASINList,
@@ -953,6 +958,7 @@ const app = createApp({
         soldlist: Soldlist,
         returnlist: Returnedlist,
         auxiliary: AuxiliaryLabel,
+        inventorystatistics: InventoryStatistics,
     },
 });
 
@@ -964,6 +970,8 @@ import PrimeVue from "primevue/config";
 import Aura from "@primevue/themes/aura";
 import ToastService from "primevue/toastservice";
 import Tooltip from "primevue/tooltip";
+import shipment from "./page/shipment/shipment";
+import InventoryStatistics from "./page/inventoryStatistics/inventoryStatistics.vue";
 
 // ⭐ REGISTER TIME FORMATTER PLUGIN
 app.use(timeFormatterPlugin);

@@ -12,88 +12,91 @@ class OrdersController extends BasetablesController
 {
     use TracksHistory;
 
- public function index(Request $request)
-    {
-        try {
-            $perPage = $request->input('per_page', 10);
-            $search = $request->input('search', '');
-            $location = $request->input('location', 'Orders');
+public function index(Request $request)
+{
+    try {
+        $perPage = $request->input('per_page', 10);
+        $search = $request->input('search', '');
+        $location = $request->input('location', 'Orders');
 
-            // Build query with ASIN join using ASINviewer
-            $productsQuery = DB::table($this->productTable . ' as prod')
-                ->leftJoin($this->asinTable . ' as asin', 'prod.ASINviewer', '=', 'asin.ASIN')
-                ->select([
-                    'prod.*',
-                    'asin.ASIN as asin_code',
-                    DB::raw("COALESCE(
-                        NULLIF(TRIM(asin.system_title), ''), 
-                        NULLIF(TRIM(asin.internal), ''), 
-                        NULLIF(TRIM(prod.ProductTitle), '')
-                    ) as AStitle"),
-                    'asin.internal',
-                    'asin.system_title',
-                    'asin.metakeyword',
-                    'asin.EAN',
-                    'asin.UPC',
-                    'asin.ParentAsin',
-                    'asin.QuantityInside as asin_quantity'
-                ])
-                ->where('prod.ProductModuleLoc', $location);
+        // Build query with ASIN join using ASINviewer
+        $productsQuery = DB::table($this->productTable . ' as prod')
+            ->leftJoin($this->asinTable . ' as asin', 'prod.ASINviewer', '=', 'asin.ASIN')
+            ->select([
+                'prod.*',
+                'asin.ASIN as asin_code',
+                DB::raw("COALESCE(
+                    NULLIF(TRIM(asin.system_title), ''), 
+                    NULLIF(TRIM(asin.internal), ''), 
+                    NULLIF(TRIM(prod.ProductTitle), '')
+                ) as AStitle"),
+                'asin.internal',
+                'asin.system_title',
+                'asin.metakeyword',
+                'asin.EAN',
+                'asin.UPC',
+                'asin.ParentAsin',
+                'asin.QuantityInside as asin_quantity'
+            ])
+            ->where('prod.ProductModuleLoc', $location)
+            // Filter for 2026 data only using orderdate
+            ->whereYear('prod.orderdate', 2026)
+            // Order by orderdate descending
+            ->orderBy('prod.orderdate', 'desc');
 
-            // Apply search filters
-            if (!empty($search)) {
-                $productsQuery->where(function ($q) use ($search) {
-                    $q->where('prod.ProductTitle', 'like', "%{$search}%")
-                        ->orWhere('prod.rtid', 'like', "%{$search}%")
-                        ->orWhere('prod.itemnumber', 'like', "%{$search}%")
-                        ->orWhere('prod.trackingnumber', 'like', "%{$search}%")
-                        ->orWhere('prod.rtcounter', 'like', "%{$search}%")
-                        ->orWhere('prod.ASINviewer', 'like', "%{$search}%")
-                        ->orWhere('asin.ASIN', 'like', "%{$search}%")
-                        ->orWhere('asin.internal', 'like', "%{$search}%")
-                        ->orWhere('asin.system_title', 'like', "%{$search}%")
-                        ->orWhere('asin.metakeyword', 'like', "%{$search}%");
-                });
+        // Apply search filters
+        if (!empty($search)) {
+            $productsQuery->where(function ($q) use ($search) {
+                $q->where('prod.ProductTitle', 'like', "%{$search}%")
+                    ->orWhere('prod.rtid', 'like', "%{$search}%")
+                    ->orWhere('prod.itemnumber', 'like', "%{$search}%")
+                    ->orWhere('prod.trackingnumber', 'like', "%{$search}%")
+                    ->orWhere('prod.rtcounter', 'like', "%{$search}%")
+                    ->orWhere('prod.ASINviewer', 'like', "%{$search}%")
+                    ->orWhere('asin.ASIN', 'like', "%{$search}%")
+                    ->orWhere('asin.internal', 'like', "%{$search}%")
+                    ->orWhere('asin.system_title', 'like', "%{$search}%")
+                    ->orWhere('asin.metakeyword', 'like', "%{$search}%");
+            });
+        }
+
+        $products = $productsQuery->paginate($perPage);
+
+        Log::info('Orders fetched successfully with ASIN join', ['count' => $products->count()]);
+
+        // Transform products to organize data properly
+        $products->getCollection()->transform(function ($product) {
+            // Use asin_code from join, fallback to prod.ASINviewer
+            if (empty($product->asin_code) && !empty($product->ASINviewer)) {
+                $product->asin_code = $product->ASINviewer;
             }
 
-            $products = $productsQuery->paginate($perPage);
+            // Set display ASIN for frontend
+            $product->display_asin = $product->asin_code ?? $product->ASINviewer ?? null;
 
-            Log::info('Orders fetched successfully with ASIN join', ['count' => $products->count()]);
+            // Keep the quantity from ASIN if available
+            $product->asin_quantity_inside = $product->asin_quantity ?? null;
 
-            // Transform products to organize data properly
-            $products->getCollection()->transform(function ($product) {
-                // Use asin_code from join, fallback to prod.ASINviewer
-                if (empty($product->asin_code) && !empty($product->ASINviewer)) {
-                    $product->asin_code = $product->ASINviewer;
-                }
+            // Clean up duplicate fields
+            unset($product->asin_quantity);
 
-                // Set display ASIN for frontend
-                $product->display_asin = $product->asin_code ?? $product->ASINviewer ?? null;
+            return $product;
+        });
 
-                // Keep the quantity from ASIN if available
-                $product->asin_quantity_inside = $product->asin_quantity ?? null;
+        return response()->json($products);
 
-                // Clean up duplicate fields
-                unset($product->asin_quantity);
+    } catch (\Exception $e) {
+        Log::error('Error in OrdersController index', [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
 
-                return $product;
-            });
-
-            return response()->json($products);
-
-        } catch (\Exception $e) {
-            Log::error('Error in OrdersController index', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return response()->json([
-                'error' => 'An error occurred while fetching orders',
-                'message' => $e->getMessage(),
-            ], 500);
-        }
+        return response()->json([
+            'error' => 'An error occurred while fetching orders',
+            'message' => $e->getMessage(),
+        ], 500);
     }
-
+}
  public function updateQuantity(Request $request, $id)
     {
         try {
