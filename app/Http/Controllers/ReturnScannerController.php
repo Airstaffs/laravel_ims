@@ -1414,10 +1414,10 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
             ->where('FNSKU', $baseFnsku)
             ->where('ASIN', $asin)
             ->where('MSKU', $msku)
-             ->where('limit_status', 'false')
             ->where('grading', $grading)
             ->where('storename', $storename)
             ->where('LimitStatus', 'False')
+            ->whereIn('amazon_status', ['Active', 'Notposted'])
             ->lockForUpdate()
             ->first();
 

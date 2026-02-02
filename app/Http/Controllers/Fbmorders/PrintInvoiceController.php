@@ -206,7 +206,7 @@ class PrintInvoiceController extends Controller
                 continue;
             }
 
-            // 1) newest outbound row wins (same as your shipment code)
+            // 1) Find outboundorderitemid for this order-item
             $outboundorderitemid = DB::table('tbloutboundordersitem')
                 ->where('platform_order_id', $amazonOrderId)
                 ->where('platform_order_item_id', $orderItemId)
@@ -218,35 +218,45 @@ class PrintInvoiceController extends Controller
                 continue;
             }
 
-            // 2) get dispensed ProductIDs (these are the CHILD units)
-            $productIds = DB::table('tblorderitemdispense')
-                ->where('orderitemid', $outboundorderitemid)
-                ->orderByDesc('id')
-                ->limit(4)
-                ->pluck('productid')
-                ->filter()
-                ->values()
-                ->all();
+            // 2) get dispensed parent ProductIDs (always parent in your system)
+            $parentProductIds = $this->getDispensedParentProductIds((int) $outboundorderitemid);
 
-            if (!count($productIds)) {
+            if (!count($parentProductIds)) {
                 $result[] = ['OrderItemId' => $orderItemId, 'ASIN' => $asin, 'MSKU' => $msku, 'pairs' => []];
                 continue;
             }
 
-            // 3) pull serial/location from tblproduct for those ProductIDs
+            // 3) resolve printable unit ProductIDs (parent if single, children if multiple)
+            $printProductIds = [];
+            foreach ($parentProductIds as $pid) {
+                $resolved = $this->resolvePrintableProductIdsFromDispensedParent((int) $pid);
+                foreach ($resolved as $rid)
+                    $printProductIds[] = (int) $rid;
+            }
+            $printProductIds = array_values(array_unique(array_filter($printProductIds)));
+
+            if (!count($printProductIds)) {
+                $result[] = ['OrderItemId' => $orderItemId, 'ASIN' => $asin, 'MSKU' => $msku, 'pairs' => []];
+                continue;
+            }
+
+            // 4) pull serial/location from those printable ProductIDs
             $rows = DB::table('tblproduct')
-                ->select('warehouselocation', 'serialnumber')
-                ->whereIn('ProductID', $productIds)
-                ->whereNotNull('warehouselocation')->where('warehouselocation', '<>', '')
-                ->whereNotNull('serialnumber')->where('serialnumber', '<>', '')
+                ->select('ProductID', 'warehouselocation', 'serialnumber')
+                ->whereIn('ProductID', $printProductIds)
                 ->get();
+
+            // keep output order stable by ProductID (optional)
+            $rows = $rows->sortBy('ProductID');
 
             $pairs = [];
             foreach ($rows as $r) {
-                $pairs[] = [
-                    'warehouselocation' => $r->warehouselocation ?? '',
-                    'serialnumber' => $r->serialnumber ?? '',
-                ];
+                $loc = (string) ($r->warehouselocation ?? '');
+                $sn = (string) ($r->serialnumber ?? '');
+                if ($loc === '' || $sn === '')
+                    continue;
+
+                $pairs[] = ['warehouselocation' => $loc, 'serialnumber' => $sn];
             }
 
             $result[] = [
@@ -258,6 +268,52 @@ class PrintInvoiceController extends Controller
         }
 
         return $result;
+    }
+
+    protected function expandToChildProductIds(array $productIds): array
+    {
+        $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds))));
+        if (!count($productIds))
+            return [];
+
+        // Load potential parent rows
+        $rows = DB::table('tblproduct')
+            ->select('ProductID', 'mergeId', 'rtcounter')
+            ->whereIn('ProductID', $productIds)
+            ->get()
+            ->keyBy('ProductID');
+
+        $final = [];
+
+        foreach ($productIds as $pid) {
+            $p = $rows[$pid] ?? null;
+            if (!$p)
+                continue;
+
+            // If NO mergeId => treat as normal child unit
+            if (empty($p->mergeId)) {
+                $final[] = (int) $pid;
+                continue;
+            }
+
+            // If mergeId exists => this is a parent/pack; expand children by mergeTO = rtcounter
+            $rtcounter = (int) ($p->rtcounter ?? 0);
+            if ($rtcounter <= 0)
+                continue;
+
+            $childIds = DB::table('tblproduct')
+                ->where('mergeTO', $rtcounter)
+                ->pluck('ProductID')
+                ->map(fn($x) => (int) $x)
+                ->all();
+
+            foreach ($childIds as $cid) {
+                $final[] = $cid;
+            }
+        }
+
+        $final = array_values(array_unique(array_filter($final)));
+        return $final;
     }
 
     protected function findFnskuByMsku(string $msku, string $store = ''): string
@@ -932,5 +988,65 @@ class PrintInvoiceController extends Controller
         $children = array_values(array_unique(array_filter($children)));
 
         return $children;
+    }
+
+    /**
+     * Given a dispensed ProductID (which is always a "parent" in your system),
+     * return the ProductIDs that should be printed (serial/location):
+     * - If single: return [parent]
+     * - If pack/multiple: return [child1, child2, ...]
+     */
+    protected function resolvePrintableProductIdsFromDispensedParent(int $parentProductId): array
+    {
+        if ($parentProductId <= 0)
+            return [];
+
+        $p = DB::table('tblproduct')
+            ->select('ProductID', 'mergeId', 'rtcounter')
+            ->where('ProductID', $parentProductId)
+            ->first();
+
+        if (!$p)
+            return [];
+
+        // ✅ SINGLE ITEM: no mergeId => parent itself has the serial
+        if (empty($p->mergeId)) {
+            return [(int) $parentProductId];
+        }
+
+        // ✅ MULTIPLE/PACK: mergeId exists => expand children by mergeTO = rtcounter
+        $rt = (int) ($p->rtcounter ?? 0);
+        if ($rt <= 0)
+            return [];
+
+        $childIds = DB::table('tblproduct')
+            ->where('mergeTO', $rt)
+            ->orderBy('ProductID', 'asc') // stable output order (optional)
+            ->pluck('ProductID')
+            ->map(fn($x) => (int) $x)
+            ->all();
+
+        return array_values(array_unique(array_filter($childIds)));
+    }
+
+    /**
+     * For an outboundorderitemid, get the newest dispensed parent ProductID
+     * (or multiple parents if your dispense writes multiple rows - optional).
+     */
+    protected function getDispensedParentProductIds(int $outboundorderitemid): array
+    {
+        if ($outboundorderitemid <= 0)
+            return [];
+
+        // If your dispense can write multiple rows, keep it as "all" (not limit 1).
+        // If it is always 1 row, you can use ->limit(1)
+        return DB::table('tblorderitemdispense')
+            ->where('orderitemid', $outboundorderitemid)
+            ->orderByDesc('id')
+            ->pluck('productid')
+            ->filter()
+            ->map(fn($x) => (int) $x)
+            ->values()
+            ->all();
     }
 }
