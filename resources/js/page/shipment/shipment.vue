@@ -44,46 +44,44 @@
         </div>
 
         <!-- Statistics Cards -->
-        <AnimateDiv :delay="100" class="px-4 mb-4">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                        <i class="pi pi-box"></i>
-                    </div>
-                    <div class="stat-content">
-                        <div class="stat-label">Total Shipments</div>
-                        <div class="stat-value">{{ stats.total_shipments || 0 }}</div>
-                    </div>
+     <AnimateDiv :delay="100" class="stats-container px-4">
+            <div class="stat-card bg-primary-light">
+                <div class="stat-icon bg-primary">
+                    <i class="pi pi-box text-white"></i>
                 </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                        <i class="pi pi-calendar-times"></i>
-                    </div>
-                    <div class="stat-content">
-                        <div class="stat-label">Shipped Today</div>
-                        <div class="stat-value">{{ stats.shipped_today || 0 }}</div>
-                    </div>
+                <div>
+                    <p class="mb-0">Total Shipments</p>
+                    <h5 class="mb-0">{{ stats.total_shipments || 0 }}</h5>
                 </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-                        <i class="pi pi-calendar"></i>
-                    </div>
-                    <div class="stat-content">
-                        <div class="stat-label">This Week</div>
-                        <div class="stat-value">{{ stats.shipped_this_week || 0 }}</div>
-                    </div>
+            </div>
+
+            <div class="stat-card bg-danger-light">
+                <div class="stat-icon bg-danger">
+                    <i class="pi pi-calendar-times text-white"></i>
                 </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
-                        <i class="pi pi-calendar-plus"></i>
-                    </div>
-                    <div class="stat-content">
-                        <div class="stat-label">This Month</div>
-                        <div class="stat-value">{{ stats.shipped_this_month || 0 }}</div>
-                    </div>
+                <div>
+                    <p class="mb-0">Shipped Today</p>
+                    <h5 class="mb-0">{{ stats.shipped_today || 0 }}</h5>
+                </div>
+            </div>
+
+            <div class="stat-card bg-info-light">
+                <div class="stat-icon bg-info">
+                    <i class="pi pi-calendar text-white"></i>
+                </div>
+                <div>
+                    <p class="mb-0">This Week</p>
+                    <h5 class="mb-0">{{ stats.shipped_this_week || 0 }}</h5>
+                </div>
+            </div>
+
+            <div class="stat-card bg-success-light">
+                <div class="stat-icon bg-success">
+                    <i class="pi pi-calendar-plus text-white"></i>
+                </div>
+                <div>
+                    <p class="mb-0">This Month</p>
+                    <h5 class="mb-0">{{ stats.shipped_this_month || 0 }}</h5>
                 </div>
             </div>
         </AnimateDiv>
@@ -144,6 +142,8 @@
                 dataKey="product_id"
                 scrollable 
                 scrollHeight="600px"
+                :key="'shipment-table'"
+
             >
                 <template #productInfo="{ data }">
                     <div class="d-flex flex-column gap-2">
@@ -600,12 +600,7 @@ const TABLE_COLUMNS = [
         bodyStyle: "font-size: 14px",
         style: { minWidth: "18rem" }
     },
-    {
-        header: "Actions",
-        slot: "actions",
-        bodyStyle: "font-size: 14px",
-        style: { minWidth: "10rem" }
-    }
+
 ];
 
 export default {

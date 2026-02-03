@@ -95,6 +95,29 @@
             </div>
         </template>
 
+
+        <template #tracking="{ data }">
+            <div class="tracking-cell">
+                <!-- Tracking Number -->
+                <div class="tracking-number">
+                    <i class="pi pi-box text-muted me-1" style="font-size: 0.8rem"></i>
+                    <span v-if="data.trackingnumber">{{ data.trackingnumber }}</span>
+                    <span v-else class="text-muted small">No tracking</span>
+                </div>
+                
+                <!-- Delivery Status -->
+                <div class="delivery-status mt-1">
+                    <Badge
+                        v-if="data.delivery_status"
+                        :severity="getDeliveryStatusSeverity(data.delivery_status)"
+                        :value="data.delivery_status"
+                        size="small"
+                    />
+                    <span v-else class="text-muted small">Status unknown</span>
+                </div>
+            </div>
+        </template>
+
         <!-- Order Date Column -->
         <template #orderdate="{ data }">
             {{ convertToLocalDate(data.orderdate) }}
@@ -203,14 +226,23 @@
                                 {{ item.Ebay_seller_location }}</span
                             >
                         </div>
-                        <div class="mobile-detail-row mb-2">
-                            <span class="mobile-detail-label"
-                                >Tracking Number:</span
-                            >
+                        
+                     <div class="mobile-detail-row mb-2">
+                        <span class="mobile-detail-label">Tracking Number:</span>
+                        <div class="d-flex flex-column align-items-end">
                             <span class="mobile-detal-value">
-                                {{ item.trackingnumber }}</span
-                            >
+                                {{ item.trackingnumber || 'No tracking' }}
+                            </span>
+                            <Badge
+                                v-if="item.delivery_status"
+                                :severity="getDeliveryStatusSeverity(item.delivery_status)"
+                                :value="item.delivery_status"
+                                size="small"
+                                class="mt-1"
+                            />
                         </div>
+                    </div>
+                    
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label"
                                 >Ordered Condition:</span
@@ -935,10 +967,11 @@ const TABLE_COLUMNS = [
     },
     {
         field: "trackingnumber",
-        header: "Tracking Number",
+        header: "Tracking & Status", // UPDATED HEADER
         sortable: true,
         headerStyle: "font-size: 16px;",
-        style: { fontSize: "14px" },
+        slot: "tracking", // ADD SLOT
+        style: { fontSize: "14px", minWidth: "180px" }, // INCREASED WIDTH
     },
     {
         field: "listedcondition",
@@ -1094,6 +1127,25 @@ export default {
         },
     },
     methods: {
+
+
+         getDeliveryStatusSeverity(status) {
+            const statusMap = {
+                'Delivered': 'success',
+                'In Transit': 'info',
+                'Awaiting Shipment': 'warning',
+                'Payment Pending': 'secondary',
+                'Delivery Exception': 'danger',
+                'Cancelled': 'danger',
+                'Refunded': 'danger',
+                'Not Found': 'secondary',
+                'Unknown': 'secondary',
+                'Active': 'info',
+                'Delivered (Estimated)': 'success'
+            };
+            
+            return statusMap[status] || 'secondary';
+        },
 
         openIncomingCounter() {
             this.showIncomingCounter = true;

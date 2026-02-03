@@ -42,6 +42,7 @@ class ShipmentController extends Controller
                 ->select(
                     'p.ProductID',
                     'p.FNSKUviewer',
+                    'p.MSKUviewer',
                     'p.warehouseLocation',
                     'p.serialNumber',
                     'p.rtCounter',
@@ -76,24 +77,26 @@ class ShipmentController extends Controller
                     'o.ship_date',
                     'o.delivery_date'
                 )
-                ->leftJoin('tblfnsku as fnsku', function($join) {
-                    $join->on(DB::raw("REPLACE(p.FNSKUviewer, 'C0', '')"), '=', DB::raw("REPLACE(fnsku.FNSKU, 'C0', '')"));
-                })
+                // Join by MSKU instead of FNSKU to avoid duplicates (like Labeling controller)
+                ->leftJoin('tblfnsku as fnsku', 'p.MSKUviewer', '=', 'fnsku.MSKU')
                 ->leftJoin('tblasin as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                 ->leftJoin('tblorderitemdispense as d', 'p.ProductID', '=', 'd.productid')
                 ->leftJoin('tbloutboundordersitem as oi', 'd.orderitemid', '=', 'oi.outboundorderitemid')
                 ->leftJoin('tbloutboundorders as o', 'oi.platform_order_id', '=', 'o.platform_order_id')
-                ->where('p.ProductModuleLoc', 'Shipment');
+                ->where('p.ProductModuleLoc', 'Shipment')
+                ->distinct();
             
             // Apply search filter
             if (!empty($search)) {
                 $query->where(function($q) use ($search) {
                     $q->where('p.ProductID', 'LIKE', "%{$search}%")
                       ->orWhere('p.FNSKUviewer', 'LIKE', "%{$search}%")
+                      ->orWhere('p.MSKUviewer', 'LIKE', "%{$search}%")
                       ->orWhere('p.serialNumber', 'LIKE', "%{$search}%")
                       ->orWhere('p.rtCounter', 'LIKE', "%{$search}%")
                       ->orWhere('fnsku.ASIN', 'LIKE', "%{$search}%")
                       ->orWhere('fnsku.MSKU', 'LIKE', "%{$search}%")
+                      ->orWhere('fnsku.FNSKU', 'LIKE', "%{$search}%")
                       ->orWhere('o.platform_order_id', 'LIKE', "%{$search}%")
                       ->orWhere('oi.trackingnumber', 'LIKE', "%{$search}%");
                 });
@@ -142,7 +145,7 @@ class ShipmentController extends Controller
                 return [
                     'product_id' => $shipment->ProductID,
                     'fnsku' => $shipment->FNSKU ?? $shipment->FNSKUviewer,
-                    'msku' => $shipment->MSKU,
+                    'msku' => $shipment->MSKU ?? $shipment->MSKUviewer,
                     'asin' => $shipment->ASIN,
                     'product_title' => $shipment->product_title ?? 'N/A',
                     'warehouse_location' => $shipment->warehouseLocation,
@@ -155,7 +158,7 @@ class ShipmentController extends Controller
                     'condition' => $shipment->condition,
                     'color' => $shipment->color,
                     'stockroom_date' => $shipment->stockroom_insert_date,
-                    'shipment_date' => $shipment->ship_date, // Use ship_date from orders
+                    'shipment_date' => $shipment->ship_date,
                     
                     // Order information
                     'order_id' => $shipment->platform_order_id,
@@ -230,7 +233,7 @@ class ShipmentController extends Controller
                     'o.StateOrRegion',
                     'o.postal_code'
                 )
-                ->leftJoin('tblfnsku as fnsku', DB::raw("REPLACE(p.FNSKUviewer, 'C0', '')"), '=', DB::raw("REPLACE(fnsku.FNSKU, 'C0', '')"))
+                ->leftJoin('tblfnsku as fnsku', 'p.MSKUviewer', '=', 'fnsku.MSKU')
                 ->leftJoin('tblasin as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                 ->leftJoin('tblorderitemdispense as d', 'p.ProductID', '=', 'd.productid')
                 ->leftJoin('tbloutboundordersitem as oi', 'd.orderitemid', '=', 'oi.outboundorderitemid')
@@ -268,7 +271,7 @@ class ShipmentController extends Controller
     {
         try {
             $stores = DB::table('tblproduct as p')
-                ->join('tblfnsku as fnsku', DB::raw("REPLACE(p.FNSKUviewer, 'C0', '')"), '=', DB::raw("REPLACE(fnsku.FNSKU, 'C0', '')"))
+                ->join('tblfnsku as fnsku', 'p.MSKUviewer', '=', 'fnsku.MSKU')
                 ->where('p.ProductModuleLoc', 'Shipment')
                 ->select('fnsku.storename')
                 ->distinct()
@@ -366,7 +369,7 @@ class ShipmentController extends Controller
                     ->get(),
                 
                 'by_store' => DB::table('tblproduct as p')
-                    ->join('tblfnsku as fnsku', DB::raw("REPLACE(p.FNSKUviewer, 'C0', '')"), '=', DB::raw("REPLACE(fnsku.FNSKU, 'C0', '')"))
+                    ->join('tblfnsku as fnsku', 'p.MSKUviewer', '=', 'fnsku.MSKU')
                     ->where('p.ProductModuleLoc', 'Shipment')
                     ->select('fnsku.storename', DB::raw('COUNT(*) as count'))
                     ->groupBy('fnsku.storename')

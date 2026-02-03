@@ -373,6 +373,7 @@ Route::get('/apis/ebay-login', action: function () {
 });
 
 Route::get('/ebay/orders', [EbayController::class, 'fetchOrders']);
+Route::post('/ebay/mark-refunded/{orderId}', [EbayController::class, 'markOrderAsRefunded']);
 
 Route::get('/ebay/orders/cron-automation/{token}', function ($token) {
     if ($token !== env('CRON_SECRET')) {
