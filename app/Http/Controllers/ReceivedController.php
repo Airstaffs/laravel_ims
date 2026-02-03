@@ -352,13 +352,23 @@ class ReceivedController extends BasetablesController
                         'playsound' => 1,
                     ]);
                 } else {
+                                        
+                    // Set designated module location for the product
+                    $materialTypeMap = [
+                        'Inventory'       => 'Labeling',
+                        'Supplies'        => 'Supplies',
+                        'Components'      => 'Components',
+                        'Office Equipment'=> 'Office Equipment',
+                    ];
+
+                    $moduleLocation = $materialTypeMap[$originalProduct->materialtype] ?? null;
                     // Process successfully received item (quantity = 1, no split needed)
                     $updateData = [
                         'serialnumber' => $request->firstSerialNumber,
                         'serialnumberb' => $request->secondSerialNumber,
                         'PCN' => $request->pcnNumber,
                         'basketnumber' => $request->basketNumber,
-                        'ProductModuleLoc' => 'Labeling',
+                        'ProductModuleLoc' => $moduleLocation,
                         'Username' => $user,
                     ];
 
