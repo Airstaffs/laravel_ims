@@ -455,6 +455,7 @@ Route::prefix('api/stockroom')->group(function () {
 
     Route::get('check-serial', [StockroomController::class, 'checkSerial']);
 
+    Route::post('move-back-to-labeling', [StockroomController::class, 'moveBackToLabeling']);
 });
 
 // Routes for Unreceived scanner
@@ -480,10 +481,10 @@ Route::prefix('api/orders')->middleware(['auth'])->group(function () {
     Route::get('products', [OrdersController::class, 'index']);
     Route::post('products', [OrdersController::class, 'store']);
     Route::get('next-product-id', [OrdersController::class, 'getNextProductId']);
-    
+
     // ✅ ADD THIS NEW ROUTE FOR QUANTITY EDITING
     Route::put('products/{id}/quantity', [OrdersController::class, 'updateQuantity']);
-    
+
     Route::patch('{id}/status', [OrdersController::class, 'updateStatus']);
     Route::patch('{id}/tracking', [OrdersController::class, 'updateTracking']);
     Route::delete('{id}', [OrdersController::class, 'destroy']);
@@ -491,7 +492,7 @@ Route::prefix('api/orders')->middleware(['auth'])->group(function () {
     Route::post('set-asin', [OrdersController::class, 'setAsin']);
     Route::post('remove-asin', [OrdersController::class, 'removeAsin']);
 
-        // ✅ NEW: Incoming Counter Routes
+    // ✅ NEW: Incoming Counter Routes
     Route::get('incoming-count', [OrdersController::class, 'getIncomingCount'])
         ->name('orders.incoming.count');
     Route::get('incoming-count-details', [OrdersController::class, 'getIncomingCountDetails'])

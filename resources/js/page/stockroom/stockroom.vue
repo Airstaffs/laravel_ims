@@ -1,31 +1,53 @@
 <template>
     <div class="vue-container stockroom-module">
-
-
         <!-- Scanner Component (with hideButton prop to hide the scanner button) -->
-        <scanner-component scanner-title="Stockroom Scanner" storage-prefix="stockroom" :enable-camera="true"
-            :display-fields="['Serial', 'FNSKU', 'Location', 'Message']" :api-endpoint="'/api/stockroom/process-scan'"
-            :hide-button="true" @process-scan="handleScanProcess" @hardware-scan="handleHardwareScan"
-            @scanner-opened="handleScannerOpened" @scanner-closed="handleScannerClosed"
-            @scanner-reset="handleScannerReset" @mode-changed="handleModeChange" ref="scanner">
-        <template #input-fields>
+        <scanner-component
+            scanner-title="Stockroom Scanner"
+            storage-prefix="stockroom"
+            :enable-camera="true"
+            :display-fields="['Serial', 'FNSKU', 'Location', 'Message']"
+            :api-endpoint="'/api/stockroom/process-scan'"
+            :hide-button="true"
+            @process-scan="handleScanProcess"
+            @hardware-scan="handleHardwareScan"
+            @scanner-opened="handleScannerOpened"
+            @scanner-closed="handleScannerClosed"
+            @scanner-reset="handleScannerReset"
+            @mode-changed="handleModeChange"
+            ref="scanner"
+        >
+            <template #input-fields>
                 <div class="input-group">
                     <label>Serial Number:</label>
-                    <input 
-                        type="text" 
-                        v-model="serialNumber" 
+                    <input
+                        type="text"
+                        v-model="serialNumber"
                         placeholder="Enter Serial Number..."
-                        @input="handleSerialInput" 
-                        @keyup.enter="showManualInput ? (showFnskuField ? focusNextField('fnskuInput') : focusNextField('locationInput')) : processScan()" 
-                        ref="serialNumberInput" 
+                        @input="handleSerialInput"
+                        @keyup.enter="
+                            showManualInput
+                                ? showFnskuField
+                                    ? focusNextField('fnskuInput')
+                                    : focusNextField('locationInput')
+                                : processScan()
+                        "
+                        ref="serialNumberInput"
                     />
                     <!-- ✅ Show checking indicator -->
-                    <div v-if="checkingSerial" class="serial-check-status checking">
+                    <div
+                        v-if="checkingSerial"
+                        class="serial-check-status checking"
+                    >
                         <i class="pi pi-spin pi-spinner"></i> Checking serial...
                     </div>
                     <!-- ✅ Show serial status message -->
-                    <div v-else-if="serialCheckMessage" 
-                        :class="['serial-check-status', serialExists ? 'exists' : 'new']">
+                    <div
+                        v-else-if="serialCheckMessage"
+                        :class="[
+                            'serial-check-status',
+                            serialExists ? 'exists' : 'new',
+                        ]"
+                    >
                         {{ serialCheckMessage }}
                     </div>
                 </div>
@@ -33,78 +55,161 @@
                 <!-- ✅ CONDITIONAL FNSKU FIELD - Only show if serial doesn't exist -->
                 <div class="input-group" v-if="showFnskuField">
                     <label>FNSKU:</label>
-                    <input 
-                        type="text" 
-                        v-model="fnsku" 
-                        placeholder="Enter FNSKU..." 
+                    <input
+                        type="text"
+                        v-model="fnsku"
+                        placeholder="Enter FNSKU..."
                         @input="handleFnskuInput"
-                        @keyup.enter="showManualInput ? focusNextField('locationInput') : processScan()" 
-                        ref="fnskuInput" 
+                        @keyup.enter="
+                            showManualInput
+                                ? focusNextField('locationInput')
+                                : processScan()
+                        "
+                        ref="fnskuInput"
                     />
-                    <div class="fnsku-hint">
-                        ⚠️ Required for new items
-                    </div>
+                    <div class="fnsku-hint">⚠️ Required for new items</div>
                 </div>
 
                 <div class="input-group">
                     <label>Location:</label>
-                    <input 
-                        type="text" 
-                        v-model="locationInput" 
+                    <input
+                        type="text"
+                        v-model="locationInput"
                         placeholder="Enter Location..."
-                        @input="handleLocationInput" 
-                        @keyup.enter="processScan()" 
-                        ref="locationInput" 
+                        @input="handleLocationInput"
+                        @keyup.enter="processScan()"
+                        ref="locationInput"
                     />
                     <div class="container-type-hint">
                         Format: L###X (e.g., L123A) or 'Floor'
                     </div>
                 </div>
 
-                <button v-if="showManualInput" @click="processScan()" class="submit-button">
+                <button
+                    v-if="showManualInput"
+                    @click="processScan()"
+                    class="submit-button"
+                >
                     Submit
                 </button>
             </template>
         </scanner-component>
 
         <!-- <h2 class="module-title">Stockroom Module</h2> -->
-        <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
-            <TitlePage title="Stockroom Module"
-                subtitle="View and manage current inventory data, product details, and fulfillment methods for items in stock." />
-            <div class="d-flex justify-content-center gap-4 mx-4 flex-wrap desktop-view">
-                <Button size="small" severity="secondary" outlined @click="openScannerModal" label="Scan Items"
-                    icon="pi pi-barcode" />
-                <Button size="small" severity="secondary" outlined @click="loadFBAInboundShipment"
-                    label="FBA Inbound Shipment" icon="pi pi-truck" />
+        <div
+            class="d-flex align-items-center justify-content-between flex-wrap mb-4"
+        >
+            <TitlePage
+                title="Stockroom Module"
+                subtitle="View and manage current inventory data, product details, and fulfillment methods for items in stock."
+            />
+            <div
+                class="d-flex justify-content-center gap-4 mx-4 flex-wrap desktop-view"
+            >
+                <Button
+                    size="small"
+                    severity="secondary"
+                    outlined
+                    @click="openScannerModal"
+                    label="Scan Items"
+                    icon="pi pi-barcode"
+                />
+                <Button
+                    size="small"
+                    severity="secondary"
+                    outlined
+                    @click="loadFBAInboundShipment"
+                    label="FBA Inbound Shipment"
+                    icon="pi pi-truck"
+                />
 
-                <OverlayBadge v-if="shouldShowBadge" :value="displayCount" severity="danger">
-                    <Button :title="`${newScannedCount} new items scanned today (US time)`" size="small"
-                        severity="secondary" outlined @click="showNewScannedModal = true" icon="pi pi-barcode"
-                        label="New Scanned">
+                <OverlayBadge
+                    v-if="shouldShowBadge"
+                    :value="displayCount"
+                    severity="danger"
+                >
+                    <Button
+                        :title="`${newScannedCount} new items scanned today (US time)`"
+                        size="small"
+                        severity="secondary"
+                        outlined
+                        @click="showNewScannedModal = true"
+                        icon="pi pi-barcode"
+                        label="New Scanned"
+                    >
                     </Button>
                 </OverlayBadge>
 
-                <Button v-else :title="`${newScannedCount} new items scanned today (US time)`" size="small"
-                    severity="secondary" outlined @click="showNewScannedModal = true" icon="pi pi-barcode"
-                    label="New Scanned">
+                <Button
+                    v-else
+                    :title="`${newScannedCount} new items scanned today (US time)`"
+                    size="small"
+                    severity="secondary"
+                    outlined
+                    @click="showNewScannedModal = true"
+                    icon="pi pi-barcode"
+                    label="New Scanned"
+                >
                 </Button>
-                <Button size="small" severity="secondary" outlined @click="openDs7Oos" label="Open DS7 & OO" />
+                <Button
+                    size="small"
+                    severity="secondary"
+                    outlined
+                    @click="openDs7Oos"
+                    label="Open DS7 & OO"
+                />
             </div>
 
             <div class="mobile-view w-100 ms-2">
-                <OverlayBadge v-if="shouldShowBadge" class=" w-100" severity="danger">
-                    <Button label="More Actions" fluid size="small" severity="secondary" outlined icon="pi pi-list"
-                        @click="toggle($event)" aria-haspopup="true" aria-controls="overlay_menu" />
+                <OverlayBadge
+                    v-if="shouldShowBadge"
+                    class="w-100"
+                    severity="danger"
+                >
+                    <Button
+                        label="More Actions"
+                        fluid
+                        size="small"
+                        severity="secondary"
+                        outlined
+                        icon="pi pi-list"
+                        @click="toggle($event)"
+                        aria-haspopup="true"
+                        aria-controls="overlay_menu"
+                    />
                 </OverlayBadge>
-                <Button v-else label="More Actions" fluid size="small" severity="secondary" outlined icon="pi pi-list"
-                    @click="toggle($event)" aria-haspopup="true" aria-controls="overlay_menu" />
-                <Menu ref="menu" id="overlay_menu" :model="menuActions" :popup="true">
+                <Button
+                    v-else
+                    label="More Actions"
+                    fluid
+                    size="small"
+                    severity="secondary"
+                    outlined
+                    icon="pi pi-list"
+                    @click="toggle($event)"
+                    aria-haspopup="true"
+                    aria-controls="overlay_menu"
+                />
+                <Menu
+                    ref="menu"
+                    id="overlay_menu"
+                    :model="menuActions"
+                    :popup="true"
+                >
                     <template #item="{ item, props }">
-                        <a v-ripple class="flex align-items-center" v-bind="props.action">
+                        <a
+                            v-ripple
+                            class="flex align-items-center"
+                            v-bind="props.action"
+                        >
                             <span :class="item.icon" />
                             <span class="ml-2">{{ item.label }}</span>
-                            <Badge v-if="item.badge && shouldShowBadge" :value="item.badge" class="ml-auto"
-                                severity="danger" />
+                            <Badge
+                                v-if="item.badge && shouldShowBadge"
+                                :value="item.badge"
+                                class="ml-auto"
+                                severity="danger"
+                            />
                         </a>
                     </template>
                 </Menu>
@@ -117,7 +222,7 @@
                     <i class="pi pi-hashtag text-white"></i>
                 </div>
                 <div>
-                    <p class="mb-0 ">Total Counts</p>
+                    <p class="mb-0">Total Counts</p>
                     <h5 class="mb-0">{{ inventoryCounts?.total || 0 }}</h5>
                 </div>
             </div>
@@ -127,7 +232,7 @@
                     <i class="pi pi-box text-white"></i>
                 </div>
                 <div>
-                    <p class="mb-0 ">Total QOHs</p>
+                    <p class="mb-0">Total QOHs</p>
                     <h5 class="mb-0">{{ inventoryCounts?.qoh || 0 }}</h5>
                 </div>
             </div>
@@ -137,7 +242,7 @@
                     <i class="pi pi-user text-white"></i>
                 </div>
                 <div>
-                    <p class="mb-0 ">Total FBMs</p>
+                    <p class="mb-0">Total FBMs</p>
                     <h5 class="mb-0">{{ inventoryCounts?.fbm || 0 }}</h5>
                 </div>
             </div>
@@ -147,7 +252,7 @@
                     <i class="pi pi-warehouse text-white"></i>
                 </div>
                 <div>
-                    <p class="mb-0 ">Total FBAs</p>
+                    <p class="mb-0">Total FBAs</p>
                     <h5 class="mb-0">{{ inventoryCounts?.fba || 0 }}</h5>
                 </div>
             </div>
@@ -158,66 +263,136 @@
             <div class="search-container">
                 <fieldset class="d-flex align-items-center gap-1">
                     <label for="moduleFilter">Store</label>
-                    <Select :options="storeOptions" v-model="selectedStore" optionLabel="label" optionValue="value"
-                        size="small" class="select-form" @change="changeStore" placeholder="Select a store" />
+                    <Select
+                        :options="storeOptions"
+                        v-model="selectedStore"
+                        optionLabel="label"
+                        optionValue="value"
+                        size="small"
+                        class="select-form"
+                        @change="changeStore"
+                        placeholder="Select a store"
+                    />
                 </fieldset>
                 <fieldset class="d-flex align-items-center gap-1">
                     <label>Fullfilment</label>
-                    <Select :options="fullfilmentOptions" v-model="availabilityFilter" optionLabel="label"
-                        optionValue="value" size="small" class="select-form" />
+                    <Select
+                        :options="fullfilmentOptions"
+                        v-model="availabilityFilter"
+                        optionLabel="label"
+                        optionValue="value"
+                        size="small"
+                        class="select-form"
+                    />
                 </fieldset>
             </div>
-            <XDataTable :value="sortedInventory" :columns="columns" :paginator="false" tableClass="desktop-view"
-                :loading="loading" selectionMode="multiple" dataKey="ProductID">
+            <XDataTable
+                :value="sortedInventory"
+                :columns="columns"
+                :paginator="false"
+                tableClass="desktop-view"
+                :loading="loading"
+                selectionMode="multiple"
+                dataKey="ProductID"
+            >
                 <template #productName="{ data }">
                     <div class="product-container">
                         <div class="product-image-container clickable">
-                            <img :src="data.useDefaultImage
-                                ? defaultImagePath
-                                : getImagePath(data.ASIN)
-                                " :alt="data.AStitle" class="product-thumbnail" @error="
-                                    handleImageError($event, data)
-                                    " />
+                            <img
+                                :src="
+                                    data.useDefaultImage
+                                        ? defaultImagePath
+                                        : getImagePath(data.ASIN)
+                                "
+                                :alt="data.AStitle"
+                                class="product-thumbnail"
+                                @error="handleImageError($event, data)"
+                            />
                         </div>
-                        <div style="word-break: break-word; white-space: normal; overflow-wrap: break-word; flex: 1;">
+                        <div
+                            style="
+                                word-break: break-word;
+                                white-space: normal;
+                                overflow-wrap: break-word;
+                                flex: 1;
+                            "
+                        >
                             <p class="fw-bold">
-                                 {{ data.display_title || data.system_title || data.AStitle }}
+                                {{
+                                    data.display_title ||
+                                    data.system_title ||
+                                    data.AStitle
+                                }}
                             </p>
                         </div>
                     </div>
                 </template>
                 <template #fnskus="{ data }">
                     <div>
-                        <div class="fnsku-selector" v-if="data.fnskus && data.fnskus.length > 0">
+                        <div
+                            class="fnsku-selector"
+                            v-if="data.fnskus && data.fnskus.length > 0"
+                        >
                             <select class="fnsku-select">
-                                <option v-for="fnsku in data.fnskus" :key="fnsku.FNSKU || fnsku"
-                                    :value="fnsku.FNSKU || fnsku">
+                                <option
+                                    v-for="fnsku in data.fnskus"
+                                    :key="fnsku.FNSKU || fnsku"
+                                    :value="fnsku.FNSKU || fnsku"
+                                >
                                     {{ fnsku.FNSKU || fnsku }}
                                 </option>
                             </select>
-                            <span class="fnsku-count">({{ data.fnskus.length }})</span>
+                            <span class="fnsku-count"
+                                >({{ data.fnskus.length }})</span
+                            >
                         </div>
                         <div v-else>-</div>
                     </div>
                 </template>
                 <template #quantity="{ data }">
-                    <div :class="{
-                        'item-count-cell': true,
-                        'item-count-warning': !data.countValid,
-                    }">
+                    <div
+                        :class="{
+                            'item-count-cell': true,
+                            'item-count-warning': !data.countValid,
+                        }"
+                    >
                         {{ data.item_count }}
-                        <i v-if="!data.countValid" class="fas fa-exclamation-circle"
-                            title="Item count doesn't match serial numbers"></i>
+                        <i
+                            v-if="!data.countValid"
+                            class="fas fa-exclamation-circle"
+                            title="Item count doesn't match serial numbers"
+                        ></i>
                     </div>
                 </template>
                 <template #actions="{ data }">
                     <div class="d-flex flex-column align-items-start">
-                        <Button label="Print" icon="pi pi-print" size="small" severity="contrast" variant="text"
-                            class="text-success" @click="printLabel(data.ProductID)" />
-                        <Button label="More Details" icon="pi pi-info-circle" size="small" severity="contrast"
-                            variant="text" class="text-primary" @click="viewProductDetails(data)" />
-                        <Button label="Process" icon="pi pi-cog" size="small" severity="contrast" variant="text"
-                            class="text-warning" @click="openProcessModal(data)" />
+                        <Button
+                            label="Print"
+                            icon="pi pi-print"
+                            size="small"
+                            severity="contrast"
+                            variant="text"
+                            class="text-success"
+                            @click="printLabel(data.ProductID)"
+                        />
+                        <Button
+                            label="More Details"
+                            icon="pi pi-info-circle"
+                            size="small"
+                            severity="contrast"
+                            variant="text"
+                            class="text-primary"
+                            @click="viewProductDetails(data)"
+                        />
+                        <Button
+                            label="Process"
+                            icon="pi pi-cog"
+                            size="small"
+                            severity="contrast"
+                            variant="text"
+                            class="text-warning"
+                            @click="openProcessModal(data)"
+                        />
                     </div>
                 </template>
             </XDataTable>
@@ -230,24 +405,47 @@
                     <i class="fas fa-spinner fa-spin"></i>
                     Loading...
                 </div>
-                <div v-else-if="sortedInventory.length === 0" class="no-data-mobile">
+                <div
+                    v-else-if="sortedInventory.length === 0"
+                    class="no-data-mobile"
+                >
                     No data found
                 </div>
-                <div class="mobile-card" v-else v-for="(item, index) in sortedInventory" :key="item.ASIN">
+                <div
+                    class="mobile-card"
+                    v-else
+                    v-for="(item, index) in sortedInventory"
+                    :key="item.ASIN"
+                >
                     <div class="mobile-card-header">
                         <div class="mobile-checkbox">
                             <input type="checkbox" v-model="item.checked" />
                         </div>
-                        <div class="mobile-product-image clickable" @click="viewProductImage(item)">
-                            <img :src="item.useDefaultImage
-                                ? defaultImagePath
-                                : getImagePath(item.ASIN)
-                                " :alt="item.AStitle" class="product-thumbnail-mobile"
-                                @error="handleImageError($event, item)" />
+                        <div
+                            class="mobile-product-image clickable"
+                            @click="viewProductImage(item)"
+                        >
+                            <img
+                                :src="
+                                    item.useDefaultImage
+                                        ? defaultImagePath
+                                        : getImagePath(item.ASIN)
+                                "
+                                :alt="item.AStitle"
+                                class="product-thumbnail-mobile"
+                                @error="handleImageError($event, item)"
+                            />
                         </div>
                         <div class="mobile-product-info">
-                            <h6 class="mobile-product-name clickable" @click="viewProductDetails(item)">
-                               {{ item.display_title || item.system_title || item.AStitle }}
+                            <h6
+                                class="mobile-product-name clickable"
+                                @click="viewProductDetails(item)"
+                            >
+                                {{
+                                    item.display_title ||
+                                    item.system_title ||
+                                    item.AStitle
+                                }}
                             </h6>
                         </div>
                     </div>
@@ -259,118 +457,171 @@
                             <span class="mobile-detail-label">ASIN: </span>
                             <span class="mobile-detail-value">{{
                                 item.ASIN
-                                }}</span>
+                            }}</span>
                         </div>
                         <div>
                             <span class="mobile-detail-label">Store: </span>
                             <span class="mobile-detail-value">{{
                                 item.storename
-                                }}</span>
+                            }}</span>
                         </div>
 
-
                         <div>
-                            <span class="mobile-detail-label">Quantity Inside: </span>
-                            <span :class="{
-                                'mobile-detail-value': true,
-                                'item-count-warning': !item.countValid,
-                            }">
+                            <span class="mobile-detail-label"
+                                >Quantity Inside:
+                            </span>
+                            <span
+                                :class="{
+                                    'mobile-detail-value': true,
+                                    'item-count-warning': !item.countValid,
+                                }"
+                            >
                                 <!-- UPDATED: Use the new display logic -->
                                 <template v-if="item.quantity_inside > 1">
-                                    {{ item.unit_count }} units ({{ item.item_count }} qty)
+                                    {{ item.unit_count }} units ({{
+                                        item.item_count
+                                    }}
+                                    qty)
                                 </template>
                                 <template v-else>
                                     {{ item.item_count }}
                                 </template>
-                                <i v-if="!item.countValid" class="fas fa-exclamation-circle"
-                                    title="Unit count doesn't match serial numbers"></i>
+                                <i
+                                    v-if="!item.countValid"
+                                    class="fas fa-exclamation-circle"
+                                    title="Unit count doesn't match serial numbers"
+                                ></i>
                             </span>
                         </div>
 
-
                         <div>
                             <span class="mobile-detail-label">FBM/FBA: </span>
-                            <span class="mobile-detail-value">{{ item.FBMAvailable }} /
-                                {{ item.FbaAvailable }}</span>
+                            <span class="mobile-detail-value"
+                                >{{ item.FBMAvailable }} /
+                                {{ item.FbaAvailable }}</span
+                            >
                         </div>
                         <div>
                             <span class="mobile-detail-label">FNSKUs: </span>
                             <span class="mobile-detail-value">{{
                                 item.fnskus ? item.fnskus.length : 0
-                                }}</span>
+                            }}</span>
                         </div>
                     </div>
 
                     <hr />
 
                     <div class="d-flex flex-nowrap overflow-auto gap-2 pb-3">
-                        <Button @click="printLabel(item.ProductID)" icon="pi pi-print" label="Print"
-                            class="flex-shrink-0" size="small" />
-                        <Button @click="viewProductDetails(item)" icon="pi pi-info-circle" label="More Details"
-                            severity="info" class="flex-shrink-0" size="small" />
-                        <Button @click="openProcessModal(item)" icon="pi pi-cog" label="Process" class="flex-shrink-0"
-                            size="small" severity="warn" />
+                        <Button
+                            @click="printLabel(item.ProductID)"
+                            icon="pi pi-print"
+                            label="Print"
+                            class="flex-shrink-0"
+                            size="small"
+                        />
+                        <Button
+                            @click="viewProductDetails(item)"
+                            icon="pi pi-info-circle"
+                            label="More Details"
+                            severity="info"
+                            class="flex-shrink-0"
+                            size="small"
+                        />
+                        <Button
+                            @click="openProcessModal(item)"
+                            icon="pi pi-cog"
+                            label="Process"
+                            class="flex-shrink-0"
+                            size="small"
+                            severity="warn"
+                        />
                     </div>
 
                     <hr v-if="expandedRows[index]" />
 
-                    <div v-if="expandedRows[index]" class="mobile-expanded-content">
+                    <div
+                        v-if="expandedRows[index]"
+                        class="mobile-expanded-content"
+                    >
                         <div class="mobile-section">
                             <h4>Serial Numbers:</h4>
                             <div class="mobile-serial-list">
-                                <div v-for="serial in item.serials" :key="serial.ProductID" class="mobile-serial-item">
+                                <div
+                                    v-for="serial in item.serials"
+                                    :key="serial.ProductID"
+                                    class="mobile-serial-item"
+                                >
                                     <div class="mobile-serial-detail">
-                                        <span class="mobile-serial-label">Store:</span>
-                                        <span class="mobile-serial-value">{{ serial.storename }}</span>
+                                        <span class="mobile-serial-label"
+                                            >Store:</span
+                                        >
+                                        <span class="mobile-serial-value">{{
+                                            serial.storename
+                                        }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
-                                        <span class="mobile-serial-label">RT#:</span>
+                                        <span class="mobile-serial-label"
+                                            >RT#:</span
+                                        >
                                         <span class="mobile-serial-value">{{
                                             formatRTNumber(
                                                 serial.rtcounter,
-                                                serial.storename
+                                                serial.storename,
                                             )
                                         }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
-                                        <span class="mobile-serial-label">Serial:</span>
+                                        <span class="mobile-serial-label"
+                                            >Serial:</span
+                                        >
                                         <span class="mobile-serial-value">{{
                                             serial.serialnumber
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
-                                        <span class="mobile-serial-label">Location:</span>
+                                        <span class="mobile-serial-label"
+                                            >Location:</span
+                                        >
                                         <span class="mobile-serial-value">{{
                                             serial.warehouselocation
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
-                                        <span class="mobile-serial-label">FNSKU:</span>
+                                        <span class="mobile-serial-label"
+                                            >FNSKU:</span
+                                        >
                                         <span class="mobile-serial-value">{{
                                             serial.FNSKUviewer
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
-                                        <span class="mobile-serial-label">MSKU:</span>
+                                        <span class="mobile-serial-label"
+                                            >MSKU:</span
+                                        >
                                         <span class="mobile-serial-value">{{
                                             serial.MSKU
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
-                                        <span class="mobile-serial-label">Grading:</span>
+                                        <span class="mobile-serial-label"
+                                            >Grading:</span
+                                        >
                                         <span class="mobile-serial-value">{{
                                             serial.display_grading ||
                                             getDisplayGrading(
                                                 serial,
-                                                serial.storename
+                                                serial.storename,
                                             )
                                         }}</span>
                                     </div>
                                 </div>
-                                <div v-if="
-                                    !item.serials ||
-                                    item.serials.length === 0
-                                " class="mobile-empty">
+                                <div
+                                    v-if="
+                                        !item.serials ||
+                                        item.serials.length === 0
+                                    "
+                                    class="mobile-empty"
+                                >
                                     No serial numbers found
                                 </div>
                             </div>
@@ -385,8 +636,14 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" size="small"
-                        optionLabel="label" optionValue="value" />
+                    <Select
+                        v-model="perPage"
+                        @change="changePerPage"
+                        :options="rowsPerPage"
+                        size="small"
+                        optionLabel="label"
+                        optionValue="value"
+                    />
                     <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
                         <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
                             {{ option }}
@@ -395,60 +652,133 @@
                 </div>
 
                 <div class="pagination">
-                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
-                        icon="pi pi-angle-left" size="small" severity="info" />
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
-                        label="Next" icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
+                    <Button
+                        @click="prevPage"
+                        :disabled="currentPage === 1"
+                        class="pagination-button"
+                        label="Back"
+                        icon="pi pi-angle-left"
+                        size="small"
+                        severity="info"
+                    />
+                    <span class="pagination-info"
+                        >Page {{ currentPage }} of {{ totalPages }}</span
+                    >
+                    <Button
+                        @click="nextPage"
+                        :disabled="currentPage === totalPages"
+                        class="pagination-button"
+                        label="Next"
+                        icon="pi pi-angle-right"
+                        size="small"
+                        severity="info"
+                        iconPos="right"
+                    />
                 </div>
             </div>
         </div>
 
         <!-- Process Items Modal (Replaces Move Items Modal) -->
-        <Dialog v-model:visible="showProcessModal" modal header="Process Items" :pt="{
-            root: { class: 'mobile-fullscreen-dialog' }
-        }" :style="{ width: '95%' }">
+        <Dialog
+            v-model:visible="showProcessModal"
+            modal
+            header="Process Items"
+            :pt="{
+                root: { class: 'mobile-fullscreen-dialog' },
+            }"
+            :style="{ width: '95%' }"
+        >
             <div class="process-form">
                 <div class="form-group">
                     <label>Shipment Type:</label>
-                    <Select v-model="processShipmentType" :options="processShipmentTypeOptions" optionLabel="label"
-                        optionValue="value" fluid size="small" />
+                    <Select
+                        v-model="processShipmentType"
+                        :options="processShipmentTypeOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                        fluid
+                        size="small"
+                    />
                 </div>
                 <div class="form-group">
                     <label>Tracking Number:</label>
-                    <InputText type="text" v-model="processTrackingNumber" placeholder="Enter tracking number..." fluid
-                        size="small" />
+                    <InputText
+                        type="text"
+                        v-model="processTrackingNumber"
+                        placeholder="Enter tracking number..."
+                        fluid
+                        size="small"
+                    />
                 </div>
                 <div class="form-group">
                     <label>Notes (optional):</label>
-                    <Textarea v-model="processNotes" placeholder="Add notes about this process..." size="small" />
+                    <Textarea
+                        v-model="processNotes"
+                        placeholder="Add notes about this process..."
+                        size="small"
+                    />
                 </div>
                 <div class="form-group" v-if="singleItemSelected">
                     <label>New Location (optional):</label>
-                    <InputText type="text" v-model="processLocation" placeholder="e.g., L123A or Floor" size="small" />
+                    <InputText
+                        type="text"
+                        v-model="processLocation"
+                        placeholder="e.g., L123A or Floor"
+                        size="small"
+                    />
                 </div>
             </div>
-            
+
             <div class="process-item-list">
                 <h3>Items to Process</h3>
                 <div class="process-item-selector">
                     <label class="select-all-checkbox">
-                        <input type="checkbox" v-model="selectAllItems" @change="toggleAllItems" />
+                        <input
+                            type="checkbox"
+                            v-model="selectAllItems"
+                            @change="toggleAllItems"
+                        />
                         <span>Select All</span>
                     </label>
                     <div class="process-items-container">
-                        <div v-for="serial in currentProcessItem.serials" :key="serial.ProductID"
-                            class="process-item-row">
+                        <div
+                            v-for="serial in currentProcessItem.serials"
+                            :key="serial.ProductID"
+                            class="process-item-row"
+                        >
                             <label class="process-item-checkbox">
-                                <input type="checkbox" v-model="selectedItems" :value="serial.ProductID" />
+                                <input
+                                    type="checkbox"
+                                    v-model="selectedItems"
+                                    :value="serial.ProductID"
+                                />
                                 <span>
-                                    [{{ serial.storename }}] 
-                                    {{ formatRTNumber(serial.rtcounter, serial.storename) }} 
-                                    - {{ serial.serialnumber }} 
-                                    - {{ serial.FNSKUviewer }} 
-                                    - {{ serial.display_grading || getDisplayGrading(serial, serial.storename) }}
-                                    - {{ serial.warehouselocation || 'No Location' }}
-                                    <span v-if="serial.mergeID" class="merged-badge">🔗 MERGED</span>
+                                    [{{ serial.storename }}]
+                                    {{
+                                        formatRTNumber(
+                                            serial.rtcounter,
+                                            serial.storename,
+                                        )
+                                    }}
+                                    - {{ serial.serialnumber }} -
+                                    {{ serial.FNSKUviewer }} -
+                                    {{
+                                        serial.display_grading ||
+                                        getDisplayGrading(
+                                            serial,
+                                            serial.storename,
+                                        )
+                                    }}
+                                    -
+                                    {{
+                                        serial.warehouselocation ||
+                                        "No Location"
+                                    }}
+                                    <span
+                                        v-if="serial.mergeID"
+                                        class="merged-badge"
+                                        >🔗 MERGED</span
+                                    >
                                 </span>
                             </label>
                         </div>
@@ -457,132 +787,214 @@
             </div>
 
             <div class="d-flex flex-nowrap overflow-auto gap-2 pb-3 mt-4">
-                <div class="flex-shrink-0"><Button @click="printSelectedItems" :disabled="!hasSelectedItems"
-                        label="Print Selected" icon="pi pi-print" size="small" severity="info" />
-                </div>
-                <div class="flex-shrink-0"><Button @click="updateSelectedLocation" :disabled="!hasSelectedItems"
-                        label="Update Location" icon="pi pi-map-marker" size="small" severity="warn" /></div>
                 <div class="flex-shrink-0">
-                    <Button 
-                        @click="mergeSelectedItems" 
-                        :disabled="!canMergeSelected"
-                        :title="mergeButtonTooltip"
-                        label="Merge Items" 
-                        icon="pi pi-arrow-down-left-and-arrow-up-right-to-center" 
+                    <Button
+                        @click="printSelectedItems"
+                        :disabled="!hasSelectedItems"
+                        label="Print Selected"
+                        icon="pi pi-print"
                         size="small"
-                        severity="info" 
+                        severity="info"
                     />
                 </div>
-             
-                 <!-- NEW: Unmerge Button -->
-                <div class="flex-shrink-0" v-if="isMergedItem">
-                    <Button @click="unmergeItem" :disabled="!canUnmerge || isUnmerging"
-                        :label="isUnmerging ? 'Unmerging...' : 'Unmerge Item'"
-                        icon="pi pi-times-circle" size="small" severity="danger" />
+                <div class="flex-shrink-0">
+                    <Button
+                        @click="updateSelectedLocation"
+                        :disabled="!hasSelectedItems"
+                        label="Update Location"
+                        icon="pi pi-map-marker"
+                        size="small"
+                        severity="warn"
+                    />
                 </div>
-    
+                <div class="flex-shrink-0">
+                    <Button
+                        @click="mergeSelectedItems"
+                        :disabled="!canMergeSelected"
+                        :title="mergeButtonTooltip"
+                        label="Merge Items"
+                        icon="pi pi-arrow-down-left-and-arrow-up-right-to-center"
+                        size="small"
+                        severity="info"
+                    />
+                </div>
 
-                <div class="flex-shrink-0"> <Button @click="submitProcess" :disabled="!isProcessFormValid"
-                        label="Submit Process" icon="pi pi-check" size="small" severity="help" /></div>
-                <div class="flex-shrink-0"> <Button @click="openPostAmazonModal" :disabled="!hasSelectedItems"
-                        label="Post to Amazon" icon="pi pi-check" size="small" severity="secondary" />
+                <!-- Unmerge Button -->
+                <div class="flex-shrink-0" v-if="isMergedItem">
+                    <Button
+                        @click="unmergeItem"
+                        :disabled="!canUnmerge || isUnmerging"
+                        :label="isUnmerging ? 'Unmerging...' : 'Unmerge Item'"
+                        icon="pi pi-times-circle"
+                        size="small"
+                        severity="danger"
+                    />
+                </div>
+
+                <!-- 🔥 NEW: Move Back to Labeling Button -->
+                <div class="flex-shrink-0">
+                    <Button
+                        @click="moveBackToLabeling"
+                        :disabled="!hasSelectedItems || isMovingToLabeling"
+                        :label="
+                            isMovingToLabeling
+                                ? 'Moving...'
+                                : 'Move to Labeling'
+                        "
+                        icon="pi pi-tag"
+                        size="small"
+                        severity="secondary"
+                    />
+                </div>
+
+                <div class="flex-shrink-0">
+                    <Button
+                        @click="submitProcess"
+                        :disabled="!isProcessFormValid"
+                        label="Submit Process"
+                        icon="pi pi-check"
+                        size="small"
+                        severity="help"
+                    />
+                </div>
+                <div class="flex-shrink-0">
+                    <Button
+                        @click="openPostAmazonModal"
+                        :disabled="!hasSelectedItems"
+                        label="Post to Amazon"
+                        icon="pi pi-check"
+                        size="small"
+                        severity="secondary"
+                    />
                 </div>
             </div>
         </Dialog>
 
         <!-- Product Details Modal -->
-        <Dialog v-model:visible="showProductDetailsModal" modal :style="{ width: '95%' }" header="Product Details" :pt="{
-            root: { class: 'mobile-fullscreen-dialog' }
-        }">
+        <Dialog
+            v-model:visible="showProductDetailsModal"
+            modal
+            :style="{ width: '95%' }"
+            header="Product Details"
+            :pt="{
+                root: { class: 'mobile-fullscreen-dialog' },
+            }"
+        >
             <div class="product-details-layout">
                 <div class="product-details-left">
-                    <div class="product-details-image clickable" @click="enlargeImage = !enlargeImage">
-                        <img :src="selectedProduct.useDefaultImage
-                            ? defaultImagePath
-                            : getImagePath(selectedProduct.ASIN)
-                            " :alt="selectedProduct.AStitle" :class="[
+                    <div
+                        class="product-details-image clickable"
+                        @click="enlargeImage = !enlargeImage"
+                    >
+                        <img
+                            :src="
+                                selectedProduct.useDefaultImage
+                                    ? defaultImagePath
+                                    : getImagePath(selectedProduct.ASIN)
+                            "
+                            :alt="selectedProduct.AStitle"
+                            :class="[
                                 'product-details-thumbnail',
                                 enlargeImage ? 'enlarged' : '',
-                            ]" @error="
-                                handleImageError(
-                                    $event,
-                                    selectedProduct
-                                )
-                                " />
+                            ]"
+                            @error="handleImageError($event, selectedProduct)"
+                        />
                     </div>
                     <div class="product-details-info">
                         <h3 class="product-details-title">
-                            {{ selectedProduct.display_title || selectedProduct.system_title || selectedProduct.AStitle }}
+                            {{
+                                selectedProduct.display_title ||
+                                selectedProduct.system_title ||
+                                selectedProduct.AStitle
+                            }}
                         </h3>
                     </div>
                     <div :style="{ fontSize: '14px' }">
                         <div class="product-details-row">
                             <span class="product-details-label">ASIN: </span>
-                            <span class="product-details-value"> {{
-                                selectedProduct.ASIN
-                            }}</span>
+                            <span class="product-details-value">
+                                {{ selectedProduct.ASIN }}</span
+                            >
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">FBM: </span>
-                            <span class="product-details-value"> {{
-                                selectedProduct.FBMAvailable
-                            }}</span>
+                            <span class="product-details-value">
+                                {{ selectedProduct.FBMAvailable }}</span
+                            >
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">FBA: </span>
-                            <span class="product-details-value"> {{
-                                selectedProduct.FbaAvailable
-                            }}</span>
+                            <span class="product-details-value">
+                                {{ selectedProduct.FbaAvailable }}</span
+                            >
                         </div>
                         <div class="product-details-row">
-                            <span class="product-details-label">Outbound: </span>
-                            <span class="product-details-value"> {{
-                                selectedProduct.Outbound
-                            }}</span>
+                            <span class="product-details-label"
+                                >Outbound:
+                            </span>
+                            <span class="product-details-value">
+                                {{ selectedProduct.Outbound }}</span
+                            >
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Inbound: </span>
-                            <span class="product-details-value"> {{
-                                selectedProduct.Inbound
-                            }}</span>
+                            <span class="product-details-value">
+                                {{ selectedProduct.Inbound }}</span
+                            >
                         </div>
                         <div class="product-details-row">
-                            <span class="product-details-label">Unfulfillable: </span>
-                            <span class="product-details-value"> {{
-                                selectedProduct.Unfulfillable
-                            }}</span>
+                            <span class="product-details-label"
+                                >Unfulfillable:
+                            </span>
+                            <span class="product-details-value">
+                                {{ selectedProduct.Unfulfillable }}</span
+                            >
                         </div>
                         <div class="product-details-row">
-                            <span class="product-details-label">Reserved: </span>
-                            <span class="product-details-value"> {{
-                                selectedProduct.Reserved
-                            }}</span>
+                            <span class="product-details-label"
+                                >Reserved:
+                            </span>
+                            <span class="product-details-value">
+                                {{ selectedProduct.Reserved }}</span
+                            >
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Store: </span>
-                            <span class="product-details-value"> {{
-                                selectedProduct.storename
-                            }}</span>
+                            <span class="product-details-value">
+                                {{ selectedProduct.storename }}</span
+                            >
                         </div>
 
                         <div class="product-details-row">
-                            <span class="product-details-label">Quantity Inside: </span>
-                            <span :class="{
-                                'product-details-value': true,
-                                'item-count-warning': !selectedProduct.countValid,
-                            }">
+                            <span class="product-details-label"
+                                >Quantity Inside:
+                            </span>
+                            <span
+                                :class="{
+                                    'product-details-value': true,
+                                    'item-count-warning':
+                                        !selectedProduct.countValid,
+                                }"
+                            >
                                 <!-- UPDATED: Use the new display logic -->
-                                <template v-if="selectedProduct.quantity_inside > 1">
-                                    {{ selectedProduct.unit_count }} units ({{ selectedProduct.item_count }} qty)
+                                <template
+                                    v-if="selectedProduct.quantity_inside > 1"
+                                >
+                                    {{ selectedProduct.unit_count }} units ({{
+                                        selectedProduct.item_count
+                                    }}
+                                    qty)
                                 </template>
                                 <template v-else>
                                     {{ selectedProduct.item_count }}
                                 </template>
-                                <i v-if="!selectedProduct.countValid" class="fas fa-exclamation-circle"
-                                    title="Unit count doesn't match serial numbers"></i>
+                                <i
+                                    v-if="!selectedProduct.countValid"
+                                    class="fas fa-exclamation-circle"
+                                    title="Unit count doesn't match serial numbers"
+                                ></i>
                             </span>
                         </div>
-                                                
                     </div>
                 </div>
                 <div class="product-details-right">
@@ -594,35 +1006,44 @@
                         <template #content>
                             <div>
                                 <div class="product-details-fnskus">
-                                    <div v-for="fnsku in selectedProduct.fnskus" :key="fnsku.FNSKU"
-                                        class="w-100 product-details-fnsku-item">
+                                    <div
+                                        v-for="fnsku in selectedProduct.fnskus"
+                                        :key="fnsku.FNSKU"
+                                        class="w-100 product-details-fnsku-item"
+                                    >
                                         <div class="fnsku-main">
                                             {{ fnsku.FNSKU || fnsku }}
                                         </div>
                                         <div class="fnsku-details">
-                                            <span class="fnsku-detail">Store:
+                                            <span class="fnsku-detail"
+                                                >Store:
                                                 {{
                                                     fnsku.storename || "-"
-                                                }}</span>
-                                            <span class="fnsku-detail">MSKU:
-                                                {{
-                                                    fnsku.MSKU || "-"
-                                                }}</span>
-                                            <span class="fnsku-detail">Grade:
+                                                }}</span
+                                            >
+                                            <span class="fnsku-detail"
+                                                >MSKU:
+                                                {{ fnsku.MSKU || "-" }}</span
+                                            >
+                                            <span class="fnsku-detail"
+                                                >Grade:
                                                 {{
                                                     fnsku.display_grading ||
                                                     getDisplayGrading(
                                                         fnsku,
-                                                        fnsku.storename
+                                                        fnsku.storename,
                                                     )
-                                                }}</span>
+                                                }}</span
+                                            >
                                         </div>
                                     </div>
-                                    <div v-if="
-                                        !selectedProduct.fnskus ||
-                                        selectedProduct.fnskus
-                                            .length === 0
-                                    " class="product-details-empty">
+                                    <div
+                                        v-if="
+                                            !selectedProduct.fnskus ||
+                                            selectedProduct.fnskus.length === 0
+                                        "
+                                        class="product-details-empty"
+                                    >
                                         No FNSKUs found
                                     </div>
                                 </div>
@@ -632,22 +1053,29 @@
 
                     <div class="mt-5 pb-4">
                         <h4>Serial Numbers and Locations</h4>
-                        <XDataTable :value="selectedProduct.serials" :columns="serial_columns" :pagination="false"
-                            tableClass="mt-4" scrollable scrollHeight="15rem">
+                        <XDataTable
+                            :value="selectedProduct.serials"
+                            :columns="serial_columns"
+                            :pagination="false"
+                            tableClass="mt-4"
+                            scrollable
+                            scrollHeight="15rem"
+                        >
                             <template #rtcounter="{ data }">
-                                <p>{{ formatRTNumber(
-                                    data.rtcounter,
-                                    data.storename
-                                ) }}</p>
+                                <p>
+                                    {{
+                                        formatRTNumber(
+                                            data.rtcounter,
+                                            data.storename,
+                                        )
+                                    }}
+                                </p>
                             </template>
                             <template #grading="{ data }">
                                 <p>
                                     {{
                                         data.display_grading ||
-                                        getDisplayGrading(
-                                            data,
-                                            data.storename
-                                        )
+                                        getDisplayGrading(data, data.storename)
                                     }}
                                 </p>
                             </template>
@@ -656,13 +1084,13 @@
                 </div>
             </div>
             <template #footer>
-          <!--    <div class="d-flex gap-2">
+                <!--    <div class="d-flex gap-2">
                     <Button label="Print" icon="pi pi-print" size="small" severity="success"
                         @click="printLabel(selectedProduct.ProductID)" />
                     <Button label="Process" icon="pi pi-cog" size="small" severity="warn"
                         @click="openProcessModal(selectedProduct)" />
                 </div>-->
-            </template> 
+            </template>
         </Dialog>
 
         <!-- Post to Amazon Modal -->
@@ -672,7 +1100,10 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Post to Amazon</h5>
-                    <button class="postAmazon-close" @click="closePostAmazonModal">
+                    <button
+                        class="postAmazon-close"
+                        @click="closePostAmazonModal"
+                    >
                         &times;
                     </button>
                 </div>
@@ -681,9 +1112,17 @@
                     <form @submit.prevent="submitPostToAmazon">
                         <div class="form-group">
                             <label>Marketplace</label>
-                            <input v-model="postForm.marketplace" class="form-control" required />
+                            <input
+                                v-model="postForm.marketplace"
+                                class="form-control"
+                                required
+                            />
                         </div>
-                        <select v-model="postForm.fulfillmentChannel" class="form-control" required>
+                        <select
+                            v-model="postForm.fulfillmentChannel"
+                            class="form-control"
+                            required
+                        >
                             <option disabled value="">
                                 Select Fulfillment Channel
                             </option>
@@ -692,11 +1131,20 @@
                         </select>
                         <div class="form-group">
                             <label>Currency</label>
-                            <input v-model="postForm.currency" class="form-control" required />
+                            <input
+                                v-model="postForm.currency"
+                                class="form-control"
+                                required
+                            />
                         </div>
                         <div class="form-group">
                             <label>Price</label>
-                            <input type="number" v-model="postForm.price" class="form-control" required />
+                            <input
+                                type="number"
+                                v-model="postForm.price"
+                                class="form-control"
+                                required
+                            />
                         </div>
                     </form>
                 </div>
@@ -712,20 +1160,42 @@
         </div>
 
         <!-- New Scanned Items Modal -->
-        <NewScannedItemModal ref="newScannedModal" :show="showNewScannedModal" @close="closeNewScannedModal"
-            @update-count="handleCountUpdate" />
+        <NewScannedItemModal
+            ref="newScannedModal"
+            :show="showNewScannedModal"
+            @close="closeNewScannedModal"
+            @update-count="handleCountUpdate"
+        />
 
         <!-- DS7oos Modal -->
-        <ds7-oos-modal :show="showDs7Oos" :store-options="distinctStores" :initial="dsFilters"
-            @close="showDs7Oos = false" @save="applyDsFilters" />
+        <ds7-oos-modal
+            :show="showDs7Oos"
+            :store-options="distinctStores"
+            :initial="dsFilters"
+            @close="showDs7Oos = false"
+            @save="applyDsFilters"
+        />
         <ScrollTop />
     </div>
 </template>
 
 <script>
 import Stockroom from "./stockroom.js";
-import XDataTable from '../../components/DataTable/XDataTable.vue'
-import { Badge, Button, Card, Dialog, Divider, Drawer, InputText, Menu, OverlayBadge, ScrollTop, Select, Textarea } from "primevue";
+import XDataTable from "../../components/DataTable/XDataTable.vue";
+import {
+    Badge,
+    Button,
+    Card,
+    Dialog,
+    Divider,
+    Drawer,
+    InputText,
+    Menu,
+    OverlayBadge,
+    ScrollTop,
+    Select,
+    Textarea,
+} from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
@@ -770,7 +1240,7 @@ const TABLE_COLUMNS = [
         sortable: true,
         bodyStyle: "font-size: 14px",
     },
-]
+];
 
 const SERIAL_TABLE_COLUMNS = [
     {
@@ -778,37 +1248,37 @@ const SERIAL_TABLE_COLUMNS = [
         header: "Product Number",
         slot: "rtcounter",
         headerStyle: "backgroundColor: #0C81FF; color: #fff",
-        bodyStyle: "fontSize: 14px"
+        bodyStyle: "fontSize: 14px",
     },
     {
         field: "storename",
         header: "Store",
         headerStyle: "backgroundColor: #0C81FF; color: #fff",
-        bodyStyle: "fontSize: 14px"
+        bodyStyle: "fontSize: 14px",
     },
     {
         field: "serialnumber",
         header: "Serial Number",
         headerStyle: "backgroundColor: #0C81FF; color: #fff",
-        bodyStyle: "fontSize: 14px"
+        bodyStyle: "fontSize: 14px",
     },
     {
         field: "warehouselocation",
         header: "Location",
         headerStyle: "backgroundColor: #0C81FF; color: #fff",
-        bodyStyle: "fontSize: 14px"
+        bodyStyle: "fontSize: 14px",
     },
     {
         field: "FNSKUviewer",
         header: "FNSKU",
         headerStyle: "backgroundColor: #0C81FF; color: #fff",
-        bodyStyle: "fontSize: 14px"
+        bodyStyle: "fontSize: 14px",
     },
     {
         field: "MSKU",
         header: "MSKU",
         headerStyle: "backgroundColor: #0C81FF; color: #fff",
-        bodyStyle: "fontSize: 14px"
+        bodyStyle: "fontSize: 14px",
     },
     {
         field: "display_grading",
@@ -817,7 +1287,7 @@ const SERIAL_TABLE_COLUMNS = [
         headerStyle: "backgroundColor: #0C81FF; color: #fff",
         bodyStyle: "fontSize: 14px",
     },
-]
+];
 export default {
     mixins: [Stockroom],
     components: {
@@ -836,7 +1306,7 @@ export default {
         Menu,
         OverlayBadge,
         Badge,
-        AnimateDiv
+        AnimateDiv,
     },
     data() {
         return {
@@ -847,11 +1317,11 @@ export default {
                 { value: "fbm", label: "FBM Only" },
                 { value: "fba", label: "FBA Only" },
                 { value: "both", label: "Both FBM & FBA" },
-                { value: "none", label: "No Availability" }
+                { value: "none", label: "No Availability" },
             ],
             menuActions: [],
-            rowsPerPage: ROWS_PER_PAGE
-        }
+            rowsPerPage: ROWS_PER_PAGE,
+        };
     },
     methods: {
         toggle(event) {
@@ -863,42 +1333,47 @@ export default {
         getMoreActionItems() {
             return [
                 {
-                    label: 'Scan Items',
-                    icon: 'pi pi-barcode',
+                    label: "Scan Items",
+                    icon: "pi pi-barcode",
                     command: () => this.openScannerModal(),
                 },
                 {
-                    label: 'FBA Inbound Shipment',
-                    icon: 'pi pi-truck',
+                    label: "FBA Inbound Shipment",
+                    icon: "pi pi-truck",
                     command: () => this.loadFBAInboundShipment(),
                 },
                 {
-                    label: 'New Scanned',
-                    icon: 'pi pi-barcode',
+                    label: "New Scanned",
+                    icon: "pi pi-barcode",
                     badge: this.displayCount,
                     badgeClass: "p-badge-danger",
-                    command: () => this.showNewScannedModal = true,
+                    command: () => (this.showNewScannedModal = true),
                 },
                 {
-                    label: 'Open DS7 & OO',
-                    icon: 'pi pi-file',
+                    label: "Open DS7 & OO",
+                    icon: "pi pi-file",
                     command: () => this.openDs7Oos(),
-                }
+                },
             ];
         },
     },
     computed: {
         processShipmentTypeOptions() {
-            return [{ label: "For Dispense", value: "For Dispense" }, { label: "For Replacement", value: "For Replacement" }]
+            return [
+                { label: "For Dispense", value: "For Dispense" },
+                { label: "For Replacement", value: "For Replacement" },
+            ];
         },
         storeOptions() {
-            const options = this.stores.map(store => ({ label: store, value: store }))
+            const options = this.stores.map((store) => ({
+                label: store,
+                value: store,
+            }));
 
-            return [{ value: '', label: 'All Stores' }, ...options]
-        }
-    }
-}
-
+            return [{ value: "", label: "All Stores" }, ...options];
+        },
+    },
+};
 </script>
 
 <style scoped>

@@ -50,7 +50,7 @@ export default {
             fnskuStatus: "",
             fnskuNormalized: false,
 
-          // ✅ NEW: Control FNSKU field visibility
+            // ✅ NEW: Control FNSKU field visibility
             showFnskuField: false,
             checkingSerial: false,
             serialExists: false,
@@ -70,8 +70,7 @@ export default {
             selectAllItems: false,
             isProcessing: false,
 
-
-            //printing function 
+            //printing function
             showPrinterSelectionModal: false,
             selectedPrinterForPrint: null,
             availablePrinters: [],
@@ -127,6 +126,8 @@ export default {
             // FNSKU Table
             fnskuSummaries: {},
             isUnmerging: false,
+
+            isMovingToLabeling: false,
         };
     },
     computed: {
@@ -191,6 +192,7 @@ export default {
         hasSelectedItems() {
             return this.selectedItems.length > 0;
         },
+
         // Check if process form is valid for submission
         isProcessFormValid() {
             // Basic validation for processing - require shipment type and tracking number
@@ -200,18 +202,19 @@ export default {
                 this.selectedItems.length > 0
             );
         },
+
         shouldShowBadge() {
-        console.log('🔍 Badge visibility check:', {
-            count: this.newScannedCount,
-            type: typeof this.newScannedCount,
-            isNumber: !isNaN(this.newScannedCount),
-            isGreaterThanZero: this.newScannedCount > 0
-        });
-        
-        // Simple, clear logic
-        const count = Number(this.newScannedCount);
-        return !isNaN(count) && count > 0;
-       },
+            console.log("🔍 Badge visibility check:", {
+                count: this.newScannedCount,
+                type: typeof this.newScannedCount,
+                isNumber: !isNaN(this.newScannedCount),
+                isGreaterThanZero: this.newScannedCount > 0,
+            });
+
+            // Simple, clear logic
+            const count = Number(this.newScannedCount);
+            return !isNaN(count) && count > 0;
+        },
 
         badgeClasses() {
             const count = this.newScannedCount || 0;
@@ -232,140 +235,160 @@ export default {
         },
 
         singlePrinters() {
-                return this.availablePrinters.filter(printer => !printer.is_married);
-            },
+            return this.availablePrinters.filter(
+                (printer) => !printer.is_married,
+            );
+        },
 
-            marriedPrinters() {
-                return this.availablePrinters.filter(printer => printer.is_married);
-            },
+        marriedPrinters() {
+            return this.availablePrinters.filter(
+                (printer) => printer.is_married,
+            );
+        },
 
-            // Group married printers into pairs
-            marriedPrinterGroups() {
-                const married = this.marriedPrinters;
-                const groups = [];
-                const processed = new Set();
-                
-                for (let i = 0; i < married.length; i++) {
-                    const printer = married[i];
-                    
-                    // Skip if already processed
-                    if (processed.has(printer.printerid)) continue;
-                    
-                    // Find its partner (next married printer or itself)
-                    const partner = married[i + 1];
-                    
-                    if (partner && !processed.has(partner.printerid)) {
-                        // Found a pair
-                        groups.push({
-                            label: `${printer.printername_short} & ${partner.printername_short}`,
-                            value: `${printer.printerid},${partner.printerid}` // Store both IDs
-                        });
-                        processed.add(printer.printerid);
-                        processed.add(partner.printerid);
-                    } else {
-                        // Single married printer (no partner found)
-                        groups.push({
-                            label: printer.printername_short,
-                            value: printer.printerid.toString()
-                        });
-                        processed.add(printer.printerid);
-                    }
+        // Group married printers into pairs
+        marriedPrinterGroups() {
+            const married = this.marriedPrinters;
+            const groups = [];
+            const processed = new Set();
+
+            for (let i = 0; i < married.length; i++) {
+                const printer = married[i];
+
+                // Skip if already processed
+                if (processed.has(printer.printerid)) continue;
+
+                // Find its partner (next married printer or itself)
+                const partner = married[i + 1];
+
+                if (partner && !processed.has(partner.printerid)) {
+                    // Found a pair
+                    groups.push({
+                        label: `${printer.printername_short} & ${partner.printername_short}`,
+                        value: `${printer.printerid},${partner.printerid}`, // Store both IDs
+                    });
+                    processed.add(printer.printerid);
+                    processed.add(partner.printerid);
+                } else {
+                    // Single married printer (no partner found)
+                    groups.push({
+                        label: printer.printername_short,
+                        value: printer.printerid.toString(),
+                    });
+                    processed.add(printer.printerid);
                 }
-                
-                return groups;
-            },
+            }
 
+            return groups;
+        },
 
-                isMergedItem() {
-        if (!this.currentProcessItem) {
-            console.log("No current process item");
+        isMergedItem() {
+            if (!this.currentProcessItem) {
+                console.log("No current process item");
+                return false;
+            }
+
+            console.log("Checking if merged item:", this.currentProcessItem);
+
+            // Check multiple possible locations for mergeID
+            // 1. Check at item level
+            if (this.currentProcessItem.mergeID) {
+                console.log(
+                    "Found mergeID at item level:",
+                    this.currentProcessItem.mergeID,
+                );
+                return true;
+            }
+
+            // 2. Check in serials array
+            if (
+                this.currentProcessItem.serials &&
+                this.currentProcessItem.serials.length > 0
+            ) {
+                const hasMergeID = this.currentProcessItem.serials.some(
+                    (serial) => {
+                        const has =
+                            serial.mergeID !== null &&
+                            serial.mergeID !== undefined &&
+                            serial.mergeID !== 0;
+                        if (has) {
+                            console.log(
+                                "Found mergeID in serial:",
+                                serial.ProductID,
+                                "mergeID:",
+                                serial.mergeID,
+                            );
+                        }
+                        return has;
+                    },
+                );
+
+                if (hasMergeID) return true;
+            }
+
+            console.log("No mergeID found - not a merged item");
             return false;
-        }
-        
-        console.log("Checking if merged item:", this.currentProcessItem);
-        
-        // Check multiple possible locations for mergeID
-        // 1. Check at item level
-        if (this.currentProcessItem.mergeID) {
-            console.log("Found mergeID at item level:", this.currentProcessItem.mergeID);
-            return true;
-        }
-        
-        // 2. Check in serials array
-        if (this.currentProcessItem.serials && this.currentProcessItem.serials.length > 0) {
-            const hasMergeID = this.currentProcessItem.serials.some(serial => {
-                const has = serial.mergeID !== null && 
-                           serial.mergeID !== undefined && 
-                           serial.mergeID !== 0;
-                if (has) {
-                    console.log("Found mergeID in serial:", serial.ProductID, "mergeID:", serial.mergeID);
-                }
-                return has;
+        },
+
+        // Check if only one item is selected and it's merged
+        canUnmerge() {
+            const can = this.selectedItems.length === 1 && this.isMergedItem;
+            console.log("Can unmerge?", can, {
+                selectedCount: this.selectedItems.length,
+                isMerged: this.isMergedItem,
             });
-            
-            if (hasMergeID) return true;
-        }
-        
-        console.log("No mergeID found - not a merged item");
-        return false;
-    },
-    
-    // Check if only one item is selected and it's merged
-    canUnmerge() {
-        const can = this.selectedItems.length === 1 && this.isMergedItem;
-        console.log("Can unmerge?", can, {
-            selectedCount: this.selectedItems.length,
-            isMerged: this.isMergedItem
-        });
-        return can;
-    },
+            return can;
+        },
+
         canMergeSelected() {
-        if (this.selectedItems.length < 2) {
-            return false;
-        }
+            if (this.selectedItems.length < 2) {
+                return false;
+            }
 
-        if (!this.currentProcessItem || !this.currentProcessItem.serials) {
-            return false;
-        }
+            if (!this.currentProcessItem || !this.currentProcessItem.serials) {
+                return false;
+            }
 
-        // Get the QuantityInside for the first item
-        const firstSerial = this.currentProcessItem.serials.find(
-            s => s.ProductID === this.selectedItems[0]
-        );
+            // Get the QuantityInside for the first item
+            const firstSerial = this.currentProcessItem.serials.find(
+                (s) => s.ProductID === this.selectedItems[0],
+            );
 
-        if (!firstSerial) {
-            return false;
-        }
+            if (!firstSerial) {
+                return false;
+            }
 
-        const quantityInside = this.currentProcessItem.quantity_inside || 1;
-        const targetPackSize = this.selectedItems.length * quantityInside;
+            const quantityInside = this.currentProcessItem.quantity_inside || 1;
+            const targetPackSize = this.selectedItems.length * quantityInside;
 
-        // Only allow 2-pack or 4-pack
-        const allowedPackSizes = [2, 4];
-        
-        return allowedPackSizes.includes(targetPackSize);
-    },
+            // Only allow 2-pack or 4-pack
+            const allowedPackSizes = [2, 4];
 
-     mergeButtonTooltip() {
-        if (this.selectedItems.length < 2) {
-            return 'Select at least 2 items to merge';
-        }
+            return allowedPackSizes.includes(targetPackSize);
+        },
 
-        if (!this.currentProcessItem) {
-            return 'No items selected';
-        }
+        mergeButtonTooltip() {
+            if (this.selectedItems.length < 2) {
+                return "Select at least 2 items to merge";
+            }
 
-        const quantityInside = this.currentProcessItem.quantity_inside || 1;
-        const targetPackSize = this.selectedItems.length * quantityInside;
+            if (!this.currentProcessItem) {
+                return "No items selected";
+            }
 
-        if (![2, 4].includes(targetPackSize)) {
-            return `Cannot create ${targetPackSize}-pack. Only 2-pack and 4-pack are allowed.\n\nTo create:\n• 2-pack: Select 2 single items\n• 4-pack: Select 4 single items or 2 double items`;
-        }
+            const quantityInside = this.currentProcessItem.quantity_inside || 1;
+            const targetPackSize = this.selectedItems.length * quantityInside;
 
-        return `Merge ${this.selectedItems.length} items into ${targetPackSize}-pack`;
-    }
+            if (![2, 4].includes(targetPackSize)) {
+                return `Cannot create ${targetPackSize}-pack. Only 2-pack and 4-pack are allowed.\n\nTo create:\n• 2-pack: Select 2 single items\n• 4-pack: Select 4 single items or 2 double items`;
+            }
 
-     
+            return `Merge ${this.selectedItems.length} items into ${targetPackSize}-pack`;
+        },
+
+        hasSelectedItems() {
+            return this.selectedItems && this.selectedItems.length > 0;
+        },
     },
     methods: {
         setupDailyReset() {
@@ -374,7 +397,7 @@ export default {
                 const usNow = new Date(
                     now.toLocaleString("en-US", {
                         timeZone: "America/Los_Angeles",
-                    })
+                    }),
                 );
 
                 // Calculate next midnight in US timezone new scan count
@@ -385,13 +408,13 @@ export default {
 
                 console.log(
                     `Next count reset scheduled in ${Math.round(
-                        msUntilMidnight / 1000 / 60
-                    )} minutes (at US midnight)`
+                        msUntilMidnight / 1000 / 60,
+                    )} minutes (at US midnight)`,
                 );
 
                 setTimeout(() => {
                     console.log(
-                        "Daily reset triggered - fetching new count for new day"
+                        "Daily reset triggered - fetching new count for new day",
                     );
                     this.fetchNewScannedCount();
                     // Schedule the next reset
@@ -404,15 +427,18 @@ export default {
         },
 
         // Add this method for better error recovery new scan count
-       async fetchCountWithRetry(maxRetries = 3) {
+        async fetchCountWithRetry(maxRetries = 3) {
             for (let attempt = 1; attempt <= maxRetries; attempt++) {
                 try {
                     console.log(`🔄 Fetch attempt ${attempt}/${maxRetries}`);
-                    
+
                     // CRITICAL FIX: Call refreshNewScannedCount instead of fetchNewScannedCount
                     await this.refreshNewScannedCount();
-                    
-                    console.log(`✅ Success on attempt ${attempt}, count:`, this.newScannedCount);
+
+                    console.log(
+                        `✅ Success on attempt ${attempt}, count:`,
+                        this.newScannedCount,
+                    );
                     return; // Success, exit retry loop
                 } catch (error) {
                     console.log(`⚠️ Attempt ${attempt} failed:`, error.message);
@@ -452,21 +478,21 @@ export default {
 
         // Format the item count to show pack information
         formatItemCount(item) {
-        if (!item) return "0";
+            if (!item) return "0";
 
-        // New logic based on QuantityInside from tblasin
-        const quantityInside = item.quantity_inside || 1;
-        const unitCount = item.unit_count || item.box_count || 0;
-        const totalQuantity = item.item_count || 0;
+            // New logic based on QuantityInside from tblasin
+            const quantityInside = item.quantity_inside || 1;
+            const unitCount = item.unit_count || item.box_count || 0;
+            const totalQuantity = item.item_count || 0;
 
-        if (quantityInside > 1) {
-            // Show units and total quantity
-            return `${unitCount} units (${totalQuantity} qty)`;
-        }
+            if (quantityInside > 1) {
+                // Show units and total quantity
+                return `${unitCount} units (${totalQuantity} qty)`;
+            }
 
-        // For single quantity items, just show the count
-        return totalQuantity.toString();
-    },
+            // For single quantity items, just show the count
+            return totalQuantity.toString();
+        },
 
         // Add a separate method for viewing product image
         viewProductImage(item) {
@@ -477,12 +503,10 @@ export default {
 
         // Regular product details modal
         viewProductDetails(item) {
-    const processedItem = this.applyGradeConversion([item])[0];
-    this.selectedProduct = processedItem;
-    this.showProductDetailsModal = true;
-
-},
-
+            const processedItem = this.applyGradeConversion([item])[0];
+            this.selectedProduct = processedItem;
+            this.showProductDetailsModal = true;
+        },
 
         // Close product details modal
         closeProductDetailsModal() {
@@ -569,7 +593,7 @@ export default {
                     `${API_BASE_URL}/api/stockroom/stores`,
                     {
                         withCredentials: true,
-                    }
+                    },
                 );
                 this.stores = response.data;
             } catch (error) {
@@ -584,30 +608,30 @@ export default {
 
         // Validate the item count against serials
         validateItemCount(item) {
-        if (!item) return true;
+            if (!item) return true;
 
-        // If no serials, just return true
-        if (!item.serials || item.serials.length === 0) {
-            return true;
-        }
+            // If no serials, just return true
+            if (!item.serials || item.serials.length === 0) {
+                return true;
+            }
 
-        // Check if the number of serials matches the unit_count
-        const serialCount = item.serials.length;
-        const unitCount = item.unit_count || item.box_count || 0;
-        
-        return serialCount === unitCount;
-    },
+            // Check if the number of serials matches the unit_count
+            const serialCount = item.serials.length;
+            const unitCount = item.unit_count || item.box_count || 0;
+
+            return serialCount === unitCount;
+        },
 
         convertItemCondition(
             itemCondition,
             storeName,
             asin = null,
             originalGrading = null,
-            asinStatus = null
+            asinStatus = null,
         ) {
             // Normalize store name check
             const isAllrenewed = ["allrenewed", "all renewed"].includes(
-                storeName?.toLowerCase()
+                storeName?.toLowerCase(),
             );
 
             console.log("Converting grade:", {
@@ -668,7 +692,7 @@ export default {
                 "Grade converted from",
                 itemCondition,
                 "to",
-                convertedGrade
+                convertedGrade,
             );
             return convertedGrade;
         },
@@ -696,7 +720,7 @@ export default {
                 store,
                 asin,
                 grading,
-                asinStatus
+                asinStatus,
             );
         },
 
@@ -709,7 +733,7 @@ export default {
                     "Processing item:",
                     item.ASIN || item.asin,
                     "asinStatus:",
-                    item.asinStatus
+                    item.asinStatus,
                 );
 
                 // Convert FNSKUs grades
@@ -720,14 +744,14 @@ export default {
                             fnsku.storename || item.storename,
                             item.ASIN,
                             fnsku.grading,
-                            item.asinStatus // Pass asinStatus to conversion
+                            item.asinStatus, // Pass asinStatus to conversion
                         );
 
                         console.log(
                             "FNSKU grade converted:",
                             fnsku.grading,
                             "->",
-                            convertedGrade
+                            convertedGrade,
                         );
 
                         return {
@@ -745,14 +769,14 @@ export default {
                             serial.storename || item.storename,
                             item.ASIN,
                             serial.grading,
-                            item.asinStatus // Pass asinStatus to conversion
+                            item.asinStatus, // Pass asinStatus to conversion
                         );
 
                         console.log(
                             "Serial grade converted:",
                             serial.grading,
                             "->",
-                            convertedGrade
+                            convertedGrade,
                         );
 
                         return {
@@ -768,128 +792,144 @@ export default {
 
         // Add this method to your methods section:
         calculateInventoryCounts() {
-    let totalCount = 0;  // Number of rows/records
-    let qohCount = 0;    // Sum of all quantities in stockroom
-    let fbmCount = 0;    // Amazon FBM
-    let fbaCount = 0;    // Amazon FBA
+            let totalCount = 0; // Number of rows/records
+            let qohCount = 0; // Sum of all quantities in stockroom
+            let fbmCount = 0; // Amazon FBM
+            let fbaCount = 0; // Amazon FBA
 
-    if (Array.isArray(this.inventory) && this.inventory.length > 0) {
-        this.inventory.forEach((item) => {
-            // ✅ CORRECT: Count each product row
-            totalCount += 1;
+            if (Array.isArray(this.inventory) && this.inventory.length > 0) {
+                this.inventory.forEach((item) => {
+                    // ✅ CORRECT: Count each product row
+                    totalCount += 1;
 
-            // ✅ CORRECT: Sum of all item_count (which includes QuantityInside)
-            qohCount += parseInt(item.item_count || 0);
+                    // ✅ CORRECT: Sum of all item_count (which includes QuantityInside)
+                    qohCount += parseInt(item.item_count || 0);
 
-            // Amazon inventory counts (separate from stockroom)
-            const fbmAvailable = parseInt(item.FBMAvailable || 0);
-            const fbaAvailable = parseInt(item.FbaAvailable || 0);
+                    // Amazon inventory counts (separate from stockroom)
+                    const fbmAvailable = parseInt(item.FBMAvailable || 0);
+                    const fbaAvailable = parseInt(item.FbaAvailable || 0);
 
-            fbmCount += fbmAvailable;
-            fbaCount += fbaAvailable;
-        });
-    }
-
-    this.inventoryCounts = {
-        total: totalCount,      // Number of product records in table
-        qoh: qohCount,          // Total quantity in stockroom (with QuantityInside)
-        fbm: fbmCount,          // Amazon FBM inventory
-        fba: fbaCount,          // Amazon FBA inventory
-    };
-
-    console.log("Inventory counts calculated:", this.inventoryCounts);
-    console.log("- Total product records:", totalCount);
-    console.log("- Total QOH (quantity with QuantityInside):", qohCount);
-},
-
-       getDisplayTitle(item) {
-        if (!item) return '';
-        return item.display_title || item.system_title || item.AStitle || '';
-    },
-
-        // etchInventory with count validation
-       async fetchInventory(forceFresh = false) {
-    this.loading = true;
-    try {
-        console.log("Starting fetchInventory...", forceFresh ? "(FORCE FRESH)" : "");
-
-        const response = await axios.get(
-            `${API_BASE_URL}/api/stockroom/products`,
-            {
-                params: {
-                    search: this.searchQuery,
-                    page: this.currentPage,
-                    per_page: this.perPage,
-                    store: this.selectedStore,
-                    _t: forceFresh ? Date.now() : undefined, // Cache buster for forced refresh
-                },
-                withCredentials: true,
-                headers: {
-                    'Cache-Control': 'no-cache',
-                    'Pragma': 'no-cache',
-                    'Expires': '0',
-                }
+                    fbmCount += fbmAvailable;
+                    fbaCount += fbaAvailable;
+                });
             }
-        );
 
-        console.log("API Response received:", response.data);
-
-        // Initialize items with checked property and useDefaultImage flag
-        let inventoryItems = (response.data.data || []).map((item) => {
-            const itemWithFlags = {
-                ...item,
-                checked: false,
-                serials: item.serials || [],
-                fnskus: item.fnskus || [],
-                useDefaultImage: false,
-                countValid: true,
-
-                quantity_inside: item.quantity_inside || 1,
-                unit_count: item.unit_count || item.box_count || 0,
-                item_count: item.item_count || 0,
-                box_count: item.box_count || item.unit_count || 0,
-
-                display_title: item.display_title || item.system_title || item.AStitle || '',
-                system_title: item.system_title || '',
-                AStitle: item.AStitle || ''
+            this.inventoryCounts = {
+                total: totalCount, // Number of product records in table
+                qoh: qohCount, // Total quantity in stockroom (with QuantityInside)
+                fbm: fbmCount, // Amazon FBM inventory
+                fba: fbaCount, // Amazon FBA inventory
             };
 
-            // Validate the item count
-            itemWithFlags.countValid = this.validateItemCount(itemWithFlags);
+            console.log("Inventory counts calculated:", this.inventoryCounts);
+            console.log("- Total product records:", totalCount);
+            console.log(
+                "- Total QOH (quantity with QuantityInside):",
+                qohCount,
+            );
+        },
 
-            return itemWithFlags;
-        });
+        getDisplayTitle(item) {
+            if (!item) return "";
+            return (
+                item.display_title || item.system_title || item.AStitle || ""
+            );
+        },
 
-        // Apply grade conversion to all items
-        this.inventory = this.applyGradeConversion(inventoryItems);
+        // etchInventory with count validation
+        async fetchInventory(forceFresh = false) {
+            this.loading = true;
+            try {
+                console.log(
+                    "Starting fetchInventory...",
+                    forceFresh ? "(FORCE FRESH)" : "",
+                );
 
-        console.log("Inventory items processed:", this.inventory.length);
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/stockroom/products`,
+                    {
+                        params: {
+                            search: this.searchQuery,
+                            page: this.currentPage,
+                            per_page: this.perPage,
+                            store: this.selectedStore,
+                            _t: forceFresh ? Date.now() : undefined, // Cache buster for forced refresh
+                        },
+                        withCredentials: true,
+                        headers: {
+                            "Cache-Control": "no-cache",
+                            Pragma: "no-cache",
+                            Expires: "0",
+                        },
+                    },
+                );
 
-        this.totalPages = response.data.last_page || 1;
+                console.log("API Response received:", response.data);
 
-        // IMPORTANT: Calculate inventory counts AFTER setting this.inventory
-        this.calculateInventoryCounts();
-        
-        console.log("✅ Inventory refreshed successfully");
-    } catch (error) {
-        console.error("Error fetching inventory data:", error);
+                // Initialize items with checked property and useDefaultImage flag
+                let inventoryItems = (response.data.data || []).map((item) => {
+                    const itemWithFlags = {
+                        ...item,
+                        checked: false,
+                        serials: item.serials || [],
+                        fnskus: item.fnskus || [],
+                        useDefaultImage: false,
+                        countValid: true,
 
-        // Initialize with empty data on error
-        this.inventory = [];
-        this.inventoryCounts = {
-            total: 0,
-            qoh: 0,
-            fbm: 0,
-            fba: 0,
-        };
+                        quantity_inside: item.quantity_inside || 1,
+                        unit_count: item.unit_count || item.box_count || 0,
+                        item_count: item.item_count || 0,
+                        box_count: item.box_count || item.unit_count || 0,
 
-        if (SoundService && SoundService.error) {
-            SoundService.error();
-        }
-    } finally {
-        this.loading = false;
-    }
-     },
+                        display_title:
+                            item.display_title ||
+                            item.system_title ||
+                            item.AStitle ||
+                            "",
+                        system_title: item.system_title || "",
+                        AStitle: item.AStitle || "",
+                    };
+
+                    // Validate the item count
+                    itemWithFlags.countValid =
+                        this.validateItemCount(itemWithFlags);
+
+                    return itemWithFlags;
+                });
+
+                // Apply grade conversion to all items
+                this.inventory = this.applyGradeConversion(inventoryItems);
+
+                console.log(
+                    "Inventory items processed:",
+                    this.inventory.length,
+                );
+
+                this.totalPages = response.data.last_page || 1;
+
+                // IMPORTANT: Calculate inventory counts AFTER setting this.inventory
+                this.calculateInventoryCounts();
+
+                console.log("✅ Inventory refreshed successfully");
+            } catch (error) {
+                console.error("Error fetching inventory data:", error);
+
+                // Initialize with empty data on error
+                this.inventory = [];
+                this.inventoryCounts = {
+                    total: 0,
+                    qoh: 0,
+                    fbm: 0,
+                    fba: 0,
+                };
+
+                if (SoundService && SoundService.error) {
+                    SoundService.error();
+                }
+            } finally {
+                this.loading = false;
+            }
+        },
 
         // Pagination methods
         changePerPage() {
@@ -948,17 +988,17 @@ export default {
             const processedItem = this.applyGradeConversion([item])[0];
             this.currentProcessItem = processedItem;
 
-
-             // DEBUG: Log the item structure
-                console.log("Opening process modal for item:", processedItem);
-                console.log("Item serials:", processedItem.serials);
-                console.log("Checking for mergeID in serials:", 
-                    processedItem.serials?.map(s => ({ 
-                        ProductID: s.ProductID, 
-                        mergeID: s.mergeID,
-                        rtcounter: s.rtcounter
-                    }))
-                );
+            // DEBUG: Log the item structure
+            console.log("Opening process modal for item:", processedItem);
+            console.log("Item serials:", processedItem.serials);
+            console.log(
+                "Checking for mergeID in serials:",
+                processedItem.serials?.map((s) => ({
+                    ProductID: s.ProductID,
+                    mergeID: s.mergeID,
+                    rtcounter: s.rtcounter,
+                })),
+            );
 
             this.showProcessModal = true;
             this.processShipmentType = "For Dispense";
@@ -983,7 +1023,7 @@ export default {
                 this.$nextTick(() => {
                     // Focus and select all text in the location field for easy editing
                     const locationInput = document.querySelector(
-                        '.process-modal .form-control[placeholder="e.g., L123A or Floor"]'
+                        '.process-modal .form-control[placeholder="e.g., L123A or Floor"]',
                     );
                     if (locationInput) {
                         locationInput.focus();
@@ -1004,7 +1044,7 @@ export default {
             if (this.selectAllItems) {
                 // Select all items
                 this.selectedItems = this.currentProcessItem.serials.map(
-                    (serial) => serial.ProductID
+                    (serial) => serial.ProductID,
                 );
 
                 // Clear location field when multiple items are selected
@@ -1044,16 +1084,16 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 if (response.data.success) {
                     // Show success message
                     alert(
-                        `Successfully processed ${this.selectedItems.length} items`
+                        `Successfully processed ${this.selectedItems.length} items`,
                     );
                     this.closeProcessModal();
                     // Refresh inventory
@@ -1063,7 +1103,7 @@ export default {
                     alert(
                         `Error: ${
                             response.data.message || "Failed to process items"
-                        }`
+                        }`,
                     );
                 }
             } catch (error) {
@@ -1123,10 +1163,10 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 if (response.data.success) {
@@ -1134,7 +1174,7 @@ export default {
                     const itemCount = this.selectedItems.length;
                     const itemText = itemCount === 1 ? "item" : "items";
                     alert(
-                        `Location updated successfully for ${itemCount} ${itemText}`
+                        `Location updated successfully for ${itemCount} ${itemText}`,
                     );
 
                     this.closeProcessModal();
@@ -1144,7 +1184,7 @@ export default {
                     alert(
                         `Error: ${
                             response.data.message || "Failed to update location"
-                        }`
+                        }`,
                     );
                 }
             } catch (error) {
@@ -1154,7 +1194,7 @@ export default {
                     alert(
                         `Failed to update location: ${
                             error.response.data.message || "Unknown error"
-                        }`
+                        }`,
                     );
                 } else {
                     alert("Failed to update location. Please try again.");
@@ -1164,348 +1204,411 @@ export default {
             }
         },
 
-         // printer functions 
+        // printer functions
 
-    savePrinterPreference(printerId) {
-    try {
-        // Convert to string to ensure consistency
-        const printerIdString = printerId.toString();
-        localStorage.setItem('preferred_printer_id', printerIdString);
-        this.rememberedPrinterId = printerIdString;
-        console.log('Saved printer preference:', printerIdString);
-    } catch (error) {
-        console.error('Error saving printer preference:', error);
-    }
-},
-
-    /**
-     * Load printer preference from localStorage
-     */
-    loadPrinterPreference() {
-        try {
-            const savedPrinterId = localStorage.getItem('preferred_printer_id');
-            if (savedPrinterId) {
-                this.rememberedPrinterId = savedPrinterId;
-                console.log('Loaded printer preference:', savedPrinterId);
-                return savedPrinterId;
+        savePrinterPreference(printerId) {
+            try {
+                // Convert to string to ensure consistency
+                const printerIdString = printerId.toString();
+                localStorage.setItem("preferred_printer_id", printerIdString);
+                this.rememberedPrinterId = printerIdString;
+                console.log("Saved printer preference:", printerIdString);
+            } catch (error) {
+                console.error("Error saving printer preference:", error);
             }
-        } catch (error) {
-            console.error('Error loading printer preference:', error);
-        }
-        return null;
-    },
+        },
 
-    /**
-     * Clear printer preference
-     */
-   clearPrinterPreference() {
-        try {
-            localStorage.removeItem('preferred_printer_id');
-            this.rememberedPrinterId = null;
-            this.selectedPrinterForPrint = null; // Clear the dropdown selection
-            console.log('Cleared printer preference');
-            
-            // Don't show alert if called automatically due to invalid printer
-            if (this.showPrinterSelectionModal) {
-                alert('Printer preference cleared. Please select a printer.');
+        /**
+         * Load printer preference from localStorage
+         */
+        loadPrinterPreference() {
+            try {
+                const savedPrinterId = localStorage.getItem(
+                    "preferred_printer_id",
+                );
+                if (savedPrinterId) {
+                    this.rememberedPrinterId = savedPrinterId;
+                    console.log("Loaded printer preference:", savedPrinterId);
+                    return savedPrinterId;
+                }
+            } catch (error) {
+                console.error("Error loading printer preference:", error);
             }
-        } catch (error) {
-            console.error('Error clearing printer preference:', error);
-        }
-    },
+            return null;
+        },
 
-   // Print selected items
-  async printSelectedItems() {
-    if (!this.hasSelectedItems) {
-        alert("Please select at least one item to print.");
-        return;
-    }
+        /**
+         * Clear printer preference
+         */
+        clearPrinterPreference() {
+            try {
+                localStorage.removeItem("preferred_printer_id");
+                this.rememberedPrinterId = null;
+                this.selectedPrinterForPrint = null; // Clear the dropdown selection
+                console.log("Cleared printer preference");
 
-    // Get serial numbers for selected items
-    this.selectedItemsForPrint = [];
-    
-    for (const itemId of this.selectedItems) {
-        const serial = this.currentProcessItem.serials.find(
-            s => s.ProductID === itemId
-        );
-        
-        if (serial && serial.serialnumber) {
-            this.selectedItemsForPrint.push({
-                productId: itemId,
-                serialNumber: serial.serialnumber,
-                rtCounter: serial.rtcounter,
-                fnsku: serial.FNSKUviewer
-            });
-        }
-    }
-
-    if (this.selectedItemsForPrint.length === 0) {
-        alert("No valid serial numbers found for selected items.");
-        return;
-    }
-
-    console.log('Items to print:', this.selectedItemsForPrint);
-
-    // IMPORTANT: Fetch available printers FIRST
-    await this.fetchAvailablePrinters();
-    
-    // THEN auto-select remembered printer AFTER printers are loaded
-    const rememberedPrinterId = this.loadPrinterPreference();
-    
-    if (rememberedPrinterId) {
-        console.log('Checking for remembered printer:', rememberedPrinterId);
-        
-        // Check if remembered printer exists in available printers
-        // Handle both single printer IDs and married printer pairs (comma-separated)
-        const printerExists = this.availablePrinters.some(p => {
-            // Check single printer ID
-            if (p.printerid == rememberedPrinterId) {
-                return true;
+                // Don't show alert if called automatically due to invalid printer
+                if (this.showPrinterSelectionModal) {
+                    alert(
+                        "Printer preference cleared. Please select a printer.",
+                    );
+                }
+            } catch (error) {
+                console.error("Error clearing printer preference:", error);
             }
-            // Check married printer pair
-            if (rememberedPrinterId.includes(',')) {
-                const ids = rememberedPrinterId.split(',');
-                return ids.includes(p.printerid.toString());
-            }
-            return false;
-        });
-        
-        // Also check married printer groups
-        const groupExists = this.marriedPrinterGroups.some(g => g.value === rememberedPrinterId);
-        
-        if (printerExists || groupExists) {
-            this.selectedPrinterForPrint = rememberedPrinterId;
-            console.log('Auto-selected remembered printer:', rememberedPrinterId);
-            
-            // Use Vue's nextTick to ensure the DOM is updated
-            this.$nextTick(() => {
-                console.log('Selected printer in dropdown:', this.selectedPrinterForPrint);
-            });
-        } else {
-            console.log('Remembered printer not found in available printers:', rememberedPrinterId);
-            // Clear invalid remembered printer
-            this.clearPrinterPreference();
-        }
-    } else {
-        console.log('No remembered printer found');
-    }
-    
-    // Show printer selection modal
-    this.showPrinterSelectionModal = true;
-},
+        },
 
-    // Close printer selection modal
-    closePrinterSelectionModal() {
-        this.showPrinterSelectionModal = false;
-        this.selectedPrinterForPrint = null;
-        this.selectedItemsForPrint = [];
-        this.printSmallLabelOnly = false;
-    },
+        // Print selected items
+        async printSelectedItems() {
+            if (!this.hasSelectedItems) {
+                alert("Please select at least one item to print.");
+                return;
+            }
+
+            // Get serial numbers for selected items
+            this.selectedItemsForPrint = [];
+
+            for (const itemId of this.selectedItems) {
+                const serial = this.currentProcessItem.serials.find(
+                    (s) => s.ProductID === itemId,
+                );
+
+                if (serial && serial.serialnumber) {
+                    this.selectedItemsForPrint.push({
+                        productId: itemId,
+                        serialNumber: serial.serialnumber,
+                        rtCounter: serial.rtcounter,
+                        fnsku: serial.FNSKUviewer,
+                    });
+                }
+            }
+
+            if (this.selectedItemsForPrint.length === 0) {
+                alert("No valid serial numbers found for selected items.");
+                return;
+            }
+
+            console.log("Items to print:", this.selectedItemsForPrint);
+
+            // IMPORTANT: Fetch available printers FIRST
+            await this.fetchAvailablePrinters();
+
+            // THEN auto-select remembered printer AFTER printers are loaded
+            const rememberedPrinterId = this.loadPrinterPreference();
+
+            if (rememberedPrinterId) {
+                console.log(
+                    "Checking for remembered printer:",
+                    rememberedPrinterId,
+                );
+
+                // Check if remembered printer exists in available printers
+                // Handle both single printer IDs and married printer pairs (comma-separated)
+                const printerExists = this.availablePrinters.some((p) => {
+                    // Check single printer ID
+                    if (p.printerid == rememberedPrinterId) {
+                        return true;
+                    }
+                    // Check married printer pair
+                    if (rememberedPrinterId.includes(",")) {
+                        const ids = rememberedPrinterId.split(",");
+                        return ids.includes(p.printerid.toString());
+                    }
+                    return false;
+                });
+
+                // Also check married printer groups
+                const groupExists = this.marriedPrinterGroups.some(
+                    (g) => g.value === rememberedPrinterId,
+                );
+
+                if (printerExists || groupExists) {
+                    this.selectedPrinterForPrint = rememberedPrinterId;
+                    console.log(
+                        "Auto-selected remembered printer:",
+                        rememberedPrinterId,
+                    );
+
+                    // Use Vue's nextTick to ensure the DOM is updated
+                    this.$nextTick(() => {
+                        console.log(
+                            "Selected printer in dropdown:",
+                            this.selectedPrinterForPrint,
+                        );
+                    });
+                } else {
+                    console.log(
+                        "Remembered printer not found in available printers:",
+                        rememberedPrinterId,
+                    );
+                    // Clear invalid remembered printer
+                    this.clearPrinterPreference();
+                }
+            } else {
+                console.log("No remembered printer found");
+            }
+
+            // Show printer selection modal
+            this.showPrinterSelectionModal = true;
+        },
+
+        // Close printer selection modal
+        closePrinterSelectionModal() {
+            this.showPrinterSelectionModal = false;
+            this.selectedPrinterForPrint = null;
+            this.selectedItemsForPrint = [];
+            this.printSmallLabelOnly = false;
+        },
 
         // Confirm and execute print with selected printer
-  async confirmPrintSelected() {
-        if (!this.selectedPrinterForPrint) {
-            alert("Please select a printer first.");
-            return;
-        }
+        async confirmPrintSelected() {
+            if (!this.selectedPrinterForPrint) {
+                alert("Please select a printer first.");
+                return;
+            }
 
-        if (this.selectedItemsForPrint.length === 0) {
-            alert("No items to print.");
-            return;
-        }
+            if (this.selectedItemsForPrint.length === 0) {
+                alert("No items to print.");
+                return;
+            }
 
-        this.isProcessing = true;
+            this.isProcessing = true;
 
-        try {
-            let successCount = 0;
-            let failCount = 0;
-            const errors = [];
+            try {
+                let successCount = 0;
+                let failCount = 0;
+                const errors = [];
 
-            // Extract the first printer ID as an integer
-            const printerIds = this.selectedPrinterForPrint.includes(',') 
-                ? this.selectedPrinterForPrint.split(',')
-                : [this.selectedPrinterForPrint];
+                // Extract the first printer ID as an integer
+                const printerIds = this.selectedPrinterForPrint.includes(",")
+                    ? this.selectedPrinterForPrint.split(",")
+                    : [this.selectedPrinterForPrint];
 
-            const primaryPrinterId = parseInt(printerIds[0]);
+                const primaryPrinterId = parseInt(printerIds[0]);
 
-            // Save printer preference after successful selection
-            this.savePrinterPreference(this.selectedPrinterForPrint);
+                // Save printer preference after successful selection
+                this.savePrinterPreference(this.selectedPrinterForPrint);
 
-            // Get printer names for display
-            const printerNames = printerIds.map(id => {
-                const printer = this.availablePrinters.find(p => p.printerid == id);
-                return printer ? printer.printername_short : id;
-            }).join(' & ');
+                // Get printer names for display
+                const printerNames = printerIds
+                    .map((id) => {
+                        const printer = this.availablePrinters.find(
+                            (p) => p.printerid == id,
+                        );
+                        return printer ? printer.printername_short : id;
+                    })
+                    .join(" & ");
 
-            console.log(`Starting batch print to ${printerNames}...`);
-            console.log(`Print mode: ${this.printSmallLabelOnly ? 'Small Label Only' : 'Full Label with Instruction Card'}`);
+                console.log(`Starting batch print to ${printerNames}...`);
+                console.log(
+                    `Print mode: ${this.printSmallLabelOnly ? "Small Label Only" : "Full Label with Instruction Card"}`,
+                );
 
-            // Print each selected item
-            for (const item of this.selectedItemsForPrint) {
-                try {
-                    const result = await this.printLabelWithSerial(
-                        item.serialNumber, 
-                        primaryPrinterId,
-                        this.printSmallLabelOnly
-                    );
-                    
-                    if (result.success) {
-                        successCount++;
-                    } else {
+                // Print each selected item
+                for (const item of this.selectedItemsForPrint) {
+                    try {
+                        const result = await this.printLabelWithSerial(
+                            item.serialNumber,
+                            primaryPrinterId,
+                            this.printSmallLabelOnly,
+                        );
+
+                        if (result.success) {
+                            successCount++;
+                        } else {
+                            failCount++;
+                            errors.push(
+                                `${item.serialNumber}: ${result.message}`,
+                            );
+                        }
+                    } catch (error) {
                         failCount++;
-                        errors.push(`${item.serialNumber}: ${result.message}`);
-                    }
-                } catch (error) {
-                    failCount++;
-                    errors.push(`${item.serialNumber}: ${error.message}`);
-                }
-            }
-
-            let message = `Printing completed to ${printerNames}:\n${successCount} successful`;
-            if (failCount > 0) {
-                message += `\n${failCount} failed`;
-                if (errors.length > 0) {
-                    message += `\n\nErrors:\n${errors.slice(0, 3).join('\n')}`;
-                    if (errors.length > 3) {
-                        message += `\n...and ${errors.length - 3} more`;
+                        errors.push(`${item.serialNumber}: ${error.message}`);
                     }
                 }
+
+                let message = `Printing completed to ${printerNames}:\n${successCount} successful`;
+                if (failCount > 0) {
+                    message += `\n${failCount} failed`;
+                    if (errors.length > 0) {
+                        message += `\n\nErrors:\n${errors.slice(0, 3).join("\n")}`;
+                        if (errors.length > 3) {
+                            message += `\n...and ${errors.length - 3} more`;
+                        }
+                    }
+                }
+
+                alert(message);
+
+                this.closePrinterSelectionModal();
+
+                if (failCount === 0) {
+                    this.closeProcessModal();
+                }
+
+                this.fetchInventory();
+            } catch (error) {
+                console.error("Error printing selected items:", error);
+                alert("Error printing items: " + error.message);
+            } finally {
+                this.isProcessing = false;
             }
-
-            alert(message);
-
-            this.closePrinterSelectionModal();
-            
-            if (failCount === 0) {
-                this.closeProcessModal();
-            }
-            
-            this.fetchInventory();
-
-        } catch (error) {
-            console.error('Error printing selected items:', error);
-            alert('Error printing items: ' + error.message);
-        } finally {
-            this.isProcessing = false;
-        }
-    },
+        },
 
         // Print label using serial number (uses existing printer controller)
-       async printLabelWithSerial(serialNumber, printerId, smallLabelOnly = false) {
-        try {
-            console.log('🖨️ printLabelWithSerial called with:', {
-                serialNumber,
-                printerId,
-                smallLabelOnly,
-                smallLabelOnlyType: typeof smallLabelOnly
-            });
+        async printLabelWithSerial(
+            serialNumber,
+            printerId,
+            smallLabelOnly = false,
+        ) {
+            try {
+                console.log("🖨️ printLabelWithSerial called with:", {
+                    serialNumber,
+                    printerId,
+                    smallLabelOnly,
+                    smallLabelOnlyType: typeof smallLabelOnly,
+                });
 
-            const checkResponse = await axios.post(
-                `${API_BASE_URL}/api/printer/check-serial`,
-                { serial_number: serialNumber },
-                {
-                    withCredentials: true,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Accept: 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+                const checkResponse = await axios.post(
+                    `${API_BASE_URL}/api/printer/check-serial`,
+                    { serial_number: serialNumber },
+                    {
+                        withCredentials: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]',
+                            )?.content,
+                        },
                     },
-                }
-            );
+                );
 
-            if (!checkResponse.data.success || !checkResponse.data.meets_print_conditions) {
+                if (
+                    !checkResponse.data.success ||
+                    !checkResponse.data.meets_print_conditions
+                ) {
+                    return {
+                        success: false,
+                        message:
+                            checkResponse.data.message ||
+                            "Item not ready for printing",
+                    };
+                }
+
+                const printPayload = {
+                    serial_number: serialNumber,
+                    printer_id: printerId,
+                    print_data: checkResponse.data,
+                    small_label_only: smallLabelOnly,
+                };
+
+                console.log(
+                    "✅ Check passed, sending to print with payload:",
+                    printPayload,
+                );
+                console.log(
+                    "📦 small_label_only value being sent:",
+                    smallLabelOnly,
+                    "(type:",
+                    typeof smallLabelOnly,
+                    ")",
+                );
+
+                const printResponse = await axios.post(
+                    `${API_BASE_URL}/api/printer/print-label`,
+                    printPayload,
+                    {
+                        withCredentials: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]',
+                            )?.content,
+                        },
+                    },
+                );
+
+                console.log("✅ Print response received:", printResponse.data);
+
+                return printResponse.data;
+            } catch (error) {
+                console.error("❌ Error printing label:", error);
                 return {
                     success: false,
-                    message: checkResponse.data.message || 'Item not ready for printing'
+                    message: error.response?.data?.message || error.message,
                 };
             }
+        },
 
-            const printPayload = {
-                serial_number: serialNumber,
-                printer_id: printerId,
-                print_data: checkResponse.data,
-                small_label_only: smallLabelOnly
-            };
+        // Fetch available printers
+        async fetchAvailablePrinters() {
+            this.loadingPrinters = true;
+            try {
+                console.log("Fetching printers from API...");
 
-            console.log('✅ Check passed, sending to print with payload:', printPayload);
-            console.log('📦 small_label_only value being sent:', smallLabelOnly, '(type:', typeof smallLabelOnly, ')');
-
-            const printResponse = await axios.post(
-                `${API_BASE_URL}/api/printer/print-label`,
-                printPayload,
-                {
-                    withCredentials: true,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Accept: 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/printer/get-printers`,
+                    {
+                        withCredentials: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]',
+                            )?.content,
+                        },
                     },
+                );
+
+                console.log("Printer API response:", response.data);
+
+                if (
+                    response.data &&
+                    response.data.success &&
+                    response.data.printers
+                ) {
+                    this.availablePrinters = response.data.printers;
+                    console.log(
+                        "Available printers loaded:",
+                        this.availablePrinters.length,
+                    );
+
+                    if (this.availablePrinters.length === 0) {
+                        alert(
+                            "No active printers found. Please check printer configuration.",
+                        );
+                    }
+                } else {
+                    console.error(
+                        "Unexpected printer API response format:",
+                        response.data,
+                    );
+                    this.availablePrinters = [];
+                    alert(
+                        "No printers available. Please check printer settings.",
+                    );
                 }
-            );
+            } catch (error) {
+                console.error("Error fetching printers:", error);
+                console.error("Error response:", error.response?.data);
 
-            console.log('✅ Print response received:', printResponse.data);
+                if (error.response) {
+                    alert(
+                        `Failed to fetch printers: ${error.response.data.message || error.response.statusText}`,
+                    );
+                } else {
+                    alert(
+                        "Failed to fetch printers. Please check your connection.",
+                    );
+                }
 
-            return printResponse.data;
-
-        } catch (error) {
-            console.error('❌ Error printing label:', error);
-            return {
-                success: false,
-                message: error.response?.data?.message || error.message
-            };
-        }
-    },
-
-// Fetch available printers
-async fetchAvailablePrinters() {
-    this.loadingPrinters = true;
-    try {
-        console.log('Fetching printers from API...');
-        
-            const response = await axios.get(
-            `${API_BASE_URL}/api/printer/get-printers`,
-            {
-                withCredentials: true,
-                headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector(
-                        'meta[name="csrf-token"]'
-                    )?.content,
-                },
+                this.availablePrinters = [];
+            } finally {
+                this.loadingPrinters = false;
             }
-        );
-
-        console.log('Printer API response:', response.data);
-
-        if (response.data && response.data.success && response.data.printers) {
-            this.availablePrinters = response.data.printers;
-            console.log('Available printers loaded:', this.availablePrinters.length);
-            
-            if (this.availablePrinters.length === 0) {
-                alert('No active printers found. Please check printer configuration.');
-            }
-        } else {
-            console.error('Unexpected printer API response format:', response.data);
-            this.availablePrinters = [];
-            alert('No printers available. Please check printer settings.');
-        }
-        
-    } catch (error) {
-        console.error('Error fetching printers:', error);
-        console.error('Error response:', error.response?.data);
-        
-        if (error.response) {
-            alert(`Failed to fetch printers: ${error.response.data.message || error.response.statusText}`);
-        } else {
-            alert('Failed to fetch printers. Please check your connection.');
-        }
-        
-        this.availablePrinters = [];
-    } finally {
-        this.loadingPrinters = false;
-    }
-},
+        },
 
         // Validate serial number
         validateSerialNumber() {
@@ -1559,7 +1662,7 @@ async fetchAvailablePrinters() {
                     `${API_BASE_URL}/api/stockroom/check-fnsku`,
                     {
                         params: { fnsku: fnsku },
-                    }
+                    },
                 );
 
                 this.fnskuChecking = false;
@@ -1583,7 +1686,7 @@ async fetchAvailablePrinters() {
                     ) {
                         console.log(
                             "Server returned different normalized FNSKU:",
-                            response.data.normalized_fnsku
+                            response.data.normalized_fnsku,
                         );
                         this.fnsku = response.data.normalized_fnsku;
                     }
@@ -1614,11 +1717,11 @@ async fetchAvailablePrinters() {
                 }
             } catch (error) {
                 console.error("Error checking FNSKU:", error);
-                console.log(error, error.status === 409)
-                if(error.status === 409) {
+                console.log(error, error.status === 409);
+                if (error.status === 409) {
                     this.fnskuStatus = "limit_reached";
                 } else {
-                this.fnskuStatus = "error";
+                    this.fnskuStatus = "error";
                 }
                 this.fnskuChecking = false;
                 this.fnskuValid = false;
@@ -1627,92 +1730,91 @@ async fetchAvailablePrinters() {
             }
         },
 
-            async checkSerialExists(serial) {
-        if (!serial || serial.length < 3) {
-            this.showFnskuField = false;
-            this.serialExists = false;
-            this.serialCheckMessage = "";
-            return;
-        }
-
-        try {
-            this.checkingSerial = true;
-            
-            const response = await axios.get(
-                `${API_BASE_URL}/api/stockroom/check-serial`,
-                {
-                    params: { serial: serial },
-                    withCredentials: true,
-                }
-            );
-
-            console.log('Serial check response:', response.data);
-
-            if (response.data.exists) {
-                // ✅ Serial EXISTS in system
-                this.serialExists = true;
-                this.showFnskuField = false; // Hide FNSKU field
-                this.fnsku = ""; // Clear FNSKU input
-                this.serialCheckMessage = `✓ Item found in ${response.data.location}`;
-                
-                console.log('✅ Serial exists - hiding FNSKU field');
-            } else {
-                // ❌ Serial DOESN'T exist (new item)
+        async checkSerialExists(serial) {
+            if (!serial || serial.length < 3) {
+                this.showFnskuField = false;
                 this.serialExists = false;
-                this.showFnskuField = true; // Show FNSKU field
-                this.serialCheckMessage = "⚠ New item - FNSKU required";
-                
-                console.log('❌ Serial not found - showing FNSKU field');
+                this.serialCheckMessage = "";
+                return;
             }
 
-        } catch (error) {
-            console.error('Error checking serial:', error);
-            // On error, show FNSKU field to be safe
-            this.showFnskuField = true;
-            this.serialCheckMessage = "";
-        } finally {
-            this.checkingSerial = false;
-        }
-    },
+            try {
+                this.checkingSerial = true;
+
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/stockroom/check-serial`,
+                    {
+                        params: { serial: serial },
+                        withCredentials: true,
+                    },
+                );
+
+                console.log("Serial check response:", response.data);
+
+                if (response.data.exists) {
+                    // ✅ Serial EXISTS in system
+                    this.serialExists = true;
+                    this.showFnskuField = false; // Hide FNSKU field
+                    this.fnsku = ""; // Clear FNSKU input
+                    this.serialCheckMessage = `✓ Item found in ${response.data.location}`;
+
+                    console.log("✅ Serial exists - hiding FNSKU field");
+                } else {
+                    // ❌ Serial DOESN'T exist (new item)
+                    this.serialExists = false;
+                    this.showFnskuField = true; // Show FNSKU field
+                    this.serialCheckMessage = "⚠ New item - FNSKU required";
+
+                    console.log("❌ Serial not found - showing FNSKU field");
+                }
+            } catch (error) {
+                console.error("Error checking serial:", error);
+                // On error, show FNSKU field to be safe
+                this.showFnskuField = true;
+                this.serialCheckMessage = "";
+            } finally {
+                this.checkingSerial = false;
+            }
+        },
 
         // Input field handlers with sound
-         async handleSerialInput() {
-        // First validate serial number
-        const isValid = this.validateSerialNumber();
+        async handleSerialInput() {
+            // First validate serial number
+            const isValid = this.validateSerialNumber();
 
-        if (!isValid) {
-            this.$refs.scanner.showScanError(
-                "Invalid Serial Number - must be alphanumeric and not contain X00"
-            );
-            this.$refs.serialNumberInput.select();
-            SoundService.error();
-            return;
-        }
-
-        // ✅ Check if serial exists in system
-        if (this.serialNumber.trim().length >= 5) {
-            await this.checkSerialExists(this.serialNumber.trim());
-        }
-
-        // In auto mode with valid input
-        if (!this.showManualInput && this.serialNumber.trim().length > 5) {
-            if (this.autoVerifyTimeout) {
-                clearTimeout(this.autoVerifyTimeout);
+            if (!isValid) {
+                this.$refs.scanner.showScanError(
+                    "Invalid Serial Number - must be alphanumeric and not contain X00",
+                );
+                this.$refs.serialNumberInput.select();
+                SoundService.error();
+                return;
             }
 
-            this.autoVerifyTimeout = setTimeout(() => {
-                SoundService.success();
+            // ✅ Check if serial exists in system
+            if (this.serialNumber.trim().length >= 5) {
+                await this.checkSerialExists(this.serialNumber.trim());
+            }
 
-                // ✅ If serial exists, skip FNSKU and go to location
-                // ✅ If serial doesn't exist, go to FNSKU field
-                if (this.serialExists) {
-                    this.focusNextField("locationInput");
-                } else {
-                    this.focusNextField("fnskuInput");
+            // In auto mode with valid input
+            if (!this.showManualInput && this.serialNumber.trim().length > 5) {
+                if (this.autoVerifyTimeout) {
+                    clearTimeout(this.autoVerifyTimeout);
                 }
-            }, 500);
-        }
-    },
+
+                this.autoVerifyTimeout = setTimeout(() => {
+                    SoundService.success();
+
+                    // ✅ If serial exists, skip FNSKU and go to location
+                    // ✅ If serial doesn't exist, go to FNSKU field
+                    if (this.serialExists) {
+                        this.focusNextField("locationInput");
+                    } else {
+                        this.focusNextField("fnskuInput");
+                    }
+                }, 500);
+            }
+        },
 
         async handleFnskuInput() {
             console.log("handleFnskuInput called with:", this.fnsku);
@@ -1736,7 +1838,7 @@ async fetchAvailablePrinters() {
             if (!isValid) {
                 // If it looks like a location, show a specific message
                 this.$refs.scanner.showScanError(
-                    "This appears to be a location code. Please enter it in the Location field."
+                    "This appears to be a location code. Please enter it in the Location field.",
                 );
                 this.$refs.fnskuInput.select();
                 SoundService.error();
@@ -1752,7 +1854,7 @@ async fetchAvailablePrinters() {
                 this.autoVerifyTimeout = setTimeout(async () => {
                     console.log(
                         "About to check FNSKU availability for:",
-                        this.fnsku
+                        this.fnsku,
                     );
 
                     // Check FNSKU availability
@@ -1808,7 +1910,7 @@ async fetchAvailablePrinters() {
 
                 if (!isValid && this.locationInput.trim() !== "") {
                     this.$refs.scanner.showScanError(
-                        "Invalid Location Format (use L###X, Floor, or L800G)"
+                        "Invalid Location Format (use L###X, Floor, or L800G)",
                     );
                     this.$refs.locationInput.select();
                     SoundService.error();
@@ -1843,262 +1945,442 @@ async fetchAvailablePrinters() {
         },
 
         // Process scan with validation - UPDATED with notification count refresh
-     async processScan(scannedCode = null) {
-        try {
-            let scanSerial, scanFnsku, scanLocation;
+        async processScan(scannedCode = null) {
+            try {
+                let scanSerial, scanFnsku, scanLocation;
 
-            if (scannedCode) {
-                // Hardware scanner
-                scanSerial = scannedCode;
-                scanLocation = this.locationInput || "";
-                
-                // Check if serial exists first
-                await this.checkSerialExists(scanSerial);
-                
-                // If serial exists, don't need FNSKU
-                scanFnsku = this.serialExists ? "" : this.fnsku;
-            } else {
-                // Manual input
-                scanSerial = this.serialNumber;
-                scanFnsku = this.showFnskuField ? this.fnsku : ""; // Only use FNSKU if field is shown
-                scanLocation = this.locationInput;
-                
-                if (!scanSerial) {
-                    this.$refs.scanner.showScanError("Serial Number is required");
+                if (scannedCode) {
+                    // Hardware scanner
+                    scanSerial = scannedCode;
+                    scanLocation = this.locationInput || "";
+
+                    // Check if serial exists first
+                    await this.checkSerialExists(scanSerial);
+
+                    // If serial exists, don't need FNSKU
+                    scanFnsku = this.serialExists ? "" : this.fnsku;
+                } else {
+                    // Manual input
+                    scanSerial = this.serialNumber;
+                    scanFnsku = this.showFnskuField ? this.fnsku : ""; // Only use FNSKU if field is shown
+                    scanLocation = this.locationInput;
+
+                    if (!scanSerial) {
+                        this.$refs.scanner.showScanError(
+                            "Serial Number is required",
+                        );
+                        SoundService.error();
+                        this.focusNextField("serialNumberInput");
+                        return;
+                    }
+                }
+
+                // Validate serial
+                if (
+                    scanSerial &&
+                    (!/^[a-zA-Z0-9]+$/.test(scanSerial) ||
+                        scanSerial.includes("X00"))
+                ) {
+                    this.$refs.scanner.showScanError(
+                        "Invalid Serial Number - must be alphanumeric and not contain X00",
+                    );
                     SoundService.error();
-                    this.focusNextField("serialNumberInput");
                     return;
                 }
-            }
 
-            // Validate serial
-            if (scanSerial && (!/^[a-zA-Z0-9]+$/.test(scanSerial) || scanSerial.includes("X00"))) {
-                this.$refs.scanner.showScanError(
-                    "Invalid Serial Number - must be alphanumeric and not contain X00"
-                );
-                SoundService.error();
-                return;
-            }
-
-            // Validate location
-            const locationRegex = /^L\d{3}[A-G]$/i;
-            if (scanLocation && !locationRegex.test(scanLocation) && 
-                scanLocation !== "Floor" && scanLocation !== "L800G") {
-                this.$refs.scanner.showScanError(
-                    "Invalid Location Format (use L###X, Floor, or L800G)"
-                );
-                SoundService.error();
-                return;
-            }
-
-            const imageData = this.$refs.scanner.capturedImages.map(
-                (img) => img.data
-            );
-
-            const scanData = {
-                SerialNumber: scanSerial,
-                FNSKU: scanFnsku, // Will be empty if serial exists
-                Location: scanLocation,
-                Images: imageData,
-            };
-
-            console.log('📤 Sending scan data:', {
-                serial: scanSerial,
-                fnsku: scanFnsku || '(not provided - serial exists)',
-                location: scanLocation,
-                serialExists: this.serialExists
-            });
-
-            this.$refs.scanner.startLoading("Processing Scan");
-
-            const response = await axios.post(
-                "/api/stockroom/process-scan",
-                scanData,
-                {
-                    withCredentials: true,
-                    headers: {
-                        "Content-Type": "application/json",
-                        Accept: "application/json",
-                        "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
-                        )?.content,
-                    },
+                // Validate location
+                const locationRegex = /^L\d{3}[A-G]$/i;
+                if (
+                    scanLocation &&
+                    !locationRegex.test(scanLocation) &&
+                    scanLocation !== "Floor" &&
+                    scanLocation !== "L800G"
+                ) {
+                    this.$refs.scanner.showScanError(
+                        "Invalid Location Format (use L###X, Floor, or L800G)",
+                    );
+                    SoundService.error();
+                    return;
                 }
-            );
 
-            this.$refs.scanner.stopLoading();
-            const data = response.data;
+                const imageData = this.$refs.scanner.capturedImages.map(
+                    (img) => img.data,
+                );
 
-            if (data.success) {
-                this.$refs.scanner.showScanSuccess(data.item || "Item scanned successfully");
-                SoundService.successScan(true);
-
-                this.$refs.scanner.addSuccessScan({
-                    Serial: scanSerial,
-                    FNSKU: scanFnsku || '(existing)',
+                const scanData = {
+                    SerialNumber: scanSerial,
+                    FNSKU: scanFnsku, // Will be empty if serial exists
                     Location: scanLocation,
-                });
-
-                this.$refs.scanner.capturedImages = [];
-
-                // Real-time updates
-                console.log('🎯 Scan successful - triggering updates...');
-                
-                try {
-                    await this.fetchCountWithRetry(3);
-                    await this.fetchInventory();
-                    
-                    if (this.showNewScannedModal && this.$refs.newScannedModal?.fetchItems) {
-                        await this.$refs.newScannedModal.fetchItems();
-                    }
-                    
-                    this.$nextTick(() => {
-                        this.$forceUpdate();
-                    });
-                } catch (error) {
-                    console.error('⚠️ Error during refresh:', error);
-                }
-            } else {
-                this.$refs.scanner.showScanError(
-                    data.message || "Error processing scan"
-                );
-                SoundService.scanRejected(true);
-
-                this.$refs.scanner.addErrorScan(
-                    {
-                        Serial: scanSerial,
-                        FNSKU: scanFnsku || '(not provided)',
-                        Location: scanLocation,
-                    },
-                    data.reason || "error"
-                );
-
-                this.$refs.scanner.capturedImages = [];
-            }
-
-            // Clear input fields
-            this.serialNumber = "";
-            this.fnsku = "";
-            this.locationInput = "";
-            this.showFnskuField = false;
-            this.serialExists = false;
-            this.serialCheckMessage = "";
-            this.focusNextField("serialNumberInput");
-            
-        } catch (error) {
-            this.$refs.scanner.stopLoading();
-            console.error("Error processing scan:", error);
-            if(error.status === 409) {
-                 this.$refs.scanner.showScanError("FNSKU has already reached its usage limit.");
-            } else {
-                 this.$refs.scanner.showScanError("Network or server errorss");
-            }
-            SoundService.scanRejected(true);
-        }
-    },
-
-        // Updated mergeSelectedItems function with correct API URL format
-  async mergeSelectedItems() {
-        if (this.selectedItems.length < 2) {
-            alert("Please select at least two items to merge.");
-            return;
-        }
-
-        // Check if merge is allowed (2-pack or 4-pack only)
-        if (!this.canMergeSelected) {
-            alert(this.mergeButtonTooltip);
-            return;
-        }
-
-        let productTitle = "";
-        let productAsin = "";
-        let productStore = "";
-        let selectedSerials = [];
-        let selectedFnsku = "";
-
-        if (this.currentProcessItem) {
-            productTitle = this.currentProcessItem.AStitle || "";
-            productAsin = this.currentProcessItem.ASIN || "";
-            productStore = this.currentProcessItem.storename || "";
-
-            selectedSerials = this.currentProcessItem.serials
-                .filter((serial) =>
-                    this.selectedItems.includes(serial.ProductID)
-                )
-                .map((serial) => serial.serialnumber);
-
-            if (
-                this.currentProcessItem.fnskus &&
-                this.currentProcessItem.fnskus.length > 0
-            ) {
-                let rawFnsku =
-                    this.currentProcessItem.fnskus[0].FNSKU ||
-                    this.currentProcessItem.fnskus[0];
-                selectedFnsku = this.normalizeFnsku(rawFnsku);
-            }
-        }
-
-        if (!productTitle) {
-            alert("Could not determine product title for merging.");
-            return;
-        }
-
-        const quantityInside = this.currentProcessItem.quantity_inside || 1;
-        const targetPackSize = this.selectedItems.length * quantityInside;
-
-        if (
-            confirm(
-                `Are you sure you want to merge ${this.selectedItems.length} items into a ${targetPackSize}-pack of "${productTitle}"?\n\nNote: All items must have the same ASIN, Color, QuantityInside, Store, and Condition.`
-            )
-        ) {
-            try {
-                this.isProcessing = true;
-
-                const mergeData = {
-                    items: this.selectedItems,
-                    title: productTitle,
-                    asin: productAsin,
-                    store: productStore,
-                    serialNumbers: selectedSerials,
+                    Images: imageData,
                 };
 
-                if (selectedFnsku && selectedFnsku.trim() !== '') {
-                    mergeData.fnsku = selectedFnsku;
-                }
+                console.log("📤 Sending scan data:", {
+                    serial: scanSerial,
+                    fnsku: scanFnsku || "(not provided - serial exists)",
+                    location: scanLocation,
+                    serialExists: this.serialExists,
+                });
 
-                console.log("Sending merge data:", mergeData);
+                this.$refs.scanner.startLoading("Processing Scan");
 
                 const response = await axios.post(
-                    `${API_BASE_URL}/api/stockroom/merge-items`,
-                    mergeData,
+                    "/api/stockroom/process-scan",
+                    scanData,
                     {
                         withCredentials: true,
                         headers: {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
+                    },
+                );
+
+                this.$refs.scanner.stopLoading();
+                const data = response.data;
+
+                if (data.success) {
+                    this.$refs.scanner.showScanSuccess(
+                        data.item || "Item scanned successfully",
+                    );
+                    SoundService.successScan(true);
+
+                    this.$refs.scanner.addSuccessScan({
+                        Serial: scanSerial,
+                        FNSKU: scanFnsku || "(existing)",
+                        Location: scanLocation,
+                    });
+
+                    this.$refs.scanner.capturedImages = [];
+
+                    // Real-time updates
+                    console.log("🎯 Scan successful - triggering updates...");
+
+                    try {
+                        await this.fetchCountWithRetry(3);
+                        await this.fetchInventory();
+
+                        if (
+                            this.showNewScannedModal &&
+                            this.$refs.newScannedModal?.fetchItems
+                        ) {
+                            await this.$refs.newScannedModal.fetchItems();
+                        }
+
+                        this.$nextTick(() => {
+                            this.$forceUpdate();
+                        });
+                    } catch (error) {
+                        console.error("⚠️ Error during refresh:", error);
                     }
+                } else {
+                    this.$refs.scanner.showScanError(
+                        data.message || "Error processing scan",
+                    );
+                    SoundService.scanRejected(true);
+
+                    this.$refs.scanner.addErrorScan(
+                        {
+                            Serial: scanSerial,
+                            FNSKU: scanFnsku || "(not provided)",
+                            Location: scanLocation,
+                        },
+                        data.reason || "error",
+                    );
+
+                    this.$refs.scanner.capturedImages = [];
+                }
+
+                // Clear input fields
+                this.serialNumber = "";
+                this.fnsku = "";
+                this.locationInput = "";
+                this.showFnskuField = false;
+                this.serialExists = false;
+                this.serialCheckMessage = "";
+                this.focusNextField("serialNumberInput");
+            } catch (error) {
+                this.$refs.scanner.stopLoading();
+                console.error("Error processing scan:", error);
+                if (error.status === 409) {
+                    this.$refs.scanner.showScanError(
+                        "FNSKU has already reached its usage limit.",
+                    );
+                } else {
+                    this.$refs.scanner.showScanError(
+                        "Network or server errorss",
+                    );
+                }
+                SoundService.scanRejected(true);
+            }
+        },
+
+        // Updated mergeSelectedItems function with correct API URL format
+        async mergeSelectedItems() {
+            if (this.selectedItems.length < 2) {
+                alert("Please select at least two items to merge.");
+                return;
+            }
+
+            // Check if merge is allowed (2-pack or 4-pack only)
+            if (!this.canMergeSelected) {
+                alert(this.mergeButtonTooltip);
+                return;
+            }
+
+            let productTitle = "";
+            let productAsin = "";
+            let productStore = "";
+            let selectedSerials = [];
+            let selectedFnsku = "";
+
+            if (this.currentProcessItem) {
+                productTitle = this.currentProcessItem.AStitle || "";
+                productAsin = this.currentProcessItem.ASIN || "";
+                productStore = this.currentProcessItem.storename || "";
+
+                selectedSerials = this.currentProcessItem.serials
+                    .filter((serial) =>
+                        this.selectedItems.includes(serial.ProductID),
+                    )
+                    .map((serial) => serial.serialnumber);
+
+                if (
+                    this.currentProcessItem.fnskus &&
+                    this.currentProcessItem.fnskus.length > 0
+                ) {
+                    let rawFnsku =
+                        this.currentProcessItem.fnskus[0].FNSKU ||
+                        this.currentProcessItem.fnskus[0];
+                    selectedFnsku = this.normalizeFnsku(rawFnsku);
+                }
+            }
+
+            if (!productTitle) {
+                alert("Could not determine product title for merging.");
+                return;
+            }
+
+            const quantityInside = this.currentProcessItem.quantity_inside || 1;
+            const targetPackSize = this.selectedItems.length * quantityInside;
+
+            if (
+                confirm(
+                    `Are you sure you want to merge ${this.selectedItems.length} items into a ${targetPackSize}-pack of "${productTitle}"?\n\nNote: All items must have the same ASIN, Color, QuantityInside, Store, and Condition.`,
+                )
+            ) {
+                try {
+                    this.isProcessing = true;
+
+                    const mergeData = {
+                        items: this.selectedItems,
+                        title: productTitle,
+                        asin: productAsin,
+                        store: productStore,
+                        serialNumbers: selectedSerials,
+                    };
+
+                    if (selectedFnsku && selectedFnsku.trim() !== "") {
+                        mergeData.fnsku = selectedFnsku;
+                    }
+
+                    console.log("Sending merge data:", mergeData);
+
+                    const response = await axios.post(
+                        `${API_BASE_URL}/api/stockroom/merge-items`,
+                        mergeData,
+                        {
+                            withCredentials: true,
+                            headers: {
+                                "Content-Type": "application/json",
+                                Accept: "application/json",
+                                "X-CSRF-TOKEN": document.querySelector(
+                                    'meta[name="csrf-token"]',
+                                )?.content,
+                            },
+                        },
+                    );
+
+                    if (response.data.success) {
+                        const newRtNumber = response.data.newrt;
+                        const productId = response.data.productid;
+                        const mergedTitle = response.data.title || productTitle;
+                        const mergedFnsku =
+                            response.data.fnsku || selectedFnsku;
+
+                        let storeNameForRt =
+                            response.data.store || productStore;
+                        const formattedRt = this.formatRTNumber(
+                            newRtNumber,
+                            storeNameForRt,
+                        );
+
+                        alert(
+                            `✅ Items successfully merged into ${formattedRt}: ${mergedTitle}${
+                                mergedFnsku ? ` (FNSKU: ${mergedFnsku})` : ""
+                            }`,
+                        );
+
+                        // Close modal first
+                        this.closeProcessModal();
+
+                        // Auto-refresh inventory immediately
+                        await this.fetchInventory();
+
+                        // Ask if user wants to print
+                        if (
+                            confirm(
+                                "Do you want to print a label for the newly created item?",
+                            )
+                        ) {
+                            await this.printLabel(productId);
+                        }
+                    } else {
+                        alert(
+                            `❌ Error: ${
+                                response.data.message || "Failed to merge items"
+                            }`,
+                        );
+                    }
+                } catch (error) {
+                    console.error("Error merging items:", error);
+
+                    if (error.response?.data?.reason === "invalid_pack_size") {
+                        alert(error.response.data.message);
+                    } else if (
+                        error.response?.data?.reason === "incompatible_items"
+                    ) {
+                        const errorData = error.response.data;
+                        const incompatibleItems =
+                            errorData.incompatible_items || [];
+
+                        let errorMessage =
+                            "❌ Cannot merge items - Incompatible products detected:\n\n";
+
+                        const errorsBySerial = {};
+                        incompatibleItems.forEach((issue) => {
+                            if (!errorsBySerial[issue.serial]) {
+                                errorsBySerial[issue.serial] = [];
+                            }
+                            errorsBySerial[issue.serial].push(issue);
+                        });
+
+                        for (const [serial, issues] of Object.entries(
+                            errorsBySerial,
+                        )) {
+                            errorMessage += `📦 Serial: ${serial}\n`;
+                            issues.forEach((issue) => {
+                                errorMessage += `   • ${issue.reason}: Expected "${issue.expected}", Got "${issue.actual}"\n`;
+                            });
+                            errorMessage += "\n";
+                        }
+
+                        errorMessage +=
+                            "💡 Tip: You can only merge items with the same ASIN, Color, QuantityInside, Store, and Condition.";
+                        alert(errorMessage);
+                    } else if (
+                        error.response?.data?.reason ===
+                            "fnsku_condition_mismatch" ||
+                        error.response?.data?.reason === "fnsku_store_mismatch"
+                    ) {
+                        alert(
+                            `❌ FNSKU Validation Failed:\n\n${error.response.data.message}\n\nPlease ensure the FNSKU matches the items' store and condition.`,
+                        );
+                    } else if (
+                        error.response?.data?.reason ===
+                        "no_pack_fnsku_available"
+                    ) {
+                        const searchDetails =
+                            error.response.data.search_details || {};
+                        const required = searchDetails.required || {};
+
+                        let errorMessage =
+                            "❌ Cannot merge - No matching FNSKU found.\n\n";
+                        errorMessage += "Required FNSKU must have:\n";
+                        errorMessage += `• Pack Size: ${required.quantity_inside}-pack\n`;
+                        errorMessage += `• Color: ${required.color || "Any"}\n`;
+                        errorMessage += `• Condition: ${required.condition}\n`;
+                        errorMessage += `• Store: ${required.storename}\n`;
+                        errorMessage += "• Status: Available with units\n\n";
+                        errorMessage +=
+                            "Please create an FNSKU matching ALL these criteria before merging.";
+
+                        alert(errorMessage);
+                    } else if (error.response?.data?.message) {
+                        alert(`❌ Error: ${error.response.data.message}`);
+                    } else {
+                        alert("❌ Failed to merge items. Please try again.");
+                    }
+                } finally {
+                    this.isProcessing = false;
+                }
+            }
+        },
+
+        /**
+         * Unmerge a merged item
+         */
+        async unmergeItem() {
+            if (!this.canUnmerge) {
+                alert("Please select exactly one merged item to unmerge.");
+                return;
+            }
+
+            const selectedProductId = this.selectedItems[0];
+
+            const selectedSerial = this.currentProcessItem.serials.find(
+                (serial) => serial.ProductID === selectedProductId,
+            );
+
+            if (!selectedSerial) {
+                alert("Could not find selected item information.");
+                return;
+            }
+
+            const rtNumber = this.formatRTNumber(
+                selectedSerial.rtcounter,
+                selectedSerial.storename,
+            );
+
+            if (
+                !confirm(
+                    `Are you sure you want to unmerge item ${rtNumber}?\n\n` +
+                        `This will:\n` +
+                        `• Delete the merged item\n` +
+                        `• Restore all original items back to Stockroom\n` +
+                        `• Return FNSKU units\n\n` +
+                        `This action cannot be undone.`,
+                )
+            ) {
+                return;
+            }
+
+            try {
+                this.isUnmerging = true;
+
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/stockroom/unmerge-item`,
+                    {
+                        productId: selectedProductId,
+                    },
+                    {
+                        withCredentials: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]',
+                            )?.content,
+                        },
+                    },
                 );
 
                 if (response.data.success) {
-                    const newRtNumber = response.data.newrt;
-                    const productId = response.data.productid;
-                    const mergedTitle = response.data.title || productTitle;
-                    const mergedFnsku = response.data.fnsku || selectedFnsku;
-
-                    let storeNameForRt = response.data.store || productStore;
-                    const formattedRt = this.formatRTNumber(
-                        newRtNumber,
-                        storeNameForRt
-                    );
-
                     alert(
-                        `✅ Items successfully merged into ${formattedRt}: ${mergedTitle}${
-                            mergedFnsku ? ` (FNSKU: ${mergedFnsku})` : ""
-                        }`
+                        `✅ ${response.data.message}\n\n` +
+                            `${response.data.restored_count} original items have been restored to Stockroom.`,
                     );
 
                     // Close modal first
@@ -2106,172 +2388,26 @@ async fetchAvailablePrinters() {
 
                     // Auto-refresh inventory immediately
                     await this.fetchInventory();
-
-                    // Ask if user wants to print
-                    if (
-                        confirm(
-                            "Do you want to print a label for the newly created item?"
-                        )
-                    ) {
-                        await this.printLabel(productId);
-                    }
-
                 } else {
-                    alert(
-                        `❌ Error: ${
-                            response.data.message || "Failed to merge items"
-                        }`
-                    );
+                    alert(`❌ Error: ${response.data.message}`);
                 }
             } catch (error) {
-                console.error("Error merging items:", error);
-                
-                if (error.response?.data?.reason === 'invalid_pack_size') {
-                    alert(error.response.data.message);
-                } else if (error.response?.data?.reason === 'incompatible_items') {
-                    const errorData = error.response.data;
-                    const incompatibleItems = errorData.incompatible_items || [];
-                    
-                    let errorMessage = "❌ Cannot merge items - Incompatible products detected:\n\n";
-                    
-                    const errorsBySerial = {};
-                    incompatibleItems.forEach(issue => {
-                        if (!errorsBySerial[issue.serial]) {
-                            errorsBySerial[issue.serial] = [];
-                        }
-                        errorsBySerial[issue.serial].push(issue);
-                    });
-                    
-                    for (const [serial, issues] of Object.entries(errorsBySerial)) {
-                        errorMessage += `📦 Serial: ${serial}\n`;
-                        issues.forEach(issue => {
-                            errorMessage += `   • ${issue.reason}: Expected "${issue.expected}", Got "${issue.actual}"\n`;
-                        });
-                        errorMessage += "\n";
-                    }
-                    
-                    errorMessage += "💡 Tip: You can only merge items with the same ASIN, Color, QuantityInside, Store, and Condition.";
-                    alert(errorMessage);
-                    
-                } else if (error.response?.data?.reason === 'fnsku_condition_mismatch' || 
-                           error.response?.data?.reason === 'fnsku_store_mismatch') {
-                    alert(`❌ FNSKU Validation Failed:\n\n${error.response.data.message}\n\nPlease ensure the FNSKU matches the items' store and condition.`);
-                    
-                } else if (error.response?.data?.reason === 'no_pack_fnsku_available') {
-                    const searchDetails = error.response.data.search_details || {};
-                    const required = searchDetails.required || {};
-                    
-                    let errorMessage = "❌ Cannot merge - No matching FNSKU found.\n\n";
-                    errorMessage += "Required FNSKU must have:\n";
-                    errorMessage += `• Pack Size: ${required.quantity_inside}-pack\n`;
-                    errorMessage += `• Color: ${required.color || 'Any'}\n`;
-                    errorMessage += `• Condition: ${required.condition}\n`;
-                    errorMessage += `• Store: ${required.storename}\n`;
-                    errorMessage += "• Status: Available with units\n\n";
-                    errorMessage += "Please create an FNSKU matching ALL these criteria before merging.";
-                    
-                    alert(errorMessage);
-                    
-                } else if (error.response?.data?.message) {
+                console.error("Error unmerging item:", error);
+
+                if (error.response?.data?.message) {
                     alert(`❌ Error: ${error.response.data.message}`);
                 } else {
-                    alert("❌ Failed to merge items. Please try again.");
+                    alert("❌ Failed to unmerge item. Please try again.");
                 }
             } finally {
-                this.isProcessing = false;
+                this.isUnmerging = false;
             }
-        }
-    },
+        },
 
-/**
-     * Unmerge a merged item
-     */
-  async unmergeItem() {
-        if (!this.canUnmerge) {
-            alert("Please select exactly one merged item to unmerge.");
-            return;
-        }
-
-        const selectedProductId = this.selectedItems[0];
-        
-        const selectedSerial = this.currentProcessItem.serials.find(
-            serial => serial.ProductID === selectedProductId
-        );
-
-        if (!selectedSerial) {
-            alert("Could not find selected item information.");
-            return;
-        }
-
-        const rtNumber = this.formatRTNumber(
-            selectedSerial.rtcounter,
-            selectedSerial.storename
-        );
-
-        if (!confirm(
-            `Are you sure you want to unmerge item ${rtNumber}?\n\n` +
-            `This will:\n` +
-            `• Delete the merged item\n` +
-            `• Restore all original items back to Stockroom\n` +
-            `• Return FNSKU units\n\n` +
-            `This action cannot be undone.`
-        )) {
-            return;
-        }
-
-        try {
-            this.isUnmerging = true;
-
-            const response = await axios.post(
-                `${API_BASE_URL}/api/stockroom/unmerge-item`,
-                {
-                    productId: selectedProductId
-                },
-                {
-                    withCredentials: true,
-                    headers: {
-                        "Content-Type": "application/json",
-                        Accept: "application/json",
-                        "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
-                        )?.content,
-                    },
-                }
-            );
-
-            if (response.data.success) {
-                alert(
-                    `✅ ${response.data.message}\n\n` +
-                    `${response.data.restored_count} original items have been restored to Stockroom.`
-                );
-
-                // Close modal first
-                this.closeProcessModal();
-                
-                // Auto-refresh inventory immediately
-                await this.fetchInventory();
-
-            } else {
-                alert(`❌ Error: ${response.data.message}`);
-            }
-
-        } catch (error) {
-            console.error("Error unmerging item:", error);
-            
-            if (error.response?.data?.message) {
-                alert(`❌ Error: ${error.response.data.message}`);
-            } else {
-                alert("❌ Failed to unmerge item. Please try again.");
-            }
-        } finally {
-            this.isUnmerging = false;
-        }
-    },
-
-    // Print label method
-    async printLabel(productId) {
-        this.loading = true;
-        try {
+        // Print label method
+        async printLabel(productId) {
+            this.loading = true;
+            try {
                 const response = await axios.post(
                     "/api/stockroom/print-label",
                     {
@@ -2283,10 +2419,10 @@ async fetchAvailablePrinters() {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 if (response.data.status === "success") {
@@ -2328,44 +2464,45 @@ async fetchAvailablePrinters() {
             this.showManualInput = event.manual;
         },
 
-   handleScannerOpened() {
-        this.showManualInput = this.$refs.scanner.showManualInput;
+        handleScannerOpened() {
+            this.showManualInput = this.$refs.scanner.showManualInput;
 
-        // Reset fields
-        this.serialNumber = "";
-        this.fnsku = "";
-        this.locationInput = "";
-        this.showFnskuField = false; // ✅ Hide FNSKU initially
-        this.serialExists = false;
-        this.serialCheckMessage = "";
+            // Reset fields
+            this.serialNumber = "";
+            this.fnsku = "";
+            this.locationInput = "";
+            this.showFnskuField = false; // ✅ Hide FNSKU initially
+            this.serialExists = false;
+            this.serialCheckMessage = "";
 
-        // Focus on first field
-        this.$nextTick(() => {
-            if (this.$refs.serialNumberInput) {
-                this.$refs.serialNumberInput.focus();
-            }
-        });
-    },
+            // Focus on first field
+            this.$nextTick(() => {
+                if (this.$refs.serialNumberInput) {
+                    this.$refs.serialNumberInput.focus();
+                }
+            });
+        },
+
         handleScannerClosed() {
             // Refresh inventory when scanner is closed
             this.fetchInventory();
         },
 
-       handleScannerReset() {
-        this.serialNumber = "";
-        this.fnsku = "";
-        this.locationInput = "";
-        this.showFnskuField = false;
-        this.serialExists = false;
-        this.serialCheckMessage = "";
-    },
+        handleScannerReset() {
+            this.serialNumber = "";
+            this.fnsku = "";
+            this.locationInput = "";
+            this.showFnskuField = false;
+            this.serialExists = false;
+            this.serialCheckMessage = "";
+        },
 
         // Methods for handling responsiveness
         handleResize() {
             // If we're on mobile and dropdowns are open, we might want to close them
             if (this.isMobile) {
                 const hasOpenDropdowns = Object.values(
-                    this.serialDropdowns
+                    this.serialDropdowns,
                 ).some((isOpen) => isOpen);
                 if (hasOpenDropdowns) {
                     this.serialDropdowns = {};
@@ -2400,10 +2537,10 @@ async fetchAvailablePrinters() {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 if (response.data.status === "success") {
@@ -2444,17 +2581,17 @@ async fetchAvailablePrinters() {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             )?.content,
                         },
-                    }
+                    },
                 );
 
                 if (response.data.status === "success") {
                     alert("Items successfully posted to Amazon.");
                 } else {
                     alert(
-                        "Error: " + (response.data.message || "Unknown error.")
+                        "Error: " + (response.data.message || "Unknown error."),
                     );
                 }
             } catch (err) {
@@ -2467,57 +2604,74 @@ async fetchAvailablePrinters() {
 
         // NEW SCANNED ITEMS METHODS - Updated for modal integration
         async fetchNewScannedCount() {
-    try {
-        const now = new Date();
-        const usDate = new Date(
-            now.toLocaleString("en-US", {
-                timeZone: "America/Los_Angeles",
-            })
-        );
-        const today = usDate.toISOString().split("T")[0];
+            try {
+                const now = new Date();
+                const usDate = new Date(
+                    now.toLocaleString("en-US", {
+                        timeZone: "America/Los_Angeles",
+                    }),
+                );
+                const today = usDate.toISOString().split("T")[0];
 
-        console.log("🔄 Fetching new scanned count for US date:", today);
+                console.log(
+                    "🔄 Fetching new scanned count for US date:",
+                    today,
+                );
 
-        const response = await axios.get(
-            `${API_BASE_URL}/api/stockroom/new-scanned-count`,
-            {
-                params: { 
-                    date: today,
-                    _t: Date.now() // Cache buster
-                },
-                withCredentials: true,
-                timeout: 10000,
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/stockroom/new-scanned-count`,
+                    {
+                        params: {
+                            date: today,
+                            _t: Date.now(), // Cache buster
+                        },
+                        withCredentials: true,
+                        timeout: 10000,
+                    },
+                );
+
+                console.log("📦 API Response:", response.data);
+
+                // CRITICAL: Ensure it's a number
+                const newCount = parseInt(response.data.count, 10) || 0;
+
+                console.log(
+                    "✅ Parsed count:",
+                    newCount,
+                    "Type:",
+                    typeof newCount,
+                );
+
+                // Force Vue to detect the change
+                this.$set(this, "newScannedCount", newCount);
+
+                console.log(
+                    "🎯 After $set, newScannedCount =",
+                    this.newScannedCount,
+                );
+
+                // Double-force the update
+                this.$nextTick(() => {
+                    this.$forceUpdate();
+                    console.log(
+                        "🔄 Force update complete, count is now:",
+                        this.newScannedCount,
+                    );
+                });
+
+                return newCount;
+            } catch (error) {
+                console.error("❌ Error fetching new scanned count:", error);
+                // Don't reset to 0 on error
+                if (
+                    this.newScannedCount === undefined ||
+                    this.newScannedCount === null
+                ) {
+                    this.$set(this, "newScannedCount", 0);
+                }
+                return this.newScannedCount;
             }
-        );
-
-        console.log("📦 API Response:", response.data);
-
-        // CRITICAL: Ensure it's a number
-        const newCount = parseInt(response.data.count, 10) || 0;
-        
-        console.log("✅ Parsed count:", newCount, "Type:", typeof newCount);
-
-        // Force Vue to detect the change
-        this.$set(this, 'newScannedCount', newCount);
-        
-        console.log("🎯 After $set, newScannedCount =", this.newScannedCount);
-        
-        // Double-force the update
-        this.$nextTick(() => {
-            this.$forceUpdate();
-            console.log("🔄 Force update complete, count is now:", this.newScannedCount);
-        });
-
-        return newCount;
-    } catch (error) {
-        console.error("❌ Error fetching new scanned count:", error);
-        // Don't reset to 0 on error
-        if (this.newScannedCount === undefined || this.newScannedCount === null) {
-            this.$set(this, 'newScannedCount', 0);
-        }
-        return this.newScannedCount;
-    }
-},
+        },
 
         // Add this method to refresh the notification count after scanning
         async refreshNewScannedCount() {
@@ -2527,7 +2681,7 @@ async fetchAvailablePrinters() {
                 const usDate = new Date(
                     now.toLocaleString("en-US", {
                         timeZone: "America/Los_Angeles",
-                    })
+                    }),
                 );
                 const today = usDate.toISOString().split("T")[0];
 
@@ -2539,7 +2693,7 @@ async fetchAvailablePrinters() {
                         params: { date: today },
                         withCredentials: true,
                         timeout: 10000,
-                    }
+                    },
                 );
 
                 // FIXED: Ensure count is always a number
@@ -2548,7 +2702,7 @@ async fetchAvailablePrinters() {
 
                 console.log(
                     "Refreshed new scanned count to:",
-                    this.newScannedCount
+                    this.newScannedCount,
                 );
             } catch (error) {
                 console.error("Error refreshing new scanned count:", error);
@@ -2596,11 +2750,101 @@ async fetchAvailablePrinters() {
                         location: location || this.selectedStore || "Stockroom",
                     },
                     withCredentials: true,
-                }
+                },
             );
 
             const row = (resp.data?.data || [])[0];
             if (row) this.$set(this.fnskuSummaries, key, row);
+        },
+
+        async moveBackToLabeling() {
+            if (!this.hasSelectedItems) {
+                await Swal.fire({
+                    icon: "warning",
+                    title: "No Selection",
+                    text: "Please select items to move back to Labeling",
+                    confirmButtonColor: "#3085d6",
+                });
+                return;
+            }
+
+            // Confirm before moving with SweetAlert
+            const result = await Swal.fire({
+                title: "Confirm Move",
+                html: `Move <strong>${this.selectedItems.length}</strong> item(s) back to Labeling?<br><br>This will reset their validation status to pending.`,
+                icon: "question",
+                showCancelButton: true,
+                confirmButtonColor: "#3085d6",
+                cancelButtonColor: "#d33",
+                confirmButtonText: "Yes, Move",
+                cancelButtonText: "Cancel",
+            });
+
+            if (!result.isConfirmed) {
+                return;
+            }
+
+            // Show loading indicator
+            Swal.fire({
+                title: "Moving Items...",
+                html: "Please wait while we move the items back to Labeling",
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                },
+            });
+
+            this.isMovingToLabeling = true;
+
+            try {
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/stockroom/move-back-to-labeling`,
+                    {
+                        itemIds: this.selectedItems,
+                        reason: this.processNotes || null,
+                    },
+                    {
+                        withCredentials: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    },
+                );
+
+                if (response.data.success) {
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Success!",
+                        text: response.data.message,
+                        confirmButtonColor: "#3085d6",
+                    });
+
+                    // Clear selection and close modal
+                    this.selectedItems = [];
+                    this.showProcessModal = false;
+
+                    // Refresh inventory with force fresh to clear cache
+                    await this.fetchInventory(true);
+                } else {
+                    throw new Error(
+                        response.data.message || "Failed to move items",
+                    );
+                }
+            } catch (error) {
+                console.error("Error moving items to Labeling:", error);
+
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text:
+                        error.response?.data?.message ||
+                        "Failed to move items back to Labeling",
+                    confirmButtonColor: "#3085d6",
+                });
+            } finally {
+                this.isMovingToLabeling = false;
+            }
         },
     },
     watch: {
@@ -2617,7 +2861,7 @@ async fetchAvailablePrinters() {
                 this.currentProcessItem.serials
             ) {
                 const selectedSerial = this.currentProcessItem.serials.find(
-                    (serial) => serial.ProductID === newValue[0]
+                    (serial) => serial.ProductID === newValue[0],
                 );
                 if (selectedSerial) {
                     this.processLocation =
@@ -2701,7 +2945,7 @@ async fetchAvailablePrinters() {
         window.removeEventListener("resize", this.handleResize);
         document.removeEventListener(
             "click",
-            this.closeDropdownsOnClickOutside
+            this.closeDropdownsOnClickOutside,
         );
     },
 };
