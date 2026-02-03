@@ -392,7 +392,12 @@ export default {
         return this.productThumbnails[this.currentProductImageIndex];
       }
       return { src: '', label: '' };
+    },
+
+    hasCapturedImage() {
+      return this.capturedImages && this.capturedImages.length > 0
     }
+    
   },
   methods: {
     openScannerModal() {

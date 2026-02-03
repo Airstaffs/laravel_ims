@@ -519,6 +519,15 @@ export default {
         },
 
         passItem() {
+            // 🚫 HARD BLOCK: Require at least 1 captured image
+            if (!this.$refs.scanner?.capturedImages?.length) {
+                this.$refs.scanner?.showScanWarning(
+                    '⚠️ Please capture at least one image before passing.'
+                );
+                return;
+            }
+
+            // ✅ Existing logic (unchanged)
             this.status = "pass";
             this.currentStep = 3;
             SoundService.success();
@@ -530,7 +539,17 @@ export default {
             });
         },
 
+
         failItem() {
+            // 🚫 HARD BLOCK: Require at least 1 captured image
+            if (!this.$refs.scanner?.capturedImages?.length) {
+                this.$refs.scanner?.showScanWarning(
+                    '⚠️ Please capture at least one image before failing.'
+                );
+                return;
+            }
+
+            // ✅ Existing logic (unchanged)
             this.status = "fail";
 
             this.$refs.scanner.showScanSuccess(

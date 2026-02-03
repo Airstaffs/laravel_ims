@@ -121,13 +121,27 @@
                     </div>
 
                     <div class="pass-fail-buttons mt-4">
-                        <button @click="passItem" class="pass-button step-btn">
+                        <button
+                            @click="passItem"
+                            class="pass-button step-btn"
+                            :disabled="!scannerHasCapturedImage"
+                        >
                             <i class="fas fa-check"></i> Pass
                         </button>
-                        <button @click="failItem" class="fail-button step-btn">
+
+                        <button
+                            @click="failItem"
+                            class="fail-button step-btn"
+                            :disabled="!scannerHasCapturedImage"
+                        >
                             <i class="fas fa-times"></i> Fail
                         </button>
                     </div>
+
+                    <!-- Optional helper text -->
+                    <p v-if="!scannerHasCapturedImage" class="text-sm mt-2">
+                        📸 Please capture at least 3 image before passing or failing.
+                    </p>
 
                     <!-- ✅ Modal viewer for thumbnails -->
                 </div>
@@ -1300,6 +1314,10 @@ export default {
             });
         },
 
+        scannerHasCapturedImage() {
+            return this.$refs.scanner?.capturedImages?.length > 2;
+        },
+
         // ✅ ADD THESE COMPUTED PROPERTIES FOR DATE CONVERSION
         localOrderDate: {
             get() {
@@ -1317,6 +1335,7 @@ export default {
                 this.item.datedelivered = this.convertFromLocalDate(value);
             },
         },
+
     },
 };
 </script>

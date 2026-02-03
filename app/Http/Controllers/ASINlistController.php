@@ -374,7 +374,7 @@ class ASINlistController extends BasetablesController
                     'grading' => $this->convertConditionToGrading($row['condition']),
                     'storename' => $row['storename'],
                     'insert_date' => now(),
-                    'amazon_status' => 'Not Existed',
+                    'amazon_status' => 'Notposted',
                     'fnsku_status' => 'available',
                     'LimitStatus' => 'False',
                     'donotreplenish' => 'none',

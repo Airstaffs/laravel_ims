@@ -228,11 +228,13 @@ class PrintInvoiceController extends Controller
 
             // 3) resolve printable unit ProductIDs (parent if single, children if multiple)
             $printProductIds = [];
+
             foreach ($parentProductIds as $pid) {
-                $resolved = $this->resolvePrintableProductIdsFromDispensedParent((int) $pid);
-                foreach ($resolved as $rid)
+                foreach ($this->resolvePrintableProductIdsFromDispensedParent((int) $pid) as $rid) {
                     $printProductIds[] = (int) $rid;
+                }
             }
+
             $printProductIds = array_values(array_unique(array_filter($printProductIds)));
 
             if (!count($printProductIds)) {
@@ -1001,27 +1003,29 @@ class PrintInvoiceController extends Controller
         if ($parentProductId <= 0)
             return [];
 
-        $p = DB::table('tblproduct')
-            ->select('ProductID', 'mergeId', 'rtcounter')
+        $parent = DB::table('tblproduct')
+            ->select('ProductID', 'mergeID', 'rtcounter')
             ->where('ProductID', $parentProductId)
             ->first();
 
-        if (!$p)
+        if (!$parent)
             return [];
 
-        // ✅ SINGLE ITEM: no mergeId => parent itself has the serial
-        if (empty($p->mergeId)) {
-            return [(int) $parentProductId];
+        $mergeId = (int) ($parent->mergeID ?? 0);
+        $rt = (int) ($parent->rtcounter ?? 0);
+
+        // ✅ SINGLE item (not merged) => parent has the serial to print
+        if ($mergeId <= 0) {
+            return [$parentProductId];
         }
 
-        // ✅ MULTIPLE/PACK: mergeId exists => expand children by mergeTO = rtcounter
-        $rt = (int) ($p->rtcounter ?? 0);
+        // ✅ MERGED/PACK => print children
         if ($rt <= 0)
             return [];
 
         $childIds = DB::table('tblproduct')
-            ->where('mergeTO', $rt)
-            ->orderBy('ProductID', 'asc') // stable output order (optional)
+            ->where('mergedTO', $rt)
+            ->orderBy('ProductID', 'asc') // stable print order
             ->pluck('ProductID')
             ->map(fn($x) => (int) $x)
             ->all();
@@ -1049,4 +1053,17 @@ class PrintInvoiceController extends Controller
             ->values()
             ->all();
     }
+}
+
+function extractBaseFnsku(string $fnsku): string
+{
+    $fnsku = strtoupper(trim($fnsku));
+    if ($fnsku === '') return '';
+
+    // Keep the core X... if present anywhere (most reliable)
+    if (preg_match('/(X[0-9A-Z]+)/', $fnsku, $m)) {
+        return $m[1];
+    }
+
+    return $fnsku;
 }
