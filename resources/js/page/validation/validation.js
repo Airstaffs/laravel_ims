@@ -85,7 +85,7 @@ export default {
                 ...new Set(
                     this.inventory
                         .map((item) => item.validation_status)
-                        .filter(Boolean)
+                        .filter(Boolean),
                 ),
             ];
             return statuses.sort();
@@ -97,7 +97,8 @@ export default {
                 return this.inventory;
             }
             return this.inventory.filter(
-                (item) => item.validation_status === this.validationStatusFilter
+                (item) =>
+                    item.validation_status === this.validationStatusFilter,
             );
         },
 
@@ -162,7 +163,7 @@ export default {
                 this.item.asinImages.length > 0
             ) {
                 return this.item.asinImages.map(
-                    (filename) => `/images/asinimg/${filename}`
+                    (filename) => `/images/asinimg/${filename}`,
                 );
             }
 
@@ -200,7 +201,7 @@ export default {
                 if (this.isValidImage(capturedImagesObj[fieldName])) {
                     const filename = capturedImagesObj[fieldName];
                     images.push(
-                        `/images/product_images/${companyFolder}/${filename}`
+                        `/images/product_images/${companyFolder}/${filename}`,
                     );
                 }
             }
@@ -209,14 +210,14 @@ export default {
             if (this.isValidImage(capturedImagesObj.serialimg1)) {
                 const filename = capturedImagesObj.serialimg1;
                 images.push(
-                    `/images/product_images/${companyFolder}/${filename}`
+                    `/images/product_images/${companyFolder}/${filename}`,
                 );
             }
 
             if (this.isValidImage(capturedImagesObj.serialimg2)) {
                 const filename = capturedImagesObj.serialimg2;
                 images.push(
-                    `/images/product_images/${companyFolder}/${filename}`
+                    `/images/product_images/${companyFolder}/${filename}`,
                 );
             }
 
@@ -340,9 +341,8 @@ export default {
                 for (let i = 1; i <= 12; i++) {
                     const capturedImg = data.capturedImages[`capturedimg${i}`];
                     if (capturedImg) {
-                        transformedData[
-                            `img${i}`
-                        ] = `/images/product_images/${companyFolder}/${capturedImg}`;
+                        transformedData[`img${i}`] =
+                            `/images/product_images/${companyFolder}/${capturedImg}`;
                     } else {
                         transformedData[`img${i}`] = null;
                     }
@@ -396,7 +396,12 @@ export default {
             for (let i = 1; i <= 15; i++) {
                 const fieldName = `img${i}`;
                 if (this.isValidImage(item[fieldName])) {
-                    const path = `/images/thumbnails/${item[fieldName]}`;
+                    // First image uses item value directly, rest use thumbnails path
+                    const path =
+                        i === 1
+                            ? item[fieldName]
+                            : `/images/thumbnails/${item[fieldName]}`;
+
                     this.regularImages.push(path);
                 }
             }
@@ -412,7 +417,7 @@ export default {
 
                 console.log(
                     "🔍 Processing captured images:",
-                    capturedImagesObj
+                    capturedImagesObj,
                 );
 
                 // Load capturedimg1 - capturedimg12
@@ -444,7 +449,7 @@ export default {
 
             console.log(
                 "📸 Total captured images loaded:",
-                this.capturedImages.length
+                this.capturedImages.length,
             );
 
             // Fallback if no images exist
@@ -584,7 +589,7 @@ export default {
                             location: "Validation",
                             include_images: true,
                         },
-                    }
+                    },
                 );
 
                 console.log("API Response:", response.data);
@@ -594,7 +599,7 @@ export default {
                 if (response.data.data[0]) {
                     console.log(
                         "First item capturedImages:",
-                        response.data.data[0].capturedImages
+                        response.data.data[0].capturedImages,
                     );
                 }
 
@@ -678,7 +683,7 @@ export default {
                         headers: {
                             "X-CSRF-TOKEN": csrfToken,
                         },
-                    }
+                    },
                 );
 
                 console.log("Move to Validation response:", response.data);
@@ -686,14 +691,14 @@ export default {
                 if (response.data.success) {
                     // Show success message
                     alert(
-                        `Item ${item.rtcounter} successfully moved to Validation`
+                        `Item ${item.rtcounter} successfully moved to Validation`,
                     );
                     // Refresh the inventory list
                     this.fetchInventory();
                 } else {
                     alert(
                         response.data.message ||
-                            "Failed to move item to Validation"
+                            "Failed to move item to Validation",
                     );
                 }
             } catch (error) {
@@ -730,7 +735,7 @@ export default {
                         headers: {
                             "X-CSRF-TOKEN": csrfToken,
                         },
-                    }
+                    },
                 );
 
                 console.log("Move to Stockroom response:", response.data);
@@ -738,14 +743,14 @@ export default {
                 if (response.data.success) {
                     // Show success message
                     alert(
-                        `Item ${item.rtcounter} successfully moved to Stockroom`
+                        `Item ${item.rtcounter} successfully moved to Stockroom`,
                     );
                     // Refresh the inventory list
                     this.fetchInventory();
                 } else {
                     alert(
                         response.data.message ||
-                            "Failed to move item to Stockroom"
+                            "Failed to move item to Stockroom",
                     );
                 }
             } catch (error) {
@@ -814,7 +819,7 @@ export default {
             await this.fetchItems();
 
             const freshItem = this.items.find(
-                (i) => i.itemnumber === item.itemnumber
+                (i) => i.itemnumber === item.itemnumber,
             );
 
             this.item = { ...(freshItem || item) };
@@ -850,7 +855,7 @@ export default {
                 console.log("Fetched items:", this.items);
                 console.log(
                     "First item capturedImages:",
-                    this.items[0]?.capturedImages
+                    this.items[0]?.capturedImages,
                 );
             } catch (err) {
                 console.error("Fetch failed:", err);
@@ -910,7 +915,7 @@ export default {
                         headers: {
                             "X-CSRF-TOKEN": csrfToken,
                         },
-                    }
+                    },
                 );
 
                 console.log("Validation response:", response.data);
@@ -969,7 +974,7 @@ export default {
                 // Set location
                 this.currentValidationItem.ProductModuleLoc = "Labeling";
                 console.log(
-                    "markAsInvalid: Set ProductModuleLoc to 'Labeling'"
+                    "markAsInvalid: Set ProductModuleLoc to 'Labeling'",
                 );
 
                 // Get CSRF token
@@ -1001,7 +1006,7 @@ export default {
                         headers: {
                             "X-CSRF-TOKEN": csrfToken,
                         },
-                    }
+                    },
                 );
 
                 console.log("markAsInvalid: Server response", response.data);
@@ -1016,14 +1021,14 @@ export default {
                     });
 
                     console.log(
-                        "markAsInvalid: Success, closing modal and refreshing inventory"
+                        "markAsInvalid: Success, closing modal and refreshing inventory",
                     );
                     this.closeValidationModal();
                     this.fetchInventory();
                 } else {
                     console.warn(
                         "markAsInvalid: Server returned failure",
-                        response.data
+                        response.data,
                     );
                     this.validationErrors =
                         response.data.message ||
@@ -1057,7 +1062,7 @@ export default {
                     searchInput.value = serial; // or decodeURIComponent if needed
                     // Trigger an input event if Vue watches this field
                     searchInput.dispatchEvent(
-                        new Event("input", { bubbles: true })
+                        new Event("input", { bubbles: true }),
                     );
                 }
             }, 500); // Adjust delay if needed for your load speed
