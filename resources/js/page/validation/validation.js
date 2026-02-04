@@ -396,11 +396,10 @@ export default {
             for (let i = 1; i <= 15; i++) {
                 const fieldName = `img${i}`;
                 if (this.isValidImage(item[fieldName])) {
-                    // First image uses item value directly, rest use thumbnails path
-                    const path =
-                        i === 1
-                            ? item[fieldName]
-                            : `/images/thumbnails/${item[fieldName]}`;
+                    // First image uses rtcounter, rest use item[fieldName]
+                    const filename =
+                        i === 1 ? `${item.rtcounter}.jpg` : item[fieldName];
+                    const path = `/images/thumbnails/${filename}`;
 
                     this.regularImages.push(path);
                 }
