@@ -688,36 +688,7 @@
             }"
             :style="{ width: '95%' }"
         >
-            <div class="process-form">
-                <div class="form-group">
-                    <label>Shipment Type:</label>
-                    <Select
-                        v-model="processShipmentType"
-                        :options="processShipmentTypeOptions"
-                        optionLabel="label"
-                        optionValue="value"
-                        fluid
-                        size="small"
-                    />
-                </div>
-                <div class="form-group">
-                    <label>Tracking Number:</label>
-                    <InputText
-                        type="text"
-                        v-model="processTrackingNumber"
-                        placeholder="Enter tracking number..."
-                        fluid
-                        size="small"
-                    />
-                </div>
-                <div class="form-group">
-                    <label>Notes (optional):</label>
-                    <Textarea
-                        v-model="processNotes"
-                        placeholder="Add notes about this process..."
-                        size="small"
-                    />
-                </div>
+            <div class="process-form">        
                 <div class="form-group" v-if="singleItemSelected">
                     <label>New Location (optional):</label>
                     <InputText
