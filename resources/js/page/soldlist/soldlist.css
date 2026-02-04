@@ -1,0 +1,4 @@
+.soldlist-module th:nth-child(2),
+.soldlist-module td:nth-child(2) {
+    min-width: 300px;
+}

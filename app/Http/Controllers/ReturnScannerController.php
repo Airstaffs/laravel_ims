@@ -1409,11 +1409,10 @@ public function processScan(Request $request)
 private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $storename)
 {
     try {
-        // ✅ Lock FNSKU record
+        // ✅ Lock FNSKU record using MSKU (only change - more accurate lookup)
         $fnskuRecord = DB::table($this->fnskuTable)
-            ->where('FNSKU', $baseFnsku)
-            ->where('ASIN', $asin)
             ->where('MSKU', $msku)
+            ->where('ASIN', $asin)
             ->where('grading', $grading)
             ->where('storename', $storename)
             ->where('LimitStatus', 'False')
@@ -1424,6 +1423,7 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
         if (!$fnskuRecord) {
             Log::warning("FNSKU not found in database", [
                 'base_fnsku' => $baseFnsku,
+                'msku' => $msku,
                 'asin' => $asin,
                 'grading' => $grading,
                 'storename' => $storename
@@ -1431,6 +1431,7 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
             
             return [
                 'actual_fnsku' => $baseFnsku,
+                'actual_msku' => $msku,
                 'times_used' => 0,
                 'remaining_units' => 0
             ];
@@ -1438,17 +1439,15 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
 
         $currentUnits = $fnskuRecord->Units;
 
-        // ✅ Check if units are available
         if ($currentUnits <= 0) {
-            throw new \Exception("No remaining units for FNSKU: {$baseFnsku} (Units: {$currentUnits})");
+            throw new \Exception("No remaining units for MSKU: {$msku} (Units: {$currentUnits})");
         }
-
-        // ✅ Get ALL active FNSKUs (with and without prefix) currently in use
+        // ✅ ORIGINAL LOGIC - Get ALL active FNSKUs (with and without prefix) currently in use
         $activeFnskus = DB::table($this->productTable)
             ->select('FNSKUviewer')
             ->where(function($query) use ($baseFnsku) {
                 $query->where('FNSKUviewer', $baseFnsku)
-                      ->orWhere('FNSKUviewer', 'LIKE', 'C%' . $baseFnsku);
+                        ->orWhere('FNSKUviewer', 'LIKE', 'C%' . $baseFnsku);
             })
             ->whereNotIn('ProductModuleLoc', ['Shipment', 'Soldlist', 'Returnlist', 'Merged', 'RTS'])
             ->lockForUpdate()
@@ -1462,7 +1461,7 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
             'remaining_units' => $currentUnits
         ]);
 
-        // ✅ Extract used prefixes from active products
+        // ✅ ORIGINAL LOGIC - Extract used prefixes from active products
         $usedPrefixes = [];
         
         foreach ($activeFnskus as $fnsku) {
@@ -1477,7 +1476,7 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
 
         sort($usedPrefixes);
 
-        // ✅ Maximum prefix is 9 (C0 through C9 = 10 total slots)
+        // ✅ ORIGINAL LOGIC - Maximum prefix is 9 (C0 through C9 = 10 total slots)
         $maxAllowedPrefix = 9;
 
         Log::info("Prefix analysis", [
@@ -1488,7 +1487,7 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
             'remaining_units_in_db' => $currentUnits
         ]);
 
-        // ✅ Find first UNUSED prefix within the allowed range
+        // ✅ ORIGINAL LOGIC - Find first UNUSED prefix within the allowed range
         $nextPrefix = null;
 
         for ($i = 0; $i <= $maxAllowedPrefix; $i++) {
@@ -1498,7 +1497,7 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
             }
         }
 
-        // ✅ Check if we found an available prefix slot
+        // ✅ ORIGINAL LOGIC - Check if we found an available prefix slot
         if ($nextPrefix === null) {
             throw new \Exception(
                 "All prefix slots exhausted for FNSKU: {$baseFnsku}. " .
@@ -1507,7 +1506,7 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
             );
         }
 
-        // ✅ Generate FNSKU with correct prefix
+        // ✅ ORIGINAL LOGIC - Generate FNSKU with correct prefix
         if ($nextPrefix === 0) {
             $actualFnsku = $baseFnsku; // No prefix
         } else {
@@ -1524,6 +1523,7 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
 
         return [
             'actual_fnsku' => $actualFnsku,
+            'actual_msku' => $msku,  // ✅ Return MSKU for consistency
             'times_used' => count($usedPrefixes),
             'remaining_units' => $currentUnits,
             'next_prefix' => $nextPrefix
@@ -1532,6 +1532,7 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
     } catch (\Exception $e) {
         Log::error("Error in getNextAvailableFnsku: " . $e->getMessage(), [
             'base_fnsku' => $baseFnsku,
+            'msku' => $msku,
             'trace' => $e->getTraceAsString()
         ]);
 

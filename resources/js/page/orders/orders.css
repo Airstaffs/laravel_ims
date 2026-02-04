@@ -2,3 +2,29 @@
 .order-module td:nth-child(2) {
     min-width: 375px;
 }
+.tracking-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.tracking-number {
+    display: flex;
+    align-items: center;
+    font-size: 0.875rem;
+}
+
+.delivery-status {
+    display: flex;
+    align-items: center;
+}
+
+.delivery-status .p-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Mobile view */
+.mobile-detal-value {
+    text-align: right;
+}

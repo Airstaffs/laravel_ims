@@ -104,6 +104,7 @@
                     'rts',
                     'returnscanner',
                     'fbmorder',
+                    'shipment',
                     'soldlist',
                     'returnlist',
                     'notfound',
@@ -112,6 +113,7 @@
                     'asinlist',
                     'printer',
                     'auxiliary',
+                    'inventorystatistics',
                 ];
 
                 foreach ($moduleColumns as $column) {
@@ -149,11 +151,13 @@
                 'rts' => 'RTS',
                 'returnscanner' => 'Return Scanner',
                 'fbmorder' => 'FBM Order',
+                'shipment' => 'Shipment',
                 'soldlist' => 'Sold Items',
                 'notfound' => 'Not Found',
                 'houseage' => 'Houseage',
                 'printer' => 'Printer',
-                'axuxillary' => 'Auxillary Label',
+                'auxiliary' => 'Auxiliary Label',
+                'inventorystatistics' => 'Inventory Statistics',
             ];
 
             function hasAccess($module, $mainModule, $subModules): bool

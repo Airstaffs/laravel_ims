@@ -28,18 +28,32 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy application files
+# Copy composer files first (better caching)
+COPY composer.json composer.lock ./
+
+# Create Laravel writable dirs BEFORE composer scripts run
+RUN mkdir -p \
+    storage/framework/cache/data \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/logs \
+    bootstrap/cache
+
+# Copy the rest of the application
 COPY . .
 
+# Fix git "dubious ownership" during composer install (if repo exists in image)
+RUN git config --global --add safe.directory /var/www/html || true
+
+# Set permissions BEFORE composer install (composer runs artisan package:discover)
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 775 storage bootstrap/cache
+
 # Install PHP dependencies
-RUN composer install
+RUN composer install --no-interaction --prefer-dist
 
 # Install frontend dependencies
 RUN npm install
-
-# Set folder permissions
-RUN mkdir -p /var/www/html/storage /var/www/html/bootstrap/cache && \
-    chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Expose port
 EXPOSE 8000

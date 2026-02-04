@@ -50,6 +50,20 @@
                             />
                         </div>
 
+                        <!-- Delivery Status Filter -->
+                        <div class="status-field">
+                            <Select
+                                v-model="deliveryStatus"
+                                :options="deliveryStatusOptions"
+                                optionLabel="label"
+                                optionValue="value"
+                                placeholder="All Statuses"
+                                @change="handleSearchInput"
+                                size="small"
+                                :showClear="true"
+                            />
+                        </div>
+
                         <!-- Clear Button -->
                         <Button
                             icon="pi pi-times"
@@ -95,6 +109,17 @@
                             <i
                                 class="pi pi-times ms-1 cursor-pointer"
                                 @click="dateTo = ''; handleSearchInput()"
+                            ></i>
+                        </Tag>
+                        <Tag
+                            v-if="deliveryStatus"
+                            severity="warning"
+                            class="me-1"
+                        >
+                            Status: {{ deliveryStatus }}
+                            <i
+                                class="pi pi-times ms-1 cursor-pointer"
+                                @click="deliveryStatus = ''; handleSearchInput()"
                             ></i>
                         </Tag>
                     </div>
@@ -193,6 +218,20 @@
                             </template>
                         </Column>
 
+                        <Column field="delivery_status" header="Delivery Status" sortable style="min-width: 150px">
+                            <template #body="{ data }">
+                                <div class="status-cell text-center">
+                                    <Badge
+                                        v-if="data.delivery_status"
+                                        :severity="getDeliveryStatusSeverity(data.delivery_status)"
+                                        :value="data.delivery_status"
+                                        size="small"
+                                    />
+                                    <span v-else class="text-muted small">N/A</span>
+                                </div>
+                            </template>
+                        </Column>
+
                         <Column field="total_quantity" header="Total Quantity" sortable style="min-width: 150px">
                             <template #body="{ data }">
                                 <div class="quantity-cell text-center">
@@ -217,16 +256,7 @@
         </div>
 
         <template #footer>
-       <div class="dialog-footer">
-               <!--    <Button
-                    label="Export to CSV"
-                    icon="pi pi-download"
-                    @click="exportToCSV"
-                    size="small"
-                    severity="success"
-                    :disabled="searchResults.length === 0"
-                    outlined
-                /> -->  
+            <div class="dialog-footer">
                 <Button
                     label="Close"
                     icon="pi pi-times"
@@ -281,7 +311,7 @@
 </template>
 
 <script>
-import { Button, Card, Dialog, InputText, Tag, Badge, DataTable, Column, IconField, InputIcon } from 'primevue';
+import { Button, Card, Dialog, InputText, Tag, Badge, DataTable, Column, IconField, InputIcon, Select } from 'primevue';
 import Swal from 'sweetalert2';
 
 export default {
@@ -296,7 +326,8 @@ export default {
         DataTable,
         Column,
         IconField,
-        InputIcon
+        InputIcon,
+        Select
     },
     inheritAttrs: false,
     props: {
@@ -311,25 +342,37 @@ export default {
             searchQuery: '',
             dateFrom: '',
             dateTo: '',
+            deliveryStatus: '',
             loading: false,
             searchResults: [],
             hasSearched: false,
             showDetailsModal: false,
             selectedAsin: '',
             itemDetails: [],
-            searchTimeout: null
+            searchTimeout: null,
+            deliveryStatusOptions: [
+                { label: 'Delivered', value: 'Delivered' },
+                { label: 'In Transit', value: 'In Transit' },
+                { label: 'Awaiting Shipment', value: 'Awaiting Shipment' },
+                { label: 'Payment Pending', value: 'Payment Pending' },
+                { label: 'Delivery Exception', value: 'Delivery Exception' },
+                { label: 'Cancelled', value: 'Cancelled' },
+                { label: 'Refunded', value: 'Refunded' },
+                { label: 'Not Found', value: 'Not Found' },
+                { label: 'Unknown', value: 'Unknown' },
+                { label: 'Active', value: 'Active' },
+                { label: 'Delivered (Estimated)', value: 'Delivered (Estimated)' }
+            ]
         };
     },
     computed: {
         hasActiveFilters() {
-            return this.searchQuery || this.dateFrom || this.dateTo;
+            return this.searchQuery || this.dateFrom || this.dateTo || this.deliveryStatus;
         },
         sellerCount() {
-            // Count unique sellers across all results
             const allSellers = new Set();
             this.searchResults.forEach(item => {
                 if (item.sellers && item.sellers !== 'N/A') {
-                    // Split by comma and trim each seller name
                     item.sellers.split(',').forEach(seller => {
                         const trimmed = seller.trim();
                         if (trimmed) {
@@ -348,28 +391,42 @@ export default {
         }
     },
     methods: {
+        getDeliveryStatusSeverity(status) {
+            const statusMap = {
+                'Delivered': 'success',
+                'In Transit': 'info',
+                'Awaiting Shipment': 'warning',
+                'Payment Pending': 'secondary',
+                'Delivery Exception': 'danger',
+                'Cancelled': 'danger',
+                'Refunded': 'danger',
+                'Not Found': 'secondary',
+                'Unknown': 'secondary',
+                'Active': 'info',
+                'Delivered (Estimated)': 'success'
+            };
+            
+            return statusMap[status] || 'secondary';
+        },
+
         handleSearchInput() {
-            // Clear existing timeout
             if (this.searchTimeout) {
                 clearTimeout(this.searchTimeout);
             }
 
-            // If all filters are empty, clear results
-            if (!this.searchQuery && !this.dateFrom && !this.dateTo) {
+            if (!this.searchQuery && !this.dateFrom && !this.dateTo && !this.deliveryStatus) {
                 this.searchResults = [];
                 this.hasSearched = false;
                 return;
             }
 
-            // Set new timeout for debounced search
             this.searchTimeout = setTimeout(() => {
                 this.searchItems();
-            }, 500); // 500ms delay
+            }, 500);
         },
 
         async searchItems() {
-            // Allow search with only date filters or search query
-            if (!this.searchQuery && !this.dateFrom && !this.dateTo) {
+            if (!this.searchQuery && !this.dateFrom && !this.dateTo && !this.deliveryStatus) {
                 this.searchResults = [];
                 this.hasSearched = false;
                 return;
@@ -382,14 +439,16 @@ export default {
                 console.log('🔍 Searching with params:', {
                     search: this.searchQuery,
                     date_from: this.dateFrom,
-                    date_to: this.dateTo
+                    date_to: this.dateTo,
+                    delivery_status: this.deliveryStatus
                 });
 
                 const response = await axios.get('/api/orders/incoming-count', {
                     params: {
                         search: this.searchQuery,
                         date_from: this.dateFrom,
-                        date_to: this.dateTo
+                        date_to: this.dateTo,
+                        delivery_status: this.deliveryStatus
                     }
                 });
 
@@ -425,7 +484,8 @@ export default {
                         asin: data.asin,
                         search: this.searchQuery,
                         date_from: this.dateFrom,
-                        date_to: this.dateTo
+                        date_to: this.dateTo,
+                        delivery_status: this.deliveryStatus
                     }
                 });
 
@@ -448,6 +508,7 @@ export default {
             this.searchQuery = '';
             this.dateFrom = '';
             this.dateTo = '';
+            this.deliveryStatus = '';
             this.searchResults = [];
             this.hasSearched = false;
         },
@@ -507,7 +568,6 @@ export default {
             this.$emit('update:visible', value);
             if (!value) {
                 this.$emit('close');
-                // ✅ Reset everything when modal closes
                 this.resetModal();
             }
         },
@@ -516,6 +576,7 @@ export default {
             this.searchQuery = '';
             this.dateFrom = '';
             this.dateTo = '';
+            this.deliveryStatus = '';
             this.searchResults = [];
             this.hasSearched = false;
             this.loading = false;
@@ -525,7 +586,6 @@ export default {
         }
     },
     watch: {
-        // ✅ Reset when modal opens
         visible(newVal) {
             if (newVal) {
                 this.resetModal();
@@ -540,10 +600,9 @@ export default {
     padding: 1rem 0;
 }
 
-/* Compact Filter Row */
 .filters-row {
     display: grid;
-    grid-template-columns: 1fr auto auto auto;
+    grid-template-columns: 1fr auto auto auto auto;
     gap: 0.75rem;
     align-items: center;
 }
@@ -553,7 +612,6 @@ export default {
     min-width: 0;
 }
 
-/* Ensure IconField takes full width */
 .search-field :deep(.p-iconfield) {
     width: 100%;
 }
@@ -566,7 +624,10 @@ export default {
     width: 100%;
 }
 
-/* Active Filters Compact */
+.status-field {
+    width: 200px;
+}
+
 .active-filters-compact {
     display: flex;
     align-items: center;
@@ -618,7 +679,6 @@ export default {
     font-weight: 700;
 }
 
-/* Highlight Total Quantity */
 .highlight-card {
     background: rgba(255, 255, 255, 0.2) !important;
     border: 2px solid rgba(255, 255, 255, 0.3);
@@ -663,13 +723,13 @@ export default {
     gap: 0.5rem;
 }
 
-/* Responsive Design */
 @media (max-width: 1024px) {
     .filters-row {
         grid-template-columns: 1fr;
     }
     
-    .date-field {
+    .date-field,
+    .status-field {
         width: 100%;
     }
 }

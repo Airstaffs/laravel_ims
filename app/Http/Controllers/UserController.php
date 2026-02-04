@@ -42,6 +42,7 @@ class UserController extends Controller
                 'rts',
                 'returnscanner',
                 'fbmorder',
+                'shipment',
                 'soldlist',
                 'notfound',
                 'asinoption',
@@ -51,6 +52,7 @@ class UserController extends Controller
                 'humanresource',
                 'announcement',
                 'auxiliary',
+                'inventorystatistics',
             )
             ->where('id', $currentUserId)
             ->first();
@@ -206,6 +208,7 @@ class UserController extends Controller
                     'rts' => (bool) $selectedUser->rts,
                     'returnscanner' => (bool) $selectedUser->returnscanner,
                     'fbmorder' => (bool) $selectedUser->fbmorder,
+                    'shipment' => (bool) $selectedUser->shipment,
                     'soldlist' => (bool) $selectedUser->soldlist,
                     'notfound' => (bool) $selectedUser->notfound,
                     'asinoption' => (bool) $selectedUser->asinoption,
@@ -213,6 +216,7 @@ class UserController extends Controller
                     'asinlist' => (bool) $selectedUser->asinlist,
                     'printer' => (bool) $selectedUser->printer,
                     'auxiliary' => (bool) $selectedUser->auxiliary,
+                    'inventorystatistics' => (bool) $selectedUser->inventorystatistics,
                 ],
                 'privileges_stores' => $storePrivileges, // Pass the processed store privileges
             ];
@@ -355,15 +359,16 @@ class UserController extends Controller
                 'RTS' => 'rts',
                 'Return Scanner' => 'returnscanner',
                 'FBM Order' => 'fbmorder',
+                'Shipment' => 'shipment',
                 'Sold Items' => 'soldlist',
                 'Not Found' => 'notfound',
                 'ASIN Option' => 'asinoption',
                 'Houseage' => 'houseage',
                 'ASIN List' => 'asinlist',
                 'Printer' => 'printer',
-                'Auxillary Label' => 'auxillary',
-                'Announcement' => 'announcement',
-               
+                'Auxiliary Label' => 'auxiliary',
+                'Announcement' => 'announcement',       
+                'Inventory Statistics' => 'inventorystatistics',    
             ];
 
             // Convert main module from display name to database column name
@@ -403,6 +408,7 @@ class UserController extends Controller
                 'rts',
                 'returnscanner',
                 'fbmorder',
+                'shipment',
                 'soldlist',
                 'notfound',
                 'asinoption',
@@ -411,6 +417,7 @@ class UserController extends Controller
                 'printer',
                 'auxiliary',
                 'announcement',
+                'inventorystatistics',
         
             ];
 
@@ -550,6 +557,7 @@ class UserController extends Controller
                 'rts',
                 'returnscanner',
                 'fbmorder',
+                'shipment',
                 'soldlist',
                 'notfound',
                 'asinoption',
@@ -557,6 +565,7 @@ class UserController extends Controller
                 'asinlist',
                 'printer',
                 'auxiliary',
+                'inventorystatistics',
             ];
 
             // Get main module and ensure it's lowercase with no spaces

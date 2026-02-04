@@ -52,6 +52,8 @@ use App\Http\Controllers\UserLogsController;
 use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
+use App\Http\Controllers\ShipmentController;
+use App\Http\Controllers\InventoryStatisticsController;
 use App\Http\Middleware\PreventBackHistory;
 use App\Http\Models\Store;
 use App\Models\User;
@@ -371,6 +373,7 @@ Route::get('/apis/ebay-login', action: function () {
 });
 
 Route::get('/ebay/orders', [EbayController::class, 'fetchOrders']);
+Route::post('/ebay/mark-refunded/{orderId}', [EbayController::class, 'markOrderAsRefunded']);
 
 Route::get('/ebay/orders/cron-automation/{token}', function ($token) {
     if ($token !== env('CRON_SECRET')) {
@@ -665,6 +668,21 @@ Route::middleware(['auth'])->prefix('api/testing')->group(function () {
 // Cleaning module routes
 Route::middleware(['auth'])->prefix('api/cleaning')->group(function () {
     Route::get('products', [CleaningController::class, 'index']);
+});
+
+// Routes for Shipment Module
+Route::prefix('api/shipments')->group(function () {
+    Route::get('/', [ShipmentController::class, 'index']);
+    Route::get('/detail', [ShipmentController::class, 'show']);
+    Route::get('/stores', [ShipmentController::class, 'getStores']);
+    Route::get('/carriers', [ShipmentController::class, 'getCarriers']);
+    Route::get('/stats', [ShipmentController::class, 'getStats']);
+});
+
+// Inventory Statistics Routes
+Route::prefix('api/inventory-statistics')->group(function () {
+    Route::get('/summary', [InventoryStatisticsController::class, 'getSummary']);
+    Route::get('/asin-details', [InventoryStatisticsController::class, 'getAsinDetails']);
 });
 
 // Printer API routes
