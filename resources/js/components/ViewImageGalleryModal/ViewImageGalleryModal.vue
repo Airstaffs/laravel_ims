@@ -102,6 +102,7 @@
                                 :src="img"
                                 @error="handleImageError"
                                 loading="lazy"
+                                :alt="img"
                             />
                         </div>
                     </div>
@@ -139,14 +140,14 @@ const tabs = computed(() => [
         key: "regular",
         label: "Product Images",
         images: (props.regularImages || []).filter(
-            (img) => img != null && img !== ""
+            (img) => img != null && img !== "",
         ),
     },
     {
         key: "captured",
         label: "Captured Images",
         images: (props.capturedImages || []).filter(
-            (img) => img != null && img !== ""
+            (img) => img != null && img !== "",
         ),
     },
 ]);
@@ -206,7 +207,7 @@ watch(
                 }
             }, 100);
         }
-    }
+    },
 );
 </script>
 
