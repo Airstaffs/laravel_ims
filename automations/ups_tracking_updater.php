@@ -4,12 +4,76 @@ ini_set('display_startup_errors', 0);
 error_reporting(E_ALL);
 
 /**
- * CRON-SAFE UPS TRACKER (cPanel/WHM)
- * - Writes logs to: __DIR__/logs/ups_tracker.log
- * - No echo/print_r (cron friendly)
- * - Handles queue + UPS errors with logging
- * - Adds basic log rotation
+ * CRON-SAFE UPS TRACKER (cPanel/WHM) + WEB TEST MODE
+ *
+ * CRON (CLI):
+ * - No echo output
+ * - Full queue (no LIMIT)
+ *
+ * WEB (Browser):
+ * - Uses real DB values, but defaults to LIMIT 1 for safe testing
+ * - Supports:
+ *    ?key=YOUR_SECRET          (required)
+ *    ?debug=1                  (echo output)
+ *    ?limit=1                  (DB query limit, default=1)
+ *    ?run_once=1               (alias for limit=1)
  */
+
+/* =========================
+   Web-only flags + gate
+========================= */
+
+$DEBUG = false;
+$LIMIT = 0;         // 0 = no limit (cron)
+$RUN_ONCE = false;  // web-only convenience
+
+// CHANGE THIS TO A LONG RANDOM STRING
+define('WEB_RUN_KEY', 'Rawr');
+
+if (php_sapi_name() !== 'cli') {
+    // Gate the endpoint
+    $key = (string)($_GET['key'] ?? '');
+    if ($key !== WEB_RUN_KEY) {
+        http_response_code(403);
+        exit('Forbidden');
+    }
+
+    $DEBUG = !empty($_GET['debug']);
+    $RUN_ONCE = !empty($_GET['run_once']);
+
+    // Default web testing is LIMIT 1
+    $LIMIT = isset($_GET['limit']) ? max(1, (int)$_GET['limit']) : 1;
+
+    if ($RUN_ONCE) $LIMIT = 1;
+
+    if ($DEBUG) {
+        header('Content-Type: text/plain; charset=utf-8');
+        ini_set('display_errors', 1);
+        ini_set('display_startup_errors', 1);
+    }
+}
+
+/* =========================
+   Output helper (debug only)
+========================= */
+
+function out(string $label, $data = null): void
+{
+    global $DEBUG;
+    if (!$DEBUG) return;
+
+    $ts = date('Y-m-d H:i:s');
+    echo "\n==================== {$ts} :: {$label} ====================\n";
+
+    if ($data !== null) {
+        if (is_string($data)) {
+            echo $data . "\n";
+        } else {
+            print_r($data);
+            echo "\n";
+        }
+    }
+}
 
 /* =========================
    Cron file logger + rotation
@@ -33,7 +97,6 @@ function cron_log(string $message, array $context = []): void
     $ts = date('Y-m-d H:i:s');
 
     if (!empty($context)) {
-        // Keep logs compact
         $message .= ' | ' . json_encode($context, JSON_UNESCAPED_SLASHES);
     }
 
@@ -46,11 +109,24 @@ function cron_log(string $message, array $context = []): void
     }
 
     @file_put_contents(CRON_LOG_FILE, $line, FILE_APPEND | LOCK_EX);
+
+    // Mirror logs to screen only in debug mode (web)
+    global $DEBUG;
+    if (!empty($DEBUG)) {
+        echo $line;
+    }
 }
 
 /* =========================
    Main
 ========================= */
+
+out("FLAGS", [
+    'DEBUG' => $DEBUG,
+    'LIMIT' => $LIMIT,
+    'RUN_ONCE' => $RUN_ONCE,
+    'SAPI' => php_sapi_name(),
+]);
 
 cron_log("UPS tracker started", [
     'php' => PHP_VERSION,
@@ -62,6 +138,8 @@ $imsv2_connect = dbDatabase("laravel_ims");
 
 // Fetch UPS credentials from main app
 $credentials = fetchUpsCredentialsFromMainApp();
+
+out("UPS credentials response", $credentials);
 
 if (!empty($credentials['error'])) {
     cron_log("UPS credential fetch failed", [
@@ -77,25 +155,12 @@ if (!$credentials) {
     exit;
 }
 
-// Toggle test queue
-$USE_TEST_QUEUE = false;
+// Always use REAL DB queue.
+// CRON: LIMIT=0 means full queue.
+// WEB:  LIMIT defaults to 1 (safe testing).
+$queue = getUpsTrackingQueueLatestDispense($imsv2_connect, $LIMIT);
 
-$queue = $USE_TEST_QUEUE
-    ? [
-        [
-            'trackingnumber' => '1ZK5083X0318006920',
-            'outboundorderitemid' => 999001,
-            'productid' => 888001,
-            'fnskuviewer' => 'X00ABC12345', // put a real fnsku for testing
-        ],
-        [
-            'trackingnumber' => '1Z12345E0205271688',
-            'outboundorderitemid' => 999002,
-            'productid' => 888002,
-            'fnskuviewer' => 'X00DEF67890',
-        ],
-    ]
-    : getUpsTrackingQueueLatestDispense($imsv2_connect);
+out("Queue raw", $queue);
 
 // Handle queue error shape
 if (isset($queue['error']) && $queue['error'] === true) {
@@ -135,6 +200,7 @@ foreach ($queue as $row) {
             'outboundorderitemid' => $outboundId,
             'productid' => $productId,
         ]);
+        out("SKIPPED ROW (missing required fields)", $row);
         continue;
     }
 
@@ -146,24 +212,39 @@ foreach ($queue as $row) {
         'productid' => $productId,
     ]);
 
+    out("PROCESSING", [
+        'trackingnumber' => $trackingNumber,
+        'outboundorderitemid' => $outboundId,
+        'productid' => $productId,
+        'fnskuviewer' => $row['fnskuviewer'] ?? '',
+        'mskuviewer' => $row['mskuviewer'] ?? '',
+        'asinviewer' => $row['asinviewer'] ?? '',
+    ]);
+
     // 1) Fetch UPS details
     $resp = UPS_fetchDetails($trackingNumber, $credentials);
+    out("UPS_fetchDetails response", $resp);
 
     // If token expired/invalid, refetch from main app and retry once
     if (!empty($resp['http_code']) && (int) $resp['http_code'] === 401) {
         cron_log("UPS returned 401, refetching credentials and retrying once", [
             'trackingnumber' => $trackingNumber,
         ]);
+        out("UPS returned 401 -> refetching credentials", $trackingNumber);
 
         $credentials2 = fetchUpsCredentialsFromMainApp();
+        out("Refetched credentials", $credentials2);
+
         if (empty($credentials2['error']) && !empty($credentials2['access_token'])) {
             $credentials = $credentials2;
             $resp = UPS_fetchDetails($trackingNumber, $credentials);
+            out("UPS_fetchDetails retry response", $resp);
         } else {
             cron_log("Credential refetch failed after 401", [
                 'trackingnumber' => $trackingNumber,
                 'message' => $credentials2['message'] ?? 'Unknown',
             ]);
+            out("Credential refetch failed after 401", $credentials2);
         }
     }
 
@@ -176,6 +257,7 @@ foreach ($queue as $row) {
             'http_code' => $resp['http_code'] ?? null,
             'message' => $resp['message'] ?? 'Unknown error',
         ]);
+        out("UPS FETCH ERROR", $resp);
         continue;
     }
 
@@ -189,6 +271,7 @@ foreach ($queue as $row) {
             'outboundorderitemid' => $outboundId,
             'productid' => $productId,
         ]);
+        out("STATUS EXTRACT FAILED", $resp);
         continue;
     }
 
@@ -196,6 +279,8 @@ foreach ($queue as $row) {
         'trackingnumber' => $trackingNumber,
         'status' => $package_status,
     ]);
+
+    out("UPS STATUS", $package_status);
 
     // 3) Delivered-ish statuses
     if ($package_status === 'Delivered' || $package_status === 'Delivered by Local Post Office') {
@@ -224,6 +309,8 @@ foreach ($queue as $row) {
             'fnsku_updates' => $done['fnsku_updates'] ?? null,
         ]);
 
+        out("DELIVERED TRANSACTION RESULT", $done);
+
         continue;
     }
 
@@ -248,11 +335,22 @@ foreach ($queue as $row) {
         'error' => $upd['error'] ?? null,
     ]);
 
+    out("TRACKING STATUS UPDATE RESULT", $upd);
+
     // optional: avoid rate limits
     // sleep(1);
 }
 
 cron_log("UPS tracker finished", [
+    'processed' => $processed,
+    'skipped' => $skipped,
+    'upsErrors' => $upsErrors,
+    'statusErrors' => $statusErrors,
+    'deliveredCount' => $deliveredCount,
+    'updatedCount' => $updatedCount,
+]);
+
+out("SUMMARY", [
     'processed' => $processed,
     'skipped' => $skipped,
     'upsErrors' => $upsErrors,
@@ -272,19 +370,16 @@ function ups_extract_package_status_like_old(array $resp): string
         return '';
     }
 
-    // OLD script main path
     $status =
         $ups['trackResponse']['shipment'][0]['package'][0]['currentStatus']['description']
         ?? null;
 
-    // OLD script fallback warning path
     if (!$status) {
         $status =
             $ups['trackResponse']['Shipment'][0]['warnings'][0]['message']
             ?? null;
     }
 
-    // Other common shapes (backup)
     if (!$status) {
         $status =
             $ups['trackResponse']['shipment'][0]['package'][0]['activity'][0]['status']['description']
@@ -432,7 +527,7 @@ function UPS_fetchDetails($trackingnumber, array $credentials)
             'error' => true,
             'message' => 'Invalid JSON response from UPS Track API.',
             'http_code' => $httpCode,
-            'raw' => substr((string) $raw, 0, 5000), // cap
+            'raw' => substr((string) $raw, 0, 5000),
         ];
     }
 
@@ -451,7 +546,7 @@ function UPS_fetchDetails($trackingnumber, array $credentials)
     ];
 }
 
-function getUpsTrackingQueueLatestDispense(mysqli $db): array
+function getUpsTrackingQueueLatestDispense(mysqli $db, int $limit = 0): array
 {
     $sql = "
         SELECT
@@ -480,9 +575,20 @@ function getUpsTrackingQueueLatestDispense(mysqli $db): array
         ORDER BY oi.outboundorderitemid DESC
     ";
 
-    $res = $db->query($sql);
-    if (!$res) {
-        return ['error' => true, 'message' => 'Query failed: ' . $db->error];
+    // Apply SQL LIMIT if requested
+    if ($limit > 0) {
+        $sql .= " LIMIT ?";
+        $stmt = $db->prepare($sql);
+        if (!$stmt) return ['error' => true, 'message' => 'Prepare failed: ' . $db->error];
+
+        $stmt->bind_param("i", $limit);
+        $stmt->execute();
+        $res = $stmt->get_result();
+    } else {
+        $res = $db->query($sql);
+        if (!$res) {
+            return ['error' => true, 'message' => 'Query failed: ' . $db->error];
+        }
     }
 
     $items = [];
@@ -497,9 +603,12 @@ function getUpsTrackingQueueLatestDispense(mysqli $db): array
         ];
     }
 
+    if (!empty($stmt) && $stmt instanceof mysqli_stmt) {
+        $stmt->close();
+    }
+
     return $items;
 }
-
 
 function handleDeliveredTransaction(
     mysqli $db,
@@ -522,8 +631,7 @@ function handleDeliveredTransaction(
             SET order_status = 'Delivered'
             WHERE outboundorderitemid = ? AND order_status = 'Shipped'
         ");
-        if (!$stmt1)
-            throw new Exception($db->error);
+        if (!$stmt1) throw new Exception($db->error);
 
         $stmt1->bind_param("i", $outboundId);
         $stmt1->execute();
@@ -538,8 +646,7 @@ function handleDeliveredTransaction(
             SET ProductModuleLoc = 'SoldList'
             WHERE ProductID = ?
         ");
-        if (!$stmt2)
-            throw new Exception($db->error);
+        if (!$stmt2) throw new Exception($db->error);
 
         $stmt2->bind_param("i", $productId);
         $stmt2->execute();
@@ -554,8 +661,7 @@ function handleDeliveredTransaction(
             FROM tblproduct
             WHERE ProductID = ?
         ");
-        if (!$stmt)
-            throw new Exception($db->error);
+        if (!$stmt) throw new Exception($db->error);
 
         $stmt->bind_param("i", $productId);
         $stmt->execute();
@@ -571,8 +677,6 @@ function handleDeliveredTransaction(
         $mskuviewer = trim((string) ($prod['MSKUviewer'] ?? $mskuviewer));
         $asinviewer = trim((string) ($prod['ASINviewer'] ?? $asinviewer));
 
-        // This will hold unique “identifier tuples” => qty
-        // Keyed by json string for easy dedupe
         $idCounts = [];
 
         // CASE A: Single item (no mergeId)
@@ -589,8 +693,7 @@ function handleDeliveredTransaction(
                 FROM tblproduct
                 WHERE mergeTO = ?
             ");
-            if (!$stmt)
-                throw new Exception($db->error);
+            if (!$stmt) throw new Exception($db->error);
 
             $stmt->bind_param("i", $rtcounter);
             $stmt->execute();
@@ -651,21 +754,6 @@ function handleDeliveredTransaction(
     }
 }
 
-function extractBaseFnsku(string $fnsku): string
-{
-    $fnsku = strtoupper(trim($fnsku));
-    if ($fnsku === '') {
-        return $fnsku;
-    }
-
-    // Strip exactly 1 letter + 1 digit prefix if remainder is FNSKU
-    if (preg_match('/^[A-Z][0-9](X[0-9A-Z]+)$/', $fnsku, $m)) {
-        return $m[1];
-    }
-
-    return $fnsku;
-}
-
 function fetchUpsCredentialsFromMainApp(): array
 {
     $url = 'https://ims.tecniquality.com/dbserver/ups/ups_credentials.php';
@@ -718,10 +806,9 @@ function fetchUpsCredentialsFromMainApp(): array
         return ['error' => true, 'message' => 'Main app returned missing token/expiry', 'raw' => $data];
     }
 
-    // Keep same keys your script expects
     return [
         'access_token' => $token,
-        'expires_in' => $exp, // absolute unix (as you implemented)
+        'expires_in' => $exp,
     ];
 }
 
@@ -738,44 +825,25 @@ function normalizeIdentifierTuple(string $fnskuviewer, string $mskuviewer, strin
     ];
 }
 
-/**
- * Normalize FNSKUviewer -> base FNSKU used in tblfnsku.FNSKU
- * Handles:
- *  - No prefix:          X00ABC12345
- *  - 2-letter prefix:    AAX00ABC12345   (example)
- *  - Old pattern:        A1X00ABC12345   (your previous logic)
- */
 function normalizeFnskuViewer(string $fnsku): string
 {
     $s = strtoupper(trim($fnsku));
     if ($s === '') return '';
 
-    // If it contains X... somewhere, keep from first X onward (common safest rule)
-    // e.g. "AAX00ABC" -> "X00ABC"
     $pos = strpos($s, 'X');
     if ($pos !== false) {
         $candidate = substr($s, $pos);
-        // basic sanity: starts with X and has letters/numbers only
         if (preg_match('/^X[0-9A-Z]+$/', $candidate)) {
             return $candidate;
         }
     }
 
-    // Legacy exact strip rules (kept as fallback)
     if (preg_match('/^[A-Z][0-9](X[0-9A-Z]+)$/', $s, $m)) return $m[1];
     if (preg_match('/^[A-Z]{2}(X[0-9A-Z]+)$/', $s, $m)) return $m[1];
 
     return $s;
 }
 
-/**
- * Increment tblfnsku.units by matching ANY of:
- *  - tblfnsku.FNSKU = normalized fnsku
- *  - tblfnsku.MSKU  = msku
- *  - tblfnsku.ASIN  = asin
- *
- * Only includes non-empty identifiers in the WHERE clause.
- */
 function increment_tblfnsku_units_by_any_identifier(
     mysqli $db,
     int $qty,
@@ -806,7 +874,6 @@ function increment_tblfnsku_units_by_any_identifier(
     $stmt = $db->prepare($sql);
     if (!$stmt) return ['ok' => false, 'error' => $db->error];
 
-    // bind_param requires references
     $bind = [];
     $bind[] = $types;
     foreach ($params as $k => $v) {
@@ -822,7 +889,6 @@ function increment_tblfnsku_units_by_any_identifier(
 
     if ($err) return ['ok' => false, 'error' => $err];
 
-    // NOTE: affected_rows can be 0 if record exists but value unchanged (rare) or no match
     if ($affected <= 0) {
         return [
             'ok' => false,

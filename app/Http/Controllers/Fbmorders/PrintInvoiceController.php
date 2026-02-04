@@ -385,6 +385,8 @@ class PrintInvoiceController extends Controller
         // ✅ Display-safe values (keep real $platformOrderId for DB lookups)
         $displayInvoice = $isTestPrint ? 'TEST PRINT' : $invoiceDisplay;
 
+        $shipToName = $orderData["BuyerName"] ?? '';
+
         $displayShipToName = $isTestPrint ? 'TEST PRINT' : (string) ($shipToName ?? '');
         $displayBuyerName = $isTestPrint ? 'TEST PRINT' : (string) ($orderData["BuyerName"] ?? '');
 
@@ -403,7 +405,7 @@ class PrintInvoiceController extends Controller
             $totalHeight
         );
 
-        $shipToName = $orderData["ship_to_name"] ?? $orderData["BuyerName"] ?? '';
+
 
         // Warehouse details
         $ItemsForWarehouse = [];
@@ -1058,7 +1060,8 @@ class PrintInvoiceController extends Controller
 function extractBaseFnsku(string $fnsku): string
 {
     $fnsku = strtoupper(trim($fnsku));
-    if ($fnsku === '') return '';
+    if ($fnsku === '')
+        return '';
 
     // Keep the core X... if present anywhere (most reliable)
     if (preg_match('/(X[0-9A-Z]+)/', $fnsku, $m)) {
