@@ -1416,7 +1416,7 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
             ->where('grading', $grading)
             ->where('storename', $storename)
             ->where('LimitStatus', 'False')
-            ->whereIn('amazon_status', ['Active', 'Notposted'])
+            ->whereIn('amazon_status', ['Active','Inactive', 'Notposted'])
             ->lockForUpdate()
             ->first();
 
