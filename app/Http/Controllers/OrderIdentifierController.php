@@ -205,7 +205,7 @@ class OrderIdentifierController extends Controller
     $config = [
         'paperWidth'   => 508,     // 2.5 inch @ 203dpi (2.5 * 203 = 507.5 ≈ 508)
         'labelHeight'  => 254,     // 1.25 inch @ 203dpi (1.25 * 203 = 253.75 ≈ 254)
-        'barcodeY'     => 50,      // Barcode Y position (adjusted for smaller label)
+        'barcodeY'     => 30,      // Barcode Y position (adjusted for smaller label)
         'textY'        => 150,     // Text Y position (adjusted for smaller label)
         'barcodeH'     => 60,     // Barcode height (reduced for smaller label)
         'textSize'     => 40,      // Text size (reduced for smaller label)
