@@ -1740,13 +1740,13 @@ class StockroomController extends BasetablesController
                 ]);
 
                 // Generate prefixed FNSKU
-                $fnskuInfo = $this->getNextAvailableFnsku(
-                    $packFnsku->FNSKU,
-                    $packFnsku->MSKU,
-                    $targetAsin,
-                    $condition,
-                    $storename
-                );
+            $fnskuInfo = $this->getNextAvailableFnsku(
+                $packFnsku->FNSKU,
+                $packFnsku->MSKU,
+                $packFnsku->ASIN,     // ✅ CHANGED: Use actual ASIN from packFnsku
+                $condition,
+                $storename
+            );
                 $actualFnskuToUse = $fnskuInfo['actual_fnsku'];
                 $actualMskuToUse = $fnskuInfo['actual_msku'];
 
@@ -1813,11 +1813,11 @@ class StockroomController extends BasetablesController
             ]);
 
             // Update FNSKU units
-            $becameUnavailable = $this->updateFnskuUnits(
+                $becameUnavailable = $this->updateFnskuUnits(
                 $actualMskuToUse,
-                $targetAsin,
-                $condition,
-                $storename
+                $packFnsku->ASIN,     // ✅ CHANGED: Use actual ASIN from packFnsku
+             $condition,
+           $storename
             );
 
             Log::info('🔍 MERGE DEBUG: FNSKU units updated', [
