@@ -183,7 +183,7 @@ class StockroomController extends BasetablesController
         if (! empty($inputMsku)) {
             $fnskuRecord = DB::table($this->fnskuTable)
                 ->where('MSKU', $inputMsku)
-                ->where('fnsku_status', 'available')
+                ->where('fnsku_status', 'Available')
                 ->where('Units', '>', 0)
                 ->first();
 
@@ -209,7 +209,7 @@ class StockroomController extends BasetablesController
         // ✅ PRIORITY 2: Search by FNSKU (fallback or when MSKU not provided)
         $fnskuRecord = DB::table($this->fnskuTable)
             ->where('FNSKU', $baseFnsku)
-            ->where('fnsku_status', 'available')
+            ->where('fnsku_status', 'Available')
             ->where('Units', '>', 0)
             ->first();
 
@@ -1635,7 +1635,7 @@ class StockroomController extends BasetablesController
                         ->select('fnsku.*')
                         ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                         ->where('fnsku.MSKU', $providedMsku)
-                        ->where('fnsku.fnsku_status', 'available')
+                        ->where('fnsku.fnsku_status', 'Available')
                         ->whereIn('fnsku.amazon_status', ['Active', 'Notposted'])
                         ->where('fnsku.LimitStatus', 'False')
                         ->where('fnsku.Units', '>', 0)
@@ -1660,7 +1660,7 @@ class StockroomController extends BasetablesController
                         ->select('fnsku.*')
                         ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                         ->where('fnsku.ASIN', $targetAsin)
-                        ->where('fnsku.fnsku_status', 'available')
+                        ->where('fnsku.fnsku_status', 'Available')
                         ->whereIn('fnsku.amazon_status', ['Active', 'Notposted'])
                         ->where('fnsku.LimitStatus', 'False')
                         ->where('fnsku.Units', '>', 0)
@@ -1694,7 +1694,7 @@ class StockroomController extends BasetablesController
                             ->select('fnsku.*')
                             ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                             ->whereIn('fnsku.ASIN', $relatedAsins)
-                            ->where('fnsku.fnsku_status', 'available')
+                            ->where('fnsku.fnsku_status', 'Available')
                             ->whereIn('fnsku.amazon_status', ['Active', 'Notposted'])
                             ->where('fnsku.LimitStatus', 'False')
                             ->where('fnsku.Units', '>', 0)
@@ -1924,7 +1924,7 @@ class StockroomController extends BasetablesController
                 ->where('ASIN', $asin)
                 ->where('grading', $grading)
                 ->where('storename', $storename)
-                ->update(['fnsku_status' => 'unavailable']);
+                ->update(['fnsku_status' => 'Unavailable']);
             $becameUnavailable = true;
         }
 
@@ -2748,7 +2748,7 @@ class StockroomController extends BasetablesController
             ->where('ASIN', $asinViewer)
             ->update([
                 'Units' => DB::raw('Units + 1'),
-                'fnsku_status' => 'available',
+                'fnsku_status' => 'Available',
             ]);
 
         $this->updateFnskuLimitStatus($asinViewer, $mskuViewer);
