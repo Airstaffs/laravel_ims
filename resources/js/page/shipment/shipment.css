@@ -124,6 +124,18 @@
     font-weight: 600;
 }
 
+.detail-item-container :deep(.p-tag) {
+    color: white !important;
+    font-weight: 600;
+    padding: 0.35rem 0.75rem;
+    border-radius: 4px;
+}
+
+/* Special case for DHL yellow - use dark text */
+.detail-item-container :deep(.p-tag[style*="#eab308"]) {
+    color: #1e293b !important;
+}
+
 /* Mobile View */
 .mobile-view {
     display: none;

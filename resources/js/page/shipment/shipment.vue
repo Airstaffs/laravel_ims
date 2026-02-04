@@ -148,10 +148,6 @@
                 <template #productInfo="{ data }">
                     <div class="d-flex flex-column gap-2">
                         <div class="detail-item-container">
-                            <span>Product ID: </span>
-                            <span class="text-primary fw-bold">{{ data.product_id }}</span>
-                        </div>
-                        <div class="detail-item-container">
                             <span>Title: </span>
                             <span>{{ data.product_title }}</span>
                         </div>
@@ -403,10 +399,6 @@
                 <div class="details-section">
                     <h4><i class="pi pi-box"></i> Product Information</h4>
                     <div class="details-grid">
-                        <div class="detail-row">
-                            <span class="label">Product ID:</span>
-                            <span class="value fw-bold">{{ selectedShipment.product_id }}</span>
-                        </div>
                         <div class="detail-row">
                             <span class="label">Title:</span>
                             <span class="value">{{ selectedShipment.product_title }}</span>
@@ -660,14 +652,15 @@ export default {
                 default: return 'info';
             }
         },
-        getCarrierColor(carrier) {
-            if (!carrier) return '#6c757d';
+       getCarrierColor(carrier) {
+            if (!carrier) return '#e2e8f0'; // Light gray for unknown
             const c = carrier.toUpperCase();
-            if (c.includes('UPS')) return '#351c15';
-            if (c.includes('FEDEX')) return '#4d148c';
-            if (c.includes('USPS')) return '#004b87';
-            if (c.includes('DHL')) return '#ffcc00';
-            return '#6c757d';
+            if (c.includes('UPS')) return '#8B4513'; // Brown (UPS brand color - lighter)
+            if (c.includes('FEDEX')) return '#7c3aed'; // Purple (FedEx brand - lighter)
+            if (c.includes('USPS')) return '#3b82f6'; // Blue (USPS brand - lighter)
+            if (c.includes('DHL')) return '#eab308'; // Yellow (DHL brand)
+            if (c.includes('AMAZON')) return '#ff9900'; // Orange (Amazon brand)
+            return '#64748b'; // Default gray
         }
     }
 };
