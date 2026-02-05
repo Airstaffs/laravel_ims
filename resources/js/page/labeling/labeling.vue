@@ -671,7 +671,19 @@
                                                                 key,
                                                             )
                                                         "
+                                                        :class="{
+                                                            'p-invalid':
+                                                                serialErrors[
+                                                                    key
+                                                                ],
+                                                        }"
                                                     />
+                                                    <small
+                                                        v-if="serialErrors[key]"
+                                                        class="p-error"
+                                                    >
+                                                        {{ serialErrors[key] }}
+                                                    </small>
                                                 </fieldset>
                                             </template>
                                             <template
@@ -1831,6 +1843,7 @@ export default {
                 this.$refs.menu.toggle(event);
             }
         },
+
         getMoreActionItems(item) {
             return [
                 {
@@ -1861,6 +1874,7 @@ export default {
                 },
             ];
         },
+
         async showOtherFNSKUInfos(data) {
             this.showOtherFNSKUInfoModal = true;
 
@@ -2049,9 +2063,11 @@ export default {
             }
             return count;
         },
+
         updatePricingView() {
             this.showPricingSection = showPricingForPH();
         },
+
         checkMobile() {
             this.isMobile = window.innerWidth <= 768;
         },
@@ -2086,6 +2102,7 @@ export default {
             this.showStickyTitle = titleTopRelativeToDialog < -50; // -50px threshold
         },
     },
+
     beforeUnmount() {
         window.removeEventListener("resize", this.updatePricingView);
 
@@ -2094,6 +2111,7 @@ export default {
             this.dialogContent.removeEventListener("scroll", this.handleScroll);
         }
     },
+
     computed: {
         storeListOptions() {
             const options = this.uniqueStores.map((store) => ({
@@ -2442,5 +2460,11 @@ button:disabled {
 
 .info-items span:nth-child(1) {
     font-weight: bold;
+}
+
+fieldset > .p-error {
+    color: #a94442;
+    font-size: 10px;
+    line-height: 0;
 }
 </style>

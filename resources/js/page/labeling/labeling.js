@@ -85,6 +85,8 @@ export default {
             },
             hasMoreFnskuPages: false,
             currentFnskuPage: 1,
+
+            serialErrors: {},
         };
     },
     computed: {
@@ -435,6 +437,7 @@ export default {
             if (timesUsed === 1) return "Used 1 time";
             return `Used ${timesUsed} times`;
         },
+
         handleImageError(event) {
             // If image fails to load, use an inline SVG placeholder
             event.target.src = this.defaultImage;
@@ -2175,6 +2178,98 @@ export default {
                 );
             }
 
+            // ============ NEW: Validate Serial Numbers ============
+            // Clear all serial errors first
+            this.serialErrors = {};
+
+            // Trim all serial values
+            this.serialKeys.forEach((key) => {
+                if (this.item[key]) {
+                    this.item[key] = this.item[key].trim();
+                }
+            });
+
+            // Get all serial values (non-empty)
+            const serialValues = this.serialKeys
+                .map((key) => ({
+                    key,
+                    value: this.item[key]?.trim(),
+                }))
+                .filter((s) => s.value); // Only non-empty values
+
+            // Check for duplicates within the same product (Serial A = Serial B = Serial C, etc.)
+            if (serialValues.length > 1) {
+                const duplicateMap = {};
+
+                // Find which values appear more than once
+                serialValues.forEach((s) => {
+                    if (!duplicateMap[s.value]) {
+                        duplicateMap[s.value] = [];
+                    }
+                    duplicateMap[s.value].push(s.key);
+                });
+
+                // Check if any value appears more than once
+                const duplicates = Object.entries(duplicateMap).filter(
+                    ([value, keys]) => keys.length > 1,
+                );
+
+                if (duplicates.length > 0) {
+                    duplicates.forEach(([value, keys]) => {
+                        const labels = keys
+                            .map((k) => {
+                                const match = k.match(/serialnumber([a-z]?)/i);
+                                return match[1]
+                                    ? `Serial ${match[1].toUpperCase()}`
+                                    : "Serial";
+                            })
+                            .join(" and ");
+
+                        const errorMsg = `${labels} cannot have the same value (${value}).`;
+                        errors.push(errorMsg);
+
+                        // Mark all duplicate fields
+                        keys.forEach((key) => {
+                            this.serialErrors[key] = errorMsg;
+                        });
+                    });
+                }
+            }
+
+            // Check for duplicates across products (only if no same-product duplicates found)
+            if (serialValues.length > 0 && errors.length === 0) {
+                try {
+                    for (const serialObj of serialValues) {
+                        const response = await axios.post(
+                            "/check-duplicate-serial",
+                            {
+                                serial: serialObj.value,
+                                current_product_id: this.item.ProductID || null,
+                                serial_field: serialObj.key,
+                            },
+                        );
+
+                        if (
+                            response.data.duplicate &&
+                            response.data.type === "cross_product"
+                        ) {
+                            const errorMsg = `Serial number "${serialObj.value}" already exists in another product.`;
+                            errors.push(errorMsg);
+                            this.serialErrors[serialObj.key] = errorMsg;
+                            break; // Stop checking after first duplicate found
+                        }
+                    }
+                } catch (error) {
+                    console.error("Serial validation error:", error);
+                    if (error.response?.status !== 405) {
+                        errors.push(
+                            "Failed to validate serial numbers. Please try again.",
+                        );
+                    }
+                }
+            }
+            // ============ END: Validate Serial Numbers ============
+
             if (errors.length) {
                 this.loading = false;
                 await Swal.fire({
@@ -2253,87 +2348,63 @@ export default {
             }
         },
 
-        async checkDuplicateSerial(serial, serialKey) {
-            if (!serial) return;
+        async checkDuplicateSerial(serial, serialField) {
+            // Clear previous error for this field
+            this.serialErrors[serialField] = null;
 
-            const token = document
-                .querySelector('meta[name="csrf-token"]')
-                ?.getAttribute("content");
+            if (!serial || serial.trim() === "") {
+                return;
+            }
 
+            const trimmedSerial = serial.trim();
+
+            // Check against other serial fields in the same product
+            const otherSerials = this.serialKeys
+                .filter((key) => key !== serialField)
+                .map((key) => ({
+                    key,
+                    value: this.item[key]?.trim(),
+                }))
+                .filter((s) => s.value);
+
+            // Check for duplicate within same product first
+            const localDuplicate = otherSerials.find(
+                (s) => s.value === trimmedSerial,
+            );
+            if (localDuplicate) {
+                const currentLabel =
+                    serialField
+                        .match(/serialnumber([a-z]?)/i)?.[1]
+                        ?.toUpperCase() || "";
+                const duplicateLabel =
+                    localDuplicate.key
+                        .match(/serialnumber([a-z]?)/i)?.[1]
+                        ?.toUpperCase() || "";
+
+                this.serialErrors[serialField] =
+                    `Serial ${currentLabel} and Serial ${duplicateLabel} cannot have the same value.`;
+                return;
+            }
+
+            // Check for duplicates across products
             try {
-                const response = await fetch(
-                    "/api/houseage/check-duplicate-serial",
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            "X-Requested-With": "XMLHttpRequest",
-                            ...(token ? { "X-CSRF-TOKEN": token } : {}),
-                        },
-                        body: JSON.stringify({
-                            serial,
-                            current_product_id:
-                                this.item.ProductID || this.item.id,
-                        }),
-                    },
-                );
-
-                if (!response.ok) {
-                    const text = await response.text();
-                    throw new Error(
-                        `HTTP ${response.status}: ${text.slice(0, 200)}`,
-                    );
-                }
-
-                const data = await response.json();
-
-                console.log(data);
-
-                if (data.duplicate) {
-                    const product = data.product;
-
-                    Swal.fire({
-                        icon: "warning",
-                        title: "Duplicate Serial Found",
-                        html: `
-                                <p>This serial already exists in another product.</p>
-                                <p><b>RT Counter:</b> ${product.rtcounter ?? "N/A"}</p>
-                                <p><b>Title:</b> ${product.ProductTitle ?? "N/A"}</p>
-                                `,
-                        showCancelButton: true,
-                        confirmButtonText: "View Original Item",
-                        cancelButtonText: "OK",
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            // Close the modal
-                            if (typeof this.closeEditModal === "function") {
-                                this.closeEditModal();
-                            } else {
-                                this.showEditModal = false;
-                            }
-
-                            // Set search box value and trigger search
-                            setTimeout(() => {
-                                const searchInput =
-                                    document.querySelector("#appsearch input");
-                                if (searchInput) {
-                                    searchInput.value = serial;
-                                    searchInput.dispatchEvent(
-                                        new Event("input", { bubbles: true }),
-                                    );
-                                }
-                            }, 500);
-                        }
-                    });
-                }
-            } catch (err) {
-                console.error("Duplicate check failed:", err);
-                Swal.fire({
-                    icon: "error",
-                    title: "Error",
-                    text: "Something went wrong while checking duplicates.",
+                const response = await axios.post("/check-duplicate-serial", {
+                    serial: trimmedSerial,
+                    current_product_id: this.item.ProductID || null,
+                    serial_field: serialField,
                 });
+
+                if (
+                    response.data.duplicate &&
+                    response.data.type === "cross_product"
+                ) {
+                    this.serialErrors[serialField] =
+                        "This serial number already exists in another product.";
+                }
+            } catch (error) {
+                if (error.response?.status !== 405) {
+                    console.error("Error checking duplicate serial:", error);
+                }
             }
         },
 
