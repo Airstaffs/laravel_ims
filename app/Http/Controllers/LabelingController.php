@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 class LabelingController extends BasetablesController
@@ -1202,5 +1203,44 @@ class LabelingController extends BasetablesController
         }
 
         return mb_substr($strValue, 0, $maxLength - 3).'...';
+    }
+
+    public function checkDuplicateSerial(Request $request)
+    {
+        $serial = $request->input('serial');
+        $currentProductId = $request->input('current_product_id');
+
+        if (empty($serial)) {
+            return response()->json(['duplicate' => false]);
+        }
+
+        $cols = array_filter(
+            Schema::getColumnListing($this->productTable),
+            fn ($c) => str_starts_with($c, 'serial')
+        );
+
+        $query = DB::table($this->productTable)
+            ->select('*')
+            ->where(function ($q) use ($cols, $serial) {
+                foreach ($cols as $c) {
+                    $q->orWhere($c, $serial);
+                }
+            });
+
+        // Exclude the current product if provided
+        if (! empty($currentProductId)) {
+            $query->where('ProductID', '!=', $currentProductId);
+        }
+
+        $existing = $query->first();
+
+        if ($existing) {
+            return response()->json([
+                'duplicate' => true,
+                'product' => $existing,
+            ]);
+        }
+
+        return response()->json(['duplicate' => false]);
     }
 }
