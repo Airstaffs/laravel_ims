@@ -21,6 +21,7 @@ use App\Http\Controllers\FnskuController;
 use App\Http\Controllers\HistoryTrackingController;
 use App\Http\Controllers\HouseageController;
 use App\Http\Controllers\HrController;
+use App\Http\Controllers\InventoryStatisticsController;
 use App\Http\Controllers\KanbanActivityLogController;
 use App\Http\Controllers\KanbanCommentController;
 use App\Http\Controllers\KanbanTaskController;
@@ -38,6 +39,7 @@ use App\Http\Controllers\ProductionAreaController;
 use App\Http\Controllers\ReceivedController;
 use App\Http\Controllers\ReturnScannerController;
 use App\Http\Controllers\RTSController;
+use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\SoldlistController;
 use App\Http\Controllers\StockroomController;
 use App\Http\Controllers\StoreController;
@@ -52,8 +54,6 @@ use App\Http\Controllers\UserLogsController;
 use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
-use App\Http\Controllers\ShipmentController;
-use App\Http\Controllers\InventoryStatisticsController;
 use App\Http\Middleware\PreventBackHistory;
 use App\Http\Models\Store;
 use App\Models\User;
@@ -530,6 +530,9 @@ Route::prefix('api/labeling')->group(function () {
     Route::post('move-to-validation', [LabelingController::class, 'moveToValidation']);
     Route::post('move-to-stockroom', [LabelingController::class, 'moveToStockroom']);
     Route::post('move-back-to-received', [LabelingController::class, 'moveBackToReceived']);
+
+    Route::post('check-duplicate-serial', [LabelingController::class, 'checkDuplicateSerial'])
+        ->middleware('throttle:60,1'); // Allow more checks
 });
 
 // Routes for RTS Function

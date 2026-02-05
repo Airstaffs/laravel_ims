@@ -1027,38 +1027,42 @@ function sendEbayRequest($accessToken, $pageNumber)
 
 function handleEbayErrors($errors, $serverconfig, $credentials)
 {
+    // Handle case where $errors is a single error (not an array of errors)
+    if (isset($errors['ErrorCode'])) {
+        $errors = [$errors]; // Wrap in array
+    }
+    
     foreach ($errors as $error) {
         if (!is_array($error)) {
-            echo "⚠️ Unexpected error format:<br>";
-            print_r($error);
-            echo "<br>";
+            echo "⚠️ Unexpected error format: " . print_r($error, true) . "<br>";
             continue;
         }
-
-        if (isset($error['ErrorCode']) && $error['ErrorCode'] == '931') {
+        
+        $errorCode = $error['ErrorCode'] ?? null;
+        
+        if ($errorCode == '931') {
             echo "❌ Invalid eBay auth token.<br>";
-
             if ($serverconfig === 'LIVE') {
                 echo "🔄 Refreshing token...<br>";
                 $newAccessToken = refreshEbayAccessToken($credentials);
-
                 if (!$newAccessToken) {
                     echo "❌ Refresh failed.<br>";
                     return;
                 }
-
                 echo "✅ Token refreshed. Retrying fetchOrdersCron...<br>";
-                fetchOrdersCron(); // retry
+                fetchOrdersCron();
                 return;
             }
-
             echo "⚠️ Invalid token (not LIVE mode).<br>";
             return;
-        }
-
-        if (isset($error['ErrorCode']) && $error['ErrorCode'] == '932') {
-            echo "❌ Auth token hard expired. Please reauthorize.<br>";
+        } elseif ($errorCode == '932') {
+            echo "❌ Auth token hard expired.<br>";
             return;
+        } elseif ($errorCode == '518' || $errorCode == '21916653') {
+            echo "❌ API call usage limit reached. Stopping.<br>";
+            return;
+        } else {
+            echo "❌ eBay error code {$errorCode}: " . ($error['ShortMessage'] ?? 'Unknown') . "<br>";
         }
     }
 }

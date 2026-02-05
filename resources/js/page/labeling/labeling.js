@@ -85,6 +85,8 @@ export default {
             },
             hasMoreFnskuPages: false,
             currentFnskuPage: 1,
+
+            serialErrors: {},
         };
     },
     computed: {
@@ -109,10 +111,90 @@ export default {
             });
         },
 
-        imageList() {
+        // Root path images (img1 to img15)
+        rootImages() {
             return Object.keys(this.item)
                 .filter((key) => key.startsWith("img") && this.item[key])
                 .map((key) => this.item[key]);
+        },
+
+        // Company path images (capturedimg1 to capturedimg5)
+        companyImages() {
+            const images = [];
+
+            if (this.item.capturedImages) {
+                for (let i = 1; i <= 5; i++) {
+                    const key = `capturedimg${i}`;
+                    if (this.item.capturedImages[key]) {
+                        images.push(this.item.capturedImages[key]);
+                    }
+                }
+            }
+
+            return images;
+        },
+
+        // Serial images (still from capturedImages)
+        serialImages() {
+            const images = [];
+
+            if (this.item.capturedImages?.serialimg1) {
+                images.push(this.item.capturedImages.serialimg1);
+            }
+
+            if (this.item.capturedImages?.serialimg2) {
+                images.push(this.item.capturedImages.serialimg2);
+            }
+
+            return images;
+        },
+
+        getImagePaths() {
+            const company =
+                this.item?.company || this.product?.company || "Airstaffs";
+            return {
+                root: `/images/product_images/`,
+                company: `/images/product_images/${company}/`,
+            };
+        },
+
+        // Combine all images with their proper paths
+        allImages() {
+            const paths = this.getImagePaths;
+            const images = [];
+
+            // Add all root path images first
+            this.rootImages.forEach((img) => {
+                images.push({
+                    src: paths.root + img,
+                    filename: img,
+                    source: "root",
+                });
+            });
+
+            // Add all company path images next
+            this.companyImages.forEach((img) => {
+                images.push({
+                    src: paths.company + img,
+                    filename: img,
+                    source: "company",
+                });
+            });
+
+            // Add serial images (company path)
+            this.serialImages.forEach((img) => {
+                images.push({
+                    src: paths.company + img,
+                    filename: img,
+                    source: "serial",
+                });
+            });
+
+            return images;
+        },
+
+        activeImageUrl() {
+            return this.allImages[this.activeIndex]?.src || "";
         },
 
         hasSerialImages() {
@@ -127,43 +209,6 @@ export default {
             const company =
                 this.item?.company || this.product?.company || "Airstaffs";
             return `/images/product_images/${company}/`;
-        },
-
-        activeImageUrl() {
-            const totalRegularImages = this.imageList.length;
-
-            // If activeIndex is within regular images
-            if (this.activeIndex < totalRegularImages) {
-                return this.dynamicBasePath + this.imageList[this.activeIndex];
-            }
-
-            // If activeIndex points to serialimg1
-            if (
-                this.activeIndex === totalRegularImages &&
-                this.item.capturedImages &&
-                this.item.capturedImages.serialimg1
-            ) {
-                return (
-                    this.dynamicBasePath + this.item.capturedImages.serialimg1
-                );
-            }
-
-            // If activeIndex points to serialimg2
-            const serialimg1Offset = this.item.capturedImages?.serialimg1
-                ? 1
-                : 0;
-            if (
-                this.activeIndex === totalRegularImages + serialimg1Offset &&
-                this.item.capturedImages &&
-                this.item.capturedImages.serialimg2
-            ) {
-                return (
-                    this.dynamicBasePath + this.item.capturedImages.serialimg2
-                );
-            }
-
-            // Fallback to first image
-            return this.dynamicBasePath + this.imageList[0];
         },
 
         serialKeys() {
@@ -392,6 +437,7 @@ export default {
             if (timesUsed === 1) return "Used 1 time";
             return `Used ${timesUsed} times`;
         },
+
         handleImageError(event) {
             // If image fails to load, use an inline SVG placeholder
             event.target.src = this.defaultImage;
@@ -1026,7 +1072,7 @@ export default {
                 fnsku.FNSKU,
                 "for product:",
                 this.currentItem?.ProductID,
-                currentfnsku
+                currentfnsku,
             );
 
             if (!this.currentItem || !this.currentItem.ProductID) {
@@ -1045,7 +1091,11 @@ export default {
                 const availabilityResponse = await axios.get(
                     `${API_BASE_URL}/api/fnsku/availability`,
                     {
-                        params: { fnsku: fnsku.FNSKU, msku: fnsku.MSKU, currentfnsku },
+                        params: {
+                            fnsku: fnsku.FNSKU,
+                            msku: fnsku.MSKU,
+                            currentfnsku,
+                        },
                         withCredentials: true,
                     },
                 );
@@ -1116,7 +1166,7 @@ export default {
                         msku: fnsku.MSKU,
                         asin: fnsku.ASIN,
                         grading: fnsku.grading,
-                        currentFnsku: currentfnsku
+                        currentFnsku: currentfnsku,
                     },
                     {
                         headers: {
@@ -1502,14 +1552,17 @@ export default {
 
         //validate serialnumbers
         validateItemSerials(item) {
-            const RESTRICTED_PREFIXES = ['SI', 'BKT', 'PCN', 'RPN'];
-            const serialRegex = new RegExp(`^(${RESTRICTED_PREFIXES.join('|')})\\d+$`, 'i');
+            const RESTRICTED_PREFIXES = ["SI", "BKT", "PCN", "RPN"];
+            const serialRegex = new RegExp(
+                `^(${RESTRICTED_PREFIXES.join("|")})\\d+$`,
+                "i",
+            );
 
             const serialFields = [
                 item.serialnumber,
                 item.serialnumberb,
                 item.serialnumberc,
-                item.serialnumberd
+                item.serialnumberd,
             ];
 
             const invalidSerials = []; // Collect all invalid serials
@@ -1526,7 +1579,7 @@ export default {
             if (invalidSerials.length > 0) {
                 return {
                     valid: false,
-                    invalidSerials: invalidSerials // Array of all invalid serials
+                    invalidSerials: invalidSerials, // Array of all invalid serials
                 };
             }
 
@@ -1562,10 +1615,10 @@ export default {
                     title: "Invalid Serial Number",
                     html: `
                         <strong>Detected serial numbers:</strong><br>
-                        ${serialValidationResult.invalidSerials.map(s => `• ${s}`).join('<br>')}
+                        ${serialValidationResult.invalidSerials.map((s) => `• ${s}`).join("<br>")}
                         <br><br>
                         Please input valid serial number.
-                    `
+                    `,
                 });
                 return;
             }
@@ -1764,14 +1817,14 @@ export default {
                     title: "Invalid Serial Number",
                     html: `
                         <strong>Detected serial numbers:</strong><br>
-                        ${serialValidationResult.invalidSerials.map(s => `• ${s}`).join('<br>')}
+                        ${serialValidationResult.invalidSerials.map((s) => `• ${s}`).join("<br>")}
                         <br><br>
                         Please input valid serial number.
-                    `
+                    `,
                 });
                 return;
             }
-            
+
             if (!item || !item.ProductID) {
                 await Swal.fire({
                     icon: "error",
@@ -2054,6 +2107,17 @@ export default {
             }, 300); // Match with your modal close animation
         },
 
+        normalizeFilename(filename) {
+            // Convert filenames like "19_2.jpg" to "19_img2.jpg"
+            // Pattern: number_number.extension -> number_imgnumber.extension
+            return filename.replace(/^(\d+)_(\d+)(\.\w+)$/, "$1_img$2$3");
+        },
+
+        onImageError(event) {
+            // Just show placeholder if image fails
+            event.target.src = "/images/placeholder.png";
+        },
+
         onImageErrorMain(event) {
             event.target.src = this.defaultImage;
         },
@@ -2113,6 +2177,98 @@ export default {
                     "Basket/Shelf/Envelope Number must start with 'BKT', 'SI', or 'ENV' followed by numbers.",
                 );
             }
+
+            // ============ NEW: Validate Serial Numbers ============
+            // Clear all serial errors first
+            this.serialErrors = {};
+
+            // Trim all serial values
+            this.serialKeys.forEach((key) => {
+                if (this.item[key]) {
+                    this.item[key] = this.item[key].trim();
+                }
+            });
+
+            // Get all serial values (non-empty)
+            const serialValues = this.serialKeys
+                .map((key) => ({
+                    key,
+                    value: this.item[key]?.trim(),
+                }))
+                .filter((s) => s.value); // Only non-empty values
+
+            // Check for duplicates within the same product (Serial A = Serial B = Serial C, etc.)
+            if (serialValues.length > 1) {
+                const duplicateMap = {};
+
+                // Find which values appear more than once
+                serialValues.forEach((s) => {
+                    if (!duplicateMap[s.value]) {
+                        duplicateMap[s.value] = [];
+                    }
+                    duplicateMap[s.value].push(s.key);
+                });
+
+                // Check if any value appears more than once
+                const duplicates = Object.entries(duplicateMap).filter(
+                    ([value, keys]) => keys.length > 1,
+                );
+
+                if (duplicates.length > 0) {
+                    duplicates.forEach(([value, keys]) => {
+                        const labels = keys
+                            .map((k) => {
+                                const match = k.match(/serialnumber([a-z]?)/i);
+                                return match[1]
+                                    ? `Serial ${match[1].toUpperCase()}`
+                                    : "Serial";
+                            })
+                            .join(" and ");
+
+                        const errorMsg = `${labels} cannot have the same value (${value}).`;
+                        errors.push(errorMsg);
+
+                        // Mark all duplicate fields
+                        keys.forEach((key) => {
+                            this.serialErrors[key] = errorMsg;
+                        });
+                    });
+                }
+            }
+
+            // Check for duplicates across products (only if no same-product duplicates found)
+            if (serialValues.length > 0 && errors.length === 0) {
+                try {
+                    for (const serialObj of serialValues) {
+                        const response = await axios.post(
+                            "/check-duplicate-serial",
+                            {
+                                serial: serialObj.value,
+                                current_product_id: this.item.ProductID || null,
+                                serial_field: serialObj.key,
+                            },
+                        );
+
+                        if (
+                            response.data.duplicate &&
+                            response.data.type === "cross_product"
+                        ) {
+                            const errorMsg = `Serial number "${serialObj.value}" already exists in another product.`;
+                            errors.push(errorMsg);
+                            this.serialErrors[serialObj.key] = errorMsg;
+                            break; // Stop checking after first duplicate found
+                        }
+                    }
+                } catch (error) {
+                    console.error("Serial validation error:", error);
+                    if (error.response?.status !== 405) {
+                        errors.push(
+                            "Failed to validate serial numbers. Please try again.",
+                        );
+                    }
+                }
+            }
+            // ============ END: Validate Serial Numbers ============
 
             if (errors.length) {
                 this.loading = false;
@@ -2189,6 +2345,66 @@ export default {
                 });
             } finally {
                 this.loading = false;
+            }
+        },
+
+        async checkDuplicateSerial(serial, serialField) {
+            // Clear previous error for this field
+            this.serialErrors[serialField] = null;
+
+            if (!serial || serial.trim() === "") {
+                return;
+            }
+
+            const trimmedSerial = serial.trim();
+
+            // Check against other serial fields in the same product
+            const otherSerials = this.serialKeys
+                .filter((key) => key !== serialField)
+                .map((key) => ({
+                    key,
+                    value: this.item[key]?.trim(),
+                }))
+                .filter((s) => s.value);
+
+            // Check for duplicate within same product first
+            const localDuplicate = otherSerials.find(
+                (s) => s.value === trimmedSerial,
+            );
+            if (localDuplicate) {
+                const currentLabel =
+                    serialField
+                        .match(/serialnumber([a-z]?)/i)?.[1]
+                        ?.toUpperCase() || "";
+                const duplicateLabel =
+                    localDuplicate.key
+                        .match(/serialnumber([a-z]?)/i)?.[1]
+                        ?.toUpperCase() || "";
+
+                this.serialErrors[serialField] =
+                    `Serial ${currentLabel} and Serial ${duplicateLabel} cannot have the same value.`;
+                return;
+            }
+
+            // Check for duplicates across products
+            try {
+                const response = await axios.post("/check-duplicate-serial", {
+                    serial: trimmedSerial,
+                    current_product_id: this.item.ProductID || null,
+                    serial_field: serialField,
+                });
+
+                if (
+                    response.data.duplicate &&
+                    response.data.type === "cross_product"
+                ) {
+                    this.serialErrors[serialField] =
+                        "This serial number already exists in another product.";
+                }
+            } catch (error) {
+                if (error.response?.status !== 405) {
+                    console.error("Error checking duplicate serial:", error);
+                }
             }
         },
 

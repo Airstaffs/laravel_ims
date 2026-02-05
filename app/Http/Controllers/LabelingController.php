@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 class LabelingController extends BasetablesController
@@ -1202,5 +1203,72 @@ class LabelingController extends BasetablesController
         }
 
         return mb_substr($strValue, 0, $maxLength - 3).'...';
+    }
+
+    public function checkDuplicateSerial(Request $request)
+    {
+        $serial = $request->input('serial');
+        $currentProductId = $request->input('current_product_id');
+        $currentSerialField = $request->input('serial_field'); // e.g., 'serial_a' or 'serial_b'
+
+        if (empty($serial)) {
+            return response()->json(['duplicate' => false]);
+        }
+
+        // Get all serial columns
+        $cols = array_filter(
+            Schema::getColumnListing($this->productTable),
+            fn ($c) => str_starts_with($c, 'serial')
+        );
+
+        // Check 1: Duplicate across different products
+        $query = DB::table($this->productTable)
+            ->select('*')
+            ->where(function ($q) use ($cols, $serial) {
+                foreach ($cols as $c) {
+                    $q->orWhere($c, $serial);
+                }
+            });
+
+        // Exclude the current product if provided
+        if (! empty($currentProductId)) {
+            $query->where('ProductID', '!=', $currentProductId);
+        }
+
+        $existing = $query->first();
+
+        if ($existing) {
+            return response()->json([
+                'duplicate' => true,
+                'type' => 'cross_product',
+                'message' => 'This serial number already exists in another product.',
+                'product' => $existing,
+            ]);
+        }
+
+        // Check 2: Duplicate within the same product (Serial A vs Serial B)
+        if (! empty($currentProductId) && ! empty($currentSerialField)) {
+            $product = DB::table($this->productTable)
+                ->where('ProductID', $currentProductId)
+                ->first();
+
+            if ($product) {
+                // Get other serial fields to compare against
+                $otherSerialFields = array_filter($cols, fn ($c) => $c !== $currentSerialField);
+
+                foreach ($otherSerialFields as $otherField) {
+                    if (isset($product->$otherField) && $serial === $product->$otherField) {
+                        return response()->json([
+                            'duplicate' => true,
+                            'type' => 'same_product',
+                            'message' => 'Serial A and Serial B cannot have the same value.',
+                            'conflicting_field' => $otherField,
+                        ]);
+                    }
+                }
+            }
+        }
+
+        return response()->json(['duplicate' => false]);
     }
 }

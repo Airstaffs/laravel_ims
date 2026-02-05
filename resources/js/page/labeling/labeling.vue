@@ -240,14 +240,17 @@
                     <Divider />
 
                     <div class="mobile-card-details">
-                          <div v-if="
-                                    item.ProductTitle !== getDisplayTitle(item)
-                                " class="mobile-detail-row mb-2 ">
-                            <span class="mobile-detail-label" style="min-width: 6rem;"
+                        <div
+                            v-if="item.ProductTitle !== getDisplayTitle(item)"
+                            class="mobile-detail-row mb-2"
+                        >
+                            <span
+                                class="mobile-detail-label"
+                                style="min-width: 6rem"
                                 >Internal Title:</span
                             >
                             <span class="mobile-detal-value">
-                                {{  getDisplayTitle(item) }}</span
+                                {{ getDisplayTitle(item) }}</span
                             >
                         </div>
                         <div class="mobile-detail-row mb-2">
@@ -438,118 +441,34 @@
                 <form method="POST" class="editOrderForm">
                     <div class="form-grid-wrapper">
                         <div class="form-col-left">
-                            <div
-                                class="image-section"
-                                v-if="imageList.length || hasSerialImages"
-                            >
+                            <div class="image-section" v-if="allImages.length">
                                 <!-- Main Image -->
                                 <div class="main-image">
                                     <img
                                         :src="activeImageUrl"
-                                        alt="Main Product Image"
+                                        alt="Product Image"
                                         loading="lazy"
-                                        @error="onImageErrorMain"
+                                        @error="onImageError"
                                     />
                                 </div>
 
                                 <!-- Thumbnails -->
                                 <div class="thumbnail-carousel">
-                                    <!-- Regular images -->
                                     <div
-                                        v-for="(img, index) in imageList"
-                                        :key="'img-' + index"
+                                        v-for="(img, index) in allImages"
+                                        :key="index"
                                         :class="[
                                             'thumbnail',
-                                            {
-                                                active: index === activeIndex,
-                                            },
+                                            { active: index === activeIndex },
                                         ]"
                                         @click="activeIndex = index"
                                         @mouseenter="activeIndex = index"
                                     >
                                         <img
-                                            :src="dynamicBasePath + img"
-                                            :alt="'Thumbnail ' + (index + 1)"
+                                            :src="img.src"
+                                            :alt="img.src"
                                             loading="lazy"
-                                            @error="onThumbnailError($event)"
-                                        />
-                                    </div>
-
-                                    <!-- Serial Image 1 -->
-                                    <div
-                                        v-if="
-                                            item.capturedImages &&
-                                            item.capturedImages.serialimg1
-                                        "
-                                        :key="'serial1'"
-                                        :class="[
-                                            'thumbnail',
-                                            'serial-thumbnail',
-                                            {
-                                                active:
-                                                    activeIndex ===
-                                                    imageList.length,
-                                            },
-                                        ]"
-                                        @click="activeIndex = imageList.length"
-                                        @mouseenter="
-                                            activeIndex = imageList.length
-                                        "
-                                    >
-                                        <img
-                                            :src="
-                                                dynamicBasePath +
-                                                item.capturedImages.serialimg1
-                                            "
-                                            alt="Serial Image 1"
-                                            loading="lazy"
-                                            @error="onThumbnailError($event)"
-                                        />
-                                    </div>
-
-                                    <!-- Serial Image 2 -->
-                                    <div
-                                        v-if="
-                                            item.capturedImages &&
-                                            item.capturedImages.serialimg2
-                                        "
-                                        :key="'serial2'"
-                                        :class="[
-                                            'thumbnail',
-                                            'serial-thumbnail',
-                                            {
-                                                active:
-                                                    activeIndex ===
-                                                    imageList.length +
-                                                        (item.capturedImages
-                                                            .serialimg1
-                                                            ? 1
-                                                            : 0),
-                                            },
-                                        ]"
-                                        @click="
-                                            activeIndex =
-                                                imageList.length +
-                                                (item.capturedImages.serialimg1
-                                                    ? 1
-                                                    : 0)
-                                        "
-                                        @mouseenter="
-                                            activeIndex =
-                                                imageList.length +
-                                                (item.capturedImages.serialimg1
-                                                    ? 1
-                                                    : 0)
-                                        "
-                                    >
-                                        <img
-                                            :src="
-                                                dynamicBasePath +
-                                                item.capturedImages.serialimg2
-                                            "
-                                            alt="Serial Image 2"
-                                            loading="lazy"
-                                            @error="onThumbnailError($event)"
+                                            @error="onImageError"
                                         />
                                     </div>
                                 </div>
@@ -735,23 +654,36 @@
                                                     ) in serialKeys"
                                                     :key="key"
                                                 >
-                                                    <label>
-                                                        <span
-                                                            >Serial Number
-                                                            {{
-                                                                getLabel(index)
-                                                            }}:</span
-                                                        >
-                                                        <span v-if="index === 0"
-                                                            >*</span
-                                                        >
-                                                    </label>
+                                                    <label
+                                                        >Serial Number
+                                                        {{
+                                                            getLabel(index)
+                                                        }}:</label
+                                                    >
                                                     <InputText
                                                         type="text"
                                                         size="small"
                                                         fluid
                                                         v-model="item[key]"
+                                                        @blur="
+                                                            checkDuplicateSerial(
+                                                                item[key],
+                                                                key,
+                                                            )
+                                                        "
+                                                        :class="{
+                                                            'p-invalid':
+                                                                serialErrors[
+                                                                    key
+                                                                ],
+                                                        }"
                                                     />
+                                                    <small
+                                                        v-if="serialErrors[key]"
+                                                        class="p-error"
+                                                    >
+                                                        {{ serialErrors[key] }}
+                                                    </small>
                                                 </fieldset>
                                             </template>
                                             <template
@@ -1911,6 +1843,7 @@ export default {
                 this.$refs.menu.toggle(event);
             }
         },
+
         getMoreActionItems(item) {
             return [
                 {
@@ -1941,6 +1874,7 @@ export default {
                 },
             ];
         },
+
         async showOtherFNSKUInfos(data) {
             this.showOtherFNSKUInfoModal = true;
 
@@ -2129,9 +2063,11 @@ export default {
             }
             return count;
         },
+
         updatePricingView() {
             this.showPricingSection = showPricingForPH();
         },
+
         checkMobile() {
             this.isMobile = window.innerWidth <= 768;
         },
@@ -2166,6 +2102,7 @@ export default {
             this.showStickyTitle = titleTopRelativeToDialog < -50; // -50px threshold
         },
     },
+
     beforeUnmount() {
         window.removeEventListener("resize", this.updatePricingView);
 
@@ -2174,6 +2111,7 @@ export default {
             this.dialogContent.removeEventListener("scroll", this.handleScroll);
         }
     },
+
     computed: {
         storeListOptions() {
             const options = this.uniqueStores.map((store) => ({
@@ -2522,5 +2460,11 @@ button:disabled {
 
 .info-items span:nth-child(1) {
     font-weight: bold;
+}
+
+fieldset > .p-error {
+    color: #a94442;
+    font-size: 10px;
+    line-height: 0;
 }
 </style>
