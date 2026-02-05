@@ -936,44 +936,50 @@ class EbayController extends Controller
 
     // Keep your existing methods but enhance them:
     
-    private function handleEbayErrors($errors, $serverconfig, $credentials, $request)
-    {
-        foreach ($errors as $error) {
-            if (!is_array($error)) {
-                Log::warning('Unexpected error format: ' . json_encode($error));
-                continue;
-            }
-
-            if (isset($error['ErrorCode'])) {
-                switch ($error['ErrorCode']) {
-                    case '931':
-                        Log::error('eBay API error: Invalid auth token.');
-                        if ($serverconfig === 'LIVE') {
-                            Log::info('Attempting to refresh eBay access token...');
-                            $newAccessToken = refreshEbayAccessToken($credentials);
-                            if ($newAccessToken) {
-                                return $this->fetchOrders($request);
-                            }
-                        }
-                        return response()->json(['error' => 'Invalid eBay access token'], 401);
-                        
-                    case '932':
-                        Log::error('eBay API error: Auth token is hard expired.');
-                        return response()->json(['error' => 'Auth token is hard expired, please reauthorize the application'], 401);
-                        
-                    case '21916653':
-                        Log::error('eBay API error: Application request limit exceeded.');
-                        return 'API_LIMIT_REACHED';
-                        
-                    default:
-                        Log::error("eBay API error: Code {$error['ErrorCode']} - " . ($error['ShortMessage'] ?? 'Unknown error'));
-                        break;
-                }
-            }
-        }
-        
-        return null;
+private function handleEbayErrors($errors, $serverconfig, $credentials, $request)
+{
+    // Fix: Handle single error (flat structure) from XML parsing
+    if (isset($errors['ErrorCode'])) {
+        $errors = [$errors];
     }
+
+    foreach ($errors as $error) {
+        if (!is_array($error)) {
+            Log::warning('Unexpected error format: ' . json_encode($error));
+            continue;
+        }
+
+        $errorCode = $error['ErrorCode'] ?? null;
+
+        switch ($errorCode) {
+            case '931':
+                Log::error('eBay API error: Invalid auth token.');
+                if ($serverconfig === 'LIVE') {
+                    Log::info('Attempting to refresh eBay access token...');
+                    $newAccessToken = refreshEbayAccessToken($credentials);
+                    if ($newAccessToken) {
+                        return $this->fetchOrders($request);
+                    }
+                }
+                return response()->json(['error' => 'Invalid eBay access token'], 401);
+
+            case '932':
+                Log::error('eBay API error: Auth token is hard expired.');
+                return response()->json(['error' => 'Auth token is hard expired, please reauthorize the application'], 401);
+
+            case '518':
+            case '21916653':
+                Log::error('eBay API error: Application request limit exceeded.');
+                return response()->json(['error' => 'API limit reached, try again later'], 429);
+
+            default:
+                Log::error("eBay API error: Code {$errorCode} - " . ($error['ShortMessage'] ?? 'Unknown error'));
+                break;
+        }
+    }
+
+    return null;
+}
 
     private function sendRequest($requestBody, $apiCallName)
     {
