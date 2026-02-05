@@ -677,6 +677,7 @@ Route::prefix('api/shipments')->group(function () {
     Route::get('/stores', [ShipmentController::class, 'getStores']);
     Route::get('/carriers', [ShipmentController::class, 'getCarriers']);
     Route::get('/stats', [ShipmentController::class, 'getStats']);
+    Route::post('/manual-deliver', [ShipmentController::class, 'manualDeliver']);
 });
 
 // Inventory Statistics Routes

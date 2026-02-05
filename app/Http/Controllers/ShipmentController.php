@@ -25,7 +25,7 @@ class ShipmentController extends Controller
             $dateFrom = $request->input('date_from', '');
             $dateTo = $request->input('date_to', '');
             $orderBy = $request->input('order_by', 'desc');
-            
+
             Log::info('Shipments index called with params:', [
                 'per_page' => $perPage,
                 'page' => $page,
@@ -36,7 +36,7 @@ class ShipmentController extends Controller
                 'date_to' => $dateTo,
                 'order_by' => $orderBy
             ]);
-            
+
             // Base query for products in Shipment location
             $query = DB::table('tblproduct as p')
                 ->select(
@@ -70,6 +70,7 @@ class ShipmentController extends Controller
                     'oi.trackingstatus',
                     'oi.carrier',
                     'oi.carrier_description',
+                    'oi.outboundorderitemid',
                     // Get order details
                     'o.platform_order_id',
                     'o.BuyerName as customer_name',
@@ -85,36 +86,36 @@ class ShipmentController extends Controller
                 ->leftJoin('tbloutboundorders as o', 'oi.platform_order_id', '=', 'o.platform_order_id')
                 ->where('p.ProductModuleLoc', 'Shipment')
                 ->distinct();
-            
+
             // Apply search filter
             if (!empty($search)) {
-                $query->where(function($q) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('p.ProductID', 'LIKE', "%{$search}%")
-                      ->orWhere('p.FNSKUviewer', 'LIKE', "%{$search}%")
-                      ->orWhere('p.MSKUviewer', 'LIKE', "%{$search}%")
-                      ->orWhere('p.serialNumber', 'LIKE', "%{$search}%")
-                      ->orWhere('p.rtCounter', 'LIKE', "%{$search}%")
-                      ->orWhere('fnsku.ASIN', 'LIKE', "%{$search}%")
-                      ->orWhere('fnsku.MSKU', 'LIKE', "%{$search}%")
-                      ->orWhere('fnsku.FNSKU', 'LIKE', "%{$search}%")
-                      ->orWhere('o.platform_order_id', 'LIKE', "%{$search}%")
-                      ->orWhere('oi.trackingnumber', 'LIKE', "%{$search}%");
+                        ->orWhere('p.FNSKUviewer', 'LIKE', "%{$search}%")
+                        ->orWhere('p.MSKUviewer', 'LIKE', "%{$search}%")
+                        ->orWhere('p.serialNumber', 'LIKE', "%{$search}%")
+                        ->orWhere('p.rtCounter', 'LIKE', "%{$search}%")
+                        ->orWhere('fnsku.ASIN', 'LIKE', "%{$search}%")
+                        ->orWhere('fnsku.MSKU', 'LIKE', "%{$search}%")
+                        ->orWhere('fnsku.FNSKU', 'LIKE', "%{$search}%")
+                        ->orWhere('o.platform_order_id', 'LIKE', "%{$search}%")
+                        ->orWhere('oi.trackingnumber', 'LIKE', "%{$search}%");
                 });
             }
-            
+
             // Apply store filter
             if (!empty($storeFilter)) {
                 $query->where('fnsku.storename', $storeFilter);
             }
-            
+
             // Apply carrier filter
             if (!empty($carrierFilter)) {
-                $query->where(function($q) use ($carrierFilter) {
+                $query->where(function ($q) use ($carrierFilter) {
                     $q->where('oi.carrier', 'LIKE', "%{$carrierFilter}%")
-                      ->orWhere('oi.carrier_description', 'LIKE', "%{$carrierFilter}%");
+                        ->orWhere('oi.carrier_description', 'LIKE', "%{$carrierFilter}%");
                 });
             }
-            
+
             // Apply date range filter (using ship_date from orders table)
             if (!empty($dateFrom)) {
                 $query->where('o.ship_date', '>=', $dateFrom);
@@ -122,26 +123,26 @@ class ShipmentController extends Controller
             if (!empty($dateTo)) {
                 $query->where('o.ship_date', '<=', $dateTo . ' 23:59:59');
             }
-            
+
             // Get total count
             $totalCount = $query->count();
             $totalPages = ceil($totalCount / $perPage);
-            
+
             // Apply ordering (use ship_date or stockroom_insert_date)
             $query->orderBy(
-                DB::raw('COALESCE(o.ship_date, p.stockroom_insert_date)'), 
+                DB::raw('COALESCE(o.ship_date, p.stockroom_insert_date)'),
                 $orderBy
             );
-            
+
             // Get paginated results
             $shipments = $query->skip(($page - 1) * $perPage)
-                               ->take($perPage)
-                               ->get();
-            
+                ->take($perPage)
+                ->get();
+
             Log::info('Shipments fetched: ' . $shipments->count());
-            
+
             // Format shipments data
-            $formattedShipments = $shipments->map(function($shipment) {
+            $formattedShipments = $shipments->map(function ($shipment) {
                 return [
                     'product_id' => $shipment->ProductID,
                     'fnsku' => $shipment->FNSKU ?? $shipment->FNSKUviewer,
@@ -159,7 +160,7 @@ class ShipmentController extends Controller
                     'color' => $shipment->color,
                     'stockroom_date' => $shipment->stockroom_insert_date,
                     'shipment_date' => $shipment->ship_date,
-                    
+
                     // Order information
                     'order_id' => $shipment->platform_order_id,
                     'order_item_id' => $shipment->platform_order_item_id,
@@ -169,7 +170,8 @@ class ShipmentController extends Controller
                     'order_sku' => $shipment->order_sku,
                     'quantity_ordered' => $shipment->QuantityOrdered,
                     'order_status' => $shipment->order_status,
-                    
+                    'outboundorderitemid' => $shipment->outboundorderitemid,
+
                     // Tracking information
                     'tracking_number' => $shipment->trackingnumber,
                     'tracking_status' => $shipment->trackingstatus,
@@ -178,7 +180,7 @@ class ShipmentController extends Controller
                     'delivery_date' => $shipment->delivery_date,
                 ];
             });
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $formattedShipments,
@@ -187,7 +189,7 @@ class ShipmentController extends Controller
                 'current_page' => $page,
                 'last_page' => $totalPages
             ]);
-            
+
         } catch (\Exception $e) {
             Log::error('Error fetching shipments: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             return response()->json([
@@ -197,7 +199,7 @@ class ShipmentController extends Controller
             ], 500);
         }
     }
-    
+
     /**
      * Get shipment details by product ID
      */
@@ -207,9 +209,9 @@ class ShipmentController extends Controller
             $request->validate([
                 'product_id' => 'required|integer'
             ]);
-            
+
             $productId = $request->input('product_id');
-            
+
             $shipment = DB::table('tblproduct as p')
                 ->select(
                     'p.*',
@@ -241,19 +243,19 @@ class ShipmentController extends Controller
                 ->where('p.ProductID', $productId)
                 ->where('p.ProductModuleLoc', 'Shipment')
                 ->first();
-            
+
             if (!$shipment) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Shipment not found'
                 ], 404);
             }
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $shipment
             ]);
-            
+
         } catch (\Exception $e) {
             Log::error('Error fetching shipment details: ' . $e->getMessage());
             return response()->json([
@@ -263,7 +265,7 @@ class ShipmentController extends Controller
             ], 500);
         }
     }
-    
+
     /**
      * Get list of stores for filtering
      */
@@ -279,7 +281,7 @@ class ShipmentController extends Controller
                 ->filter()
                 ->values()
                 ->toArray();
-            
+
             return response()->json([
                 'success' => true,
                 'stores' => $stores
@@ -292,7 +294,7 @@ class ShipmentController extends Controller
             ], 500);
         }
     }
-    
+
     /**
      * Get list of carriers for filtering
      */
@@ -310,7 +312,7 @@ class ShipmentController extends Controller
                 ->filter()
                 ->values()
                 ->toArray();
-            
+
             return response()->json([
                 'success' => true,
                 'carriers' => $carriers
@@ -323,7 +325,7 @@ class ShipmentController extends Controller
             ], 500);
         }
     }
-    
+
     /**
      * Get shipment statistics
      */
@@ -334,7 +336,7 @@ class ShipmentController extends Controller
                 'total_shipments' => DB::table('tblproduct')
                     ->where('ProductModuleLoc', 'Shipment')
                     ->count(),
-                
+
                 'shipped_today' => DB::table('tblproduct as p')
                     ->join('tblorderitemdispense as d', 'p.ProductID', '=', 'd.productid')
                     ->join('tbloutboundordersitem as oi', 'd.orderitemid', '=', 'oi.outboundorderitemid')
@@ -342,7 +344,7 @@ class ShipmentController extends Controller
                     ->where('p.ProductModuleLoc', 'Shipment')
                     ->whereDate('o.ship_date', today())
                     ->count(),
-                
+
                 'shipped_this_week' => DB::table('tblproduct as p')
                     ->join('tblorderitemdispense as d', 'p.ProductID', '=', 'd.productid')
                     ->join('tbloutboundordersitem as oi', 'd.orderitemid', '=', 'oi.outboundorderitemid')
@@ -350,7 +352,7 @@ class ShipmentController extends Controller
                     ->where('p.ProductModuleLoc', 'Shipment')
                     ->whereBetween('o.ship_date', [now()->startOfWeek(), now()->endOfWeek()])
                     ->count(),
-                
+
                 'shipped_this_month' => DB::table('tblproduct as p')
                     ->join('tblorderitemdispense as d', 'p.ProductID', '=', 'd.productid')
                     ->join('tbloutboundordersitem as oi', 'd.orderitemid', '=', 'oi.outboundorderitemid')
@@ -359,7 +361,7 @@ class ShipmentController extends Controller
                     ->whereMonth('o.ship_date', now()->month)
                     ->whereYear('o.ship_date', now()->year)
                     ->count(),
-                
+
                 'by_carrier' => DB::table('tblproduct as p')
                     ->join('tblorderitemdispense as d', 'p.ProductID', '=', 'd.productid')
                     ->join('tbloutboundordersitem as oi', 'd.orderitemid', '=', 'oi.outboundorderitemid')
@@ -367,7 +369,7 @@ class ShipmentController extends Controller
                     ->select('oi.carrier', DB::raw('COUNT(*) as count'))
                     ->groupBy('oi.carrier')
                     ->get(),
-                
+
                 'by_store' => DB::table('tblproduct as p')
                     ->join('tblfnsku as fnsku', 'p.MSKUviewer', '=', 'fnsku.MSKU')
                     ->where('p.ProductModuleLoc', 'Shipment')
@@ -375,12 +377,12 @@ class ShipmentController extends Controller
                     ->groupBy('fnsku.storename')
                     ->get()
             ];
-            
+
             return response()->json([
                 'success' => true,
                 'stats' => $stats
             ]);
-            
+
         } catch (\Exception $e) {
             Log::error('Error fetching shipment stats: ' . $e->getMessage());
             return response()->json([
@@ -389,4 +391,185 @@ class ShipmentController extends Controller
             ], 500);
         }
     }
+
+    public function manualDeliver(Request $request)
+    {
+        $data = $request->validate([
+            'product_id' => ['required', 'integer'],
+            'outboundorderitemid' => ['required', 'integer'],
+        ]);
+
+        $productId = (int) $data['product_id'];
+        $outboundId = (int) $data['outboundorderitemid'];
+
+        try {
+            $result = DB::transaction(function () use ($productId, $outboundId) {
+
+                // 1) Update outbound item Shipped -> Delivered
+                $affected1 = DB::table('tbloutboundordersitem')
+                    ->where('outboundorderitemid', $outboundId)
+                    ->where('order_status', 'Shipped')
+                    ->update(['order_status' => 'Delivered']);
+
+                if ($affected1 <= 0) {
+                    throw new \Exception("Outbound item already processed or not Shipped");
+                }
+
+                // 2) Move ONLY dispensed product to SoldList
+                $affected2 = DB::table('tblproduct')
+                    ->where('ProductID', $productId)
+                    ->update(['ProductModuleLoc' => 'SoldList']);
+
+                if ($affected2 <= 0) {
+                    throw new \Exception("Product not moved to SoldList");
+                }
+
+                // 3) Load product info (to detect pack)
+                $prod = DB::table('tblproduct')
+                    ->select('mergeId', 'rtcounter', 'FNSKUviewer', 'MSKUviewer', 'ASINviewer')
+                    ->where('ProductID', $productId)
+                    ->first();
+
+                if (!$prod) {
+                    throw new \Exception("Product not found for ProductID={$productId}");
+                }
+
+                $fnskuviewer = trim((string) ($prod->FNSKUviewer ?? ''));
+                $mskuviewer = trim((string) ($prod->MSKUviewer ?? ''));
+                $asinviewer = trim((string) ($prod->ASINviewer ?? ''));
+
+                // build counts per identifier tuple (same as your cron)
+                $idCounts = [];
+
+                // CASE A: Single item (no mergeId)
+                if (empty($prod->mergeId)) {
+                    $tuple = $this->normalizeIdentifierTuple($fnskuviewer, $mskuviewer, $asinviewer);
+                    $key = json_encode($tuple, JSON_UNESCAPED_SLASHES);
+                    $idCounts[$key] = ($idCounts[$key] ?? 0) + 1;
+                } else {
+                    // CASE B: Pack parent -> expand children (mergeTO = rtcounter)
+                    $rtcounter = (int) $prod->rtcounter;
+
+                    $children = DB::table('tblproduct')
+                        ->select('FNSKUviewer', 'MSKUviewer', 'ASINviewer')
+                        ->where('mergeTO', $rtcounter)
+                        ->get();
+
+                    if ($children->count() === 0) {
+                        throw new \Exception("Pack parent found but no children for rtcounter={$rtcounter}");
+                    }
+
+                    foreach ($children as $row) {
+                        $tuple = $this->normalizeIdentifierTuple(
+                            (string) ($row->FNSKUviewer ?? ''),
+                            (string) ($row->MSKUviewer ?? ''),
+                            (string) ($row->ASINviewer ?? '')
+                        );
+                        $key = json_encode($tuple, JSON_UNESCAPED_SLASHES);
+                        $idCounts[$key] = ($idCounts[$key] ?? 0) + 1;
+                    }
+                }
+
+                // 4) Increment tblfnsku.units by FNSKU OR MSKU OR ASIN (same logic)
+                $updates = [];
+
+                foreach ($idCounts as $key => $qty) {
+                    $tuple = json_decode($key, true);
+
+                    $rowsAffected = $this->incrementTblfnskuUnitsByAnyIdentifier(
+                        (int) $qty,
+                        (string) ($tuple['fnsku'] ?? ''),
+                        (string) ($tuple['msku'] ?? ''),
+                        (string) ($tuple['asin'] ?? '')
+                    );
+
+                    if ($rowsAffected <= 0) {
+                        throw new \Exception("No tblfnsku rows matched for fnsku={$tuple['fnsku']} msku={$tuple['msku']} asin={$tuple['asin']}");
+                    }
+
+                    $updates[] = [
+                        'qty' => (int) $qty,
+                        'fnsku' => $tuple['fnsku'],
+                        'msku' => $tuple['msku'],
+                        'asin' => $tuple['asin'],
+                        'rowsAffected' => $rowsAffected,
+                    ];
+                }
+
+                return ['ok' => true, 'fnsku_updates' => $updates];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Manual deliver complete',
+                'result' => $result
+            ]);
+
+        } catch (\Throwable $e) {
+            Log::error("manualDeliver error: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    private function normalizeIdentifierTuple(string $fnskuviewer, string $mskuviewer, string $asinviewer): array
+    {
+        $fnsku = $this->normalizeFnskuViewer($fnskuviewer);
+        $msku = strtoupper(trim($mskuviewer));
+        $asin = strtoupper(trim($asinviewer));
+
+        return [
+            'fnsku' => $fnsku,
+            'msku' => $msku,
+            'asin' => $asin,
+        ];
+    }
+
+    private function normalizeFnskuViewer(string $fnsku): string
+    {
+        $s = strtoupper(trim($fnsku));
+        if ($s === '')
+            return '';
+
+        $pos = strpos($s, 'X');
+        if ($pos !== false) {
+            $candidate = substr($s, $pos);
+            if (preg_match('/^X[0-9A-Z]+$/', $candidate)) {
+                return $candidate;
+            }
+        }
+
+        if (preg_match('/^[A-Z][0-9](X[0-9A-Z]+)$/', $s, $m))
+            return $m[1];
+        if (preg_match('/^[A-Z]{2}(X[0-9A-Z]+)$/', $s, $m))
+            return $m[1];
+
+        return $s;
+    }
+
+    private function incrementTblfnskuUnitsByAnyIdentifier(int $qty, string $fnsku, string $msku, string $asin): int
+    {
+        if ($qty <= 0)
+            return 0;
+
+        $q = DB::table('tblfnsku');
+
+        if ($fnsku !== '') {
+            $q->where('FNSKU', $fnsku);
+        } elseif ($msku !== '') {
+            $q->where('MSKU', $msku);
+        } elseif ($asin !== '') {
+            $q->where('ASIN', $asin);
+        } else {
+            return 0;
+        }
+
+        return $q->update([
+            'units' => DB::raw('COALESCE(units, 0) + ' . (int) $qty),
+        ]);
+    }
+
+
 }

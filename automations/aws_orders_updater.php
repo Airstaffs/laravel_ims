@@ -667,6 +667,13 @@ function dbDatabase()
             $database = 'imsv2_dbims';
             break;
 
+        case "local laravel":
+            $hostname = 'localhost';
+            $username = 'user';
+            $password = 'root';
+            $database = 'db';
+            break;
+
         default:
             die("❌ Invalid server type: Set \$servertype properly.");
     }
