@@ -14,7 +14,7 @@ error_reporting(E_ALL);
 set_time_limit(600);
 
 $system = "Live"; // "Live" or "Test" (controls endpoint host)
-$maxPerRun = 2;  // how many rows to process per run (auto mode)
+$maxPerRun = 30;  // how many rows to process per run (auto mode)
 
 // ---- Manual inputs (also supports query string) ----
 $manualMsku = isset($_GET['msku']) ? trim($_GET['msku']) : '';
