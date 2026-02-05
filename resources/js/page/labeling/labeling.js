@@ -109,10 +109,90 @@ export default {
             });
         },
 
-        imageList() {
+        // Root path images (img1 to img15)
+        rootImages() {
             return Object.keys(this.item)
                 .filter((key) => key.startsWith("img") && this.item[key])
                 .map((key) => this.item[key]);
+        },
+
+        // Company path images (capturedimg1 to capturedimg5)
+        companyImages() {
+            const images = [];
+
+            if (this.item.capturedImages) {
+                for (let i = 1; i <= 5; i++) {
+                    const key = `capturedimg${i}`;
+                    if (this.item.capturedImages[key]) {
+                        images.push(this.item.capturedImages[key]);
+                    }
+                }
+            }
+
+            return images;
+        },
+
+        // Serial images (still from capturedImages)
+        serialImages() {
+            const images = [];
+
+            if (this.item.capturedImages?.serialimg1) {
+                images.push(this.item.capturedImages.serialimg1);
+            }
+
+            if (this.item.capturedImages?.serialimg2) {
+                images.push(this.item.capturedImages.serialimg2);
+            }
+
+            return images;
+        },
+
+        getImagePaths() {
+            const company =
+                this.item?.company || this.product?.company || "Airstaffs";
+            return {
+                root: `/images/product_images/`,
+                company: `/images/product_images/${company}/`,
+            };
+        },
+
+        // Combine all images with their proper paths
+        allImages() {
+            const paths = this.getImagePaths;
+            const images = [];
+
+            // Add all root path images first
+            this.rootImages.forEach((img) => {
+                images.push({
+                    src: paths.root + img,
+                    filename: img,
+                    source: "root",
+                });
+            });
+
+            // Add all company path images next
+            this.companyImages.forEach((img) => {
+                images.push({
+                    src: paths.company + img,
+                    filename: img,
+                    source: "company",
+                });
+            });
+
+            // Add serial images (company path)
+            this.serialImages.forEach((img) => {
+                images.push({
+                    src: paths.company + img,
+                    filename: img,
+                    source: "serial",
+                });
+            });
+
+            return images;
+        },
+
+        activeImageUrl() {
+            return this.allImages[this.activeIndex]?.src || "";
         },
 
         hasSerialImages() {
@@ -127,43 +207,6 @@ export default {
             const company =
                 this.item?.company || this.product?.company || "Airstaffs";
             return `/images/product_images/${company}/`;
-        },
-
-        activeImageUrl() {
-            const totalRegularImages = this.imageList.length;
-
-            // If activeIndex is within regular images
-            if (this.activeIndex < totalRegularImages) {
-                return this.dynamicBasePath + this.imageList[this.activeIndex];
-            }
-
-            // If activeIndex points to serialimg1
-            if (
-                this.activeIndex === totalRegularImages &&
-                this.item.capturedImages &&
-                this.item.capturedImages.serialimg1
-            ) {
-                return (
-                    this.dynamicBasePath + this.item.capturedImages.serialimg1
-                );
-            }
-
-            // If activeIndex points to serialimg2
-            const serialimg1Offset = this.item.capturedImages?.serialimg1
-                ? 1
-                : 0;
-            if (
-                this.activeIndex === totalRegularImages + serialimg1Offset &&
-                this.item.capturedImages &&
-                this.item.capturedImages.serialimg2
-            ) {
-                return (
-                    this.dynamicBasePath + this.item.capturedImages.serialimg2
-                );
-            }
-
-            // Fallback to first image
-            return this.dynamicBasePath + this.imageList[0];
         },
 
         serialKeys() {
@@ -1026,7 +1069,7 @@ export default {
                 fnsku.FNSKU,
                 "for product:",
                 this.currentItem?.ProductID,
-                currentfnsku
+                currentfnsku,
             );
 
             if (!this.currentItem || !this.currentItem.ProductID) {
@@ -1045,7 +1088,11 @@ export default {
                 const availabilityResponse = await axios.get(
                     `${API_BASE_URL}/api/fnsku/availability`,
                     {
-                        params: { fnsku: fnsku.FNSKU, msku: fnsku.MSKU, currentfnsku },
+                        params: {
+                            fnsku: fnsku.FNSKU,
+                            msku: fnsku.MSKU,
+                            currentfnsku,
+                        },
                         withCredentials: true,
                     },
                 );
@@ -1116,7 +1163,7 @@ export default {
                         msku: fnsku.MSKU,
                         asin: fnsku.ASIN,
                         grading: fnsku.grading,
-                        currentFnsku: currentfnsku
+                        currentFnsku: currentfnsku,
                     },
                     {
                         headers: {
@@ -1502,14 +1549,17 @@ export default {
 
         //validate serialnumbers
         validateItemSerials(item) {
-            const RESTRICTED_PREFIXES = ['SI', 'BKT', 'PCN', 'RPN'];
-            const serialRegex = new RegExp(`^(${RESTRICTED_PREFIXES.join('|')})\\d+$`, 'i');
+            const RESTRICTED_PREFIXES = ["SI", "BKT", "PCN", "RPN"];
+            const serialRegex = new RegExp(
+                `^(${RESTRICTED_PREFIXES.join("|")})\\d+$`,
+                "i",
+            );
 
             const serialFields = [
                 item.serialnumber,
                 item.serialnumberb,
                 item.serialnumberc,
-                item.serialnumberd
+                item.serialnumberd,
             ];
 
             const invalidSerials = []; // Collect all invalid serials
@@ -1526,7 +1576,7 @@ export default {
             if (invalidSerials.length > 0) {
                 return {
                     valid: false,
-                    invalidSerials: invalidSerials // Array of all invalid serials
+                    invalidSerials: invalidSerials, // Array of all invalid serials
                 };
             }
 
@@ -1562,10 +1612,10 @@ export default {
                     title: "Invalid Serial Number",
                     html: `
                         <strong>Detected serial numbers:</strong><br>
-                        ${serialValidationResult.invalidSerials.map(s => `• ${s}`).join('<br>')}
+                        ${serialValidationResult.invalidSerials.map((s) => `• ${s}`).join("<br>")}
                         <br><br>
                         Please input valid serial number.
-                    `
+                    `,
                 });
                 return;
             }
@@ -1764,14 +1814,14 @@ export default {
                     title: "Invalid Serial Number",
                     html: `
                         <strong>Detected serial numbers:</strong><br>
-                        ${serialValidationResult.invalidSerials.map(s => `• ${s}`).join('<br>')}
+                        ${serialValidationResult.invalidSerials.map((s) => `• ${s}`).join("<br>")}
                         <br><br>
                         Please input valid serial number.
-                    `
+                    `,
                 });
                 return;
             }
-            
+
             if (!item || !item.ProductID) {
                 await Swal.fire({
                     icon: "error",
@@ -2054,6 +2104,17 @@ export default {
             }, 300); // Match with your modal close animation
         },
 
+        normalizeFilename(filename) {
+            // Convert filenames like "19_2.jpg" to "19_img2.jpg"
+            // Pattern: number_number.extension -> number_imgnumber.extension
+            return filename.replace(/^(\d+)_(\d+)(\.\w+)$/, "$1_img$2$3");
+        },
+
+        onImageError(event) {
+            // Just show placeholder if image fails
+            event.target.src = "/images/placeholder.png";
+        },
+
         onImageErrorMain(event) {
             event.target.src = this.defaultImage;
         },
@@ -2189,6 +2250,90 @@ export default {
                 });
             } finally {
                 this.loading = false;
+            }
+        },
+
+        async checkDuplicateSerial(serial, serialKey) {
+            if (!serial) return;
+
+            const token = document
+                .querySelector('meta[name="csrf-token"]')
+                ?.getAttribute("content");
+
+            try {
+                const response = await fetch(
+                    "/api/houseage/check-duplicate-serial",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-Requested-With": "XMLHttpRequest",
+                            ...(token ? { "X-CSRF-TOKEN": token } : {}),
+                        },
+                        body: JSON.stringify({
+                            serial,
+                            current_product_id:
+                                this.item.ProductID || this.item.id,
+                        }),
+                    },
+                );
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(
+                        `HTTP ${response.status}: ${text.slice(0, 200)}`,
+                    );
+                }
+
+                const data = await response.json();
+
+                console.log(data);
+
+                if (data.duplicate) {
+                    const product = data.product;
+
+                    Swal.fire({
+                        icon: "warning",
+                        title: "Duplicate Serial Found",
+                        html: `
+                                <p>This serial already exists in another product.</p>
+                                <p><b>RT Counter:</b> ${product.rtcounter ?? "N/A"}</p>
+                                <p><b>Title:</b> ${product.ProductTitle ?? "N/A"}</p>
+                                `,
+                        showCancelButton: true,
+                        confirmButtonText: "View Original Item",
+                        cancelButtonText: "OK",
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Close the modal
+                            if (typeof this.closeEditModal === "function") {
+                                this.closeEditModal();
+                            } else {
+                                this.showEditModal = false;
+                            }
+
+                            // Set search box value and trigger search
+                            setTimeout(() => {
+                                const searchInput =
+                                    document.querySelector("#appsearch input");
+                                if (searchInput) {
+                                    searchInput.value = serial;
+                                    searchInput.dispatchEvent(
+                                        new Event("input", { bubbles: true }),
+                                    );
+                                }
+                            }, 500);
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Duplicate check failed:", err);
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: "Something went wrong while checking duplicates.",
+                });
             }
         },
 

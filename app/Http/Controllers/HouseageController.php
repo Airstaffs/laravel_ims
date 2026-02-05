@@ -474,19 +474,19 @@ class HouseageController extends BasetablesController
                 'PRD' => 'nullable|string',
                 'PCN' => 'nullable|string',
                 'basketnumber' => 'nullable|string',
-                'ProductModuleLoc' => 'nullable|string|max:255'
+                'ProductModuleLoc' => 'nullable|string|max:255',
             ]);
 
             // Only move the item if it's currently in Labeling
-          if ( isset($validated['ProductModuleLoc']) && in_array($validated['ProductModuleLoc'], ['Labeling', 'Supplies', 'Components','Office Equipment'])
+            if (isset($validated['ProductModuleLoc']) && in_array($validated['ProductModuleLoc'], ['Labeling', 'Supplies', 'Components', 'Office Equipment'])
             ) {
                 $materialTypeMap = [
-                    'Inventory'        => 'Labeling',
-                    'Supplies'         => 'Supplies',
-                    'Components'       => 'Components',
+                    'Inventory' => 'Labeling',
+                    'Supplies' => 'Supplies',
+                    'Components' => 'Components',
                     'Office Equipment' => 'Office Equipment',
                 ];
-                
+
                 if (isset($validated['materialtype']) && isset($materialTypeMap[$validated['materialtype']])) {
                     $validated['ProductModuleLoc'] = $materialTypeMap[$validated['materialtype']];
                 }
