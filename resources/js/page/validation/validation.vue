@@ -936,28 +936,27 @@
                             natus!
                         </p>
                     </div>
+
+                    <!---Validation Buttons (Mobile) - Now in content-->
+                    <div class="validation-buttons-mobile mt-4">
+                        <Button
+                            class="flex-1"
+                            size="small"
+                            icon="pi pi-thumbs-up"
+                            label="Mark as Valid"
+                            @click="confirmMarkAsValid"
+                        />
+                        <Button
+                            class="flex-1"
+                            severity="danger"
+                            icon="pi pi-thumbs-down"
+                            size="small"
+                            label="Mark as Invalid"
+                            @click="confirmMarkAsInvalid"
+                        />
+                    </div>
                 </div>
             </div>
-
-            <template #footer>
-                <div class="validation-buttons-mobile">
-                    <Button
-                        class="flex-1"
-                        size="small"
-                        icon="pi pi-thumbs-up"
-                        label="Mark as Valid"
-                        @click="confirmMarkAsValid"
-                    />
-                    <Button
-                        class="flex-1"
-                        severity="danger"
-                        icon="pi pi-thumbs-down"
-                        size="small"
-                        label="Mark as Invalid"
-                        @click="confirmMarkAsInvalid"
-                    />
-                </div>
-            </template>
         </Dialog>
 
         <Dialog
