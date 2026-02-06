@@ -662,7 +662,27 @@
                                                                     key,
                                                                 )
                                                             "
+                                                            :class="{
+                                                                'p-invalid':
+                                                                    serialErrors[
+                                                                        key
+                                                                    ],
+                                                            }"
                                                         />
+                                                        <small
+                                                            v-if="
+                                                                serialErrors[
+                                                                    key
+                                                                ]
+                                                            "
+                                                            class="p-error"
+                                                        >
+                                                            {{
+                                                                serialErrors[
+                                                                    key
+                                                                ]
+                                                            }}
+                                                        </small>
                                                     </fieldset>
                                                 </template>
 
@@ -1591,5 +1611,11 @@ button:disabled {
     .select-form {
         width: 100%;
     }
+}
+
+fieldset > .p-error {
+    color: #a94442;
+    font-size: 10px;
+    line-height: 0;
 }
 </style>

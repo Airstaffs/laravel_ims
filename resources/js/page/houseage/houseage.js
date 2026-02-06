@@ -73,6 +73,8 @@ export default {
 
             showCopyDetailsModal: false,
             currentCopyItem: null,
+
+            serialErrors: {},
         };
     },
 
@@ -1142,24 +1144,34 @@ export default {
             }
         },
 
+        getLabel(index) {
+            // Convert 0 => A, 1 => B, etc.
+            return String.fromCharCode(65 + index);
+        },
+
         async saveEditModal() {
             this.loading = true;
 
-            // ✅ Step 1: Validate form fields first
+            ["RPN", "PRD", "PCN", "basketnumber"].forEach((k) => {
+                if (this.item[k])
+                    this.item[k] = String(this.item[k]).toUpperCase().trim();
+            });
+
+            if (
+                this.item.basketnumber &&
+                /^\d+$/.test(this.item.basketnumber)
+            ) {
+                this.item.basketnumber = `BKT${this.item.basketnumber}`;
+            }
+
+            // Validate required prefixes
             const errors = [];
-
-            if (this.item.RPN && !/^RPN\d+$/i.test(this.item.RPN)) {
+            if (this.item.RPN && !/^RPN\d+$/.test(this.item.RPN))
                 errors.push("RPN must start with 'RPN' followed by numbers.");
-            }
-
-            if (this.item.PRD && !/^PRD\d+$/i.test(this.item.PRD)) {
+            if (this.item.PRD && !/^PRD\d+$/.test(this.item.PRD))
                 errors.push("PRD must start with 'PRD' followed by numbers.");
-            }
-
-            if (this.item.PCN && !/^PCN\d+$/i.test(this.item.PCN)) {
+            if (this.item.PCN && !/^PCN\d+$/.test(this.item.PCN))
                 errors.push("PCN must start with 'PCN' followed by numbers.");
-            }
-
             if (
                 this.item.basketnumber &&
                 !/^(BKT|SI|ENV)\d+$/i.test(this.item.basketnumber)
@@ -1169,8 +1181,99 @@ export default {
                 );
             }
 
-            // ✅ Stop execution if validation fails
-            if (errors.length > 0) {
+            // ============ NEW: Validate Serial Numbers ============
+            // Clear all serial errors first
+            this.serialErrors = {};
+
+            // Trim all serial values
+            this.serialKeys.forEach((key) => {
+                if (this.item[key]) {
+                    this.item[key] = this.item[key].trim();
+                }
+            });
+
+            // Get all serial values (non-empty)
+            const serialValues = this.serialKeys
+                .map((key) => ({
+                    key,
+                    value: this.item[key]?.trim(),
+                }))
+                .filter((s) => s.value); // Only non-empty values
+
+            // Check for duplicates within the same product (Serial A = Serial B = Serial C, etc.)
+            if (serialValues.length > 1) {
+                const duplicateMap = {};
+
+                // Find which values appear more than once
+                serialValues.forEach((s) => {
+                    if (!duplicateMap[s.value]) {
+                        duplicateMap[s.value] = [];
+                    }
+                    duplicateMap[s.value].push(s.key);
+                });
+
+                // Check if any value appears more than once
+                const duplicates = Object.entries(duplicateMap).filter(
+                    ([value, keys]) => keys.length > 1,
+                );
+
+                if (duplicates.length > 0) {
+                    duplicates.forEach(([value, keys]) => {
+                        const labels = keys
+                            .map((k) => {
+                                const match = k.match(/serialnumber([a-z]?)/i);
+                                return match[1]
+                                    ? `Serial ${match[1].toUpperCase()}`
+                                    : "Serial";
+                            })
+                            .join(" and ");
+
+                        const errorMsg = `${labels} cannot have the same value (${value}).`;
+                        errors.push(errorMsg);
+
+                        // Mark all duplicate fields
+                        keys.forEach((key) => {
+                            this.serialErrors[key] = errorMsg;
+                        });
+                    });
+                }
+            }
+
+            // Check for duplicates across products (only if no same-product duplicates found)
+            if (serialValues.length > 0 && errors.length === 0) {
+                try {
+                    for (const serialObj of serialValues) {
+                        const response = await axios.post(
+                            "/check-duplicate-serial",
+                            {
+                                serial: serialObj.value,
+                                current_product_id: this.item.ProductID || null,
+                                serial_field: serialObj.key,
+                            },
+                        );
+
+                        if (
+                            response.data.duplicate &&
+                            response.data.type === "cross_product"
+                        ) {
+                            const errorMsg = `Serial number "${serialObj.value}" already exists in another product.`;
+                            errors.push(errorMsg);
+                            this.serialErrors[serialObj.key] = errorMsg;
+                            break; // Stop checking after first duplicate found
+                        }
+                    }
+                } catch (error) {
+                    console.error("Serial validation error:", error);
+                    if (error.response?.status !== 405) {
+                        errors.push(
+                            "Failed to validate serial numbers. Please try again.",
+                        );
+                    }
+                }
+            }
+            // ============ END: Validate Serial Numbers ============
+
+            if (errors.length) {
                 this.loading = false;
                 await Swal.fire({
                     icon: "error",
@@ -1181,385 +1284,130 @@ export default {
                 return;
             }
 
-            // Normalize all serial number fields
-            [
-                "serialnumber",
-                "serialnumberb",
-                "serialnumberc",
-                "serialnumberd",
-            ].forEach((field) => {
-                if (this.item[field] != null) {
-                    this.item[field] =
-                        String(this.item[field]).toUpperCase().trim() || null;
-                }
-            });
-
-            // ✅ Step 2: Handle serial image upload if needed
-            if (this.serialImageFile && !this.serialImageUploading) {
-                try {
-                    await this.uploadSerialImage();
-
-                    // Check if upload had errors
-                    if (this.serialImageError) {
-                        this.loading = false;
-                        return;
-                    }
-                } catch (uploadError) {
-                    console.error("Serial image upload failed:", uploadError);
-                    this.loading = false;
-
-                    await Swal.fire({
-                        icon: "error",
-                        title: "Serial Image Upload Failed",
-                        text: "Could not upload serial image. Please try again.",
-                    });
-
-                    return;
-                }
-            }
-
-            // ✅ Step 3: Save the product data
             try {
                 const payload = {
                     ...this.item,
-                    _employee_name:
-                        this.currentUser?.username ||
-                        window.Laravel?.user?.username ||
-                        "System",
-                    product_id: this.item.ProductID,
+                    _token: document
+                        .querySelector('meta[name="csrf-token"]')
+                        .getAttribute("content"),
                 };
 
-                // Include the updated serial image info if available
-                if (this.item.capturedImages?.serialimg1) {
-                    payload.serial_image = this.item.capturedImages.serialimg1;
-                }
-
-                console.log("📤 Sending update request:", {
-                    ProductID: this.item.ProductID,
-                });
-
-                const response = await axios.put(
-                    `/api/houseage/products/${this.item.ProductID}`,
-                    payload,
-                    {
-                        headers: {
-                            "X-CSRF-TOKEN": document
-                                .querySelector('meta[name="csrf-token"]')
-                                .getAttribute("content"),
-                            Accept: "application/json",
-                            "Content-Type": "application/json",
-                        },
-                        withCredentials: true,
-                    },
+                console.log(
+                    "POST payload:",
+                    JSON.parse(JSON.stringify(payload)),
                 );
 
-                console.log("✅ Update response:", response.data);
-
-                // ✅ Check if response indicates success
-                if (response.data.success === false) {
-                    throw new Error(response.data.message || "Update failed");
-                }
-
+                const response = await axios.post(
+                    `/api/houseage/products/${this.item.ProductID}`,
+                    payload,
+                );
                 const updated = response.data.product;
 
-                // ✅ Validate that we got the product data back
-                if (!updated || !updated.ProductID) {
-                    console.error(
-                        "❌ Invalid response structure:",
-                        response.data,
-                    );
-                    throw new Error("Invalid response from server");
-                }
-
-                // ✅ FIXED: Update items array (Vue 3 compatible)
                 const index = this.items.findIndex(
                     (p) => p.ProductID === updated.ProductID,
                 );
+                if (index !== -1) this.items.splice(index, 1, updated);
+                else this.items.unshift(updated);
 
-                if (index !== -1) {
-                    // Vue 3: Direct array assignment is reactive
-                    this.items[index] = updated;
-                } else {
-                    this.items.unshift(updated);
-                }
-
-                // ✅ FIXED: Update inventory array (Vue 3 compatible)
-                const invIndex = this.inventory.findIndex(
-                    (p) => p.ProductID === updated.ProductID,
-                );
-
-                if (invIndex !== -1) {
-                    // Vue 3: Direct array assignment is reactive
-                    this.inventory[invIndex] = updated;
-                } else {
-                    this.inventory.unshift(updated);
-                }
-
-                // ✅ Show success message
                 await Swal.fire({
                     icon: "success",
                     title: "Saved!",
-                    html: `
-                <p>${
-                    response.data.message ||
-                    "The houseage product has been updated successfully."
-                }</p>
-                ${
-                    response.data.changes_made
-                        ? `<p class="text-muted mt-2"><small>${response.data.changes_made} field(s) changed</small></p>`
-                        : ""
-                }
-                ${
-                    this.serialImageFile
-                        ? '<p class="text-success mt-2"><small>✓ Serial image uploaded successfully</small></p>'
-                        : ""
-                }
-            `,
+                    text:
+                        response.data.message ||
+                        "The product has been saved successfully.",
                     confirmButtonText: "OK",
                 });
 
                 this.closeEditModal();
-
-                // Refresh inventory to get updated capturedImages
                 await this.fetchInventory();
             } catch (error) {
-                console.error("❌ Save failed:", {
+                console.error("Save failed:", {
                     message: error.message,
                     status: error.response?.status,
                     data: error.response?.data,
-                    fullError: error,
                 });
 
                 let message =
-                    "An error occurred while saving. Please check the input or try again later.";
-                let title = "Save Failed";
-
-                // ✅ Check if it's an Axios error with response
-                if (error.response) {
-                    const status = error.response.status;
-                    const err = error.response.data;
-
-                    console.log("📋 Error response data:", err);
-
-                    if (status === 422) {
-                        // Validation errors
-                        if (err?.message?.includes("already assigned")) {
-                            title = "Duplicate Serial Number";
-
-                            if (err.duplicate_product) {
-                                message = `
-                            <div style="text-align: left;">
-                                <p><strong>${err.message}</strong></p>
-                                <hr>
-                                <p><strong>Existing Product Details:</strong></p>
-                                <ul style="list-style: none; padding-left: 0;">
-                                    <li>📦 <strong>RT Counter:</strong> ${
-                                        err.duplicate_product.rtcounter || "N/A"
-                                    }</li>
-                                    <li>🏷️ <strong>Item Number:</strong> ${
-                                        err.duplicate_product.itemnumber ||
-                                        "N/A"
-                                    }</li>
-                                    <li>📋 <strong>Title:</strong> ${
-                                        err.duplicate_product.ProductTitle ||
-                                        "N/A"
-                                    }</li>
-                                    <li>🔢 <strong>Serial:</strong> ${
-                                        err.duplicate_product.serialnumber ||
-                                        "N/A"
-                                    }</li>
-                                </ul>
-                            </div>
-                        `;
-                            } else {
-                                message = err.message;
-                            }
-                        } else {
-                            // Check serial field errors
-                            const serialFields = [
-                                "serialnumber",
-                                "serialnumberb",
-                                "serialnumberc",
-                                "serialnumberd",
-                            ];
-
-                            for (const field of serialFields) {
-                                if (err?.errors?.[field]?.length) {
-                                    message = err.errors[field].join("<br>");
-                                    break;
-                                }
-                            }
-
-                            // General validation error handling
-                            if (
-                                message ===
-                                "An error occurred while saving. Please check the input or try again later."
-                            ) {
-                                if (
-                                    typeof err?.message === "string" &&
-                                    err.message
-                                ) {
-                                    message = err.message;
-                                } else if (err?.errors) {
-                                    message = Object.values(err.errors)
-                                        .flat()
-                                        .join("<br>");
-                                }
-                            }
-                        }
-                    } else if (status === 500) {
-                        // Server errors
-                        title = "Server Error";
-                        message =
-                            err?.message ||
-                            "A server error occurred. Please try again or contact support.";
-                    } else if (status === 404) {
-                        // Not found
-                        title = "Product Not Found";
-                        message =
-                            "The product could not be found. It may have been deleted.";
-                    } else {
-                        // Other HTTP errors
-                        message =
-                            err?.message || `Server returned error ${status}`;
-                    }
-                } else if (error.request) {
-                    // ✅ Request was made but no response received
-                    title = "Network Error";
-                    message =
-                        "Could not connect to the server. Please check your internet connection.";
-                } else {
-                    // ✅ Something else happened
-                    message = error.message || "An unexpected error occurred.";
-                }
-
-                // Show error with option to view duplicate
-                const swalOptions = {
-                    icon: "error",
-                    title: title,
-                    html: message,
-                    confirmButtonText: "OK",
-                };
-
-                // Add "View Duplicate" button if duplicate exists
+                    "An error occurred while saving. Please try again.";
                 if (
                     error.response?.status === 422 &&
-                    error.response?.data?.duplicate_product
+                    error.response.data?.errors
                 ) {
-                    swalOptions.showCancelButton = true;
-                    swalOptions.cancelButtonText = "View Duplicate";
-                    swalOptions.cancelButtonColor = "#3085d6";
+                    message = Object.values(error.response.data.errors)
+                        .flat()
+                        .join("\n");
+                } else if (error.response?.data?.message) {
+                    message = error.response.data.message;
                 }
 
-                const result = await Swal.fire(swalOptions);
-
-                // If user clicks "View Duplicate", search for it
-                if (
-                    result.dismiss === Swal.DismissReason.cancel &&
-                    error.response?.data?.duplicate_product
-                ) {
-                    const duplicateSerial =
-                        error.response.data.duplicate_product.serialnumber;
-
-                    this.closeEditModal();
-
-                    setTimeout(() => {
-                        const searchInput =
-                            document.querySelector("#appsearch input");
-                        if (searchInput) {
-                            searchInput.value = duplicateSerial;
-                            searchInput.dispatchEvent(
-                                new Event("input", { bubbles: true }),
-                            );
-                        }
-                    }, 500);
-                }
+                Swal.fire({
+                    icon: "error",
+                    title: "Save Failed",
+                    text: message,
+                    confirmButtonText: "OK",
+                });
             } finally {
                 this.loading = false;
             }
         },
 
-        async checkDuplicateSerial(serial, serialKey) {
-            if (!serial) return;
+        async checkDuplicateSerial(serial, serialField) {
+            // Clear previous error for this field
+            this.serialErrors[serialField] = null;
 
-            const token = document
-                .querySelector('meta[name="csrf-token"]')
-                ?.getAttribute("content");
+            if (!serial || serial.trim() === "") {
+                return;
+            }
 
+            const trimmedSerial = serial.trim();
+
+            // Check against other serial fields in the same product
+            const otherSerials = this.serialKeys
+                .filter((key) => key !== serialField)
+                .map((key) => ({
+                    key,
+                    value: this.item[key]?.trim(),
+                }))
+                .filter((s) => s.value);
+
+            // Check for duplicate within same product first
+            const localDuplicate = otherSerials.find(
+                (s) => s.value === trimmedSerial,
+            );
+            if (localDuplicate) {
+                const currentLabel =
+                    serialField
+                        .match(/serialnumber([a-z]?)/i)?.[1]
+                        ?.toUpperCase() || "";
+                const duplicateLabel =
+                    localDuplicate.key
+                        .match(/serialnumber([a-z]?)/i)?.[1]
+                        ?.toUpperCase() || "";
+
+                this.serialErrors[serialField] =
+                    `Serial ${currentLabel} and Serial ${duplicateLabel} cannot have the same value.`;
+                return;
+            }
+
+            // Check for duplicates across products
             try {
-                const response = await fetch(
-                    "/api/houseage/check-duplicate-serial",
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            "X-Requested-With": "XMLHttpRequest",
-                            ...(token ? { "X-CSRF-TOKEN": token } : {}),
-                        },
-                        body: JSON.stringify({
-                            serial,
-                            current_product_id:
-                                this.item.ProductID || this.item.id,
-                        }),
-                    },
-                );
-
-                if (!response.ok) {
-                    const text = await response.text();
-                    throw new Error(
-                        `HTTP ${response.status}: ${text.slice(0, 200)}`,
-                    );
-                }
-
-                const data = await response.json();
-
-                console.log(data);
-
-                if (data.duplicate) {
-                    const product = data.product;
-
-                    Swal.fire({
-                        icon: "warning",
-                        title: "Duplicate Serial Found",
-                        html: `
-                        <p>This serial already exists in another product.</p>
-                        <p><b>RT Counter:</b> ${product.rtcounter ?? "N/A"}</p>
-                        <p><b>Title:</b> ${product.ProductTitle ?? "N/A"}</p>
-                        `,
-                        showCancelButton: true,
-                        confirmButtonText: "View Original Item",
-                        cancelButtonText: "OK",
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            // Close the modal
-                            if (typeof this.closeEditModal === "function") {
-                                this.closeEditModal();
-                            } else {
-                                this.showEditModal = false;
-                            }
-
-                            // Set search box value and trigger search
-                            setTimeout(() => {
-                                const searchInput =
-                                    document.querySelector("#appsearch input");
-                                if (searchInput) {
-                                    searchInput.value = serial;
-                                    searchInput.dispatchEvent(
-                                        new Event("input", { bubbles: true }),
-                                    );
-                                }
-                            }, 500);
-                        }
-                    });
-                }
-            } catch (err) {
-                console.error("Duplicate check failed:", err);
-                Swal.fire({
-                    icon: "error",
-                    title: "Error",
-                    text: "Something went wrong while checking duplicates.",
+                const response = await axios.post("/check-duplicate-serial", {
+                    serial: trimmedSerial,
+                    current_product_id: this.item.ProductID || null,
+                    serial_field: serialField,
                 });
+
+                if (
+                    response.data.duplicate &&
+                    response.data.type === "cross_product"
+                ) {
+                    this.serialErrors[serialField] =
+                        "This serial number already exists in another product.";
+                }
+            } catch (error) {
+                if (error.response?.status !== 405) {
+                    console.error("Error checking duplicate serial:", error);
+                }
             }
         },
 
