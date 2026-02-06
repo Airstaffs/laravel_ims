@@ -651,6 +651,11 @@ Route::prefix('api/houseage')->middleware('auth')->group(function () {
         ->middleware('throttle:10,1'); // Only 10 uploads per minute
 
     Route::get('serial-image', [HouseageController::class, 'getSerialImage']);
+
+    //upload product image
+    Route::post('upload-image', [HouseageController::class, 'uploadCapturedImage']);
+
+     Route::post('delete-image', [HouseageController::class, 'deleteCapturedImage']);
 });
 
 // Testing module routes

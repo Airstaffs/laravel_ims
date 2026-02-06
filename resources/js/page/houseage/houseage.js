@@ -59,6 +59,8 @@ export default {
             },
             items: [],
             activeIndex: 0,
+            trackingActiveIndex: 0,
+            serialActiveIndex: 0,
             basePath: "/images/thumbnails/",
             loading: false,
             error: null,
@@ -160,8 +162,70 @@ export default {
                 .filter((key) => key.startsWith("img") && this.item[key])
                 .map((key) => this.item[key]);
         },
+
+         
+        trackingImgList() {
+            const images = [];
+            const companyFolder = this.item.company || "Airstaffs";
+
+            // Check for captured tracking images (trackingimg1-12)
+            if (this.item.capturedImages) {
+                for (let i = 1; i <= 12; i++) {
+                    const fieldName = `trackingimg${i}`;
+                    if (this.isValidImage(this.item.capturedImages[fieldName])) {
+                        images.push(
+                            `/images/product_images/${companyFolder}/${this.item.capturedImages[fieldName]}`
+                        );
+                    }
+                }
+            }           
+            return images;
+        },
+
+        serialImgList() {
+            const images = [];
+            const companyFolder = this.item.company || "Airstaffs";
+
+            // Check for captured serial images (serialimg1-12)
+            if (this.item.capturedImages) {
+                for (let i = 1; i <= 12; i++) {
+                    const fieldName = `serialimg${i}`;
+                    if (this.isValidImage(this.item.capturedImages[fieldName])) {
+                        images.push(
+                            `/images/product_images/${companyFolder}/${this.item.capturedImages[fieldName]}`
+                        );
+                    }
+                }
+            }           
+            return images;
+        },
+
         activeImageUrl() {
             const currentImage = this.imageList[this.activeIndex];
+
+            // Check if it's already a full path (captured images)
+            if (currentImage && currentImage.startsWith("/images/")) {
+                return currentImage;
+            }
+
+            // Otherwise, use basePath for regular images
+            return this.basePath + currentImage;
+        },
+
+        activeTrackingImageUrl() {
+            const currentImage = this.trackingImgList[this.trackingActiveIndex];
+
+            // Check if it's already a full path (captured images)
+            if (currentImage && currentImage.startsWith("/images/")) {
+                return currentImage;
+            }
+
+            // Otherwise, use basePath for regular images
+            return this.basePath + currentImage;
+        },
+
+        activeSerialImageUrl() {
+            const currentImage = this.serialImgList[this.serialActiveIndex];
 
             // Check if it's already a full path (captured images)
             if (currentImage && currentImage.startsWith("/images/")) {
@@ -570,6 +634,21 @@ export default {
                     const path = `/images/product_images/${companyFolder}/${filename}`;
                     this.capturedImages.push(path);
                     console.log("✅ Added serial image 2:", path);
+                }
+
+                // Load tracking images (trackingimg1 and trackingimg2)
+                if (this.isValidImage(capturedImagesObj.trackingimg1)) {
+                    const filename = capturedImagesObj.trackingimg1;
+                    const path = `/images/product_images/${companyFolder}/${filename}`;
+                    this.capturedImages.push(path);
+                    console.log("✅ Added tracking image 1:", path);
+                }
+
+                if (this.isValidImage(capturedImagesObj.trackingimg2)) {
+                    const filename = capturedImagesObj.trackingimg2;
+                    const path = `/images/product_images/${companyFolder}/${filename}`;
+                    this.capturedImages.push(path);
+                    console.log("✅ Added tracking image 2:", path);
                 }
             }
 

@@ -619,15 +619,27 @@
                 </div>
             </div>
 
-            <div class="row mt-4">
+            <template class="row mt-4">
                 <div class="col-md-2">
                     <div class="form-col-left image-container">
-                        <div>
-                            <div
-                                class="image-section"
+                        <div class="captured-img-container">
+                           <div
+                                class="image-section hover-image-container"
+                                :class="{ 'preview-active': isCapturedPreviewActive }"
                                 v-show="capturedImageList.length"
                             >
-                                <div class="main-image">
+                                <div class="hover-overlay" @click="closeCapturedPreview"></div>
+                                
+                                <div class="main-image" @click="toggleCapturedPreview">
+                                    <img
+                                        :src="activeCapturedImageUrl"
+                                        alt="Main Product Image"
+                                        loading="lazy"
+                                        @error="onImageErrorMain"
+                                    />
+                                </div>
+
+                                <div class="captured-hover-preview">
                                     <img
                                         :src="activeCapturedImageUrl"
                                         alt="Main Product Image"
@@ -638,22 +650,16 @@
 
                                 <div class="thumbnail-carousel">
                                     <div
-                                        v-for="(
-                                            img, index
-                                        ) in capturedImageList"
+                                        v-for="(img, index) in capturedImageList"
                                         :key="index"
                                         :class="[
                                             'thumbnail',
                                             {
-                                                active:
-                                                    index ===
-                                                    activeCapturedIndex,
+                                                active: index === activeCapturedIndex,
                                             },
                                         ]"
                                         @click="activeCapturedIndex = index"
-                                        @mouseenter="
-                                            activeCapturedIndex = index
-                                        "
+                                        @mouseenter="activeCapturedIndex = index"
                                     >
                                         <img
                                             :src="img"
@@ -664,6 +670,7 @@
                                     </div>
                                 </div>
                             </div>
+                            
 
                             <p
                                 class="image-label text-center"
@@ -673,16 +680,21 @@
                                     <p>Images from Product</p>
                                 </label>
                             </p>
+
+                            <p class="fw-semibold mb-2">
+                                        {{  item.ProductTitle  }}
+                                    </p>
                         </div>
 
-                        <Divider />
-
-                        <div>
+                        <div class="asin-img-container">
                             <div
-                                class="image-section"
+                                class="image-section hover-image-container"
+                                :class="{ 'preview-active': isPreviewActive }"
                                 v-if="ASIN && asinImageList.length"
                             >
-                                <div class="main-image">
+                                <div class="hover-overlay" @click="closePreview"></div>
+                                
+                                <div class="main-image" @click="togglePreview">
                                     <img
                                         :src="activeAsinImageUrl"
                                         alt="Main ASIN Image"
@@ -691,33 +703,15 @@
                                     />
                                 </div>
 
-                                <div
-                                    class="thumbnail-carousel"
-                                    v-if="asinImageList.length > 1"
-                                >
-                                    <div
-                                        v-for="(img, index) in asinImageList"
-                                        :key="'asin-' + index"
-                                        :class="[
-                                            'thumbnail',
-                                            {
-                                                active:
-                                                    index === activeAsinIndex,
-                                            },
-                                        ]"
-                                        @click="activeAsinIndex = index"
-                                        @mouseenter="activeAsinIndex = index"
-                                    >
-                                        <img
-                                            :src="img"
-                                            alt="ASIN Thumbnail"
-                                            loading="lazy"
-                                            @error="handleImageError"
-                                        />
-                                    </div>
+                                <div class="asin-hover-preview">
+                                    <img
+                                        :src="activeAsinImageUrl"
+                                        alt="Main ASIN Image"
+                                        loading="lazy"
+                                        @error="handleImageError"
+                                    />
                                 </div>
                             </div>
-
                             <p>
                                 <label>
                                     <p class="asin-label text-center">
@@ -956,7 +950,7 @@
                         />
                     </div>
                 </div>
-            </div>
+            </template>
         </Dialog>
 
         <Dialog
@@ -1180,12 +1174,33 @@ export default {
             rowsPerPage: ROWS_PER_PAGE,
             currentTimezone: "UTC",
             timezoneLabel: "Loading...",
+            isPreviewActive: false, // for ASIN image
+            isCapturedPreviewActive: false, // for captured images
         };
     },
     async mounted() {
         await this.loadUserTimezone();
     },
     methods: {
+        // For ASIN image
+        togglePreview() {
+            if (window.innerWidth <= 767) {
+                this.isPreviewActive = !this.isPreviewActive;
+            }
+        },
+        closePreview() {
+            this.isPreviewActive = false;
+        },
+        
+        // For captured images
+        toggleCapturedPreview() {
+            if (window.innerWidth <= 767) {
+                this.isCapturedPreviewActive = !this.isCapturedPreviewActive;
+            }
+        },
+        closeCapturedPreview() {
+            this.isCapturedPreviewActive = false;
+        },
         convertToLocalDate(dateString) {
             if (!dateString) return "";
 
@@ -1487,6 +1502,7 @@ export default {
         display: flex;
         gap: 10px;
         width: 100%;
+        margin-top: 20px;
     }
 
     .validation-buttons-mobile .flex-1 {
