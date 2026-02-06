@@ -474,37 +474,7 @@
                     <div class="d-flex flex-nowrap overflow-auto gap-2 pb-3">
                         <div class="flex-shrink-0">
                             <Button
-                                label="Details"
-                                size="small"
-                                icon="pi pi-info-circle"
-                                severity="info"
-                                @click="toggleDetails(index)"
-                            />
-                        </div>
-
-                        <div class="flex-shrink-0">
-                            <Button
-                                label="Move to Labeling"
-                                size="small"
-                                icon="pi pi-check-circle"
-                                @click="confirmMoveToLabeling(item)"
-                                :disabled="isProcessing"
-                            />
-                        </div>
-
-                        <div class="flex-shrink-0">
-                            <Button
-                                label="Move to Stockroom"
-                                size="small"
-                                icon="pi pi-box"
-                                @click="confirmMoveToStockroom(item)"
-                                :disabled="isProcessing"
-                                severity="warn"
-                            />
-                        </div>
-
-                        <div class="flex-shrink-0">
-                            <Button
+                                class="p-button p-component p-button-contrast p-button-text p-button-sm text-primary"
                                 label="Open Validation"
                                 size="small"
                                 icon="pi pi-verified"
