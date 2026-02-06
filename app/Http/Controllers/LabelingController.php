@@ -1209,26 +1209,28 @@ class LabelingController extends BasetablesController
     {
         $serial = $request->input('serial');
         $currentProductId = $request->input('current_product_id');
-        $currentSerialField = $request->input('serial_field'); // e.g., 'serial_a' or 'serial_b'
+        $currentSerialField = $request->input('serial_field'); // e.g., 'serialnumbera' or 'serialnumberb'
 
         if (empty($serial)) {
             return response()->json(['duplicate' => false]);
         }
 
-        // Get all serial columns
+        // Get all serial columns from the products table
         $cols = array_filter(
             Schema::getColumnListing($this->productTable),
-            fn ($c) => str_starts_with($c, 'serial')
+            fn ($c) => str_starts_with($c, 'serialnumber')
         );
 
         // Check 1: Duplicate across different products
+        // Exclude records where ProductModuleLoc is rts, soldlist, returnlist, or Merged
         $query = DB::table($this->productTable)
             ->select('*')
             ->where(function ($q) use ($cols, $serial) {
                 foreach ($cols as $c) {
                     $q->orWhere($c, $serial);
                 }
-            });
+            })
+            ->whereNotIn('ProductModuleLoc', ['rts', 'soldlist', 'returnlist', 'Merged']);
 
         // Exclude the current product if provided
         if (! empty($currentProductId)) {
@@ -1246,7 +1248,7 @@ class LabelingController extends BasetablesController
             ]);
         }
 
-        // Check 2: Duplicate within the same product (Serial A vs Serial B)
+        // Check 2: Duplicate within the same product (Serial A vs Serial B vs Serial C, etc.)
         if (! empty($currentProductId) && ! empty($currentSerialField)) {
             $product = DB::table($this->productTable)
                 ->where('ProductID', $currentProductId)
@@ -1257,12 +1259,17 @@ class LabelingController extends BasetablesController
                 $otherSerialFields = array_filter($cols, fn ($c) => $c !== $currentSerialField);
 
                 foreach ($otherSerialFields as $otherField) {
-                    if (isset($product->$otherField) && $serial === $product->$otherField) {
+                    if (isset($product->$otherField) && trim($product->$otherField) !== '' && $serial === $product->$otherField) {
+                        // Extract labels for better error message
+                        $currentLabel = strtoupper(str_replace('serialnumber', '', $currentSerialField));
+                        $otherLabel = strtoupper(str_replace('serialnumber', '', $otherField));
+
                         return response()->json([
                             'duplicate' => true,
                             'type' => 'same_product',
-                            'message' => 'Serial A and Serial B cannot have the same value.',
+                            'message' => "Serial {$currentLabel} and Serial {$otherLabel} cannot have the same value.",
                             'conflicting_field' => $otherField,
+                            'current_field' => $currentSerialField,
                         ]);
                     }
                 }
