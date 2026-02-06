@@ -119,9 +119,21 @@
                             <span>Location: </span>
                             <span class="fw-bold text-info">{{ data.warehouse_location || 'N/A' }}</span>
                         </div>
-                        <div class="detail-item-container">
-                            <span>Serial #: </span>
+                        <div class="detail-item-container" v-show="data.serial_number">
+                            <span>Serial #1: </span>
                             <span>{{ data.serial_number || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-item-container" v-show="data.serial_numberb">
+                            <span>Serial #2: </span>
+                            <span>{{ data.serial_numberb || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-item-container" v-show="data.serial_numberc">
+                            <span>Serial #3: </span>
+                            <span>{{ data.serial_numberc || 'N/A' }}</span>
+                        </div>
+                        <div class="detail-item-container" v-show="data.serial_numberd">
+                            <span>Serial #4: </span>
+                            <span>{{ data.serial_numberd || 'N/A' }}</span>
                         </div>
                         <div class="detail-item-container">
                             <span>RT Counter: </span>

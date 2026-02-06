@@ -361,7 +361,10 @@ private function getDispensedProductsForItem($orderItemId)
                 'p.warehouseLocation',
                 'p.serialNumber', 
                 'p.rtCounter',
-                'p.FNSKUviewer as FNSKU'
+                'p.FNSKUviewer as FNSKU',
+                'p.serialnumberb',
+                'p.serialnumberc',
+                'p.serialnumberd'
             )
             ->leftJoin('tblproduct as p', 'd.productid', '=', 'p.ProductID')
             ->where('d.orderitemid', $orderItemId)
@@ -420,15 +423,34 @@ private function getDispensedProductsForItem($orderItemId)
                 }
             }
             
-            return [
+            // Build base response
+            $response = [
                 'product_id' => $item->product_id,
                 'title' => $title,
                 'asin' => $asin,
                 'warehouseLocation' => $item->warehouseLocation ?? '',
-                'serialNumber' => $item->serialNumber ?? '',
                 'rtCounter' => $item->rtCounter ?? '',
                 'FNSKU' => $item->FNSKU ?? ''
             ];
+
+            // Only add serial numbers if they're not null
+            if ($item->serialNumber !== null && $item->serialNumber !== '') {
+                $response['serialNumber'] = $item->serialNumber;
+            }
+
+            if ($item->serialnumberb !== null && $item->serialnumberb !== '') {
+                $response['serialNumberb'] = $item->serialnumberb;
+            }
+
+            if ($item->serialnumberc !== null && $item->serialnumberc !== '') {
+                $response['serialNumberc'] = $item->serialnumberc;
+            }
+
+            if ($item->serialnumberd !== null && $item->serialnumberd !== '') {
+                $response['serialNumberd'] = $item->serialnumberd;
+            }
+
+            return $response;
         })->toArray();
         
     } catch (\Exception $e) {
