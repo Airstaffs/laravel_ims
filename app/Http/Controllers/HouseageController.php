@@ -1105,7 +1105,7 @@ public function uploadCapturedImage(Request $request) {
             $searchPattern = $uploadPath . '/' . $safeProductId . '_img' . $capturedImgCount . '.*';
         } else {
             $filename = $safeProductId . '_' . $imageType . $capturedImgCount . '.' . $extension;
-            $searchPattern = $uploadPath . '/' . $safeProductId . '_' . $imageType . 'img' . $capturedImgCount . '.*';
+            $searchPattern = $uploadPath . '/' . $safeProductId . '_' . $imageType . $capturedImgCount . '.*';
         }
 
         // Remove old product images with different extensions

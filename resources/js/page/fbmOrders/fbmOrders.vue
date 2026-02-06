@@ -238,8 +238,23 @@
                                         </div>
 
                                         <div v-if="dispensedProduct.serialNumber" class="dispensed-detail">
-                                            <strong>Serial #:</strong>
+                                            <strong>Serial #1:</strong>
                                             {{ dispensedProduct.serialNumber }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.serialNumberb" class="dispensed-detail">
+                                            <strong>Serial #2:</strong>
+                                            {{ dispensedProduct.serialNumberb }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.serialNumberc" class="dispensed-detail">
+                                            <strong>Serial #3:</strong>
+                                            {{ dispensedProduct.serialNumberc }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.serialNumberd" class="dispensed-detail">
+                                            <strong>Serial #4:</strong>
+                                            {{ dispensedProduct.serialNumberd }}
                                         </div>
 
                                         <div v-if="dispensedProduct.rtCounter" class="dispensed-detail">
