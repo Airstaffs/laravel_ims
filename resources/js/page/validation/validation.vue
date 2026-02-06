@@ -475,7 +475,7 @@
                         <div class="flex-shrink-0">
                             <Button
                                 class="p-button p-component p-button-contrast p-button-text p-button-sm text-primary"
-                                label="Open Validation"
+                                label="View More"
                                 size="small"
                                 icon="pi pi-verified"
                                 @click="openValidationModal(item)"
