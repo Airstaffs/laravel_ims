@@ -8,94 +8,250 @@ use Illuminate\Support\Facades\DB;
 class SoldListImport extends Command
 {
     protected $signature = 'SoldListImport {csv}';
-    protected $description = 'Import SoldList CSV into tblproduct';
+    protected $description = 'Import SoldList CSV into tblproduct (continue rtcounter, ProductID auto-increment)';
 
-    public function handle()
+    public function handle(): int
     {
         $file = $this->argument('csv');
 
         if (!file_exists($file)) {
-            $this->error("CSV file not found.");
-            return;
+            $this->error("CSV file not found: {$file}");
+            return self::FAILURE;
         }
 
         $this->info("Starting import...");
 
-        // get current max rtcounter
-        $maxRt = DB::table('tblproduct')->max('rtcounter');
-        $rt = $maxRt ?? 0;
+        // Continue rtcounter from DB max
+        $rt = (int) (DB::table('tblproduct')->max('rtcounter') ?? 0);
 
-        if (($handle = fopen($file, 'r')) === false) {
-            $this->error("Unable to open CSV.");
-            return;
+        $fh = fopen($file, 'r');
+        if (!$fh) {
+            $this->error("Unable to open CSV: {$file}");
+            return self::FAILURE;
         }
 
-        $headers = fgetcsv($handle);
+        // ---------- helpers ----------
+        $norm = function (string $s): string {
+            $s = trim(mb_strtolower($s));
+            return preg_replace('/[^a-z0-9]+/i', '', $s) ?? '';
+        };
+
+        $nullIfEmpty = function ($v) {
+            if ($v === null)
+                return null;
+            $v = trim((string) $v);
+            if ($v === '' || $v === 'NULL' || $v === 'null')
+                return null;
+            return $v;
+        };
+
+        $intOrNull = function ($v) use ($nullIfEmpty) {
+            $v = $nullIfEmpty($v);
+            if ($v === null)
+                return null;
+            $v = str_replace(',', '', $v);
+            return is_numeric($v) ? (int) $v : null;
+        };
+
+        $floatOrNull = function ($v) use ($nullIfEmpty) {
+            $v = $nullIfEmpty($v);
+            if ($v === null)
+                return null;
+            $v = str_replace(',', '', $v);
+            return is_numeric($v) ? (float) $v : null;
+        };
+
+        $dateOrNull = function ($v) use ($nullIfEmpty) {
+            $v = $nullIfEmpty($v);
+            if ($v === null)
+                return null;
+
+            $v = trim((string) $v);
+
+            // Guard common invalid/zero dates
+            $bad = [
+                '0000-00-00',
+                '0000-00-00 00:00:00',
+                '-0001-11-30',
+                '-0001-11-30 00:00:00',
+                '1899-12-30', // Excel serial 0 often maps here in some conversions
+                '1899-12-31',
+            ];
+            if (in_array($v, $bad, true))
+                return null;
+
+            // Also guard empty-ish patterns
+            if (preg_match('/^0{1,2}[\/\-]0{1,2}[\/\-]0{2,4}$/', $v))
+                return null;
+
+            $ts = strtotime($v);
+            if ($ts === false)
+                return null;
+
+            // If year is absurdly low, treat as null
+            $year = (int) date('Y', $ts);
+            if ($year < 1970 || $year > 2100)
+                return null;
+
+            return date('Y-m-d', $ts);
+        };
+
+        $datetimeOrNull = function ($v) use ($nullIfEmpty) {
+            $v = $nullIfEmpty($v);
+            if ($v === null)
+                return null;
+
+            $v = trim((string) $v);
+
+            $bad = [
+                '0000-00-00',
+                '0000-00-00 00:00:00',
+                '-0001-11-30',
+                '-0001-11-30 00:00:00',
+                '1899-12-30',
+                '1899-12-31',
+            ];
+            if (in_array($v, $bad, true))
+                return null;
+
+            $ts = strtotime($v);
+            if ($ts === false)
+                return null;
+
+            $year = (int) date('Y', $ts);
+            if ($year < 1970 || $year > 2100)
+                return null;
+
+            return date('Y-m-d H:i:s', $ts);
+        };
+
+        // ---------- read headers ----------
+        $headers = fgetcsv($fh);
+        if (!$headers) {
+            fclose($fh);
+            $this->error("CSV header row is empty.");
+            return self::FAILURE;
+        }
+
+        // normalized header => index
+        $hIndex = [];
+        foreach ($headers as $i => $h) {
+            $k = $norm((string) $h);
+            if ($k !== '')
+                $hIndex[$k] = $i;
+        }
+
+        // normalized CSV header => db column
+        $map = [
+            'externaltitle' => 'ProductTitle',
+            'price' => 'price',
+            'priceshipping' => 'priceshipping',
+            'tax' => 'tax',
+            'discount' => 'Discount',
+            'quantity' => 'quantity',
+            'orderdate' => 'orderdate',
+            'paymentdate' => 'paymentdate',
+            'paymentmethod' => 'paymentmethod',
+            'shipdate' => 'shipdate',
+            'delivereddate' => 'datedelivered',
+            'itemnumber' => 'itemnumber',
+            'ordernumber' => 'rtid',
+            'trackingnumber' => 'trackingnumber',
+            'trackingnumber2' => 'trackingnumber2',
+            'trackingnumber3' => 'trackingnumber3',
+            'seller' => 'seller',
+            'description' => 'description',
+            'sourcetype' => 'SourceType',
+            'serialnumber' => 'serialnumber',
+            'serialnumberb' => 'serialnumberb',
+            'serialnumberc' => 'serialnumberc',
+            'serialnumberd' => 'serialnumberd',
+            'asin' => 'ASINviewer',
+            'fnsku' => 'FNSKUviewer',
+            'msku' => 'MSKUviewer',
+            'pcn' => 'PCN',
+            'rpn' => 'RPN',
+            'prd' => 'PRD',
+            'basketshenv' => 'basketnumber',
+            'materialtype' => 'materialtype',
+            'priorityrank' => 'priorityrank',
+            'notes' => 'notes',
+            'employeenote' => 'EmployeeNote',
+            'carrier' => 'carrier',
+            'warehouselocation' => 'warehouselocation',
+            'fulfillmentchannel' => 'Fulfilledby',
+            'fbmavailable' => 'FbmAvailable',
+            'fbaavailable' => 'FbaAvailable',
+            'inbound' => 'Inbound',
+            'outbound' => 'Outbound',
+            'reserved' => 'Reserved',
+            'unfulfillable' => 'Unfulfillable',
+            'shipaddress' => 'ShipAddress',
+            'returnstatus' => 'returnstatus',
+            'validationstatus' => 'validation',
+            'insertdatestockroom' => 'stockroom_insert_date',
+            'modulelocation' => 'ProductModuleLoc',
+            'splitfrom' => 'splitfromRT',
+            'shipmenttrackingnumber' => 'shipment_tracking_number',
+            'lpnid' => 'lpnID',
+        ];
+
+        $get = function (array $row, string $csvKey) use ($hIndex) {
+            return array_key_exists($csvKey, $hIndex) ? ($row[$hIndex[$csvKey]] ?? null) : null;
+        };
 
         $inserted = 0;
+        $skipped = 0;
 
-        while (($row = fgetcsv($handle)) !== false) {
+        while (($row = fgetcsv($fh)) !== false) {
+            // skip empty lines
+            $hasData = false;
+            foreach ($row as $v) {
+                if (trim((string) $v) !== '') {
+                    $hasData = true;
+                    break;
+                }
+            }
+            if (!$hasData) {
+                $skipped++;
+                continue;
+            }
 
-            $rt++;
+            $rt++; // next rtcounter
 
+            // base payload (ProductID is NOT set; auto increment)
             $data = [
                 'rtcounter' => $rt,
-                'ProductTitle' => $row[1] ?? null,
-                'price' => $row[3] ?? null,
-                'priceshipping' => $row[4] ?? null,
-                'tax' => $row[5] ?? null,
-                'Discount' => $row[6] ?? null,
-                'quantity' => $row[7] ?? null,
-                'orderdate' => $row[8] ?? null,
-                'paymentdate' => $row[9] ?? null,
-                'paymentmethod' => $row[10] ?? null,
-                'shipdate' => $row[11] ?? null,
-                'itemnumber' => $row[12] ?? null,
-                'rtid' => $row[13] ?? null,
-                'trackingnumber' => $row[14] ?? null,
-                'seller' => $row[17] ?? null,
-                'description' => $row[18] ?? null,
-                'serialnumber' => $row[20] ?? null,
-                'serialnumberb' => $row[21] ?? null,
-                'serialnumberc' => $row[22] ?? null,
-                'serialnumberd' => $row[23] ?? null,
-                'datedelivered' => $row[24] ?? null,
-                'ASINviewer' => $row[25] ?? null,
-                'FNSKUviewer' => $row[28] ?? null,
-                'MSKUviewer' => $row[29] ?? null,
-                'PCN' => $row[31] ?? null,
-                'RPN' => $row[32] ?? null,
-                'PRD' => $row[33] ?? null,
-                'basketnumber' => $row[34] ?? null,
-                'materialtype' => $row[35] ?? null,
-                'priorityrank' => $row[36] ?? null,
-                'notes' => $row[37] ?? null,
-                'EmployeeNote' => $row[38] ?? null,
-                'carrier' => $row[40] ?? null,
-                'warehouselocation' => $row[41] ?? null,
-                'Fulfilledby' => $row[42] ?? null,
-                'FbmAvailable' => $row[44] ?? 1,
-                'FbaAvailable' => $row[45] ?? 0,
-                'Inbound' => $row[46] ?? 0,
-                'Outbound' => $row[47] ?? 0,
-                'Reserved' => $row[48] ?? 0,
-                'Unfulfillable' => $row[49] ?? 0,
-                'ShipAddress' => $row[52] ?? null,
-                'returnstatus' => $row[57] ?? null,
-                'validation' => $row[58] ?? null,
-                'stockroom_insert_date' => $row[59] ?? null,
-                'ProductModuleLoc' => $row[60] ?? null,
-                'splitfromRT' => $row[61] ?? null,
-                'shipment_tracking_number' => $row[63] ?? null,
             ];
 
-            DB::table('tblproduct')->insert($data);
+            foreach ($map as $csvKey => $dbCol) {
+                $val = $get($row, $csvKey);
 
+                // type casting rules
+                if (in_array($dbCol, ['price', 'priceshipping', 'tax', 'Discount'], true)) {
+                    $data[$dbCol] = $floatOrNull($val);
+                } elseif (in_array($dbCol, ['quantity', 'FbmAvailable', 'FbaAvailable', 'Inbound', 'Outbound', 'Reserved', 'Unfulfillable', 'lpnID'], true)) {
+                    $data[$dbCol] = $intOrNull($val);
+                } elseif (in_array($dbCol, ['orderdate', 'paymentdate', 'shipdate', 'datedelivered'], true)) {
+                    $data[$dbCol] = $dateOrNull($val);
+                } elseif ($dbCol === 'stockroom_insert_date') {
+                    $data[$dbCol] = $datetimeOrNull($val);
+                } else {
+                    $data[$dbCol] = $nullIfEmpty($val);
+                }
+            }
+
+            DB::table('tblproduct')->insert($data);
             $inserted++;
         }
 
-        fclose($handle);
+        fclose($fh);
 
-        $this->info("Import finished. Inserted: {$inserted}");
+        $this->info("Import finished.");
+        $this->line("Inserted: {$inserted}");
+        $this->line("Skipped empty rows: {$skipped}");
+        $this->line("rtcounter ended at: {$rt}");
+
+        return self::SUCCESS;
     }
 }
