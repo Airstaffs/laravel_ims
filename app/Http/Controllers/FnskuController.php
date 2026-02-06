@@ -339,7 +339,8 @@ private function updateFnskuUnits($msku, $asin, $grading, $storename, $currentFn
                 ->whereNotNull('fnsku.ASIN')
                 ->where('fnsku.ASIN', '!=', '')
                 ->where('fnsku.ASIN', '!=', 'NULL')
-                ->where('fnsku.LimitStatus', 'False');
+                ->where('fnsku.LimitStatus', 'False')
+                ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted']);
 
             // Apply exclusion logic
             if ($exclude_assigned) {

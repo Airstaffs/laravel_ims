@@ -169,7 +169,7 @@ export default {
 
             const images = [];
             for (let i = 0; i < this.asinImageCount; i++) {
-                images.push(`/images/asinimg/${this.item.ASIN}_${i}.jpg`);
+                images.push(`/images/asinimg/${this.item.ASIN}_0.webp`);
             }
 
             return images;

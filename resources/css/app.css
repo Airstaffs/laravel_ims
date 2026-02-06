@@ -1223,8 +1223,8 @@ form.fnskuForm .btn-process {
 }
 
 .thumbnail img {
-    width: 60px;
-    height: 60px;
+    width: 40px;
+    height: 40px;
     object-fit: cover;
     transition: transform 0.2s ease;
     cursor: pointer;
