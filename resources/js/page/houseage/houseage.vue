@@ -397,11 +397,15 @@
                     <div class="form-grid-wrapper">
                         <!-- LEFT: IMAGE + GENERAL INFO -->
                         <div class="form-col-left">
-                            <div class="image-section" v-if="imageList.length">
+                            <fieldset>
+                                <label for="">Product Images</label>
+                                <div class="image-section" v-if="imageList.length" :key="`section-${imageRenderKey}`">
+                                
                                 <!-- Main Image -->
-                                <div class="main-image">
+                                <div class="main-image" @click="handleOpenProductImageDialog('product', 12)">
                                     <img
                                         :src="activeImageUrl"
+                                        :key="`main-${activeImageUrl}-${imageRenderKey}`"
                                         alt="Main Product Image"
                                         loading="lazy"
                                         @error="onImageErrorMain"
@@ -412,7 +416,7 @@
                                 <div class="thumbnail-carousel">
                                     <div
                                         v-for="(img, index) in imageList"
-                                        :key="index"
+                                        :key="`thumb-${index}-${img}-${imageRenderKey}`"
                                         :class="[
                                             'thumbnail',
                                             {
@@ -435,13 +439,14 @@
                                     </div>
                                 </div>
                             </div>
+                            </fieldset>
+                            
 
-                            <div class="">
+                            <!-- <div class="">
                                 <fieldset>
                                     <label>Serial Number Photo</label>
 
                                     <div class="serial-upload">
-                                        <!-- hidden file input triggered by button -->
                                         <input
                                             ref="serialInput"
                                             type="file"
@@ -450,8 +455,6 @@
                                             class="form-control hidden"
                                             @change="onSerialImageSelected"
                                         />
-
-                                        <!-- Live preview -->
                                         <div class="serial-preview">
                                             <img
                                                 :src="displaySerialImage"
@@ -463,6 +466,87 @@
                                         </div>
                                     </div>
                                 </fieldset>
+                            </div> -->
+
+                              <div class="image-section">
+                                <fieldset>
+                                    <label>Serial Number</label>
+                                    <div class="main-image" @click="handleOpenProductImageDialog('serial', 2)">
+                                    <img
+                                        :src="activeSerialImageUrl"
+                                        :key="`main-${activeSerialImageUrl}-${imageRenderKey}`"
+                                        alt="Serial Image"
+                                        loading="lazy"
+                                        @error="onImageErrorMain"
+                                    />
+                                </div>
+                                 <div class="thumbnail-carousel">
+                                    <div
+                                        v-for="(img, index) in serialImgList"
+                                        :key="`thumb-${index}-${img}-${imageRenderKey}`"
+                                        :class="[
+                                            'thumbnail',
+                                            {
+                                                active: index === serialActiveIndex,
+                                            },
+                                        ]"
+                                        @click="serialActiveIndex = index"
+                                        @mouseenter="serialActiveIndex = index"
+                                    >
+                                        <img
+                                            :src="
+                                                img.startsWith('/images/')
+                                                    ? img
+                                                    : basePath + img
+                                            "
+                                            alt="Thumbnail"
+                                            loading="lazy"
+                                            @error="onThumbnailError($event)"
+                                        />
+                                    </div>
+                                </div>
+                                </fieldset>  
+                            </div>
+
+                            <!----Tracking Image List--->
+                            <div class="image-section">
+                                <fieldset>
+                                    <label>Tracking Number</label>
+                                    <div class="main-image" @click="handleOpenProductImageDialog('tracking', 2)">
+                                    <img
+                                        :src="activeTrackingImageUrl"
+                                        :key="`main-${activeTrackingImageUrl}-${imageRenderKey}`"
+                                        alt="Tracking Image"
+                                        loading="lazy"
+                                        @error="onImageErrorMain"
+                                    />
+                                </div>
+                                 <div class="thumbnail-carousel">
+                                    <div
+                                        v-for="(img, index) in trackingImgList"
+                                        :key="`thumb-${index}-${img}-${imageRenderKey}`"
+                                        :class="[
+                                            'thumbnail',
+                                            {
+                                                active: index === trackingActiveIndex,
+                                            },
+                                        ]"
+                                        @click="trackingActiveIndex = index"
+                                        @mouseenter="trackingActiveIndex = index"
+                                    >
+                                        <img
+                                            :src="
+                                                img.startsWith('/images/')
+                                                    ? img
+                                                    : basePath + img
+                                            "
+                                            alt="Thumbnail"
+                                            loading="lazy"
+                                            @error="onThumbnailError($event)"
+                                        />
+                                    </div>
+                                </div>
+                                </fieldset>  
                             </div>
                         </div>
 
@@ -1179,6 +1263,82 @@
             @close="closeCopyDetailsModal"
         />
 
+        <!----DIALOGS FOR UPDATING CAPTURED IMAGES---->
+        <Dialog v-model:visible="openCapturedImageDialog" modal header="Images"   :pt="{
+                root: { class: 'mobile-fullscreen-dialog' },
+            }">
+            <div class="image-list-container">
+                <!-- Existing Images -->
+                <div v-for="(image, index) in selectedImageList" :key="`dialog-img-${index}`" class="image-wrapper">
+                    <div class="image-container-with-overlay">
+                        <!-- Delete Button - MUST be before img -->
+                        <button 
+                            v-if="uploadingIndex !== index && deletingIndex !== index"
+                            class="delete-image-btn" 
+                            @click.stop="confirmDeleteImage(index)"
+                            type="button"
+                        >
+                            <i class="pi pi-trash"></i>
+                        </button>
+
+                        <img 
+                            :src="image" 
+                            :alt="`Product image ${index + 1}`" 
+                            class="image-item"
+                            :class="{ 'uploading': uploadingIndex === index, 'deleting': deletingIndex === index }"
+                            :key="`img-content-${image}`"
+                        >
+                        
+                        <!-- Loading Overlay for Upload -->
+                        <div v-if="uploadingIndex === index" class="upload-overlay">
+                            <div class="upload-spinner"></div>
+                            <p class="upload-text">Uploading...</p>
+                        </div>
+
+                        <!-- Loading Overlay for Delete -->
+                        <div v-if="deletingIndex === index" class="upload-overlay">
+                            <div class="upload-spinner"></div>
+                            <p class="upload-text">Deleting...</p>
+                        </div>
+                    </div>
+                    
+                    <input 
+                        type="file" 
+                        ref="capturedProductImageRef"
+                        accept="image/*" 
+                        style="display: none;"
+                        @change="handleFileChange($event, index)"
+                    >
+                    
+                    <Button 
+                        :label="uploadingIndex === index ? 'Uploading...' : 'Update'" 
+                        size="small"
+                        icon="pi pi-upload"
+                        class="upload-button"
+                        :loading="uploadingIndex === index"
+                        :disabled="uploadingIndex === index || deletingIndex === index"
+                        @click="handleUploadClick(index)"
+                    />
+                </div>
+
+                <!-- Add New Image Button -->
+                <div class="image-wrapper add-image-wrapper" v-if="selectedImageList.length < imageLimitCount">
+                    <div class="add-image-container" @click="handleAddNewImageClick">
+                        <i class="pi pi-plus add-icon"></i>
+                        <p class="add-text">Add Image</p>
+                        <p class="add-subtext">{{ selectedImageList.length }}/ {{ imageLimitCount }}</p>
+                    </div>
+                    
+                    <input 
+                        type="file" 
+                        ref="addNewImageInputRef"
+                        accept="image/*" 
+                        style="display: none;"
+                        @change="handleAddImageChange"
+                    >
+                </div>
+            </div>
+        </Dialog>
         <ScrollTop />
     </div>
 </template>
@@ -1202,6 +1362,8 @@ import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewIm
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 import { showPricingForPH } from "../../utils/helpers.js";
+import axios from "axios";
+import Swal from "sweetalert2";
 
 const TABLE_COLUMNS = [
     {
@@ -1326,7 +1488,336 @@ export default {
             ],
             rowsPerPage: ROWS_PER_PAGE,
             showPricingSection: showPricingForPH(),
+            openCapturedImageDialog: false,
+            uploadingIndex: null,
+            deletingIndex: null,
+            imageRenderKey: 0,
+            selectedImageList: [],
+            imageLimitCount: 0,
+            imageType: '',
         };
+    },
+    methods: {
+        handleOpenProductImageDialog(type, limit) {
+            //set image limit count product-12, serial and image - 2
+            this.imageLimitCount = limit
+            switch (type) {
+                case 'product':
+                    this.selectedImageList = this.imageList
+                    this.imageType = 'captured'
+                    break;
+                case 'tracking':
+                    this.selectedImageList = this.trackingImgList
+                    this.imageType = 'tracking' //type: tracking
+                    break;
+                case 'serial':
+                    this.selectedImageList = this.serialImgList
+                    this.imageType = 'serial' //type: serial
+                    break;
+                default:
+                    break;
+            }
+            this.openCapturedImageDialog = true
+        },
+         handleUploadClick(index) {
+            // Check if ref exists and access as array
+            const fileInput = this.$refs.capturedProductImageRef;
+            if (fileInput && fileInput[index]) {
+                fileInput[index].click();
+            }
+
+            console.log(index, "@@index@@")
+
+        },
+        handleAddNewImageClick() {
+        this.$refs.addNewImageInputRef.click();
+    },
+        addCacheBuster(url, bust = null) {
+        if (!url) return url;
+        
+        const buster = bust || Date.now();
+        const separator = url.includes('?') ? '&' : '?';
+        const cleanUrl = url.replace(/[?&](t|v|_)=\d+/g, '');
+        
+        return `${cleanUrl}${separator}t=${buster}`;
+        },
+        removeCacheBuster(url) {
+            if (!url) return url;
+            return url.replace(/[?&](t|v|_)=\d+/g, '').replace(/\?$/, '');
+        },
+       async handleFileChange(event, index) {
+        try {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const currentImagePath = this.selectedImageList[index];
+            const imageNumber = currentImagePath.match(/img(\d+)\.(jpg|jpeg|png|gif|webp)$/)?.[1] || (index + 1);
+            
+            this.uploadingIndex = index;
+
+            const formData = new FormData();
+            formData.append("image", file);
+            formData.append("productId", this.item.ProductID);
+            formData.append("capturedImgCount", imageNumber);
+            formData.append("imageType", this.imageType)
+            const response = await axios.post(
+                'api/houseage/upload-image',
+                formData,
+                {
+                    headers: { "Content-Type": "multipart/form-data" },
+                    withCredentials: true,
+                }
+            );
+
+            if (response.data.success) {
+                // Extract relative path from full URL
+                let imagePath = response.data.relative_path || response.data.file_url;
+                
+                // If it's a full URL, extract just the path
+                if (imagePath.includes('://')) {
+                    const url = new URL(imagePath);
+                    imagePath = url.pathname;
+                }
+                
+                // Ensure path starts with /
+                if (!imagePath.startsWith('/')) {
+                    imagePath = '/' + imagePath;
+                }
+                
+                // Add cache buster to the relative path
+                const newUrl = this.addCacheBuster(imagePath);
+                
+                console.log('Uploading image at index:', index);
+                console.log('Current active index:', this.activeIndex);
+                console.log('New URL:', newUrl);
+                
+                // Update both references
+                this.selectedImageList[index] = newUrl;
+                this.item[`${this.imageType}img${imageNumber}`] = newUrl;
+                
+                // If this is the currently displayed image, switch to another then back
+                // to force a re-render
+
+                const indexMapping = {
+                    'tracking': 'trackingActiveIndex',
+                    'captured': 'activeIndex',
+                    'serial': 'serialActiveIndex' // if you add serial images later
+                };
+                const activeIndexKey = indexMapping[this.imageType];
+                if (activeIndexKey && index === this[activeIndexKey]) {
+                    const tempIndex = this[activeIndexKey];
+                    this[activeIndexKey] = -1;
+                    
+                    this.$nextTick(() => {
+                        this[activeIndexKey] = tempIndex;
+                    });
+                }
+                
+                // Force reactivity by updating the render key
+                this.imageRenderKey++;
+                
+                // Force array reactivity
+                this.selectedImageList = [...this.selectedImageList];
+                
+                // Ensure DOM updates
+                this.$nextTick(() => {
+                    this.$forceUpdate();
+                });
+                
+                alert(response.data.message);
+            }
+            
+        } catch (error) {
+            console.error("Error uploading product image:", error);
+            alert('Failed to upload image: ' + (error.response?.data?.message || error.message));
+        } finally {
+            event.target.value = '';
+            this.uploadingIndex = null;
+             setTimeout(() => {
+                this.fetchInventory()
+            }, 500)
+        }
+    },
+        async handleAddImageChange(event) {
+        try {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Get the next image number
+            const nextImageNumber = this.selectedImageList.length + 1;
+            
+            if (nextImageNumber > 12) {
+                this.$toast.add({
+                    severity: 'warn',
+                    summary: 'Limit Reached',
+                    detail: 'Maximum 12 images allowed',
+                    life: 3000
+                });
+                return;
+            }
+            
+            this.uploadingIndex = this.selectedImageList.length;
+            
+            const formData = new FormData();
+            formData.append("image", file);
+            formData.append("productId", this.item.ProductID);
+            formData.append("capturedImgCount", nextImageNumber);
+            formData.append("imageType", this.imageType)
+            
+            const response = await axios.post(
+                'api/houseage/upload-image',
+                formData,
+                {
+                    headers: { "Content-Type": "multipart/form-data" },
+                    withCredentials: true,
+                }
+            );
+
+            if (response.data.success) {
+                let imagePath = response.data.relative_path || response.data.file_url;
+                
+                if (imagePath.includes('://')) {
+                    const url = new URL(imagePath);
+                    imagePath = url.pathname;
+                }
+                
+                if (!imagePath.startsWith('/')) {
+                    imagePath = '/' + imagePath;
+                }
+                
+                const newUrl = this.addCacheBuster(imagePath);
+                
+                // ADD to imageList (not replace)
+                this.selectedImageList.push(newUrl);
+                this.item[`${this.imageType}img${nextImageNumber}`] = newUrl;
+                
+                this.imageRenderKey++;
+                this.selectedImageList = [...this.selectedImageList];
+                
+                this.$nextTick(() => {
+                    this.$forceUpdate();
+                });
+
+                await Swal.fire({
+                    title: 'Update Success',
+                    icon: 'success',
+                    confirmButtonText: 'Ok'
+                })
+            
+            }
+            
+        } catch (error) {
+            console.error("Error adding image:", error);
+            this.$toast.add({
+                severity: 'error',
+                summary: 'Error',
+                detail: error.response?.data?.message || 'Failed to add image',
+                life: 3000
+            });
+        } finally {
+            event.target.value = '';
+            this.uploadingIndex = null;
+            setTimeout(() => {
+                this.fetchInventory()
+            }, 500)
+        }
+    },
+        async confirmDeleteImage(index) {
+        const currentImagePath = this.imageList[index];
+        const imageNumber = currentImagePath.match(/img(\d+)\.(jpg|jpeg|png|gif|webp)$/)?.[1] || (index + 1);
+        
+        const result = await Swal.fire({
+            title: 'Delete Image?',
+            text: `Are you sure you want to delete the image This action cannot be undone.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, delete it!',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true
+        });
+
+        if (result.isConfirmed) {
+            await this.handleDeleteImage(index, imageNumber);
+        }
+    },
+    
+    async handleDeleteImage(index, imageNumber) {
+        try {
+            this.deletingIndex = index;
+                        console.log(index, "@@index@@")
+            const response = await axios.post(
+                'api/houseage/delete-image',
+                {
+                    productId: String(this.item.ProductID),
+                    capturedImgCount: imageNumber,
+                    imageType: this.imageType
+                },
+                {
+                    withCredentials: true,
+                }
+            );
+
+            if (response.data.success) {
+                console.log('Image deleted:', imageNumber);
+                
+                // Remove from imageList
+                this.selectedImageList.splice(index, 1);
+                
+                // Update item property
+                delete this.item[`capturedimg${imageNumber}`];
+                
+                // Force reactivity
+                this.imageRenderKey++;
+                this.selectedImageList = [...this.selectedImageList];
+                
+                this.$nextTick(() => {
+                    this.$forceUpdate();
+                });
+
+                  // If this is the currently displayed image, switch to another then back
+                // to force a re-render
+
+                const indexMapping = {
+                    'tracking': 'trackingActiveIndex',
+                    'captured': 'activeIndex',
+                    'serial': 'serialActiveIndex' // if you add serial images later
+                };
+                const activeIndexKey = indexMapping[this.imageType];
+                if (activeIndexKey && index === this[activeIndexKey]) {
+                    const tempIndex = this[activeIndexKey];
+                    this[activeIndexKey] = -1;
+                    
+                    this.$nextTick(() => {
+                        this[activeIndexKey] = tempIndex;
+                    });
+                }
+                
+                // SweetAlert success message
+                Swal.fire({
+                    title: 'Deleted!',
+                    text: `Image has been deleted.`,
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }
+            
+        } catch (error) {
+            console.error("Error deleting image:", error);
+            
+            // SweetAlert error message
+            Swal.fire({
+                title: 'Error!',
+                text: error.response?.data?.message || 'Failed to delete image',
+                icon: 'error',
+                confirmButtonColor: '#ef4444'
+            });
+        } finally {
+            this.deletingIndex = null;
+        }
+    }
     },
     computed: {
         courierOptions() {

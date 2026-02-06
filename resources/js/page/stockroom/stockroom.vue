@@ -853,10 +853,7 @@
         >
             <div class="product-details-layout">
                 <div class="product-details-left">
-                    <div
-                        class="product-details-image clickable"
-                        @click="enlargeImage = !enlargeImage"
-                    >
+                    <div class="product-details-image clickable" @click="enlargeImage = !enlargeImage">
                         <img
                             :src="
                                 selectedProduct.useDefaultImage
@@ -967,61 +964,50 @@
                             </span>
                         </div>
                     </div>
-                </div>
-                <div class="product-details-right">
-                    <Card>
-                        <template #title>
-                            <h6>FNSKUs</h6>
-                            <Divider />
-                        </template>
-                        <template #content>
-                            <div>
-                                <div class="product-details-fnskus">
-                                    <div
-                                        v-for="fnsku in selectedProduct.fnskus"
-                                        :key="fnsku.FNSKU"
-                                        class="w-100 product-details-fnsku-item"
+                    <Panel header="FNSKUs" toggleable :collapsed="true">
+                        <div
+                                v-for="fnsku in selectedProduct.fnskus"
+                                :key="fnsku.FNSKU"
+                                class="w-100 product-details-fnsku-item"
+                            >
+                                <div class="fnsku-main">
+                                    {{ fnsku.FNSKU || fnsku }}
+                                </div>
+                                <div class="fnsku-details">
+                                    <span class="fnsku-detail"
+                                        >Store:
+                                        {{
+                                            fnsku.storename || "-"
+                                        }}</span
                                     >
-                                        <div class="fnsku-main">
-                                            {{ fnsku.FNSKU || fnsku }}
-                                        </div>
-                                        <div class="fnsku-details">
-                                            <span class="fnsku-detail"
-                                                >Store:
-                                                {{
-                                                    fnsku.storename || "-"
-                                                }}</span
-                                            >
-                                            <span class="fnsku-detail"
-                                                >MSKU:
-                                                {{ fnsku.MSKU || "-" }}</span
-                                            >
-                                            <span class="fnsku-detail"
-                                                >Grade:
-                                                {{
-                                                    fnsku.display_grading ||
-                                                    getDisplayGrading(
-                                                        fnsku,
-                                                        fnsku.storename,
-                                                    )
-                                                }}</span
-                                            >
-                                        </div>
-                                    </div>
-                                    <div
-                                        v-if="
-                                            !selectedProduct.fnskus ||
-                                            selectedProduct.fnskus.length === 0
-                                        "
-                                        class="product-details-empty"
+                                    <span class="fnsku-detail"
+                                        >MSKU:
+                                        {{ fnsku.MSKU || "-" }}</span
                                     >
-                                        No FNSKUs found
-                                    </div>
+                                    <span class="fnsku-detail"
+                                        >Grade:
+                                        {{
+                                            fnsku.display_grading ||
+                                            getDisplayGrading(
+                                                fnsku,
+                                                fnsku.storename,
+                                            )
+                                        }}</span
+                                    >
                                 </div>
                             </div>
-                        </template>
-                    </Card>
-
+                            <div
+                                v-if="
+                                    !selectedProduct.fnskus ||
+                                    selectedProduct.fnskus.length === 0
+                                "
+                                class="product-details-empty"
+                            >
+                                No FNSKUs found
+                            </div>
+                    </Panel>
+                </div>
+                <div class="product-details-right">
                     <div class="mt-5 pb-4">
                         <h4>Serial Numbers and Locations</h4>
                         <XDataTable
@@ -1166,6 +1152,7 @@ import {
     ScrollTop,
     Select,
     Textarea,
+    Panel
 } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
@@ -1278,6 +1265,7 @@ export default {
         OverlayBadge,
         Badge,
         AnimateDiv,
+        Panel
     },
     data() {
         return {

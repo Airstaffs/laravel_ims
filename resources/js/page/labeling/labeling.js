@@ -117,6 +117,12 @@ export default {
                 .filter((key) => key.startsWith("img") && this.item[key])
                 .map((key) => this.item[key]);
         },
+        
+        // imageList() {
+        //     return Object.keys(this.item.capturedImages)
+        //     .filter((key) => key.startsWith("capturedimg") && this.item.capturedImages[key])
+        //     .map((key) => this.item.capturedImages[key]);
+        // },
 
         // Company path images (capturedimg1 to capturedimg5)
         companyImages() {
@@ -210,6 +216,42 @@ export default {
                 this.item?.company || this.product?.company || "Airstaffs";
             return `/images/product_images/${company}/`;
         },
+
+        // activeImageUrl() {
+        //     const totalRegularImages = this.imageList.length;
+        //     // If activeIndex is within regular images
+        //     if (this.activeIndex < totalRegularImages) {
+        //         return this.dynamicBasePath + this.imageList[this.activeIndex];
+        //     }
+
+        //     // If activeIndex points to serialimg1
+        //     if (
+        //         this.activeIndex === totalRegularImages &&
+        //         this.item.capturedImages &&
+        //         this.item.capturedImages.serialimg1
+        //     ) {
+        //         return (
+        //             this.dynamicBasePath + this.item.capturedImages.serialimg1
+        //         );
+        //     }
+
+        //     // If activeIndex points to serialimg2
+        //     const serialimg1Offset = this.item.capturedImages?.serialimg1
+        //         ? 1
+        //         : 0;
+        //     if (
+        //         this.activeIndex === totalRegularImages + serialimg1Offset &&
+        //         this.item.capturedImages &&
+        //         this.item.capturedImages.serialimg2
+        //     ) {
+        //         return (
+        //             this.dynamicBasePath + this.item.capturedImages.serialimg2
+        //         );
+        //     }
+
+        //     // Fallback to first image
+        //     return this.dynamicBasePath + this.imageList[0];
+        // },
 
         serialKeys() {
             return Object.keys(this.item).filter((k) =>
@@ -2607,7 +2649,7 @@ export default {
         getAsinImageSrc(item) {
             // If ASIN exists, try to load the vector image
             if (item.ASIN) {
-                return `/images/asinvectorsimg/${item.ASIN}.png`;
+                return `/images/asinimg/${item.ASIN}_0.webp`;
             }
 
             // No ASIN, return default image

@@ -458,7 +458,7 @@ export default {
         getImagePath(asin) {
             // Direct path return without checks to prevent blinking
             return asin
-                ? `/images/asinimg/${asin}_0.png`
+                ? `/images/asinimg/${asin}_0.webp`
                 : this.defaultImagePath;
         },
 
