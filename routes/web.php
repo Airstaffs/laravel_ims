@@ -642,8 +642,9 @@ Route::prefix('api/houseage')->middleware('auth')->group(function () {
     Route::put('products/{id}', [HouseageController::class, 'update'])
         ->middleware('throttle:30,1');
 
-    Route::post('check-duplicate-serial', [HouseageController::class, 'checkDuplicateSerial'])
-        ->middleware('throttle:60,1'); // Allow more checks
+    Route::post('/check-duplicate-serial', action: [HouseageController::class, 'checkDuplicateSerial'])
+        ->middleware('throttle:60,1')
+        ->name('check.duplicate.serial');
 
     // ✅ Strict rate limit for uploads
     Route::post('serial-image', [HouseageController::class, 'uploadSerialNumber'])
@@ -652,10 +653,10 @@ Route::prefix('api/houseage')->middleware('auth')->group(function () {
 
     Route::get('serial-image', [HouseageController::class, 'getSerialImage']);
 
-    //upload product image
+    // upload product image
     Route::post('upload-image', [HouseageController::class, 'uploadCapturedImage']);
 
-     Route::post('delete-image', [HouseageController::class, 'deleteCapturedImage']);
+    Route::post('delete-image', [HouseageController::class, 'deleteCapturedImage']);
 });
 
 // Testing module routes

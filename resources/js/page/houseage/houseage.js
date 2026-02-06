@@ -165,7 +165,6 @@ export default {
                 .map((key) => this.item[key]);
         },
 
-         
         trackingImgList() {
             const images = [];
             const companyFolder = this.item.company || "Airstaffs";
@@ -174,13 +173,15 @@ export default {
             if (this.item.capturedImages) {
                 for (let i = 1; i <= 12; i++) {
                     const fieldName = `trackingimg${i}`;
-                    if (this.isValidImage(this.item.capturedImages[fieldName])) {
+                    if (
+                        this.isValidImage(this.item.capturedImages[fieldName])
+                    ) {
                         images.push(
-                            `/images/product_images/${companyFolder}/${this.item.capturedImages[fieldName]}`
+                            `/images/product_images/${companyFolder}/${this.item.capturedImages[fieldName]}`,
                         );
                     }
                 }
-            }           
+            }
             return images;
         },
 
@@ -192,13 +193,15 @@ export default {
             if (this.item.capturedImages) {
                 for (let i = 1; i <= 12; i++) {
                     const fieldName = `serialimg${i}`;
-                    if (this.isValidImage(this.item.capturedImages[fieldName])) {
+                    if (
+                        this.isValidImage(this.item.capturedImages[fieldName])
+                    ) {
                         images.push(
-                            `/images/product_images/${companyFolder}/${this.item.capturedImages[fieldName]}`
+                            `/images/product_images/${companyFolder}/${this.item.capturedImages[fieldName]}`,
                         );
                     }
                 }
-            }           
+            }
             return images;
         },
 
@@ -1323,7 +1326,7 @@ export default {
                 try {
                     for (const serialObj of serialValues) {
                         const response = await axios.post(
-                            "/check-duplicate-serial",
+                            "/api/houseage/check-duplicate-serial",
                             {
                                 serial: serialObj.value,
                                 current_product_id: this.item.ProductID || null,
@@ -1331,14 +1334,21 @@ export default {
                             },
                         );
 
-                        if (
-                            response.data.duplicate &&
-                            response.data.type === "cross_product"
-                        ) {
-                            const errorMsg = `Serial number "${serialObj.value}" already exists in another product.`;
-                            errors.push(errorMsg);
-                            this.serialErrors[serialObj.key] = errorMsg;
-                            break; // Stop checking after first duplicate found
+                        if (response.data.duplicate) {
+                            let errorMsg;
+
+                            if (response.data.type === "cross_product") {
+                                errorMsg = `Serial number "${serialObj.value}" already exists in another product.`;
+                            } else if (response.data.type === "same_product") {
+                                // This shouldn't happen since we check client-side first, but handle it anyway
+                                errorMsg = response.data.message;
+                            }
+
+                            if (errorMsg) {
+                                errors.push(errorMsg);
+                                this.serialErrors[serialObj.key] = errorMsg;
+                                break; // Stop checking after first duplicate found
+                            }
                         }
                     }
                 } catch (error) {
@@ -1470,18 +1480,22 @@ export default {
 
             // Check for duplicates across products
             try {
-                const response = await axios.post("/check-duplicate-serial", {
-                    serial: trimmedSerial,
-                    current_product_id: this.item.ProductID || null,
-                    serial_field: serialField,
-                });
+                const response = await axios.post(
+                    "/api/houseage/check-duplicate-serial",
+                    {
+                        serial: trimmedSerial,
+                        current_product_id: this.item.ProductID || null,
+                        serial_field: serialField,
+                    },
+                );
 
-                if (
-                    response.data.duplicate &&
-                    response.data.type === "cross_product"
-                ) {
-                    this.serialErrors[serialField] =
-                        "This serial number already exists in another product.";
+                if (response.data.duplicate) {
+                    if (response.data.type === "cross_product") {
+                        this.serialErrors[serialField] =
+                            "This serial number already exists in another product.";
+                    } else if (response.data.type === "same_product") {
+                        this.serialErrors[serialField] = response.data.message;
+                    }
                 }
             } catch (error) {
                 if (error.response?.status !== 405) {

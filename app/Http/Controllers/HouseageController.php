@@ -726,26 +726,28 @@ class HouseageController extends BasetablesController
     {
         $serial = $request->input('serial');
         $currentProductId = $request->input('current_product_id');
-        $currentSerialField = $request->input('serial_field'); // e.g., 'serial_a' or 'serial_b'
+        $currentSerialField = $request->input('serial_field'); // e.g., 'serialnumbera' or 'serialnumberb'
 
         if (empty($serial)) {
             return response()->json(['duplicate' => false]);
         }
 
-        // Get all serial columns
+        // Get all serial columns from the products table
         $cols = array_filter(
             Schema::getColumnListing($this->productTable),
-            fn ($c) => str_starts_with($c, 'serial')
+            fn ($c) => str_starts_with($c, 'serialnumber')
         );
 
         // Check 1: Duplicate across different products
+        // Exclude records where ProductModuleLoc is rts, soldlist, returnlist, or Merged
         $query = DB::table($this->productTable)
             ->select('*')
             ->where(function ($q) use ($cols, $serial) {
                 foreach ($cols as $c) {
                     $q->orWhere($c, $serial);
                 }
-            });
+            })
+            ->whereNotIn('ProductModuleLoc', ['rts', 'soldlist', 'returnlist', 'Merged']);
 
         // Exclude the current product if provided
         if (! empty($currentProductId)) {
@@ -763,7 +765,7 @@ class HouseageController extends BasetablesController
             ]);
         }
 
-        // Check 2: Duplicate within the same product (Serial A vs Serial B)
+        // Check 2: Duplicate within the same product (Serial A vs Serial B vs Serial C, etc.)
         if (! empty($currentProductId) && ! empty($currentSerialField)) {
             $product = DB::table($this->productTable)
                 ->where('ProductID', $currentProductId)
@@ -774,12 +776,17 @@ class HouseageController extends BasetablesController
                 $otherSerialFields = array_filter($cols, fn ($c) => $c !== $currentSerialField);
 
                 foreach ($otherSerialFields as $otherField) {
-                    if (isset($product->$otherField) && $serial === $product->$otherField) {
+                    if (isset($product->$otherField) && trim($product->$otherField) !== '' && $serial === $product->$otherField) {
+                        // Extract labels for better error message
+                        $currentLabel = strtoupper(str_replace('serialnumber', '', $currentSerialField));
+                        $otherLabel = strtoupper(str_replace('serialnumber', '', $otherField));
+
                         return response()->json([
                             'duplicate' => true,
                             'type' => 'same_product',
-                            'message' => 'Serial A and Serial B cannot have the same value.',
+                            'message' => "Serial {$currentLabel} and Serial {$otherLabel} cannot have the same value.",
                             'conflicting_field' => $otherField,
+                            'current_field' => $currentSerialField,
                         ]);
                     }
                 }
@@ -1055,220 +1062,224 @@ class HouseageController extends BasetablesController
 
         return response()->json(['exists' => false]);
     }
-public function uploadCapturedImage(Request $request) {
-    try {
-        $validated = $request->validate([
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // 5MB max
-            'productId' => 'required|string|max:255',
-            'capturedImgCount' => 'required|integer|min:1|max:12',
-            'imageType' => 'required|string|in:tracking,captured,serial'
-        ]);
 
-        $image = $request->file('image');
-        $productId = $validated['productId'];
-        $capturedImgCount = $validated['capturedImgCount'];
-        $imageType = $validated['imageType'];
+    public function uploadCapturedImage(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // 5MB max
+                'productId' => 'required|string|max:255',
+                'capturedImgCount' => 'required|integer|min:1|max:12',
+                'imageType' => 'required|string|in:tracking,captured,serial',
+            ]);
 
-        // Validate image count based on type
-        if ($imageType === 'tracking' && $capturedImgCount > 2) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tracking images only support img1 and img2'
-            ], 422);
-        }
-        
-        if ($imageType === 'serial' && $capturedImgCount > 2) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Serial images only support img1 and img2'
-            ], 422);
-        }
+            $image = $request->file('image');
+            $productId = $validated['productId'];
+            $capturedImgCount = $validated['capturedImgCount'];
+            $imageType = $validated['imageType'];
 
-        // Create directory if it doesn't exist
-        $uploadPath = public_path('images/product_images/Airstaffs');
-        if (!file_exists($uploadPath)) {
-            mkdir($uploadPath, 0775, true);
-        }
+            // Validate image count based on type
+            if ($imageType === 'tracking' && $capturedImgCount > 2) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tracking images only support img1 and img2',
+                ], 422);
+            }
 
-        // Get extension
-        $extension = $image->getClientOriginalExtension();
-        
-        // Sanitize productId for filename
-        $safeProductId = preg_replace('/[^a-zA-Z0-9_-]/', '', $productId);
-        
-        // Generate filename based on type:
-        // captured: 36_img1.jpg
-        // tracking: 36_trackingimg1.jpg
-        // serial: 36_serialimg1.jpg
-        if ($imageType === 'captured') {
-            $filename = $safeProductId . '_img' . $capturedImgCount . '.' . $extension;
-            $searchPattern = $uploadPath . '/' . $safeProductId . '_img' . $capturedImgCount . '.*';
-        } else {
-            $filename = $safeProductId . '_' . $imageType . $capturedImgCount . '.' . $extension;
-            $searchPattern = $uploadPath . '/' . $safeProductId . '_' . $imageType . 'img' . $capturedImgCount . '.*';
-        }
+            if ($imageType === 'serial' && $capturedImgCount > 2) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Serial images only support img1 and img2',
+                ], 422);
+            }
 
-        // Remove old product images with different extensions
-        $oldFiles = glob($searchPattern);
-        if ($oldFiles !== false) {
-            foreach ($oldFiles as $oldFile) {
-                if (file_exists($oldFile) && is_file($oldFile)) {
-                    @unlink($oldFile);
+            // Create directory if it doesn't exist
+            $uploadPath = public_path('images/product_images/Airstaffs');
+            if (! file_exists($uploadPath)) {
+                mkdir($uploadPath, 0775, true);
+            }
+
+            // Get extension
+            $extension = $image->getClientOriginalExtension();
+
+            // Sanitize productId for filename
+            $safeProductId = preg_replace('/[^a-zA-Z0-9_-]/', '', $productId);
+
+            // Generate filename based on type:
+            // captured: 36_img1.jpg
+            // tracking: 36_trackingimg1.jpg
+            // serial: 36_serialimg1.jpg
+            if ($imageType === 'captured') {
+                $filename = $safeProductId.'_img'.$capturedImgCount.'.'.$extension;
+                $searchPattern = $uploadPath.'/'.$safeProductId.'_img'.$capturedImgCount.'.*';
+            } else {
+                $filename = $safeProductId.'_'.$imageType.$capturedImgCount.'.'.$extension;
+                $searchPattern = $uploadPath.'/'.$safeProductId.'_'.$imageType.'img'.$capturedImgCount.'.*';
+            }
+
+            // Remove old product images with different extensions
+            $oldFiles = glob($searchPattern);
+            if ($oldFiles !== false) {
+                foreach ($oldFiles as $oldFile) {
+                    if (file_exists($oldFile) && is_file($oldFile)) {
+                        @unlink($oldFile);
+                    }
                 }
             }
-        }
 
-        // Move file to destination
-        $moved = $image->move($uploadPath, $filename);
-        
-        if (!$moved) {
-            throw new \Exception('Failed to move uploaded file');
-        }
+            // Move file to destination
+            $moved = $image->move($uploadPath, $filename);
 
-        $relativePath = 'images/product_images/Airstaffs/' . $filename;
-        $fileUrl = url($relativePath);
-
-        // Build column name: trackingimg1, capturedimg1, serialimg1, etc.
-        $columnName = $imageType . 'img' . $capturedImgCount;
-        
-        // Update or insert database record
-        DB::table('tblcapturedimages')->updateOrInsert(
-            ['ProductID' => $productId],
-            [
-                $columnName => $filename,
-                'UpdatedAt' => now()
-            ]
-        );
-
-        Log::info("Product image uploaded", [
-            'ProductID' => $productId,
-            'imageType' => $imageType,
-            'imageNumber' => $capturedImgCount,
-            'filename' => $filename
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => "Image uploaded successfully",
-            'file_url' => $fileUrl,
-            'filename' => $filename,
-            'relative_path' => $relativePath,
-            'image_type' => $imageType,
-            'image_number' => $capturedImgCount
-        ]);
-
-    } catch (\Illuminate\Validation\ValidationException $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Validation error',
-            'errors' => $e->errors()
-        ], 422);
-    } catch (\Throwable $th) {
-        Log::error("Product image upload error: " . $th->getMessage(), [
-            'productId' => $request->input('productId'),
-            'imageType' => $request->input('imageType'),
-            'capturedImgCount' => $request->input('capturedImgCount'),
-            'trace' => $th->getTraceAsString()
-        ]);
-        
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to upload image',
-            'error' => config('app.debug') ? $th->getMessage() : 'Server error'
-        ], 500);
-    }
-}
-public function deleteCapturedImage(Request $request) {
-    try {
-        $validated = $request->validate([
-            'productId' => 'required|string|max:255',
-            'capturedImgCount' => 'required|integer|min:1|max:12',
-            'imageType' => 'required|string|in:tracking,captured,serial'
-        ]);
-
-        $productId = $validated['productId'];
-        $capturedImgCount = $validated['capturedImgCount'];
-        $imageType = $validated['imageType'];
-        
-        // Validate count based on type
-        if (in_array($imageType, ['tracking', 'serial']) && $capturedImgCount > 2) {
-            return response()->json([
-                'success' => false,
-                'message' => ucfirst($imageType) . ' images only support img1 and img2'
-            ], 422);
-        }
-        
-        // Build column name: trackingimg1, capturedimg1, serialimg1
-        $columnName = $imageType . 'img' . $capturedImgCount;
-        
-        // Get current filename from database
-        $record = DB::table('tblcapturedimages')
-            ->where('ProductID', $productId)
-            ->first();
-            
-        if (!$record) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Product not found'
-            ], 404);
-        }
-        
-        $filename = $record->{$columnName};
-        
-        if (!$filename) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Image not found'
-            ], 404);
-        }
-        
-        // Delete file from filesystem
-        $filePath = public_path('images/product_images/Airstaffs/' . $filename);
-        if (file_exists($filePath) && is_file($filePath)) {
-            if (!@unlink($filePath)) {
-                Log::warning("Failed to delete file: {$filePath}");
+            if (! $moved) {
+                throw new \Exception('Failed to move uploaded file');
             }
-        }
-        
-        // Update database - set column to NULL
-        DB::table('tblcapturedimages')
-            ->where('ProductID', $productId)
-            ->update([
-                $columnName => null,
-                'UpdatedAt' => now()
+
+            $relativePath = 'images/product_images/Airstaffs/'.$filename;
+            $fileUrl = url($relativePath);
+
+            // Build column name: trackingimg1, capturedimg1, serialimg1, etc.
+            $columnName = $imageType.'img'.$capturedImgCount;
+
+            // Update or insert database record
+            DB::table('tblcapturedimages')->updateOrInsert(
+                ['ProductID' => $productId],
+                [
+                    $columnName => $filename,
+                    'UpdatedAt' => now(),
+                ]
+            );
+
+            Log::info('Product image uploaded', [
+                'ProductID' => $productId,
+                'imageType' => $imageType,
+                'imageNumber' => $capturedImgCount,
+                'filename' => $filename,
             ]);
-        
-        Log::info("Product image deleted", [
-            'ProductID' => $productId,
-            'imageType' => $imageType,
-            'imageNumber' => $capturedImgCount,
-            'filename' => $filename
-        ]);
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Image deleted successfully'
-        ]);
-        
-    } catch (\Illuminate\Validation\ValidationException $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Validation error',
-            'errors' => $e->errors()
-        ], 422);
-    } catch (\Throwable $th) {
-        Log::error("Product image delete error: " . $th->getMessage(), [
-            'productId' => $request->input('productId'),
-            'imageType' => $request->input('imageType'),
-            'capturedImgCount' => $request->input('capturedImgCount'),
-            'trace' => $th->getTraceAsString()
-        ]);
-        
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to delete image',
-            'error' => config('app.debug') ? $th->getMessage() : 'Server error'
-        ], 500);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Image uploaded successfully',
+                'file_url' => $fileUrl,
+                'filename' => $filename,
+                'relative_path' => $relativePath,
+                'image_type' => $imageType,
+                'image_number' => $capturedImgCount,
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $th) {
+            Log::error('Product image upload error: '.$th->getMessage(), [
+                'productId' => $request->input('productId'),
+                'imageType' => $request->input('imageType'),
+                'capturedImgCount' => $request->input('capturedImgCount'),
+                'trace' => $th->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload image',
+                'error' => config('app.debug') ? $th->getMessage() : 'Server error',
+            ], 500);
+        }
     }
-}
+
+    public function deleteCapturedImage(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'productId' => 'required|string|max:255',
+                'capturedImgCount' => 'required|integer|min:1|max:12',
+                'imageType' => 'required|string|in:tracking,captured,serial',
+            ]);
+
+            $productId = $validated['productId'];
+            $capturedImgCount = $validated['capturedImgCount'];
+            $imageType = $validated['imageType'];
+
+            // Validate count based on type
+            if (in_array($imageType, ['tracking', 'serial']) && $capturedImgCount > 2) {
+                return response()->json([
+                    'success' => false,
+                    'message' => ucfirst($imageType).' images only support img1 and img2',
+                ], 422);
+            }
+
+            // Build column name: trackingimg1, capturedimg1, serialimg1
+            $columnName = $imageType.'img'.$capturedImgCount;
+
+            // Get current filename from database
+            $record = DB::table('tblcapturedimages')
+                ->where('ProductID', $productId)
+                ->first();
+
+            if (! $record) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found',
+                ], 404);
+            }
+
+            $filename = $record->{$columnName};
+
+            if (! $filename) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Image not found',
+                ], 404);
+            }
+
+            // Delete file from filesystem
+            $filePath = public_path('images/product_images/Airstaffs/'.$filename);
+            if (file_exists($filePath) && is_file($filePath)) {
+                if (! @unlink($filePath)) {
+                    Log::warning("Failed to delete file: {$filePath}");
+                }
+            }
+
+            // Update database - set column to NULL
+            DB::table('tblcapturedimages')
+                ->where('ProductID', $productId)
+                ->update([
+                    $columnName => null,
+                    'UpdatedAt' => now(),
+                ]);
+
+            Log::info('Product image deleted', [
+                'ProductID' => $productId,
+                'imageType' => $imageType,
+                'imageNumber' => $capturedImgCount,
+                'filename' => $filename,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Image deleted successfully',
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $th) {
+            Log::error('Product image delete error: '.$th->getMessage(), [
+                'productId' => $request->input('productId'),
+                'imageType' => $request->input('imageType'),
+                'capturedImgCount' => $request->input('capturedImgCount'),
+                'trace' => $th->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete image',
+                'error' => config('app.debug') ? $th->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
 }
