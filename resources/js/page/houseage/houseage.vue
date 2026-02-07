@@ -397,12 +397,71 @@
                     <div class="form-grid-wrapper">
                         <!-- LEFT: IMAGE + GENERAL INFO -->
                         <div class="form-col-left">
+                            <!----Tracking Image List--->
+                            <div class="image-section">
+                                <fieldset>
+                                    <label>Tracking Number</label>
+                                    <div
+                                        class="main-image"
+                                        @click="
+                                            handleOpenProductImageDialog(
+                                                'tracking',
+                                                2,
+                                            )
+                                        "
+                                    >
+                                        <img
+                                            :src="activeTrackingImageUrl"
+                                            :key="`main-${activeTrackingImageUrl}-${imageRenderKey}`"
+                                            alt="Tracking Image"
+                                            loading="lazy"
+                                            @error="onImageErrorMain"
+                                        />
+                                    </div>
+                                    <div class="thumbnail-carousel">
+                                        <div
+                                            v-for="(
+                                                img, index
+                                            ) in trackingImgList"
+                                            :key="`thumb-${index}-${img}-${imageRenderKey}`"
+                                            :class="[
+                                                'thumbnail',
+                                                {
+                                                    active:
+                                                        index ===
+                                                        trackingActiveIndex,
+                                                },
+                                            ]"
+                                            @click="trackingActiveIndex = index"
+                                            @mouseenter="
+                                                trackingActiveIndex = index
+                                            "
+                                        >
+                                            <img
+                                                :src="
+                                                    img.startsWith('/images/')
+                                                        ? img
+                                                        : basePath + img
+                                                "
+                                                alt="Thumbnail"
+                                                loading="lazy"
+                                                @error="
+                                                    onThumbnailError($event)
+                                                "
+                                            />
+                                        </div>
+                                    </div>
+                                </fieldset>
+                            </div>
                             <fieldset>
                                 <label for="">Product Images</label>
-                                <div
+                                <!-- <div
                                     class="image-section"
                                     v-if="imageList.length"
                                     :key="`section-${imageRenderKey}`"
+                                > -->
+                                <div
+                                    class="image-section"
                                 >
                                     <!-- Main Image -->
                                     <div
@@ -511,62 +570,7 @@
                                 </fieldset>
                             </div>
 
-                            <!----Tracking Image List--->
-                            <div class="image-section">
-                                <fieldset>
-                                    <label>Tracking Number</label>
-                                    <div
-                                        class="main-image"
-                                        @click="
-                                            handleOpenProductImageDialog(
-                                                'tracking',
-                                                2,
-                                            )
-                                        "
-                                    >
-                                        <img
-                                            :src="activeTrackingImageUrl"
-                                            :key="`main-${activeTrackingImageUrl}-${imageRenderKey}`"
-                                            alt="Tracking Image"
-                                            loading="lazy"
-                                            @error="onImageErrorMain"
-                                        />
-                                    </div>
-                                    <div class="thumbnail-carousel">
-                                        <div
-                                            v-for="(
-                                                img, index
-                                            ) in trackingImgList"
-                                            :key="`thumb-${index}-${img}-${imageRenderKey}`"
-                                            :class="[
-                                                'thumbnail',
-                                                {
-                                                    active:
-                                                        index ===
-                                                        trackingActiveIndex,
-                                                },
-                                            ]"
-                                            @click="trackingActiveIndex = index"
-                                            @mouseenter="
-                                                trackingActiveIndex = index
-                                            "
-                                        >
-                                            <img
-                                                :src="
-                                                    img.startsWith('/images/')
-                                                        ? img
-                                                        : basePath + img
-                                                "
-                                                alt="Thumbnail"
-                                                loading="lazy"
-                                                @error="
-                                                    onThumbnailError($event)
-                                                "
-                                            />
-                                        </div>
-                                    </div>
-                                </fieldset>
-                            </div>
+                            
                         </div>
 
                         <!-- CENTER: ALL OTHER INFO EXCEPT PRICING -->
