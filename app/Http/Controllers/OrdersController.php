@@ -37,12 +37,18 @@ public function index(Request $request)
                 'asin.UPC',
                 'asin.ParentAsin',
                 'asin.QuantityInside as asin_quantity',
-                'prod.delivery_status' // ADD THIS
+                'prod.delivery_status',
+                'prod.datedelivered',
+                'prod.estimated_deliverydate',
+                // ✅ ADD THIS: Computed sort field that uses whichever date exists
+                DB::raw("COALESCE(
+                    prod.datedelivered, 
+                    SUBSTRING_INDEX(prod.estimated_deliverydate, ' to ', 1),
+                    '9999-12-31'
+                ) as delivery_sort_date")
             ])
             ->where('prod.ProductModuleLoc', $location)
-            // Filter for 2026 data only using orderdate
             ->whereYear('prod.orderdate', 2026)
-            // Order by orderdate descending
             ->orderBy('prod.orderdate', 'desc');
 
         // Apply search filters
@@ -52,7 +58,7 @@ public function index(Request $request)
                     ->orWhere('prod.rtid', 'like', "%{$search}%")
                     ->orWhere('prod.itemnumber', 'like', "%{$search}%")
                     ->orWhere('prod.trackingnumber', 'like', "%{$search}%")
-                     ->orWhere('prod.delivery_status', 'like', "%{$search}%") 
+                    ->orWhere('prod.delivery_status', 'like', "%{$search}%")
                     ->orWhere('prod.rtcounter', 'like', "%{$search}%")
                     ->orWhere('prod.ASINviewer', 'like', "%{$search}%")
                     ->orWhere('asin.ASIN', 'like', "%{$search}%")
@@ -68,18 +74,13 @@ public function index(Request $request)
 
         // Transform products to organize data properly
         $products->getCollection()->transform(function ($product) {
-            // Use asin_code from join, fallback to prod.ASINviewer
             if (empty($product->asin_code) && !empty($product->ASINviewer)) {
                 $product->asin_code = $product->ASINviewer;
             }
 
-            // Set display ASIN for frontend
             $product->display_asin = $product->asin_code ?? $product->ASINviewer ?? null;
-
-            // Keep the quantity from ASIN if available
             $product->asin_quantity_inside = $product->asin_quantity ?? null;
 
-            // Clean up duplicate fields
             unset($product->asin_quantity);
 
             return $product;
@@ -679,27 +680,18 @@ public function removeAsin(Request $request)
 }
 
 
-// ========================================
-// ADD THESE TWO METHODS TO YOUR OrdersController.php
-// Location: app/Http/Controllers/OrdersController.php
-// ========================================
-
 public function getIncomingCount(Request $request)
 {
     try {
         $search = $request->input('search', '');
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
-        $deliveryStatus = $request->input('delivery_status', ''); // NEW
+        $deliveryStatus = $request->input('delivery_status', '');
+        $seller = $request->input('seller', ''); // ✅ NEW
 
-        Log::info('Incoming count search params', [
-            'search' => $search,
-            'date_from' => $dateFrom,
-            'date_to' => $dateTo,
-            'delivery_status' => $deliveryStatus
-        ]);
+        Log::info('Incoming count search params', compact('search', 'dateFrom', 'dateTo', 'deliveryStatus', 'seller'));
 
-        // Build base query with ASIN join - using subquery approach
+        // Build base query
         $subQuery = DB::table($this->productTable . ' as prod')
             ->leftJoin($this->asinTable . ' as asin', 'prod.ASINviewer', '=', 'asin.ASIN')
             ->select([
@@ -712,39 +704,71 @@ public function getIncomingCount(Request $request)
                 'prod.seller',
                 'prod.quantity',
                 'prod.datedelivered',
-                'prod.delivery_status' // NEW
+                'prod.estimated_deliverydate', // VARCHAR field - can be "2026-01-15 to 2026-01-20"
+                'prod.delivery_status'
             ])
             ->where('prod.ProductModuleLoc', 'Orders')
             ->whereNotNull('prod.ASINviewer')
             ->where('prod.ASINviewer', '!=', '');
 
-        // ✅ FIX: Apply EXACT search filter (not partial matching)
+        // Apply EXACT search filter
         if (!empty($search)) {
             $subQuery->where(function ($q) use ($search) {
-                // Exact match for ASIN and metakeyword
                 $q->where('asin.ASIN', '=', $search)
                     ->orWhere('asin.metakeyword', '=', $search)
-                    // Partial match only for titles
                     ->orWhere('asin.internal', 'like', "%{$search}%")
                     ->orWhere('asin.system_title', 'like', "%{$search}%")
                     ->orWhere('prod.ProductTitle', 'like', "%{$search}%");
             });
         }
 
-        // Apply date range filter
-        if (!empty($dateFrom)) {
-            $subQuery->where('prod.datedelivered', '>=', $dateFrom);
-        }
-        if (!empty($dateTo)) {
-            $subQuery->where('prod.datedelivered', '<=', $dateTo);
+        // ✅ Apply seller filter
+        if (!empty($seller)) {
+            $subQuery->where('prod.seller', 'like', "%{$seller}%");
         }
 
-        // NEW: Apply delivery status filter
+        // Apply delivery status filter
         if (!empty($deliveryStatus)) {
             $subQuery->where('prod.delivery_status', '=', $deliveryStatus);
         }
 
-        // Now group the subquery results
+        // ✅ CRITICAL: Date range filter for VARCHAR estimated_deliverydate field
+        if (!empty($dateFrom) || !empty($dateTo)) {
+            $subQuery->where(function ($q) use ($dateFrom, $dateTo) {
+                // Check actual delivered date (DATE field)
+                if (!empty($dateFrom) && !empty($dateTo)) {
+                    $q->whereBetween('prod.datedelivered', [$dateFrom, $dateTo]);
+                } elseif (!empty($dateFrom)) {
+                    $q->where('prod.datedelivered', '>=', $dateFrom);
+                } elseif (!empty($dateTo)) {
+                    $q->where('prod.datedelivered', '<=', $dateTo);
+                }
+                
+                // ✅ ALSO check estimated_deliverydate VARCHAR field
+                // This handles ranges like "2026-01-15 to 2026-01-20"
+                $q->orWhere(function ($subQ) use ($dateFrom, $dateTo) {
+                    if (!empty($dateFrom)) {
+                        // Check if estimated date range contains or overlaps with search range
+                        $subQ->where('prod.estimated_deliverydate', 'like', "%{$dateFrom}%");
+                    }
+                    if (!empty($dateTo)) {
+                        $subQ->orWhere('prod.estimated_deliverydate', 'like', "%{$dateTo}%");
+                    }
+                    // Also check if the VARCHAR contains any date in the range
+                    if (!empty($dateFrom) && !empty($dateTo)) {
+                        $subQ->orWhere(function ($dateQ) use ($dateFrom, $dateTo) {
+                            // Extract first date from "2026-01-15 to 2026-01-20" format
+                            $dateQ->whereRaw("
+                                (SUBSTRING_INDEX(prod.estimated_deliverydate, ' to ', 1) BETWEEN ? AND ?)
+                                OR (SUBSTRING_INDEX(prod.estimated_deliverydate, ' to ', -1) BETWEEN ? AND ?)
+                            ", [$dateFrom, $dateTo, $dateFrom, $dateTo]);
+                        });
+                    }
+                });
+            });
+        }
+
+        // Group the results
         $query = DB::table(DB::raw("({$subQuery->toSql()}) as sub"))
             ->mergeBindings($subQuery)
             ->select([
@@ -752,18 +776,17 @@ public function getIncomingCount(Request $request)
                 'sub.title',
                 DB::raw('GROUP_CONCAT(DISTINCT sub.seller ORDER BY sub.seller SEPARATOR ", ") as sellers'),
                 DB::raw('SUM(COALESCE(sub.quantity, 1)) as total_quantity'),
-                DB::raw('MIN(sub.datedelivered) as earliest_delivery'),
-                DB::raw('MAX(sub.datedelivered) as latest_delivery'),
-                DB::raw('MAX(sub.delivery_status) as delivery_status') // NEW: Get latest delivery status
+                // ✅ For display: prefer datedelivered, fallback to estimated_deliverydate (VARCHAR)
+                DB::raw('MIN(COALESCE(sub.datedelivered, SUBSTRING_INDEX(sub.estimated_deliverydate, " to ", 1))) as earliest_delivery'),
+                DB::raw('MAX(COALESCE(sub.datedelivered, SUBSTRING_INDEX(sub.estimated_deliverydate, " to ", -1))) as latest_delivery'),
+                DB::raw('MAX(sub.delivery_status) as delivery_status'),
+                // ✅ Flag to indicate if we have actual dates vs estimated
+                DB::raw('MAX(CASE WHEN sub.datedelivered IS NOT NULL THEN 1 ELSE 0 END) as has_actual_date')
             ])
             ->groupBy('sub.asin', 'sub.title')
             ->orderByDesc('total_quantity');
 
         $results = $query->get();
-
-        Log::info('Incoming count query results', [
-            'count' => $results->count()
-        ]);
 
         // Transform results
         $results = $results->map(function ($item) {
@@ -774,7 +797,8 @@ public function getIncomingCount(Request $request)
                 'total_quantity' => (int) $item->total_quantity,
                 'earliest_delivery' => $item->earliest_delivery,
                 'latest_delivery' => $item->latest_delivery,
-                'delivery_status' => $item->delivery_status ?: 'Unknown' // NEW
+                'delivery_status' => $item->delivery_status ?: 'Unknown',
+                'has_actual_date' => (bool) $item->has_actual_date // ✅ Tells frontend to show green check vs blue clock
             ];
         });
 
@@ -791,20 +815,18 @@ public function getIncomingCount(Request $request)
     } catch (\Exception $e) {
         Log::error('Error in getIncomingCount', [
             'message' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-            'line' => $e->getLine(),
-            'file' => $e->getFile()
+            'trace' => $e->getTraceAsString()
         ]);
 
         return response()->json([
             'success' => false,
-            'message' => 'An error occurred while retrieving incoming count',
-            'error' => $e->getMessage(),
-            'details' => config('app.debug') ? $e->getTraceAsString() : null
+            'message' => 'An error occurred',
+            'error' => $e->getMessage()
         ], 500);
     }
 }
 
+// ✅ Details endpoint
 public function getIncomingCountDetails(Request $request)
 {
     try {
@@ -812,9 +834,9 @@ public function getIncomingCountDetails(Request $request)
         $search = $request->input('search', '');
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
-        $deliveryStatus = $request->input('delivery_status', ''); // NEW
+        $deliveryStatus = $request->input('delivery_status', '');
+        $seller = $request->input('seller', ''); // ✅ NEW
 
-        // Build query for specific ASIN or search term
         $query = DB::table($this->productTable . ' as prod')
             ->leftJoin($this->asinTable . ' as asin', 'prod.ASINviewer', '=', 'asin.ASIN')
             ->select([
@@ -823,10 +845,12 @@ public function getIncomingCountDetails(Request $request)
                 'prod.ProductTitle',
                 'prod.quantity',
                 'prod.datedelivered',
+                'prod.estimated_deliverydate',
                 'prod.trackingnumber',
                 'prod.serialnumber',
                 'prod.warehouselocation',
-                'prod.delivery_status', // NEW: Include delivery_status
+                'prod.delivery_status',
+                'prod.seller',
                 'asin.ASIN as asin_code',
                 DB::raw("COALESCE(
                     NULLIF(TRIM(asin.system_title), ''), 
@@ -834,10 +858,8 @@ public function getIncomingCountDetails(Request $request)
                     NULLIF(TRIM(prod.ProductTitle), '')
                 ) as display_title")
             ])
-            ->where('prod.ProductModuleLoc', 'Orders')
-            ->whereNotNull('prod.datedelivered');
+            ->where('prod.ProductModuleLoc', 'Orders');
 
-        // Filter by ASIN if provided
         if (!empty($asin)) {
             $query->where(function ($q) use ($asin) {
                 $q->where('asin.ASIN', $asin)
@@ -845,7 +867,6 @@ public function getIncomingCountDetails(Request $request)
             });
         }
 
-        // Apply search filter if no ASIN provided
         if (empty($asin) && !empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('asin.ASIN', 'like', "%{$search}%")
@@ -857,34 +878,46 @@ public function getIncomingCountDetails(Request $request)
             });
         }
 
-        // Apply date range filter
-        if (!empty($dateFrom)) {
-            $query->where('prod.datedelivered', '>=', $dateFrom);
-        }
-        if (!empty($dateTo)) {
-            $query->where('prod.datedelivered', '<=', $dateTo);
+        // ✅ Seller filter
+        if (!empty($seller)) {
+            $query->where('prod.seller', 'like', "%{$seller}%");
         }
 
-        // NEW: Apply delivery status filter
+        // Delivery status filter
         if (!empty($deliveryStatus)) {
             $query->where('prod.delivery_status', '=', $deliveryStatus);
         }
 
-        // Order by delivery date descending
-        $query->orderByDesc('prod.datedelivered');
+        // ✅ Date filter
+        if (!empty($dateFrom) || !empty($dateTo)) {
+            $query->where(function ($q) use ($dateFrom, $dateTo) {
+                if (!empty($dateFrom) && !empty($dateTo)) {
+                    $q->whereBetween('prod.datedelivered', [$dateFrom, $dateTo]);
+                } elseif (!empty($dateFrom)) {
+                    $q->where('prod.datedelivered', '>=', $dateFrom);
+                } elseif (!empty($dateTo)) {
+                    $q->where('prod.datedelivered', '<=', $dateTo);
+                }
+                
+                // Also check VARCHAR estimated_deliverydate
+                $q->orWhere(function ($subQ) use ($dateFrom, $dateTo) {
+                    if (!empty($dateFrom)) {
+                        $subQ->where('prod.estimated_deliverydate', 'like', "%{$dateFrom}%");
+                    }
+                    if (!empty($dateTo)) {
+                        $subQ->orWhere('prod.estimated_deliverydate', 'like', "%{$dateTo}%");
+                    }
+                });
+            });
+        }
+
+        $query->orderByDesc(DB::raw('COALESCE(prod.datedelivered, prod.estimated_deliverydate)'));
 
         $items = $query->get();
 
-        // Calculate totals
         $totalQuantity = $items->sum(function ($item) {
             return (int) ($item->quantity ?? 1);
         });
-
-        Log::info('Incoming count details retrieved', [
-            'asin' => $asin,
-            'count' => $items->count(),
-            'total_quantity' => $totalQuantity
-        ]);
 
         return response()->json([
             'success' => true,
