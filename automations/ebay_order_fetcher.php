@@ -2106,11 +2106,17 @@ function check17TrackDeliveryStatus($trackingNumber, $carrierCode = null)
             ]
         ];
         
-        if ($carrierCode !== null) {
-            $trackingData[0]['carrier'] = (int)$carrierCode;
+        // ✅ CRITICAL: Only add carrier if it's a valid integer
+        if ($carrierCode !== null && is_int($carrierCode)) {
+            $trackingData[0]['carrier'] = $carrierCode;
+            echo "   Adding carrier code to request: {$carrierCode}<br>";
+        } elseif ($carrierCode !== null) {
+            echo "   ⚠️ Carrier code is not an integer (type: " . gettype($carrierCode) . "), skipping<br>";
         }
         
         $registerPayload = json_encode($trackingData);
+        
+        echo "   17track register payload: {$registerPayload}<br>";
         
         $headers = [
             '17token: ' . $apiKey,
@@ -2130,27 +2136,35 @@ function check17TrackDeliveryStatus($trackingNumber, $carrierCode = null)
         $registerHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         
         if ($registerHttpCode !== 200) {
-            echo "17track register error: HTTP {$registerHttpCode}<br>";
+            echo "   17track register error: HTTP {$registerHttpCode}<br>";
         }
         
         $registerData = json_decode($registerResponse, true);
-        echo "17track register response for {$trackingNumber}: " . json_encode($registerData) . "<br>";
+        echo "   17track register response for {$trackingNumber}: " . json_encode($registerData) . "<br>";
         
         // Check if registration was rejected
         if (isset($registerData['data']['rejected']) && !empty($registerData['data']['rejected'])) {
-            echo "⚠️ 17track rejected tracking (invalid carrier code), retrying without carrier...<br>";
+            $rejectedError = $registerData['data']['rejected'][0]['error'] ?? [];
+            echo "   ⚠️ 17track rejected tracking<br>";
+            echo "      Error code: " . ($rejectedError['code'] ?? 'unknown') . "<br>";
+            echo "      Error message: " . ($rejectedError['message'] ?? 'unknown') . "<br>";
             
-            $trackingData = [
-                [
-                    'number' => $trackingNumber
-                ]
-            ];
-            
-            $registerPayload = json_encode($trackingData);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $registerPayload);
-            $registerResponse = curl_exec($ch);
-            $registerData = json_decode($registerResponse, true);
-            echo "17track register response (retry): " . json_encode($registerData) . "<br>";
+            // If rejected due to invalid carrier, retry without carrier
+            if (isset($rejectedError['code']) && $rejectedError['code'] == -18010011) {
+                echo "   🔄 Retrying without carrier code...<br>";
+                
+                $trackingData = [
+                    [
+                        'number' => $trackingNumber
+                    ]
+                ];
+                
+                $registerPayload = json_encode($trackingData);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $registerPayload);
+                $registerResponse = curl_exec($ch);
+                $registerData = json_decode($registerResponse, true);
+                echo "   17track register response (retry): " . json_encode($registerData) . "<br>";
+            }
         }
         
         // Step 2: Get tracking info
@@ -2172,14 +2186,14 @@ function check17TrackDeliveryStatus($trackingNumber, $carrierCode = null)
         curl_close($ch);
         
         if ($trackHttpCode !== 200 || !$trackResponse) {
-            echo "17track gettrackinfo error: HTTP {$trackHttpCode}<br>";
+            echo "   17track gettrackinfo error: HTTP {$trackHttpCode}<br>";
             return ['status' => 'Unknown', 'error' => 'API request failed'];
         }
         
         $trackData = json_decode($trackResponse, true);
         
         if (!isset($trackData['data']['accepted']) || empty($trackData['data']['accepted'])) {
-            echo "No tracking data found for {$trackingNumber}<br>";
+            echo "   No tracking data found for {$trackingNumber}<br>";
             return ['status' => 'Unknown', 'error' => 'No tracking data found'];
         }
         
@@ -2195,74 +2209,86 @@ function check17TrackDeliveryStatus($trackingNumber, $carrierCode = null)
         $eventTime = $latestEvent['time_iso'] ?? null;
         $eventTimeUTC = $latestEvent['time_utc'] ?? null;
         
-        echo "17track status for {$trackingNumber}: Code={$statusCode}, Desc={$statusDescription}<br>";
+        echo "   17track status for {$trackingNumber}:<br>";
+        echo "      Status Code: {$statusCode}<br>";
+        echo "      Description: {$statusDescription}<br>";
+        echo "      Event Time: " . ($eventTime ?? 'N/A') . "<br>";
         
-        // ✅ NEW: Parse actual delivery date/time from event
+        // ✅ Parse actual delivery date/time from event
         $actualDeliveredDate = null;
         if ($eventTime) {
-            // time_iso format: "2026-01-14T18:24:00Z" or similar
+            // time_iso format: "2026-01-16T11:04:00Z" or similar
             try {
                 $dt = new DateTime($eventTime);
                 $actualDeliveredDate = $dt->format('Y-m-d H:i:s');
-                echo "   📅 Actual delivery date parsed: {$actualDeliveredDate}<br>";
+                echo "      📅 Parsed delivery date: {$actualDeliveredDate}<br>";
             } catch (Exception $e) {
-                echo "   ⚠️ Failed to parse delivery date: {$eventTime}<br>";
+                echo "      ⚠️ Failed to parse delivery date: {$eventTime}<br>";
             }
         }
         
         // Map status codes
+        // Status codes from 17track documentation:
+        // 0 = Not Found, 10 = Pick Up, 20 = In Transit, 30 = Customs, 
+        // 35 = Undelivered, 40 = Delivered, 50 = Exception
+        
         switch ($statusCode) {
             case 40: // Delivered
-                echo "✅ Status is DELIVERED<br>";
+                echo "   ✅ Status is DELIVERED<br>";
                 return [
-                    'status' => 'Delivered',
-                    'delivered_date' => $actualDeliveredDate, // ✅ Use actual date
+                    'status' => 'Delivered', // ✅ NOT "Delivered (Estimated)"
+                    'delivered_date' => $actualDeliveredDate,
                     'delivered_date_iso' => $eventTime,
                     'raw_status' => $statusDescription,
                     'carrier' => $track['provider_name'] ?? 'Unknown',
-                    'carrier_code' => $track['provider'] ?? null
+                    'carrier_code' => $track['provider'] ?? null,
+                    'source' => '17track_actual'
                 ];
                 
             case 10: // Pick Up
             case 20: // In Transit
             case 30: // Customs
-                echo "📦 Status is IN TRANSIT<br>";
+                echo "   📦 Status is IN TRANSIT<br>";
                 return [
                     'status' => 'In Transit',
                     'raw_status' => $statusDescription,
                     'carrier' => $track['provider_name'] ?? 'Unknown',
-                    'carrier_code' => $track['provider'] ?? null
+                    'carrier_code' => $track['provider'] ?? null,
+                    'source' => '17track'
                 ];
                 
             case 35: // Undelivered
             case 50: // Exception
-                echo "⚠️ Status is EXCEPTION<br>";
+                echo "   ⚠️ Status is EXCEPTION<br>";
                 return [
                     'status' => 'Delivery Exception',
                     'raw_status' => $statusDescription,
                     'carrier' => $track['provider_name'] ?? 'Unknown',
-                    'carrier_code' => $track['provider'] ?? null
+                    'carrier_code' => $track['provider'] ?? null,
+                    'source' => '17track'
                 ];
                 
             case 0: // Not Found
-                echo "❌ Status is NOT FOUND<br>";
+                echo "   ❌ Status is NOT FOUND<br>";
                 return [
                     'status' => 'Not Found',
                     'raw_status' => 'Tracking number not found',
-                    'carrier' => $track['provider_name'] ?? 'Unknown'
+                    'carrier' => $track['provider_name'] ?? 'Unknown',
+                    'source' => '17track'
                 ];
                 
             default:
-                echo "❓ Status code {$statusCode} is UNKNOWN<br>";
+                echo "   ❓ Status code {$statusCode} is UNKNOWN<br>";
                 return [
                     'status' => 'Unknown',
                     'raw_status' => $statusDescription,
-                    'carrier' => $track['provider_name'] ?? 'Unknown'
+                    'carrier' => $track['provider_name'] ?? 'Unknown',
+                    'source' => '17track'
                 ];
         }
         
     } catch (Exception $e) {
-        echo "17track exception for {$trackingNumber}: " . $e->getMessage() . "<br>";
+        echo "   17track exception for {$trackingNumber}: " . $e->getMessage() . "<br>";
         return ['status' => 'Unknown', 'error' => $e->getMessage()];
     }
 }
@@ -2280,10 +2306,10 @@ function getCarrierCodeFor17Track($carrierName)
     $carrierName = strtoupper(trim($carrierName));
     
     // Map common eBay carrier names to 17track carrier codes
-    // ⚠️ IMPORTANT: These MUST be integers, NOT strings with commas!
+    // ✅ CRITICAL: These MUST be integers
     $carrierMap = [
         // US Carriers
-        'USPS' => 70001,  // ✅ Integer, not '70,001'
+        'USPS' => 70001,
         'US POSTAL SERVICE' => 70001,
         'UNITED STATES POSTAL SERVICE' => 70001,
         'FEDEX' => 70002,
@@ -2315,17 +2341,22 @@ function getCarrierCodeFor17Track($carrierName)
     
     // Try exact match first
     if (isset($carrierMap[$carrierName])) {
-        return $carrierMap[$carrierName];
+        $code = (int)$carrierMap[$carrierName]; // ✅ Force integer
+        echo "   Carrier '{$carrierName}' mapped to code: {$code} (type: " . gettype($code) . ")<br>";
+        return $code;
     }
     
     // Try partial match
     foreach ($carrierMap as $key => $code) {
         if (strpos($carrierName, $key) !== false) {
+            $code = (int)$code; // ✅ Force integer
+            echo "   Carrier '{$carrierName}' partially matched '{$key}' to code: {$code} (type: " . gettype($code) . ")<br>";
             return $code;
         }
     }
     
-    // If no match, let 17track auto-detect (return null, not carrier code)
+    // If no match, let 17track auto-detect
+    echo "   No carrier mapping found for '{$carrierName}', using auto-detection<br>";
     return null;
 }
 
@@ -2456,10 +2487,15 @@ function getAccurateDeliveryStatusCombined($order, $accessToken)
         $daysSinceShipped = $now->diff($shippedDate)->days;
         
         if ($daysSinceShipped >= 14) {
-            echo "   → Estimated as Delivered (shipped {$daysSinceShipped} days ago)<br>";
-            return 'Delivered (Estimated)';
-        }
-        
+                echo "   → Estimated as Delivered (shipped {$daysSinceShipped} days ago)<br>";
+                // ✅ Return array to indicate this is an estimate, NOT actual
+                return [
+                    'status' => 'Delivered (Estimated)',
+                    'source' => 'date_estimate',
+                    'days_since_shipped' => $daysSinceShipped
+                ];
+            }
+                    
         echo "   → Status: In Transit (shipped {$daysSinceShipped} days ago)<br>";
         return 'In Transit';
     }
