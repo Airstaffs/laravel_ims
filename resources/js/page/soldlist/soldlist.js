@@ -1,5 +1,5 @@
 import { eventBus } from "../../components/eventbus";
-import axios from 'axios';
+import axios from "axios";
 import "../../../css/modules.css";
 import "./soldlist.css";
 import { DEFAULT_IMAGE } from "../../constant";
@@ -7,6 +7,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || window.location.origin;
 
 export default {
     name: "soldlist",
+
     data() {
         return {
             inventory: [],
@@ -39,6 +40,7 @@ export default {
             isLoadingImages: false,
         };
     },
+
     computed: {
         searchQuery() {
             return eventBus.searchQuery;
@@ -72,12 +74,12 @@ export default {
 
         serialKeys() {
             return Object.keys(this.item).filter((k) =>
-                /^serialnumber[a-z]?$/.test(k)
+                /^serialnumber[a-z]?$/.test(k),
             );
         },
         trackingKeys() {
             return Object.keys(this.item).filter((k) =>
-                /^trackingnumber\d*$/.test(k)
+                /^trackingnumber\d*$/.test(k),
             );
         },
 
@@ -131,7 +133,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.materialtype)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -141,7 +143,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.sourceType)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -151,7 +153,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.carrier)
-                        .filter((c) => c && c.trim() !== "")
+                        .filter((c) => c && c.trim() !== ""),
                 ),
             ].sort();
         },
@@ -161,7 +163,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.storename)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -171,7 +173,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.priorityrank)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -181,7 +183,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.validation_status)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -194,6 +196,7 @@ export default {
             );
         },
     },
+
     methods: {
         handleImageError(event) {
             event.target.src = this.defaultImage;
@@ -231,7 +234,7 @@ export default {
                 await this.fetchItems();
 
                 const freshItem = this.items.find(
-                    (i) => i.itemnumber === item.itemnumber
+                    (i) => i.itemnumber === item.itemnumber,
                 );
                 const itemToUse = freshItem || item;
 
@@ -285,17 +288,64 @@ export default {
             }
         },
 
+        getDisplayTitle(item) {
+            if (!item) return "—";
+
+            // Priority: system_title > internal > AStitle > ProductTitle
+            if (item.system_title && item.system_title.trim() !== "") {
+                return item.system_title;
+            }
+
+            if (item.internal && item.internal.trim() !== "") {
+                return item.internal;
+            }
+
+            if (item.AStitle && item.AStitle.trim() !== "") {
+                return item.AStitle;
+            }
+
+            if (item.ProductTitle && item.ProductTitle.trim() !== "") {
+                return item.ProductTitle;
+            }
+
+            return "—";
+        },
+
+        // For FNSKU modal display (uses backend's astitle field)
+        getFnskuDisplayTitle(fnskuItem) {
+            if (!fnskuItem) return "—";
+
+            // Backend already prioritizes: system_title > internal via COALESCE
+            if (fnskuItem.astitle && fnskuItem.astitle.trim() !== "") {
+                return fnskuItem.astitle;
+            }
+
+            // Fallbacks if astitle is missing
+            if (
+                fnskuItem.system_title &&
+                fnskuItem.system_title.trim() !== ""
+            ) {
+                return fnskuItem.system_title;
+            }
+
+            if (fnskuItem.internal && fnskuItem.internal.trim() !== "") {
+                return fnskuItem.internal;
+            }
+
+            return "—";
+        },
+
         async fetchInventory() {
             this.loading = true;
             this.error = null;
-            
+
             try {
-                console.log('=== FETCH INVENTORY DEBUG ===');
-                console.log('API_BASE_URL:', API_BASE_URL);
-                
+                console.log("=== FETCH INVENTORY DEBUG ===");
+                console.log("API_BASE_URL:", API_BASE_URL);
+
                 const fullUrl = `${API_BASE_URL}/api/soldlist/products`;
-                console.log('Full URL:', fullUrl);
-                console.log('Request params:', {
+                console.log("Full URL:", fullUrl);
+                console.log("Request params:", {
                     search: this.searchQuery,
                     page: this.currentPage,
                     per_page: this.perPage,
@@ -310,26 +360,33 @@ export default {
                         location: "Soldlist",
                     },
                     headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
+                        Accept: "application/json",
+                        "Content-Type": "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
                     },
                     withCredentials: true,
                 });
 
-                console.log('=== API RESPONSE ===');
-                console.log('Status:', response.status);
-                console.log('Content-Type:', response.headers['content-type']);
-                
+                console.log("=== API RESPONSE ===");
+                console.log("Status:", response.status);
+                console.log("Content-Type:", response.headers["content-type"]);
+
                 // Check if we got HTML instead of JSON
-                const contentType = response.headers['content-type'];
-                if (contentType && contentType.includes('text/html')) {
-                    console.error('❌ RECEIVED HTML INSTEAD OF JSON!');
-                    console.error('Response preview:', typeof response.data === 'string' ? response.data.substring(0, 200) : response.data);
-                    throw new Error('API returned HTML instead of JSON. Check your route configuration.');
+                const contentType = response.headers["content-type"];
+                if (contentType && contentType.includes("text/html")) {
+                    console.error("❌ RECEIVED HTML INSTEAD OF JSON!");
+                    console.error(
+                        "Response preview:",
+                        typeof response.data === "string"
+                            ? response.data.substring(0, 200)
+                            : response.data,
+                    );
+                    throw new Error(
+                        "API returned HTML instead of JSON. Check your route configuration.",
+                    );
                 }
-                
-                console.log('Response Data:', response.data);
+
+                console.log("Response Data:", response.data);
 
                 // Handle different response structures
                 if (Array.isArray(response.data)) {
@@ -340,38 +397,49 @@ export default {
                     this.totalPages = response.data.last_page || 1;
                     this.currentPage = response.data.current_page || 1;
                 } else {
-                    console.error('Unexpected response structure:', response.data);
+                    console.error(
+                        "Unexpected response structure:",
+                        response.data,
+                    );
                     this.inventory = [];
                     this.totalPages = 1;
                 }
-                
-                console.log('✅ Inventory loaded:', this.inventory.length, 'items');
+
+                console.log(
+                    "✅ Inventory loaded:",
+                    this.inventory.length,
+                    "items",
+                );
 
                 if (this.inventory.length === 0) {
-                    console.warn('⚠️ No items in inventory array');
+                    console.warn("⚠️ No items in inventory array");
                 }
-                
             } catch (error) {
                 console.error("=== FETCH ERROR ===");
                 console.error("Error:", error.message);
                 console.error("Response:", error.response);
-                
-                if (error.message && error.message.includes('HTML instead of JSON')) {
-                    this.error = 'Configuration Error: API route not working correctly.';
+
+                if (
+                    error.message &&
+                    error.message.includes("HTML instead of JSON")
+                ) {
+                    this.error =
+                        "Configuration Error: API route not working correctly.";
                 } else if (error.response?.status === 401) {
-                    this.error = 'Authentication required. Please log in again.';
+                    this.error =
+                        "Authentication required. Please log in again.";
                 } else if (error.response?.status === 419) {
-                    this.error = 'Session expired. Please refresh the page.';
+                    this.error = "Session expired. Please refresh the page.";
                 } else {
                     this.error = error.response?.data?.message || error.message;
                 }
-                
+
                 this.inventory = [];
                 this.totalPages = 1;
             } finally {
                 this.loading = false;
-                console.log('=== FETCH COMPLETE ===');
-                console.log('Final inventory count:', this.inventory.length);
+                console.log("=== FETCH COMPLETE ===");
+                console.log("Final inventory count:", this.inventory.length);
             }
         },
 
@@ -422,7 +490,7 @@ export default {
             if (!item) return;
 
             const freshItem = this.items.find(
-                (i) => i.itemnumber === item.itemnumber
+                (i) => i.itemnumber === item.itemnumber,
             );
             this.item = { ...(freshItem || item) };
 
@@ -444,7 +512,7 @@ export default {
         onImageErrorMain(event) {
             event.target.src = this.defaultImage;
         },
-        
+
         onThumbnailError(event, index) {
             event.target.src = this.defaultImage;
         },
@@ -477,15 +545,17 @@ export default {
                         location: "Soldlist",
                     },
                     headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
+                        Accept: "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
                     },
                     withCredentials: true,
                 });
-                
+
                 const payload = response.data;
-                this.items = Array.isArray(payload) ? payload : payload.data || [];
-                console.log('Items fetched:', this.items.length);
+                this.items = Array.isArray(payload)
+                    ? payload
+                    : payload.data || [];
+                console.log("Items fetched:", this.items.length);
             } catch (err) {
                 console.error("Fetch items failed:", err);
                 this.items = [];
@@ -502,8 +572,8 @@ export default {
     },
 
     mounted() {
-        console.log('=== COMPONENT MOUNTED ===');
-        console.log('API_BASE_URL:', API_BASE_URL);
+        console.log("=== COMPONENT MOUNTED ===");
+        console.log("API_BASE_URL:", API_BASE_URL);
         this.fetchInventory();
 
         const handleKeyDown = (e) => {
