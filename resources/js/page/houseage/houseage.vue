@@ -455,32 +455,6 @@
                                 </div>
                             </fieldset>
 
-                            <!-- <div class="">
-                                <fieldset>
-                                    <label>Serial Number Photo</label>
-
-                                    <div class="serial-upload">
-                                        <input
-                                            ref="serialInput"
-                                            type="file"
-                                            accept="image/*"
-                                            capture="environment"
-                                            class="form-control hidden"
-                                            @change="onSerialImageSelected"
-                                        />
-                                        <div class="serial-preview">
-                                            <img
-                                                :src="displaySerialImage"
-                                                alt="Serial number preview"
-                                                loading="lazy"
-                                                width="100%"
-                                                @error="onSerialImgError"
-                                            />
-                                        </div>
-                                    </div>
-                                </fieldset>
-                            </div> -->
-
                             <div class="image-section">
                                 <fieldset>
                                     <label>Serial Number</label>
@@ -1332,7 +1306,7 @@
                                 deletingIndex !== index
                             "
                             class="delete-image-btn"
-                            @click.stop="confirmDeleteImage(index)"
+                            @click.stop="confirmDeleteImage(index, image)"
                             type="button"
                         >
                             <i class="pi pi-trash"></i>
@@ -1384,10 +1358,8 @@
                         icon="pi pi-upload"
                         class="upload-button"
                         :loading="uploadingIndex === index"
-                        :disabled="
-                            uploadingIndex === index || deletingIndex === index
-                        "
-                        @click="handleUploadClick(index)"
+                        :disabled="uploadingIndex === index || deletingIndex === index"
+                        @click="handleUploadClick(index, image)"
                     />
                 </div>
 
@@ -1573,12 +1545,12 @@ export default {
             imageRenderKey: 0,
             selectedImageList: [],
             imageLimitCount: 0,
-            imageType: "",
+            imageType: '',
+            imgNumber: 0,
         };
     },
     methods: {
         handleOpenProductImageDialog(type, limit) {
-            //set image limit count product-12, serial and image - 2
             this.imageLimitCount = limit;
             switch (type) {
                 case "product":
@@ -1587,29 +1559,66 @@ export default {
                     break;
                 case "tracking":
                     this.selectedImageList = this.trackingImgList;
-                    this.imageType = "tracking"; //type: tracking
+                    this.imageType = "tracking";
                     break;
                 case "serial":
                     this.selectedImageList = this.serialImgList;
-                    this.imageType = "serial"; //type: serial
+                    this.imageType = "serial";
                     break;
                 default:
                     break;
             }
+
             this.openCapturedImageDialog = true;
         },
-        handleUploadClick(index) {
-            // Check if ref exists and access as array
+
+        handleUploadClick(index, currentImage) {
             const fileInput = this.$refs.capturedProductImageRef;
             if (fileInput && fileInput[index]) {
                 fileInput[index].click();
             }
-
-            console.log(index, "@@index@@");
+            this.imgNumber = currentImage.split('_').pop().match(/(\d+)/)?.[1];
         },
+
+        extractImageNumbers(imageList) {
+            if (!imageList || !Array.isArray(imageList)) {
+                return [];
+            }
+
+            const numbers = [];
+            
+            imageList.forEach(imagePath => {
+                if (!imagePath) return;
+                
+                const imageNumber = imagePath.split('_').pop().match(/(\d+)/)?.[1];
+                
+                if (imageNumber) {
+                    const num = parseInt(imageNumber, 10);
+                    if (num >= 1 && num <= 12 && !numbers.includes(num)) {
+                        numbers.push(num);
+                    }
+                }
+            });
+            
+            return numbers.sort((a, b) => a - b);
+        },
+
+        findNextAvailableImageNumber(imageList, maxCount = 12) {
+            const usedNumbers = this.extractImageNumbers(imageList);
+            
+            for (let i = 1; i <= maxCount; i++) {
+                if (!usedNumbers.includes(i)) {
+                    return i;
+                }
+            }
+            
+            return null;
+        },
+
         handleAddNewImageClick() {
             this.$refs.addNewImageInputRef.click();
         },
+
         addCacheBuster(url, bust = null) {
             if (!url) return url;
 
@@ -1619,28 +1628,134 @@ export default {
 
             return `${cleanUrl}${separator}t=${buster}`;
         },
+
         removeCacheBuster(url) {
             if (!url) return url;
             return url.replace(/[?&](t|v|_)=\d+/g, "").replace(/\?$/, "");
         },
+
+        /**
+         * Build image list from item data with cache busters
+         */
+        buildImageList(item, imageType, maxCount, timestamp) {
+            const images = [];
+            const basePath = `/images/product_images/${item.company || 'Airstaffs'}/`;
+            
+            if (imageType === 'captured') {
+                // Check capturedImages object first
+                if (item.capturedImages) {
+                    for (let i = 1; i <= maxCount; i++) {
+                        const imgKey = `capturedimg${i}`;
+                        if (item.capturedImages[imgKey]) {
+                            const path = basePath + item.capturedImages[imgKey];
+                            images.push(this.addCacheBuster(path, timestamp));
+                        }
+                    }
+                }
+                
+                // Fallback to regular img properties if no captured images
+                if (images.length === 0) {
+                    for (let i = 1; i <= maxCount; i++) {
+                        const imgKey = `img${i}`;
+                        if (item[imgKey]) {
+                            const path = this.basePath + item[imgKey];
+                            images.push(this.addCacheBuster(path, timestamp));
+                        }
+                    }
+                }
+            } else {
+                // For serial and tracking images
+                for (let i = 1; i <= maxCount; i++) {
+                    const imgKey = `${imageType}img${i}`;
+                    if (item[imgKey]) {
+                        const path = basePath + item[imgKey];
+                        images.push(this.addCacheBuster(path, timestamp));
+                    }
+                }
+            }
+            
+            return images;
+        },
+
+        /**
+         * Refresh current item from inventory
+         */
+        async refreshCurrentItem() {
+            const updatedItem = this.inventory.find(
+                inv => inv.ProductID === this.item.ProductID
+            );
+            
+            if (updatedItem) {
+                Object.assign(this.item, updatedItem);
+                
+                console.log('Item refreshed:', {
+                    productId: this.item.ProductID,
+                    imageType: this.imageType,
+                    capturedImages: this.item.capturedImages,
+                    serialImages: {
+                        serialimg1: this.item.serialimg1,
+                        serialimg2: this.item.serialimg2,
+                    },
+                    trackingImages: {
+                        trackingimg1: this.item.trackingimg1,
+                        trackingimg2: this.item.trackingimg2,
+                    }
+                });
+                
+                this.imageRenderKey++;
+                this.$forceUpdate();
+            }
+        },
+
+        /**
+         * Rebuild image lists from fresh item data
+         */
+        rebuildImageLists() {
+            const timestamp = Date.now();
+            
+            switch (this.imageType) {
+                case "captured":
+                    this.imageList = this.buildImageList(this.item, 'captured', 12, timestamp);
+                    this.selectedImageList = [...this.imageList];
+                    this.activeIndex = Math.min(this.activeIndex, this.imageList.length - 1);
+                    if (this.activeIndex < 0 && this.imageList.length > 0) this.activeIndex = 0;
+                    break;
+                    
+                case "tracking":
+                    this.trackingImgList = this.buildImageList(this.item, 'tracking', 2, timestamp);
+                    this.selectedImageList = [...this.trackingImgList];
+                    this.trackingActiveIndex = Math.min(this.trackingActiveIndex, this.trackingImgList.length - 1);
+                    if (this.trackingActiveIndex < 0 && this.trackingImgList.length > 0) this.trackingActiveIndex = 0;
+                    break;
+                    
+                case "serial":
+                    this.serialImgList = this.buildImageList(this.item, 'serial', 2, timestamp);
+                    this.selectedImageList = [...this.serialImgList];
+                    this.serialActiveIndex = Math.min(this.serialActiveIndex, this.serialImgList.length - 1);
+                    if (this.serialActiveIndex < 0 && this.serialImgList.length > 0) this.serialActiveIndex = 0;
+                    break;
+            }
+            
+            this.imageRenderKey++;
+            
+            this.$nextTick(() => {
+                this.$forceUpdate();
+            });
+        },
+
         async handleFileChange(event, index) {
             try {
                 const file = event.target.files[0];
                 if (!file) return;
-
-                const currentImagePath = this.selectedImageList[index];
-                const imageNumber =
-                    currentImagePath.match(
-                        /img(\d+)\.(jpg|jpeg|png|gif|webp)$/,
-                    )?.[1] || index + 1;
 
                 this.uploadingIndex = index;
 
                 const formData = new FormData();
                 formData.append("image", file);
                 formData.append("productId", this.item.ProductID);
-                formData.append("capturedImgCount", imageNumber);
+                formData.append("capturedImgCount", this.imgNumber);
                 formData.append("imageType", this.imageType);
+
                 const response = await axios.post(
                     "api/houseage/upload-image",
                     formData,
@@ -1651,91 +1766,48 @@ export default {
                 );
 
                 if (response.data.success) {
-                    // Extract relative path from full URL
-                    let imagePath =
-                        response.data.relative_path || response.data.file_url;
+                    await this.fetchInventory();
+                    await this.refreshCurrentItem();
+                    this.rebuildImageLists();
 
-                    // If it's a full URL, extract just the path
-                    if (imagePath.includes("://")) {
-                        const url = new URL(imagePath);
-                        imagePath = url.pathname;
-                    }
-
-                    // Ensure path starts with /
-                    if (!imagePath.startsWith("/")) {
-                        imagePath = "/" + imagePath;
-                    }
-
-                    // Add cache buster to the relative path
-                    const newUrl = this.addCacheBuster(imagePath);
-
-                    console.log("Uploading image at index:", index);
-                    console.log("Current active index:", this.activeIndex);
-                    console.log("New URL:", newUrl);
-
-                    // Update both references
-                    this.selectedImageList[index] = newUrl;
-                    this.item[`${this.imageType}img${imageNumber}`] = newUrl;
-
-                    // If this is the currently displayed image, switch to another then back
-                    // to force a re-render
-
-                    const indexMapping = {
-                        tracking: "trackingActiveIndex",
-                        captured: "activeIndex",
-                        serial: "serialActiveIndex", // if you add serial images later
-                    };
-                    const activeIndexKey = indexMapping[this.imageType];
-                    if (activeIndexKey && index === this[activeIndexKey]) {
-                        const tempIndex = this[activeIndexKey];
-                        this[activeIndexKey] = -1;
-
-                        this.$nextTick(() => {
-                            this[activeIndexKey] = tempIndex;
-                        });
-                    }
-
-                    // Force reactivity by updating the render key
-                    this.imageRenderKey++;
-
-                    // Force array reactivity
-                    this.selectedImageList = [...this.selectedImageList];
-
-                    // Ensure DOM updates
-                    this.$nextTick(() => {
-                        this.$forceUpdate();
+                    await Swal.fire({
+                        title: "Upload Success",
+                        text: response.data.message || 'Image uploaded successfully',
+                        icon: "success",
+                        timer: 2000,
+                        showConfirmButton: false,
                     });
-
-                    alert(response.data.message);
                 }
             } catch (error) {
                 console.error("Error uploading product image:", error);
-                alert(
-                    "Failed to upload image: " +
-                        (error.response?.data?.message || error.message),
-                );
+                await Swal.fire({
+                    title: "Error",
+                    text: error.response?.data?.message || "Failed to upload image",
+                    icon: "error",
+                    confirmButtonColor: "#ef4444",
+                });
             } finally {
                 event.target.value = "";
                 this.uploadingIndex = null;
-                setTimeout(() => {
-                    this.fetchInventory();
-                }, 500);
             }
         },
+
         async handleAddImageChange(event) {
             try {
                 const file = event.target.files[0];
                 if (!file) return;
 
-                // Get the next image number
-                const nextImageNumber = this.selectedImageList.length + 1;
+                const nextImageNumber = this.findNextAvailableImageNumber(
+                    this.selectedImageList,
+                    this.imageLimitCount
+                );
 
-                if (nextImageNumber > 12) {
-                    this.$toast.add({
-                        severity: "warn",
-                        summary: "Limit Reached",
-                        detail: "Maximum 12 images allowed",
-                        life: 3000,
+                if (nextImageNumber === null) {
+                    await Swal.fire({
+                        title: "Limit Reached",
+                        text: `Maximum ${this.imageLimitCount} images allowed`,
+                        icon: "warning",
+                        confirmButtonColor: "#f59e0b",
                     });
                     return;
                 }
@@ -1758,65 +1830,38 @@ export default {
                 );
 
                 if (response.data.success) {
-                    let imagePath =
-                        response.data.relative_path || response.data.file_url;
-
-                    if (imagePath.includes("://")) {
-                        const url = new URL(imagePath);
-                        imagePath = url.pathname;
-                    }
-
-                    if (!imagePath.startsWith("/")) {
-                        imagePath = "/" + imagePath;
-                    }
-
-                    const newUrl = this.addCacheBuster(imagePath);
-
-                    // ADD to imageList (not replace)
-                    this.selectedImageList.push(newUrl);
-                    this.item[`${this.imageType}img${nextImageNumber}`] =
-                        newUrl;
-
-                    this.imageRenderKey++;
-                    this.selectedImageList = [...this.selectedImageList];
-
-                    this.$nextTick(() => {
-                        this.$forceUpdate();
-                    });
+                    await this.fetchInventory();
+                    await this.refreshCurrentItem();
+                    this.rebuildImageLists();
 
                     await Swal.fire({
-                        title: "Update Success",
+                        title: "Upload Success",
+                        text: `Image added to slot ${nextImageNumber}`,
                         icon: "success",
-                        confirmButtonText: "Ok",
+                        timer: 2000,
+                        showConfirmButton: false,
                     });
                 }
             } catch (error) {
                 console.error("Error adding image:", error);
-                this.$toast.add({
-                    severity: "error",
-                    summary: "Error",
-                    detail:
-                        error.response?.data?.message || "Failed to add image",
-                    life: 3000,
+                await Swal.fire({
+                    title: "Error",
+                    text: error.response?.data?.message || "Failed to add image",
+                    icon: "error",
+                    confirmButtonColor: "#ef4444",
                 });
             } finally {
                 event.target.value = "";
                 this.uploadingIndex = null;
-                setTimeout(() => {
-                    this.fetchInventory();
-                }, 500);
             }
         },
-        async confirmDeleteImage(index) {
-            const currentImagePath = this.imageList[index];
-            const imageNumber =
-                currentImagePath.match(
-                    /img(\d+)\.(jpg|jpeg|png|gif|webp)$/,
-                )?.[1] || index + 1;
+
+        async confirmDeleteImage(index, currentImage) {
+            this.imgNumber = currentImage.split('_').pop().match(/(\d+)/)?.[1];
 
             const result = await Swal.fire({
                 title: "Delete Image?",
-                text: `Are you sure you want to delete the image This action cannot be undone.`,
+                text: `Are you sure you want to delete image ${this.imgNumber}? This action cannot be undone.`,
                 icon: "warning",
                 showCancelButton: true,
                 confirmButtonColor: "#ef4444",
@@ -1827,19 +1872,19 @@ export default {
             });
 
             if (result.isConfirmed) {
-                await this.handleDeleteImage(index, imageNumber);
+                await this.handleDeleteImage(index);
             }
         },
 
-        async handleDeleteImage(index, imageNumber) {
+        async handleDeleteImage(index) {
             try {
                 this.deletingIndex = index;
-                console.log(index, "@@index@@");
+
                 const response = await axios.post(
                     "api/houseage/delete-image",
                     {
                         productId: String(this.item.ProductID),
-                        capturedImgCount: imageNumber,
+                        capturedImgCount: this.imgNumber,
                         imageType: this.imageType,
                     },
                     {
@@ -1848,44 +1893,13 @@ export default {
                 );
 
                 if (response.data.success) {
-                    console.log("Image deleted:", imageNumber);
+                    await this.fetchInventory();
+                    await this.refreshCurrentItem();
+                    this.rebuildImageLists();
 
-                    // Remove from imageList
-                    this.selectedImageList.splice(index, 1);
-
-                    // Update item property
-                    delete this.item[`capturedimg${imageNumber}`];
-
-                    // Force reactivity
-                    this.imageRenderKey++;
-                    this.selectedImageList = [...this.selectedImageList];
-
-                    this.$nextTick(() => {
-                        this.$forceUpdate();
-                    });
-
-                    // If this is the currently displayed image, switch to another then back
-                    // to force a re-render
-
-                    const indexMapping = {
-                        tracking: "trackingActiveIndex",
-                        captured: "activeIndex",
-                        serial: "serialActiveIndex", // if you add serial images later
-                    };
-                    const activeIndexKey = indexMapping[this.imageType];
-                    if (activeIndexKey && index === this[activeIndexKey]) {
-                        const tempIndex = this[activeIndexKey];
-                        this[activeIndexKey] = -1;
-
-                        this.$nextTick(() => {
-                            this[activeIndexKey] = tempIndex;
-                        });
-                    }
-
-                    // SweetAlert success message
                     Swal.fire({
                         title: "Deleted!",
-                        text: `Image has been deleted.`,
+                        text: `Image ${this.imgNumber} has been deleted.`,
                         icon: "success",
                         timer: 2000,
                         showConfirmButton: false,
@@ -1893,13 +1907,9 @@ export default {
                 }
             } catch (error) {
                 console.error("Error deleting image:", error);
-
-                // SweetAlert error message
                 Swal.fire({
                     title: "Error!",
-                    text:
-                        error.response?.data?.message ||
-                        "Failed to delete image",
+                    text: error.response?.data?.message || "Failed to delete image",
                     icon: "error",
                     confirmButtonColor: "#ef4444",
                 });
@@ -1956,13 +1966,12 @@ export default {
 </script>
 
 <style>
-/* Search input wrapper for positioning */
+/* ... (keep all your existing styles) ... */
 .search-input-wrapper {
     position: relative;
     width: 100%;
 }
 
-/* Small spinner inside search input */
 .search-loading-spinner {
     position: absolute;
     right: 10px;
@@ -1980,7 +1989,6 @@ export default {
     animation: spin 1s linear infinite;
 }
 
-/* Loading text below search */
 .search-loading-text {
     text-align: center;
     color: #6c757d;
@@ -1989,7 +1997,6 @@ export default {
     font-style: italic;
 }
 
-/* Loading overlay for FNSKU list */
 .fnsku-loading-overlay {
     position: absolute;
     top: 0;
@@ -2010,7 +2017,6 @@ export default {
     background: rgba(248, 249, 250, 0.9);
 }
 
-/* Loading content */
 .loading-content {
     text-align: center;
     padding: 20px;
@@ -2022,7 +2028,6 @@ export default {
     font-weight: 500;
 }
 
-/* Large spinner for overlay */
 .loading-spinner-large {
     width: 40px;
     height: 40px;
@@ -2033,7 +2038,6 @@ export default {
     margin: 0 auto;
 }
 
-/* Blur effect when loading */
 .loading-blur {
     filter: blur(1px);
     opacity: 0.6;
@@ -2041,31 +2045,23 @@ export default {
     transition: all 0.3s ease;
 }
 
-/* Spinner animation */
 @keyframes spin {
     0% {
         transform: rotate(0deg);
     }
-
     100% {
         transform: rotate(360deg);
     }
 }
 
-/* Disabled state for buttons during loading */
 button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
 }
 
-/* Search input disabled state */
 .fnsku-search-input:disabled {
     background-color: #f8f9fa;
     cursor: not-allowed;
-}
-
-/* Pulse animation for search input when loading */
-.fnsku-search-input:disabled {
     animation: pulse 2s infinite;
 }
 
@@ -2073,40 +2069,33 @@ button:disabled {
     0% {
         background-color: #f8f9fa;
     }
-
     50% {
         background-color: #e9ecef;
     }
-
     100% {
         background-color: #f8f9fa;
     }
 }
 
-/* Container positioning for overlay */
 .fnsku-list-container,
 .fnsku-card-container {
     position: relative;
 }
 
-/* Ensure table maintains structure during blur */
 .table.loading-blur {
     table-layout: fixed;
 }
 
-/* Loading state for mobile cards */
 .fnsku-card-container.loading-blur .card {
     pointer-events: none;
 }
 
-/* Smooth transitions */
 .fnsku-list-container,
 .fnsku-card-container,
 .search-input-wrapper {
     transition: all 0.3s ease;
 }
 
-/* Loading indicator variants */
 .spinner-small {
     width: 12px;
     height: 12px;
@@ -2151,7 +2140,6 @@ button:disabled {
     font-size: 0.9rem;
 }
 
-/* Responsive loading overlay */
 @media (max-width: 768px) {
     .fnsku-loading-overlay {
         border-radius: 0;

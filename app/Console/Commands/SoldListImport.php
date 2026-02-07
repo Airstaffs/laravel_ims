@@ -32,6 +32,10 @@ class SoldListImport extends Command
 
         // ---------- helpers ----------
         $norm = function (string $s): string {
+            // remove UTF-8 BOM if present + trim quotes/spaces
+            $s = preg_replace('/^\xEF\xBB\xBF/', '', $s) ?? $s;
+            $s = trim($s);
+            $s = trim($s, "\"'"); // remove wrapping quotes
             $s = trim(mb_strtolower($s));
             return preg_replace('/[^a-z0-9]+/i', '', $s) ?? '';
         };
@@ -45,19 +49,31 @@ class SoldListImport extends Command
             return $v;
         };
 
-        $intOrNull = function ($v) use ($nullIfEmpty) {
+        $cleanNumber = function ($v) use ($nullIfEmpty) {
             $v = $nullIfEmpty($v);
             if ($v === null)
                 return null;
-            $v = str_replace(',', '', $v);
+
+            // remove currency symbols, commas, spaces, etc. keep digits, dot, minus
+            $v = preg_replace('/[^0-9.\-]/', '', (string) $v);
+            $v = trim($v);
+            if ($v === '' || $v === '-' || $v === '.' || $v === '-.')
+                return null;
+
+            return $v;
+        };
+
+        $intOrNull = function ($v) use ($cleanNumber) {
+            $v = $cleanNumber($v);
+            if ($v === null)
+                return null;
             return is_numeric($v) ? (int) $v : null;
         };
 
-        $floatOrNull = function ($v) use ($nullIfEmpty) {
-            $v = $nullIfEmpty($v);
+        $floatOrNull = function ($v) use ($cleanNumber) {
+            $v = $cleanNumber($v);
             if ($v === null)
                 return null;
-            $v = str_replace(',', '', $v);
             return is_numeric($v) ? (float) $v : null;
         };
 
@@ -127,6 +143,10 @@ class SoldListImport extends Command
 
         // ---------- read headers ----------
         $headers = fgetcsv($fh);
+
+        $this->line("Header count: " . count($headers));
+        $this->line("First 8 headers: " . implode(' | ', array_slice($headers, 0, 8)));
+
         if (!$headers) {
             fclose($fh);
             $this->error("CSV header row is empty.");
@@ -204,6 +224,12 @@ class SoldListImport extends Command
         $skipped = 0;
 
         while (($row = fgetcsv($fh)) !== false) {
+
+            if ($inserted === 0) {
+                $this->line("Row#1 col count: " . count($row));
+                $this->line("Row#1 sample Price raw: " . ($get($row, 'price') ?? '[NULL]'));
+            }
+
             // skip empty lines
             $hasData = false;
             foreach ($row as $v) {

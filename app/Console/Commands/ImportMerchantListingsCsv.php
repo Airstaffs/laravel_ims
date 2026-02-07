@@ -93,7 +93,7 @@ class ImportMerchantListingsCsv extends Command
                 continue;
             }
 
-            $amazonStatus = (strcasecmp($status, 'Active') === 0) ? 'Existed' : 'Inactive';
+            $amazonStatus = (strcasecmp($status, 'Active') === 0) ? 'Active' : 'Inactive';
 
             if ($dryRun) {
                 // no DB writes
