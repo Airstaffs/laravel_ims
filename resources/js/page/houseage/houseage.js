@@ -136,75 +136,95 @@ export default {
         },
 
         imageList() {
-            const images = [];
-            const companyFolder = this.item.company || "Airstaffs";
+        // Force recalculation by referencing imageRenderKey
+        const timestamp = this.imageRenderKey || Date.now();
+        const images = [];
+        const companyFolder = this.item.company || "Airstaffs";
 
-            // First, check for captured images (capturedimg1-12)
-            if (this.item.capturedImages) {
-                for (let i = 1; i <= 12; i++) {
-                    const fieldName = `capturedimg${i}`;
-                    if (
-                        this.isValidImage(this.item.capturedImages[fieldName])
-                    ) {
-                        // Use full path for captured images
-                        images.push(
-                            `/images/product_images/${companyFolder}/${this.item.capturedImages[fieldName]}`,
-                        );
-                    }
+        // First, check for captured images (capturedimg1-12)
+        if (this.item.capturedImages) {
+            for (let i = 1; i <= 12; i++) {
+                const fieldName = `capturedimg${i}`;
+                if (this.isValidImage(this.item.capturedImages[fieldName])) {
+                    // Add cache buster to prevent browser caching
+                    const imagePath = `/images/product_images/${companyFolder}/${this.item.capturedImages[fieldName]}`;
+                    images.push(this.addCacheBuster(imagePath, timestamp));
                 }
             }
+        }
 
-            // If we have captured images, return them
-            if (images.length > 0) {
-                return images;
-            }
-
-            // Otherwise, fall back to regular product images (img1-15)
-            return Object.keys(this.item)
-                .filter((key) => key.startsWith("img") && this.item[key])
-                .map((key) => this.item[key]);
-        },
-
-        trackingImgList() {
-            const images = [];
-            const companyFolder = this.item.company || "Airstaffs";
-
-            // Check for captured tracking images (trackingimg1-12)
-            if (this.item.capturedImages) {
-                for (let i = 1; i <= 12; i++) {
-                    const fieldName = `trackingimg${i}`;
-                    if (
-                        this.isValidImage(this.item.capturedImages[fieldName])
-                    ) {
-                        images.push(
-                            `/images/product_images/${companyFolder}/${this.item.capturedImages[fieldName]}`,
-                        );
-                    }
-                }
-            }
+        // If we have captured images, return them
+        if (images.length > 0) {
             return images;
-        },
+        }
 
-        serialImgList() {
-            const images = [];
-            const companyFolder = this.item.company || "Airstaffs";
+        // Otherwise, fall back to regular product images (img1-15)
+        return Object.keys(this.item)
+            .filter((key) => key.startsWith("img") && this.item[key])
+            .map((key) => {
+                const imagePath = this.item[key];
+                return this.addCacheBuster(imagePath, timestamp);
+            });
+    },
+    trackingImgList() {
+        // Force recalculation by referencing imageRenderKey
+        const timestamp = this.imageRenderKey || Date.now();
+        const images = [];
+        const companyFolder = this.item.company || "Airstaffs";
 
-            // Check for captured serial images (serialimg1-12)
-            if (this.item.capturedImages) {
-                for (let i = 1; i <= 12; i++) {
-                    const fieldName = `serialimg${i}`;
-                    if (
-                        this.isValidImage(this.item.capturedImages[fieldName])
-                    ) {
-                        images.push(
-                            `/images/product_images/${companyFolder}/${this.item.capturedImages[fieldName]}`,
-                        );
-                    }
-                }
+        // Check both locations for tracking images
+        for (let i = 1; i <= 2; i++) {
+            const fieldName = `trackingimg${i}`;
+            let imageFilename = null;
+            
+            // First check in capturedImages object
+            if (this.item.capturedImages && this.item.capturedImages[fieldName]) {
+                imageFilename = this.item.capturedImages[fieldName];
             }
-            return images;
-        },
+            // Fallback to root level
+            else if (this.item[fieldName]) {
+                imageFilename = this.item[fieldName];
+            }
+            
+            if (imageFilename) {
+                const imagePath = `/images/product_images/${companyFolder}/${imageFilename}`;
+                images.push(this.addCacheBuster(imagePath, timestamp));
+            }
+        }
+        
+        console.log('🚚 Tracking images:', images);
+        return images;
+    },
 
+serialImgList() {
+    // Force recalculation by referencing imageRenderKey
+    const timestamp = this.imageRenderKey || Date.now();
+    const images = [];
+    const companyFolder = this.item.company || "Airstaffs";
+
+    // Check both locations for serial images
+    for (let i = 1; i <= 2; i++) {
+        const fieldName = `serialimg${i}`;
+        let imageFilename = null;
+        
+        // First check in capturedImages object
+        if (this.item.capturedImages && this.item.capturedImages[fieldName]) {
+            imageFilename = this.item.capturedImages[fieldName];
+        }
+        // Fallback to root level
+        else if (this.item[fieldName]) {
+            imageFilename = this.item[fieldName];
+        }
+        
+        if (imageFilename) {
+            const imagePath = `/images/product_images/${companyFolder}/${imageFilename}`;
+            images.push(this.addCacheBuster(imagePath, timestamp));
+        }
+    }
+    
+    console.log('🔢 Serial images:', images);
+    return images;
+},
         activeImageUrl() {
             const currentImage = this.imageList[this.activeIndex];
 
@@ -390,6 +410,20 @@ export default {
     },
 
     methods: {
+        addCacheBuster(url, timestamp = null) {
+            if (!url) return url;
+            
+            const bust = timestamp || Date.now();
+            const separator = url.includes("?") ? "&" : "?";
+            const cleanUrl = url.replace(/[?&](t|v|_)=\d+/g, "");
+            
+            return `${cleanUrl}${separator}t=${bust}`;
+        },
+        
+        removeCacheBuster(url) {
+            if (!url) return url;
+            return url.replace(/[?&](t|v|_)=\d+/g, "").replace(/\?$/, "");
+        },
         hasSerialImages() {
             if (!this.item.capturedImages) return false;
 
@@ -511,6 +545,8 @@ export default {
             let count = 0;
             if (this.isValidImage(item.capturedImages.serialimg1)) count++;
             if (this.isValidImage(item.capturedImages.serialimg2)) count++;
+            if (this.isValidImage(item.capturedImages.trackingimg1)) count++;
+            if (this.isValidImage(item.capturedImages.trackingimg2)) count++;
 
             return count;
         },

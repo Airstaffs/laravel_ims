@@ -1113,10 +1113,11 @@ class HouseageController extends BasetablesController
                 $filename = $safeProductId.'_img'.$capturedImgCount.'.'.$extension;
                 $searchPattern = $uploadPath.'/'.$safeProductId.'_img'.$capturedImgCount.'.*';
             } else {
+                // tracking: 36_tracking1.jpg
+                // serial: 36_serial1.jpg
                 $filename = $safeProductId.'_'.$imageType.$capturedImgCount.'.'.$extension;
-                $searchPattern = $uploadPath.'/'.$safeProductId.'_'.$imageType.'img'.$capturedImgCount.'.*';
+                $searchPattern = $uploadPath.'/'.$safeProductId.'_'.$imageType.$capturedImgCount.'.*'; // Removed 'img'
             }
-
             // Remove old product images with different extensions
             $oldFiles = glob($searchPattern);
             if ($oldFiles !== false) {
