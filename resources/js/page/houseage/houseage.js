@@ -1382,11 +1382,11 @@ export default {
                 };
 
                 console.log(
-                    "POST payload:",
+                    "PUT payload:",
                     JSON.parse(JSON.stringify(payload)),
                 );
 
-                const response = await axios.post(
+                const response = await axios.put(
                     `/api/houseage/products/${this.item.ProductID}`,
                     payload,
                 );

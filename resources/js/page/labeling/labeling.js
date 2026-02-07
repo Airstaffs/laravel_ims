@@ -16,6 +16,7 @@ export default {
         splittingModal,
         copyDetailsModal,
     },
+
     data() {
         return {
             inventory: [],
@@ -89,6 +90,7 @@ export default {
             serialErrors: {},
         };
     },
+
     computed: {
         searchQuery() {
             return eventBus.searchQuery;
@@ -416,6 +418,7 @@ export default {
             return this.grandTotalRaw.toFixed(2);
         },
     },
+
     methods: {
         openCopyDetailsModal(item) {
             if (!item) {
