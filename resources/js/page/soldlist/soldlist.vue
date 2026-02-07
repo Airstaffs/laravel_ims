@@ -41,12 +41,14 @@
                             <p style="font-size: 0.8rem">
                                 RT# {{ data.rtcounter }}
                             </p>
-                            <p>
+
+                            <p v-if="data.ProductTitle">
                                 <span class="fw-semibold">
                                     External Title:
                                 </span>
                                 <span>{{ data.ProductTitle }}</span>
                             </p>
+
                             <p
                                 v-if="
                                     data.ProductTitle !== getDisplayTitle(data)
