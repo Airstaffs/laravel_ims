@@ -499,7 +499,6 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                             echo "   → Tracking4: '{$newTrackingNumber4}'<br>";
                         }
                         
-                        
                         if (!empty($newCarrier)) {
                             $updateFields[] = "carrier = ?";
                             $updateValues[] = $newCarrier;
@@ -538,22 +537,40 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                         
                         // ========================================
                         // ✅ ACTUAL DELIVERED DATE (from 17track only)
+                        // ✅ CRITICAL FIX: Only update if status is "Delivered"
                         // ========================================
                         $actualDeliveredDate = isset($order['actual_delivered_date']) ? $order['actual_delivered_date'] : null;
                         $existingDeliveredDate = isset($existingRecord['datedelivered']) ? trim($existingRecord['datedelivered']) : '';
                         
-                        // Only update if we have ACTUAL date from 17track and no existing date
-                        if ($newDeliveryStatus === 'Delivered' && 
+                        // ✅ Check if the NEW delivery status is "Delivered"
+                        $isDelivered = (
+                            $newDeliveryStatus === 'Delivered' || 
+                            stripos($newDeliveryStatus, 'Delivered') !== false
+                        );
+                        
+                        // Only update datedelivered if:
+                        // 1. Status is "Delivered" (not "In Transit", "Awaiting Shipment", etc.)
+                        // 2. We have ACTUAL date from 17track
+                        // 3. No existing date in DB (or it's empty/zero date)
+                        if ($isDelivered && 
                             !empty($actualDeliveredDate) && 
                             (empty($existingDeliveredDate) || $existingDeliveredDate === '0000-00-00 00:00:00')) {
                             
                             $updateFields[] = "datedelivered = ?";
                             $updateValues[] = $actualDeliveredDate;
                             $updateTypes .= "s";
-                            echo "   → 📅 ACTUAL Delivered Date: '<strong style='color: #28a745;'>{$actualDeliveredDate}</strong>' (from 17track)<br>";
+                            echo "   → 📅 ACTUAL Delivered Date: '<strong style='color: #28a745;'>{$actualDeliveredDate}</strong>' (from 17track, status: {$newDeliveryStatus})<br>";
+                            
+                        } elseif (!$isDelivered && !empty($actualDeliveredDate)) {
+                            // ✅ IMPORTANT: Don't set date if status isn't "Delivered"
+                            echo "   ⚠️ NOT setting delivered date - Status is '<strong>{$newDeliveryStatus}</strong>' (not Delivered)<br>";
+                            echo "      Available date ignored: {$actualDeliveredDate}<br>";
                             
                         } elseif (!empty($existingDeliveredDate) && $existingDeliveredDate !== '0000-00-00 00:00:00') {
                             echo "   ✓ ACTUAL Delivered Date already set: '<strong>{$existingDeliveredDate}</strong>' (NOT overwriting)<br>";
+                            
+                        } elseif ($isDelivered && empty($actualDeliveredDate)) {
+                            echo "   ℹ️ Status is Delivered but no actual date from 17track yet<br>";
                         }
                         
                         // ========================================
@@ -848,22 +865,41 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
     $createdTime = $order['created_time'] ? date('Y-m-d H:i:s', strtotime($order['created_time'])) : null;
     $shippedTime = $order['shipped_time'] ? date('Y-m-d H:i:s', strtotime($order['shipped_time'])) : null;
     $paymentDate = $order['paid_time'] ? date('Y-m-d H:i:s', strtotime($order['paid_time'])) : null;
-     // ACTUAL delivered date (from 17track only)
+    
+    // Get delivery status first
+    $deliveryStatus = $order['delivery_status'] ?? 'Unknown';
+    
+    // ========================================
+    // ✅ CRITICAL FIX: Only set datedelivered if status is "Delivered"
+    // ========================================
     $actualDeliveredDate = null;
-    if (!empty($order['actual_delivered_date'])) {
+    
+    // Check if status is actually "Delivered" (handle variations)
+    $isDelivered = (
+        $deliveryStatus === 'Delivered' || 
+        stripos($deliveryStatus, 'Delivered') !== false
+    );
+    
+    if ($isDelivered && !empty($order['actual_delivered_date'])) {
         $actualDeliveredDate = $order['actual_delivered_date'];
-        echo "DEBUG: Using ACTUAL delivered date from 17track: $actualDeliveredDate<br>";
+        echo "DEBUG: Status is '{$deliveryStatus}' - Setting ACTUAL delivered date: $actualDeliveredDate<br>";
+    } else {
+        if (!empty($order['actual_delivered_date'])) {
+            echo "DEBUG: Status is '{$deliveryStatus}' (NOT Delivered) - SKIPPING actual delivered date (was: {$order['actual_delivered_date']})<br>";
+        } else {
+            echo "DEBUG: Status is '{$deliveryStatus}' - No actual delivered date available<br>";
+        }
     }
     
-    // ESTIMATED delivery date (from eBay)
+    // ========================================
+    // ESTIMATED delivery date (from eBay) - always store if available
+    // ========================================
     $estimatedDeliveryDate = null;
     if (!empty($order['estimated_deliverydate'])) {
         $estimatedDeliveryDate = $order['estimated_deliverydate'];
         echo "DEBUG: Using ESTIMATED delivery range from eBay: $estimatedDeliveryDate<br>";
     }
 
-     $deliveryStatus = $order['delivery_status'] ?? 'Unknown'; 
-    
     $total = $order['total'] ?? 0.00;
     $sellerName = $order['seller_user_id'];
     $moduleLoc = 'Orders';
@@ -883,7 +919,7 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
     $sellerNotes = '';
     $locationdetails = $order['locationdetails'];
 
-    // Enhanced condition detection from V1
+    // Enhanced condition detection
     $conditionDisplay = 'N/A';
     if (isset($item['item_details']['Item']['ConditionDisplayName'])) {
         $conditionDisplay = $item['item_details']['Item']['ConditionDisplayName'];
@@ -903,7 +939,7 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
         $sellerNotes = str_replace(["'", '"'], "", $item['item_details']['Item']['ConditionDescription']);
     }
 
-    // Enhanced item status logic from V1
+    // Enhanced item status logic
     $keywords = db_fetch_all("SELECT descriptionStatus FROM tblItemstatus");
     $itemStatus = 'Working';
     $appliedCondition = '';
@@ -951,14 +987,12 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
     $rtcounter = fetchRtCounter();
     
     $stmt = $mysqli->prepare("INSERT INTO tblproduct (rtid, itemnumber, ProductTitle, orderdate, total, quantity, price, Discount, priceshipping, tax, trackingnumber, trackingnumber2, trackingnumber3, trackingnumber4, carrier, listedcondition, seller, shipdate, paymentdate, rtcounter, description, notes, paymentmethod, datedelivered, estimated_deliverydate, itemstatus, conditionStatusApplied, fetchStatus, ProductModuleLoc, materialtype, Ebay_seller_location, delivery_status)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     
     if (!$stmt) {
         throw new Exception("Failed to prepare insert statement: " . $mysqli->error);
     }
     
-    // Type string: 32 parameters (validation is hardcoded as '')
-    // Count: s s s s d i d d d d s s s s s s s s s i s s s s s s s s s s s s = 32 chars
     $stmt->bind_param("ssssdiddddsssssssssissssssssssss", 
         $orderID,              // 1  - s - rtid
         $itemID,               // 2  - s - itemnumber
@@ -983,8 +1017,8 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
         $itemDescription,      // 21 - s - description
         $sellerNotes,          // 22 - s - notes
         $PaymentMethod,        // 23 - s - paymentmethod
-        $actualDeliveredDate,  // 24 - s - datedelivered (ACTUAL from 17track)
-        $estimatedDeliveryDate,// 25 - s - estimated_deliverydate (ESTIMATE from eBay)
+        $actualDeliveredDate,  // 24 - s - datedelivered (NULL unless Delivered)
+        $estimatedDeliveryDate,// 25 - s - estimated_deliverydate (always store)
         $itemStatus,           // 26 - s - itemstatus
         $appliedCondition,     // 27 - s - conditionStatusApplied
         $fetchStatus,          // 28 - s - fetchStatus
@@ -997,9 +1031,15 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
     if ($stmt->execute()) {
         $productID = $mysqli->insert_id;
         echo "✅ Inserted Order ID: $orderID (Item ID: $itemID) - ProductID: $productID<br>";
+        echo "   📦 Delivery Status: <strong>$deliveryStatus</strong><br>";
         echo "   📅 Estimated Delivery: " . ($estimatedDeliveryDate ?? 'N/A') . "<br>";
-        echo "   📅 Actual Delivered: " . ($actualDeliveredDate ?? 'N/A') . "<br>";
-        echo "   🚚 Delivery Status: $deliveryStatus<br>";
+        
+        if ($actualDeliveredDate) {
+            echo "   ✅ Actual Delivered: <strong style='color: #28a745;'>$actualDeliveredDate</strong><br>";
+        } else {
+            echo "   📅 Actual Delivered: N/A (status is '$deliveryStatus', not 'Delivered')<br>";
+        }
+        
         echo "   ✅ Item Status: $itemStatus ($appliedCondition)<br>";
         
         // Process images for new records
@@ -1308,24 +1348,36 @@ function processOrders($response, $accessToken)
         echo "<br>🚚 Getting delivery status for Order: {$order['OrderID']}<br>";
         $trackingStatusResult = getAccurateDeliveryStatusCombined($processedOrder, $accessToken);
         
-        // Handle response
+        // ✅ FIXED: Properly handle response to capture actual delivered date
         if (is_array($trackingStatusResult)) {
+            // Extract status
             $processedOrder['delivery_status'] = $trackingStatusResult['status'] ?? 'Unknown';
             
-            // ✅ CRITICAL: If delivered, get ACTUAL delivered date from 17track
+            // ✅ CRITICAL: Extract actual delivered date from 17track
             if (isset($trackingStatusResult['delivered_date']) && !empty($trackingStatusResult['delivered_date'])) {
                 $processedOrder['actual_delivered_date'] = $trackingStatusResult['delivered_date'];
-                echo "   📅 ACTUAL delivered date from 17track: <strong>{$trackingStatusResult['delivered_date']}</strong><br>";
+                echo "   📅 CAPTURED actual delivery date from 17track: <strong>{$trackingStatusResult['delivered_date']}</strong><br>";
             } else {
                 echo "   ℹ️ No actual delivered date from 17track<br>";
             }
+            
+            // Optional: Also capture carrier info if needed
+            if (isset($trackingStatusResult['carrier'])) {
+                echo "   🚚 Carrier: {$trackingStatusResult['carrier']}<br>";
+            }
+            
         } else {
+            // Simple string status returned (fallback case)
             $processedOrder['delivery_status'] = $trackingStatusResult;
+            echo "   ℹ️ Status (string fallback): {$trackingStatusResult}<br>";
         }
         
         echo "   Final delivery status: <strong>{$processedOrder['delivery_status']}</strong><br>";
         if (!empty($estimatedDeliveryRange)) {
             echo "   Estimated delivery (eBay): {$estimatedDeliveryRange}<br>";
+        }
+        if (!empty($processedOrder['actual_delivered_date'])) {
+            echo "   Actual delivery date: {$processedOrder['actual_delivered_date']}<br>";
         }
 
         $processedOrders[] = $processedOrder;
@@ -2297,7 +2349,7 @@ function getAccurateDeliveryStatusCombined($order, $accessToken)
     checkDatabaseConnection();
     
     $checkStmt = $mysqli->prepare("
-        SELECT delivery_status 
+        SELECT delivery_status, datedelivered
         FROM tblproduct 
         WHERE rtid = ? 
         LIMIT 1
@@ -2317,7 +2369,17 @@ function getAccurateDeliveryStatusCombined($order, $accessToken)
             $finalStatuses = ['Delivered', 'Cancelled', 'Refunded'];
             if (in_array($currentStatus, $finalStatuses)) {
                 echo "✓ Order {$orderId} already has final status: <strong>{$currentStatus}</strong> - SKIPPING 17track API call<br>";
-                return $currentStatus; // Return immediately, NO API call
+                
+                // ✅ Return array with existing delivered date if available
+                if (!empty($existingRecord['datedelivered']) && $existingRecord['datedelivered'] !== '0000-00-00 00:00:00') {
+                    return [
+                        'status' => $currentStatus,
+                        'delivered_date' => $existingRecord['datedelivered'],
+                        'source' => 'database_cache'
+                    ];
+                }
+                
+                return $currentStatus; // Return simple string for non-delivered final states
             } else {
                 echo "Order {$orderId} current status: '{$currentStatus}' (not final, will check for updates)<br>";
             }
@@ -2355,17 +2417,25 @@ function getAccurateDeliveryStatusCombined($order, $accessToken)
         }
         
         // Get status from 17track WITH rate limiting and caching
-       $trackingStatus = check17TrackDeliveryStatusWithRateLimit($trackingNumber, $carrierCode);
+        $trackingStatus = check17TrackDeliveryStatusWithRateLimit($trackingNumber, $carrierCode);
 
-        // ✅ IMPROVED: Better validation of response
+        // ✅ CRITICAL FIX: Return full array, not just status string
         if ($trackingStatus && 
             isset($trackingStatus['status']) && 
             $trackingStatus['status'] !== 'Unknown' && 
             $trackingStatus['status'] !== 'Not Found' &&
-            !isset($trackingStatus['error'])) { // Also check no error
+            !isset($trackingStatus['error'])) {
             
             echo "   ✓ 17track reported status: <strong>{$trackingStatus['status']}</strong><br>";
-            return $trackingStatus['status'];
+            
+            // ✅ Show delivered date if present
+            if (isset($trackingStatus['delivered_date'])) {
+                echo "   📅 17track delivered date: <strong>{$trackingStatus['delivered_date']}</strong><br>";
+            }
+            
+            // ✅ FIXED: Return full array including delivered_date
+            return $trackingStatus;
+            
         } else {
             echo "   ⚠️ Could not get valid status from 17track<br>";
             if (isset($trackingStatus['error'])) {
