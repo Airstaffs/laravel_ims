@@ -2375,7 +2375,6 @@ function getAccurateDeliveryStatusCombined($order, $accessToken)
     
     // ========================================
     // STEP 1: CHECK DATABASE FIRST (BEFORE API CALL)
-    // This prevents wasting API calls on already-final statuses
     // ========================================
     checkDatabaseConnection();
     
@@ -2410,7 +2409,10 @@ function getAccurateDeliveryStatusCombined($order, $accessToken)
                     ];
                 }
                 
-                return $currentStatus; // Return simple string for non-delivered final states
+                return [
+                    'status' => $currentStatus,
+                    'source' => 'database_cache'
+                ];
             } else {
                 echo "Order {$orderId} current status: '{$currentStatus}' (not final, will check for updates)<br>";
             }
@@ -2420,25 +2422,24 @@ function getAccurateDeliveryStatusCombined($order, $accessToken)
     }
     
     // ========================================
-    // STEP 2: Check eBay order status for Cancelled (before API call)
+    // STEP 2: Check eBay order status for Cancelled
     // ========================================
     $orderStatus = $order['order_status'] ?? '';
     
     if ($orderStatus === 'Cancelled') {
         echo "Order {$orderId} is Cancelled per eBay (no API call needed)<br>";
-        return 'Cancelled';
+        return [
+            'status' => 'Cancelled',
+            'source' => 'ebay'
+        ];
     }
     
     // ========================================
-    // STEP 3: NOW call 17track API (only if needed)
-    // Only reaches here if:
-    // - No existing status in DB, OR
-    // - Existing status is NOT final (Delivered/Cancelled/Refunded)
+    // STEP 3: Call 17track API
     // ========================================
     if (!empty($trackingNumber)) {
         echo "🌐 Calling 17track API for Order {$orderId}: Tracking={$trackingNumber}, Carrier={$carrier}<br>";
         
-        // Convert carrier name to 17track carrier code
         $carrierCode = getCarrierCodeFor17Track($carrier);
         
         if ($carrierCode) {
@@ -2447,71 +2448,90 @@ function getAccurateDeliveryStatusCombined($order, $accessToken)
             echo "   No carrier code found for '{$carrier}', using auto-detection<br>";
         }
         
-        // Get status from 17track WITH rate limiting and caching
         $trackingStatus = check17TrackDeliveryStatusWithRateLimit($trackingNumber, $carrierCode);
 
-        // ✅ CRITICAL FIX: Return full array, not just status string
-        if ($trackingStatus && 
-            isset($trackingStatus['status']) && 
-            $trackingStatus['status'] !== 'Unknown' && 
-            $trackingStatus['status'] !== 'Not Found' &&
-            !isset($trackingStatus['error'])) {
+        // ✅ CRITICAL FIX: Check the response properly
+        if ($trackingStatus && is_array($trackingStatus)) {
+            echo "   📦 17track response type: array<br>";
+            echo "   📦 17track response: " . json_encode($trackingStatus) . "<br>";
             
-            echo "   ✓ 17track reported status: <strong>{$trackingStatus['status']}</strong><br>";
+            $status = $trackingStatus['status'] ?? 'Unknown';
+            $hasError = isset($trackingStatus['error']);
             
-            // ✅ Show delivered date if present
-            if (isset($trackingStatus['delivered_date'])) {
-                echo "   📅 17track delivered date: <strong>{$trackingStatus['delivered_date']}</strong><br>";
+            echo "   📦 Extracted status: '{$status}'<br>";
+            echo "   📦 Has error: " . ($hasError ? 'YES' : 'NO') . "<br>";
+            
+            // ✅ Check if we got a valid status (not Unknown, Not Found, or error)
+            if (!$hasError && $status !== 'Unknown' && $status !== 'Not Found') {
+                echo "   ✅ Valid status from 17track: <strong>{$status}</strong><br>";
+                
+                if (isset($trackingStatus['delivered_date'])) {
+                    echo "   📅 Delivered date: <strong>{$trackingStatus['delivered_date']}</strong><br>";
+                }
+                
+                // ✅ RETURN THE FULL ARRAY
+                return $trackingStatus;
+            } else {
+                echo "   ⚠️ Invalid or error status from 17track: {$status}<br>";
+                if ($hasError) {
+                    echo "      Error: {$trackingStatus['error']}<br>";
+                }
             }
-            
-            // ✅ FIXED: Return full array including delivered_date
-            return $trackingStatus;
-            
         } else {
-            echo "   ⚠️ Could not get valid status from 17track<br>";
-            if (isset($trackingStatus['error'])) {
-                echo "   Error: {$trackingStatus['error']}<br>";
-            }
-            echo "   Falling back to estimate<br>";
+            echo "   ⚠️ 17track response is not an array or is empty<br>";
         }
     } else {
-        echo "No tracking number available for Order {$orderId} (no API call needed)<br>";
+        echo "No tracking number available for Order {$orderId}<br>";
     }
     
     // ========================================
-    // STEP 4: Fall back to basic logic based on eBay data
+    // STEP 4: Fall back to basic logic
     // ========================================
+    echo "   🔄 Falling back to estimate logic<br>";
+    
     if (!empty($order['shipped_time'])) {
         $shippedDate = new DateTime($order['shipped_time']);
         $now = new DateTime();
         $daysSinceShipped = $now->diff($shippedDate)->days;
         
         if ($daysSinceShipped >= 14) {
-                echo "   → Estimated as Delivered (shipped {$daysSinceShipped} days ago)<br>";
-                // ✅ Return array to indicate this is an estimate, NOT actual
-                return [
-                    'status' => 'Delivered (Estimated)',
-                    'source' => 'date_estimate',
-                    'days_since_shipped' => $daysSinceShipped
-                ];
-            }
-                    
+            echo "   → Estimated as Delivered (shipped {$daysSinceShipped} days ago)<br>";
+            return [
+                'status' => 'Delivered (Estimated)',
+                'source' => 'estimate',
+                'days_since_shipped' => $daysSinceShipped
+            ];
+        }
+        
         echo "   → Status: In Transit (shipped {$daysSinceShipped} days ago)<br>";
-        return 'In Transit';
+        return [
+            'status' => 'In Transit',
+            'source' => 'estimate',
+            'days_since_shipped' => $daysSinceShipped
+        ];
     }
     
     if (!empty($order['paid_time']) && empty($order['shipped_time'])) {
-        echo "   → Status: Awaiting Shipment (paid but not shipped)<br>";
-        return 'Awaiting Shipment';
+        echo "   → Status: Awaiting Shipment<br>";
+        return [
+            'status' => 'Awaiting Shipment',
+            'source' => 'ebay'
+        ];
     }
     
     if (empty($order['paid_time'])) {
-        echo "   → Status: Payment Pending (not paid yet)<br>";
-        return 'Payment Pending';
+        echo "   → Status: Payment Pending<br>";
+        return [
+            'status' => 'Payment Pending',
+            'source' => 'ebay'
+        ];
     }
     
     echo "   → Status: Active (default)<br>";
-    return 'Active';
+    return [
+        'status' => 'Active',
+        'source' => 'default'
+    ];
 }
 
 
