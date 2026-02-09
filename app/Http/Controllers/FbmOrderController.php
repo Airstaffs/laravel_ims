@@ -1766,9 +1766,9 @@ private function extractBaseFnsku($fnsku)
         return $fnsku;
     }
 
-    // Check if it's a prefixed FNSKU (starts with C followed by digits)
-    if (preg_match('/^C(\d+)(.+)$/', $fnsku, $matches)) {
-        return $matches[2]; // Return the base FNSKU without prefix
+    // Check if it's a prefixed FNSKU (starts with letter C-Z followed by digit(s))
+    if (preg_match('/^([C-Z])(\d+)(.+)$/', $fnsku, $matches)) {
+        return $matches[3]; // Return the base FNSKU without prefix
     }
 
     return $fnsku; // Return as-is if not prefixed

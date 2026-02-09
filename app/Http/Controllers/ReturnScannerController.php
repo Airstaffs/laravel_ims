@@ -15,18 +15,19 @@ class ReturnScannerController extends BasetablesController
     /**
      * Extract base FNSKU from prefixed FNSKU
      */
-    private function extractBaseFnsku($fnsku)
-    {
-        if (empty($fnsku)) {
-            return $fnsku;
-        }
+        private function extractBaseFnsku($fnsku)
+        {
+            if (empty($fnsku)) {
+                return $fnsku;
+            }
 
-        if (preg_match('/^C(\d+)(.+)$/', $fnsku, $matches)) {
-            return $matches[2];
-        }
+            // Check if it's a prefixed FNSKU (starts with letter C-Z followed by digit(s))
+            if (preg_match('/^([C-Z])(\d+)(.+)$/', $fnsku, $matches)) {
+                return $matches[3]; // Return the base FNSKU without prefix
+            }
 
-        return $fnsku;
-    }
+            return $fnsku; // Return as-is if not prefixed
+        }
 
     /**
      * Display a listing of products in return list with joined LPN data
