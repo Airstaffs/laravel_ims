@@ -118,6 +118,26 @@
             </div>
         </template>
 
+
+       <template #deliverydate="{ data }">
+            <div class="delivery-date-cell">
+                <!-- Actual Delivered Date -->
+                <div v-if="data.datedelivered && data.datedelivered !== '0000-00-00' && data.datedelivered !== '0000-00-00 00:00:00'">
+                    <i class="pi pi-check-circle text-success me-1" style="font-size: 0.8rem"></i>
+                    <span class="fw-semibold text-success">{{ formatDeliveryDate(data.datedelivered) }}</span>
+                </div>
+                
+                <!-- Estimated Date -->
+                <div v-else-if="data.estimated_deliverydate">
+                    <i class="pi pi-clock text-info me-1" style="font-size: 0.8rem"></i>
+                    <span class="text-info">{{ data.estimated_deliverydate }}</span>
+                </div>
+                
+                <!-- No Date -->
+                <span v-else class="text-muted small">N/A</span>
+            </div>
+    </template>
+
         <!-- Order Date Column -->
         <template #orderdate="{ data }">
             {{ convertToLocalDate(data.orderdate) }}
@@ -950,7 +970,7 @@ const TABLE_COLUMNS = [
         slot: "ProductTitle",
         style: { minWidth: "15rem", maxWidth: "20rem" },
     },
-     {
+    {
         field: "display_asin",
         header: "ASIN",
         sortable: true,
@@ -967,11 +987,11 @@ const TABLE_COLUMNS = [
     },
     {
         field: "trackingnumber",
-        header: "Tracking & Status", // UPDATED HEADER
+        header: "Tracking & Status",
         sortable: true,
         headerStyle: "font-size: 16px;",
-        slot: "tracking", // ADD SLOT
-        style: { fontSize: "14px", minWidth: "180px" }, // INCREASED WIDTH
+        slot: "tracking",
+        style: { fontSize: "14px", minWidth: "180px" },
     },
     {
         field: "listedcondition",
@@ -1001,14 +1021,16 @@ const TABLE_COLUMNS = [
         header: "Ordered Date",
         sortable: true,
         headerStyle: "font-size: 16px;",
+        slot: "orderdate",
         style: { fontSize: "14px", textAlign: "center" },
     },
     {
-        field: "datedelivered",
-        header: "Delivered Date",
-        sortable: true,
+        field: "delivery_sort_date", // ✅ Sort by computed field
+        header: "Delivery Date",
+        sortable: true, // ✅ Sorting enabled
         headerStyle: "font-size: 16px;",
-        style: { fontSize: "14px", textAlign: "center" },
+        slot: "deliverydate", // Still use custom slot for display
+        style: { fontSize: "14px", minWidth: "180px", textAlign: "center" },
     },
 ];
 export default {
@@ -1127,6 +1149,26 @@ export default {
         },
     },
     methods: {
+
+
+            formatDeliveryDate(dateString) {
+                if (!dateString || dateString === '0000-00-00' || dateString === '0000-00-00 00:00:00') {
+                    return 'N/A';
+                }
+                
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        timeZone: this.currentTimezone || 'UTC'
+                    });
+                } catch (error) {
+                    console.error('Error formatting delivery date:', error);
+                    return dateString;
+                }
+            },
 
 
          getDeliveryStatusSeverity(status) {

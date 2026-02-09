@@ -50,6 +50,21 @@
                             />
                         </div>
 
+                        <!-- ✅ NEW: Seller Filter -->
+                        <div class="seller-field">
+                            <Select
+                                v-model="selectedSeller"
+                                :options="sellerOptions"
+                                optionLabel="label"
+                                optionValue="value"
+                                placeholder="All Sellers"
+                                @change="handleSearchInput"
+                                size="small"
+                                :showClear="true"
+                                :filter="true"
+                            />
+                        </div>
+
                         <!-- Delivery Status Filter -->
                         <div class="status-field">
                             <Select
@@ -109,6 +124,18 @@
                             <i
                                 class="pi pi-times ms-1 cursor-pointer"
                                 @click="dateTo = ''; handleSearchInput()"
+                            ></i>
+                        </Tag>
+                        <!-- ✅ NEW: Seller Tag -->
+                        <Tag
+                            v-if="selectedSeller"
+                            severity="primary"
+                            class="me-1"
+                        >
+                            Seller: {{ selectedSeller }}
+                            <i
+                                class="pi pi-times ms-1 cursor-pointer"
+                                @click="selectedSeller = ''; handleSearchInput()"
                             ></i>
                         </Tag>
                         <Tag
@@ -240,12 +267,25 @@
                             </template>
                         </Column>
 
-                        <Column field="date_delivered" header="Date Delivered" sortable style="min-width: 150px">
+                        <!-- ✅ UPDATED: Smart Date Display Column -->
+                        <Column field="date_delivered" header="Delivery Date" sortable style="min-width: 200px">
                             <template #body="{ data }">
-                                <div class="date-cell text-center">
-                                    <span v-if="data.latest_delivery" class="small">
-                                        {{ formatDate(data.latest_delivery) }}
-                                    </span>
+                                <div class="date-cell">
+                                    <!-- Show Actual Delivered Date (from datedelivered) -->
+                                    <div v-if="data.has_actual_date" class="d-flex align-items-center gap-1">
+                                        <i class="pi pi-check-circle text-success" style="font-size: 0.8rem"></i>
+                                        <span class="small fw-semibold text-success">
+                                            {{ formatDateRange(data.earliest_delivery, data.latest_delivery) }}
+                                        </span>
+                                    </div>
+                                    <!-- Show Estimated Date Range (from estimated_deliverydate VARCHAR) -->
+                                    <div v-else-if="data.latest_delivery" class="d-flex align-items-center gap-1">
+                                        <i class="pi pi-clock text-info" style="font-size: 0.8rem"></i>
+                                        <span class="small text-info">
+                                            {{ data.latest_delivery }}
+                                        </span>
+                                    </div>
+                                    <!-- No Date -->
                                     <span v-else class="text-muted small">N/A</span>
                                 </div>
                             </template>
@@ -343,6 +383,7 @@ export default {
             dateFrom: '',
             dateTo: '',
             deliveryStatus: '',
+            selectedSeller: '', // ✅ NEW
             loading: false,
             searchResults: [],
             hasSearched: false,
@@ -350,6 +391,7 @@ export default {
             selectedAsin: '',
             itemDetails: [],
             searchTimeout: null,
+            sellerOptions: [], // ✅ NEW - populated from results
             deliveryStatusOptions: [
                 { label: 'Delivered', value: 'Delivered' },
                 { label: 'In Transit', value: 'In Transit' },
@@ -367,7 +409,7 @@ export default {
     },
     computed: {
         hasActiveFilters() {
-            return this.searchQuery || this.dateFrom || this.dateTo || this.deliveryStatus;
+            return this.searchQuery || this.dateFrom || this.dateTo || this.deliveryStatus || this.selectedSeller;
         },
         sellerCount() {
             const allSellers = new Set();
@@ -414,7 +456,7 @@ export default {
                 clearTimeout(this.searchTimeout);
             }
 
-            if (!this.searchQuery && !this.dateFrom && !this.dateTo && !this.deliveryStatus) {
+            if (!this.searchQuery && !this.dateFrom && !this.dateTo && !this.deliveryStatus && !this.selectedSeller) {
                 this.searchResults = [];
                 this.hasSearched = false;
                 return;
@@ -426,7 +468,7 @@ export default {
         },
 
         async searchItems() {
-            if (!this.searchQuery && !this.dateFrom && !this.dateTo && !this.deliveryStatus) {
+            if (!this.searchQuery && !this.dateFrom && !this.dateTo && !this.deliveryStatus && !this.selectedSeller) {
                 this.searchResults = [];
                 this.hasSearched = false;
                 return;
@@ -440,7 +482,8 @@ export default {
                     search: this.searchQuery,
                     date_from: this.dateFrom,
                     date_to: this.dateTo,
-                    delivery_status: this.deliveryStatus
+                    delivery_status: this.deliveryStatus,
+                    seller: this.selectedSeller
                 });
 
                 const response = await axios.get('/api/orders/incoming-count', {
@@ -448,13 +491,17 @@ export default {
                         search: this.searchQuery,
                         date_from: this.dateFrom,
                         date_to: this.dateTo,
-                        delivery_status: this.deliveryStatus
+                        delivery_status: this.deliveryStatus,
+                        seller: this.selectedSeller
                     }
                 });
 
                 console.log('✅ Search response:', response.data);
 
                 this.searchResults = response.data.data || [];
+
+                // ✅ Populate seller dropdown from results
+                this.populateSellerOptions();
 
                 if (this.searchResults.length === 0) {
                     console.log('ℹ️ No results found');
@@ -474,18 +521,41 @@ export default {
             }
         },
 
+        // ✅ NEW: Populate seller dropdown from search results
+        populateSellerOptions() {
+            const sellers = new Set();
+            this.searchResults.forEach(item => {
+                if (item.sellers && item.sellers !== 'N/A') {
+                    item.sellers.split(',').forEach(seller => {
+                        const trimmed = seller.trim();
+                        if (trimmed) {
+                            sellers.add(trimmed);
+                        }
+                    });
+                }
+            });
+            
+            this.sellerOptions = [
+                ...Array.from(sellers).sort().map(seller => ({
+                    label: seller,
+                    value: seller
+                }))
+            ];
+        },
+
         async viewItemDetails(data) {
             this.selectedAsin = data.asin || 'N/A';
             this.loading = true;
 
             try {
-                const response = await axios.get('/api/orders/incoming-count-details', {
+                const response = await axios.get('/api/orders/incoming-count/details', {
                     params: {
                         asin: data.asin,
                         search: this.searchQuery,
                         date_from: this.dateFrom,
                         date_to: this.dateTo,
-                        delivery_status: this.deliveryStatus
+                        delivery_status: this.deliveryStatus,
+                        seller: this.selectedSeller
                     }
                 });
 
@@ -509,30 +579,52 @@ export default {
             this.dateFrom = '';
             this.dateTo = '';
             this.deliveryStatus = '';
+            this.selectedSeller = '';
             this.searchResults = [];
+            this.sellerOptions = [];
             this.hasSearched = false;
         },
 
         formatDate(dateString) {
-            if (!dateString) return 'N/A';
-            const date = new Date(dateString);
-            return date.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            });
+            if (!dateString || dateString === '0000-00-00' || dateString === '0000-00-00 00:00:00') return 'N/A';
+            
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+            } catch (e) {
+                return dateString; // Return as-is if can't parse
+            }
+        },
+
+        // ✅ NEW: Format date range (handles both actual dates and VARCHAR ranges)
+        formatDateRange(earliest, latest) {
+            // If both are the same or latest doesn't exist, show single date
+            if (!latest || earliest === latest) {
+                return this.formatDate(earliest);
+            }
+            
+            const early = this.formatDate(earliest);
+            const late = this.formatDate(latest);
+            
+            if (early === 'N/A' && late === 'N/A') return 'N/A';
+            if (early === late) return early;
+            return `${early} - ${late}`;
         },
 
         exportToCSV() {
             if (this.searchResults.length === 0) return;
 
-            const headers = ['ASIN', 'Title', 'Metakeyword', 'Total Quantity', 'Item Count', 'Earliest Delivery', 'Latest Delivery'];
+            const headers = ['ASIN', 'Title', 'Sellers', 'Total Quantity', 'Delivery Status', 'Earliest Delivery', 'Latest Delivery'];
             const rows = this.searchResults.map(item => [
                 item.asin || 'N/A',
                 item.title || 'N/A',
-                item.metakeyword || 'N/A',
+                item.sellers || 'N/A',
                 item.total_quantity,
-                item.item_count,
+                item.delivery_status || 'Unknown',
                 this.formatDate(item.earliest_delivery),
                 this.formatDate(item.latest_delivery)
             ]);
@@ -577,7 +669,9 @@ export default {
             this.dateFrom = '';
             this.dateTo = '';
             this.deliveryStatus = '';
+            this.selectedSeller = '';
             this.searchResults = [];
+            this.sellerOptions = [];
             this.hasSearched = false;
             this.loading = false;
             if (this.searchTimeout) {
@@ -602,7 +696,7 @@ export default {
 
 .filters-row {
     display: grid;
-    grid-template-columns: 1fr auto auto auto auto;
+    grid-template-columns: 1fr auto auto auto auto auto;
     gap: 0.75rem;
     align-items: center;
 }
@@ -622,6 +716,10 @@ export default {
 
 .date-field input {
     width: 100%;
+}
+
+.seller-field {
+    width: 200px;
 }
 
 .status-field {
@@ -717,6 +815,12 @@ export default {
     line-height: 1.6;
 }
 
+.date-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .dialog-footer {
     display: flex;
     justify-content: space-between;
@@ -729,6 +833,7 @@ export default {
     }
     
     .date-field,
+    .seller-field,
     .status-field {
         width: 100%;
     }
