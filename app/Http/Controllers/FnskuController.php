@@ -330,176 +330,202 @@ private function updateFnskuUnits($msku, $asin, $grading, $storename, $currentFn
     /**
      * UPDATED getFnskuList to handle prefixed FNSKUs in exclusion logic
      */
-    public function getFnskuList(Request $request)
-    {
-        try {
-            Log::info('=== FNSKU LIST REQUEST START ===');
-            Log::info('Request parameters:', $request->all());
+public function getFnskuList(Request $request)
+{
+    try {
+        Log::info('=== FNSKU LIST REQUEST START ===');
+        Log::info('Request parameters:', $request->all());
 
-            // Get all filter parameters
-            $perPage = min($request->input('limit', 50), 500);
-            $search = $request->input('search', '');
-            $fnsku = $request->input('fnsku', ''); // FNSKU filter
-            $store = $request->input('store', ''); // Store filter
-            $grading = $request->input('grading', ''); // Grading filter
-            $exclude_assigned = $request->boolean('exclude_assigned', true);
+        // Get all filter parameters
+        $perPage = min($request->input('limit', 50), 500);
+        $search = $request->input('search', '');
+        $fnsku = $request->input('fnsku', ''); // FNSKU filter
+        $store = $request->input('store', ''); // Store filter
+        $grading = $request->input('grading', ''); // Grading filter
+        $exclude_assigned = $request->boolean('exclude_assigned', true);
 
-            Log::info('Processed parameters:', [
-                'per_page' => $perPage,
-                'search' => $search,
-                'fnsku' => $fnsku,
-                'store' => $store,
-                'grading' => $grading,
-                'exclude_assigned' => $exclude_assigned,
-            ]);
+        Log::info('Processed parameters:', [
+            'per_page' => $perPage,
+            'search' => $search,
+            'fnsku' => $fnsku,
+            'store' => $store,
+            'grading' => $grading,
+            'exclude_assigned' => $exclude_assigned,
+        ]);
 
-            if (! isset($this->fnskuTable) || ! isset($this->asinTable) || ! isset($this->productTable)) {
-                Log::error('Table properties not set');
-
-                return response()->json([
-                    'error' => 'Database configuration error',
-                    'data' => [],
-                ], 500);
-            }
-
-            // Build base query
-            $query = DB::table($this->fnskuTable.' as fnsku')
-                ->select([
-                    'fnsku.FNSKU',
-                    'fnsku.MSKU',
-                    'fnsku.ASIN',
-                    'fnsku.grading',
-                    'fnsku.Units',
-                    'fnsku.storename',
-                    'fnsku.fnsku_status',
-                    'asin.internal as astitle',
-                    'asin.asin_limit as asinLimit'
-                ])
-                ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->where('fnsku.fnsku_status', 'available')
-                ->where('fnsku.Units', '>', 0)
-                ->whereNotNull('fnsku.FNSKU')
-                ->where('fnsku.FNSKU', '!=', '')
-                ->where('fnsku.FNSKU', '!=', 'NULL')
-                ->whereNotNull('fnsku.ASIN')
-                ->where('fnsku.ASIN', '!=', '')
-                ->where('fnsku.ASIN', '!=', 'NULL')
-                ->where('fnsku.LimitStatus', 'False')
-                ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted']);
-
-            // Apply exclusion logic
-            if ($exclude_assigned) {
-                $query->whereNotIn('fnsku.FNSKU', function ($subquery) {
-                    $subquery->select('FNSKUviewer')
-                        ->from($this->productTable)
-                        ->whereNotNull('FNSKUviewer')
-                        ->where('FNSKUviewer', '!=', '')
-                        ->where('FNSKUviewer', '!=', 'NULL');
-                });
-                Log::info('Exclusion logic applied');
-            }
-
-            // STACK ALL FILTERS with AND logic
-
-            // Filter 1: General search (Title or ASIN)
-            if (! empty($search)) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('fnsku.ASIN', 'like', "%{$search}%")
-                        ->orWhere('asin.internal', 'like', "%{$search}%")
-                        ->orWhere('asin.system_title', 'like', "%{$search}%");
-                });
-                Log::info('Search filter applied:', ['search' => $search]);
-            }
-
-            // Filter 2: FNSKU exact or partial match
-            if (! empty($fnsku)) {
-                $query->where('fnsku.FNSKU', 'like', "%{$fnsku}%");
-                Log::info('FNSKU filter applied:', ['fnsku' => $fnsku]);
-            }
-
-            // Filter 3: Store filter
-            if (! empty($store)) {
-                $query->where('fnsku.storename', $store);
-                Log::info('Store filter applied:', ['store' => $store]);
-            }
-
-            // Filter 4: Grading/Condition filter
-            if (! empty($grading)) {
-                $query->where('fnsku.grading', $grading);
-                Log::info('Grading filter applied:', ['grading' => $grading]);
-            }
-
-            // Apply sorting
-            if (! empty($search)) {
-                // When searching, prioritize exact matches
-                $query->orderByRaw('
-                CASE 
-                    WHEN fnsku.ASIN = ? THEN 1
-                    WHEN fnsku.ASIN LIKE ? THEN 2
-                    WHEN asin.internal LIKE ? THEN 3
-                    ELSE 4
-                END, fnsku.FNSKU
-            ', [$search, $search.'%', '%'.$search.'%']);
-            } else {
-                $query->orderBy('fnsku.ASIN')
-                    ->orderBy('fnsku.FNSKU');
-            }
-
-            Log::info('About to execute query...');
-
-            // Get total count for the filtered results
-            $totalCount = $query->count();
-            Log::info('Total filtered records:', ['count' => $totalCount]);
-
-            // Paginate
-            $fnskuList = $query->simplePaginate($perPage);
-
-            Log::info('Query executed successfully', [
-                'current_page_count' => $fnskuList->count(),
-                'per_page' => $perPage,
-                'current_page' => $fnskuList->currentPage(),
-            ]);
-
-            // Filter out any remaining empty FNSKUs
-            $filteredItems = $fnskuList->getCollection()->filter(function ($item) {
-                return ! empty($item->FNSKU) && $item->FNSKU !== 'NULL' && trim($item->FNSKU) !== '';
-            })->values();
-
-            $fnskuList->setCollection($filteredItems);
-
-            Log::info('After filtering empty FNSKUs:', ['count' => $fnskuList->count()]);
-            Log::info('=== FNSKU LIST REQUEST END ===');
+        if (! isset($this->fnskuTable) || ! isset($this->asinTable) || ! isset($this->productTable)) {
+            Log::error('Table properties not set');
 
             return response()->json([
-                'data' => $fnskuList->items(),
-                'current_page' => $fnskuList->currentPage(),
-                'per_page' => $fnskuList->perPage(),
-                'has_more_pages' => $fnskuList->hasMorePages(),
-                'from' => $fnskuList->firstItem(),
-                'to' => $fnskuList->lastItem(),
-                'total' => $totalCount,
-                'excluded_assigned' => $exclude_assigned,
-                'filters_applied' => [
-                    'search' => ! empty($search),
-                    'fnsku' => ! empty($fnsku),
-                    'store' => ! empty($store),
-                    'grading' => ! empty($grading),
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('=== FNSKU LIST ERROR ===');
-            Log::error('Error message: '.$e->getMessage());
-            Log::error('Error line: '.$e->getLine());
-            Log::error('Stack trace: '.$e->getTraceAsString());
-
-            return response()->json([
-                'error' => 'Failed to fetch FNSKU list',
-                'message' => $e->getMessage(),
+                'error' => 'Database configuration error',
                 'data' => [],
             ], 500);
         }
+
+        // Build base query
+        $query = DB::table($this->fnskuTable.' as fnsku')
+            ->select([
+                'fnsku.FNSKU',
+                'fnsku.MSKU',
+                'fnsku.ASIN',
+                'fnsku.grading',
+                'fnsku.Units',
+                'fnsku.storename',
+                'fnsku.fnsku_status',
+                'asin.internal as astitle',
+                'asin.asin_limit as asinLimit'
+            ])
+            ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+            ->where('fnsku.fnsku_status', 'available')
+            ->where('fnsku.Units', '>', 0)
+            ->whereNotNull('fnsku.FNSKU')
+            ->where('fnsku.FNSKU', '!=', '')
+            ->where('fnsku.FNSKU', '!=', 'NULL')
+            ->whereNotNull('fnsku.ASIN')
+            ->where('fnsku.ASIN', '!=', '')
+            ->where('fnsku.ASIN', '!=', 'NULL')
+            ->where('fnsku.LimitStatus', 'False')
+            ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted']);
+
+        // Apply exclusion logic
+        if ($exclude_assigned) {
+            $query->whereNotIn('fnsku.FNSKU', function ($subquery) {
+                $subquery->select('FNSKUviewer')
+                    ->from($this->productTable)
+                    ->whereNotNull('FNSKUviewer')
+                    ->where('FNSKUviewer', '!=', '')
+                    ->where('FNSKUviewer', '!=', 'NULL');
+            });
+            Log::info('Exclusion logic applied');
+        }
+
+        // STACK ALL FILTERS with AND logic
+
+        // Filter 1: General search (Title or ASIN)
+        if (! empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('fnsku.ASIN', 'like', "%{$search}%")
+                    ->orWhere('asin.internal', 'like', "%{$search}%")
+                    ->orWhere('asin.system_title', 'like', "%{$search}%");
+            });
+            Log::info('Search filter applied:', ['search' => $search]);
+        }
+
+        // Filter 2: FNSKU exact or partial match
+        if (! empty($fnsku)) {
+            $query->where('fnsku.FNSKU', 'like', "%{$fnsku}%");
+            Log::info('FNSKU filter applied:', ['fnsku' => $fnsku]);
+        }
+
+        // Filter 3: Store filter
+        if (! empty($store)) {
+            $query->where('fnsku.storename', $store);
+            Log::info('Store filter applied:', ['store' => $store]);
+        }
+
+        // Filter 4: Grading/Condition filter
+        if (! empty($grading)) {
+            $query->where('fnsku.grading', $grading);
+            Log::info('Grading filter applied:', ['grading' => $grading]);
+        }
+
+        // Apply sorting
+        if (! empty($search)) {
+            // When searching, prioritize exact matches
+            $query->orderByRaw('
+            CASE 
+                WHEN fnsku.ASIN = ? THEN 1
+                WHEN fnsku.ASIN LIKE ? THEN 2
+                WHEN asin.internal LIKE ? THEN 3
+                ELSE 4
+            END, fnsku.FNSKU
+        ', [$search, $search.'%', '%'.$search.'%']);
+        } else {
+            $query->orderBy('fnsku.ASIN')
+                ->orderBy('fnsku.FNSKU');
+        }
+
+        Log::info('About to execute query...');
+
+        // Get total count for the filtered results
+        $totalCount = $query->count();
+        Log::info('Total filtered records:', ['count' => $totalCount]);
+
+        // Paginate
+        $fnskuList = $query->simplePaginate($perPage);
+
+        Log::info('Query executed successfully', [
+            'current_page_count' => $fnskuList->count(),
+            'per_page' => $perPage,
+            'current_page' => $fnskuList->currentPage(),
+        ]);
+
+        // Filter out any remaining empty FNSKUs
+        $filteredItems = $fnskuList->getCollection()->filter(function ($item) {
+            return ! empty($item->FNSKU) && $item->FNSKU !== 'NULL' && trim($item->FNSKU) !== '';
+        })->values();
+
+        // ✅ ADD NEXT FNSKU TO USE FOR EACH ITEM
+        $filteredItems->transform(function ($item) {
+            try {
+                $fnskuInfo = $this->getNextAvailableFnsku(
+                    $item->FNSKU,
+                    $item->MSKU,
+                    $item->ASIN,
+                    $item->grading,
+                    $item->storename
+                );
+                
+                $item->next_fnsku_to_use = $fnskuInfo['actual_fnsku'];
+                $item->next_prefix = $fnskuInfo['next_prefix'] ?? 'base';
+                $item->times_used = $fnskuInfo['times_used'] ?? 0;
+            } catch (\Exception $e) {
+                Log::warning('Could not get next FNSKU for MSKU: ' . $item->MSKU, [
+                    'error' => $e->getMessage()
+                ]);
+                $item->next_fnsku_to_use = $item->FNSKU;
+                $item->next_prefix = 'base';
+                $item->times_used = 0;
+            }
+            
+            return $item;
+        });
+
+        $fnskuList->setCollection($filteredItems);
+
+        Log::info('After filtering empty FNSKUs and adding next FNSKU:', ['count' => $fnskuList->count()]);
+        Log::info('=== FNSKU LIST REQUEST END ===');
+
+        return response()->json([
+            'data' => $fnskuList->items(),
+            'current_page' => $fnskuList->currentPage(),
+            'per_page' => $fnskuList->perPage(),
+            'has_more_pages' => $fnskuList->hasMorePages(),
+            'from' => $fnskuList->firstItem(),
+            'to' => $fnskuList->lastItem(),
+            'total' => $totalCount,
+            'excluded_assigned' => $exclude_assigned,
+            'filters_applied' => [
+                'search' => ! empty($search),
+                'fnsku' => ! empty($fnsku),
+                'store' => ! empty($store),
+                'grading' => ! empty($grading),
+            ],
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('=== FNSKU LIST ERROR ===');
+        Log::error('Error message: '.$e->getMessage());
+        Log::error('Error line: '.$e->getLine());
+        Log::error('Stack trace: '.$e->getTraceAsString());
+
+        return response()->json([
+            'error' => 'Failed to fetch FNSKU list',
+            'message' => $e->getMessage(),
+            'data' => [],
+        ], 500);
     }
+}
 
     public function insertFnsku(Request $request)
     {
