@@ -19,19 +19,20 @@ class StockroomController extends BasetablesController
     /**
      * Extract base FNSKU from prefixed FNSKU
      */
-    private function extractBaseFnsku($fnsku)
-    {
-        if (empty($fnsku)) {
-            return $fnsku;
-        }
+        private function extractBaseFnsku($fnsku)
+        {
+            if (empty($fnsku)) {
+                return $fnsku;
+            }
 
-        // Check if it's a prefixed FNSKU (starts with letter C-Z followed by digit(s))
-        if (preg_match('/^([C-Z])(\d+)(.+)$/', $fnsku, $matches)) {
-            return $matches[3]; // Return the base FNSKU without prefix
-        }
+            // Check if it's a prefixed FNSKU (starts with letter C-W or Y-Z, excluding X)
+            // Pattern: Letter(C-W,Y-Z) + Number(1-9) + BaseFNSKU (which starts with X)
+            if (preg_match('/^([C-W]|[Y-Z])(\d+)(X.+)$/', $fnsku, $matches)) {
+                return $matches[3]; // Return the base FNSKU (starting with X)
+            }
 
-        return $fnsku; // Return as-is if not prefixed
-    }
+            return $fnsku; // Return as-is if not prefixed
+        }
 
     /**
      * Generate the next available FNSKU with incremental prefix based on remaining units
@@ -92,15 +93,16 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
             'remaining_units' => $currentUnits
         ]);
 
-        // ✅ Extract used prefixes from active products (supports C-Z)
+        // ✅ Extract used prefixes from active products (supports C-W, Y-Z, excluding X)
         $usedPrefixes = [];
         
         foreach ($activeFnskus as $fnsku) {
             if ($fnsku === $baseFnsku) {
                 // Base FNSKU (no prefix) is used
                 $usedPrefixes[] = ['letter' => null, 'number' => 0];
-            } elseif (preg_match('/^([C-Z])(\d+)' . preg_quote($baseFnsku, '/') . '$/', $fnsku, $matches)) {
+            } elseif (preg_match('/^([C-W]|[Y-Z])(\d+)' . preg_quote($baseFnsku, '/') . '$/', $fnsku, $matches)) {
                 // Extract prefix letter and number (e.g., "C3", "D5", "E1")
+                // Excluding X since base FNSKUs start with X
                 $usedPrefixes[] = [
                     'letter' => $matches[1],
                     'number' => (int)$matches[2]
@@ -115,14 +117,24 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
             'remaining_units_in_db' => $currentUnits
         ]);
 
-        // ✅ Generate prefix sequence from C to Z (C1-C9, D1-D9, ..., Z1-Z9)
+        // ✅ Generate prefix sequence from C to Z (excluding X since base FNSKUs start with X)
+        // C-W (22 letters) + Y-Z (2 letters) = 24 letters total
+        // 24 letters × 9 numbers = 216 slots + 1 base = 217 total
         $prefixSequence = [];
         
         // No prefix (base FNSKU)
         $prefixSequence[] = ['letter' => null, 'number' => 0];
         
-        // C through Z, each with 1-9 (24 letters × 9 numbers = 216 slots + 1 base = 217 total)
-        for ($charCode = ord('C'); $charCode <= ord('Z'); $charCode++) {
+        // C through W (excluding X)
+        for ($charCode = ord('C'); $charCode <= ord('W'); $charCode++) {
+            $letter = chr($charCode);
+            for ($i = 1; $i <= 9; $i++) {
+                $prefixSequence[] = ['letter' => $letter, 'number' => $i];
+            }
+        }
+        
+        // Y through Z
+        for ($charCode = ord('Y'); $charCode <= ord('Z'); $charCode++) {
             $letter = chr($charCode);
             for ($i = 1; $i <= 9; $i++) {
                 $prefixSequence[] = ['letter' => $letter, 'number' => $i];
@@ -131,7 +143,7 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
 
         Log::info("Prefix sequence generated", [
             'total_slots_available' => count($prefixSequence),
-            'pattern' => 'base + C1-C9 + D1-D9 + ... + Z1-Z9'
+            'pattern' => 'base + C1-W9 + Y1-Z9 (excluding X)'
         ]);
 
         // ✅ Find first UNUSED prefix in sequence
@@ -158,7 +170,7 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
         if ($nextPrefix === null) {
             throw new \Exception(
                 "All prefix slots exhausted for FNSKU: {$baseFnsku}. " .
-                "All " . count($prefixSequence) . " prefixes (base + C1-Z9) are in use."
+                "All " . count($prefixSequence) . " prefixes (base + C1-W9 + Y1-Z9) are in use."
             );
         }
 
