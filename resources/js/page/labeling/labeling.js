@@ -2441,7 +2441,7 @@ export default {
             // Check for duplicates across products
             try {
                 const response = await axios.post(
-                    "/api//check-duplicate-serial",
+                    "/api/labeling/check-duplicate-serial",
                     {
                         serial: trimmedSerial,
                         current_product_id: this.item.ProductID || null,
