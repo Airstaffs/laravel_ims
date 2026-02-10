@@ -511,13 +511,6 @@ async handleFileChange(event, index) {
         formData.append("capturedImgCount", this.imgNumber);
         formData.append("imageType", this.imageType);
 
-        console.log('📤 Uploading replacement image:', {
-            productId: this.productId,
-            imgNumber: this.imgNumber,
-            imageType: this.imageType,
-            index: index
-        });
-
         const response = await axios.post(
             "/api/houseage/upload-image",
             formData,
@@ -527,16 +520,24 @@ async handleFileChange(event, index) {
             }
         );
 
-        console.log('✅ Full response:', response);
         console.log('✅ Response data:', response.data);
 
         if (response.data.success) {
-            this.cacheBustTimestamp = Date.now();
+            // ✅ Create a unique timestamp for this specific image
+            const uniqueTimestamp = Date.now();
+            const basePath = `/images/product_images/${this.company}/`;
+            const newImagePath = basePath + response.data.filename;
+            const cachedPath = `${newImagePath}?t=${uniqueTimestamp}`;
             
-            // Vue 3: Direct assignment works
-            this.localImageList[index] = response.data.filename;
+            // ✅ Update the array using splice to force reactivity
+            this.localImageList.splice(index, 1, cachedPath);
             
-            console.log('✅ Updated localImageList:', this.localImageList);
+            // ✅ Update global cache buster and force re-render
+            this.cacheBustTimestamp = uniqueTimestamp;
+            this.localRenderKey++;
+            this.dialogKey++;
+            
+            console.log('✅ Updated image:', cachedPath);
             
             await Swal.fire({
                 title: "Upload Success",
@@ -602,10 +603,17 @@ async handleAddImageChange(event) {
             }
         );
 
-        console.log('✅ Add response:', response.data);
         if (response.data.success) {
-            this.cacheBustTimestamp = Date.now();
-            this.localImageList.push(response.data.filename)
+            const uniqueTimestamp = Date.now();
+            const basePath = `/images/product_images/Airstaffs/`;
+            const newImagePath = basePath + response.data.filename;
+            const cachedPath = `${newImagePath}?t=${uniqueTimestamp}`;
+            
+            this.localImageList.push(cachedPath);
+            this.cacheBustTimestamp = uniqueTimestamp;
+            this.localRenderKey++;
+            this.dialogKey++;
+            
             await Swal.fire({
                 title: "Upload Success",
                 text: `Image added to slot ${nextImageNumber}`,
