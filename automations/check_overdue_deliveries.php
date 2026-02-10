@@ -27,6 +27,7 @@ echo "<strong>📅 DATE CONFIGURATION</strong><br>";
 echo "Today: <strong>" . $today->format('Y-m-d') . "</strong><br>";
 echo "Grace period: <strong>" . OVERDUE_GRACE_DAYS . " days</strong><br>";
 echo "Will mark as overdue if estimated delivery was before: <strong>{$graceDateThreshold}</strong><br>";
+echo "Statuses that become 'Overdue': <strong>In Transit, Unknown</strong><br>";
 echo "</div><br>";
 
 // ========================================
@@ -133,13 +134,16 @@ while ($row = $result->fetch_assoc()) {
         $totalChecked++;
         
         // ========================================
-        // LOGIC: Mark as "Overdue" if In Transit
+        // LOGIC: Mark as "Overdue" if In Transit OR Unknown
         // ========================================
         
-        // If status is "In Transit" -> change to "Overdue"
-        if ($currentStatus === 'In Transit') {
+        // If status is "In Transit" OR "Unknown" -> change to "Overdue"
+        if ($currentStatus === 'In Transit' || $currentStatus === 'Unknown') {
             $updatesNeeded[$statusField] = 'Overdue';
-            echo "   → Tracking{$i} (<code>{$trackingNumber}</code>): '<span style='color: #007bff;'>{$currentStatus}</span>' → '<span style='color: #dc3545; font-weight: bold;'>Overdue</span>'<br>";
+            
+            $statusColor = $currentStatus === 'In Transit' ? '#007bff' : '#6c757d';
+            
+            echo "   → Tracking{$i} (<code>{$trackingNumber}</code>): '<span style='color: {$statusColor};'>{$currentStatus}</span>' → '<span style='color: #dc3545; font-weight: bold;'>Overdue</span>'<br>";
             $totalMarkedOverdue++;
         }
         // If status is "Overdue" but now delivered -> keep as Delivered (don't change)
@@ -150,7 +154,7 @@ while ($row = $result->fetch_assoc()) {
         elseif ($currentStatus === 'Overdue') {
             echo "   → Tracking{$i} (<code>{$trackingNumber}</code>): Already '<span style='color: #dc3545;'>Overdue</span>'<br>";
         }
-        // Other statuses (Delivery Exception, Not Found, Unknown)
+        // Other statuses (Delivery Exception, Not Found)
         else {
             echo "   → Tracking{$i} (<code>{$trackingNumber}</code>): '{$currentStatus}' (no change)<br>";
         }
@@ -268,6 +272,10 @@ while ($row = $mainResult->fetch_assoc()) {
     // Priority 4: Delivery Exception
     elseif (in_array('Delivery Exception', $statuses)) {
         $newMainStatus = 'Delivery Exception';
+    }
+    // Priority 5: Unknown
+    elseif (in_array('Unknown', $statuses)) {
+        $newMainStatus = 'Unknown';
     }
     // Otherwise: First status
     else {
@@ -427,9 +435,9 @@ echo "<div style='background: #fff3cd; padding: 15px; border-left: 5px solid #ff
 echo "<strong>⚠️ IMPORTANT NOTES:</strong><br><br>";
 echo "1. Each tracking number is checked independently<br>";
 echo "2. Grace period of <strong>" . OVERDUE_GRACE_DAYS . " days</strong> after estimated delivery<br>";
-echo "3. Only changes 'In Transit' → 'Overdue'<br>";
+echo "3. Changes <strong>'In Transit'</strong> AND <strong>'Unknown'</strong> → 'Overdue'<br>";
 echo "4. Does NOT change Delivered/Cancelled/Refunded statuses<br>";
-echo "5. Main delivery_status uses priority: Delivered > Overdue > In Transit<br>";
+echo "5. Main delivery_status uses priority: Delivered > Overdue > In Transit > Delivery Exception > Unknown<br>";
 echo "6. If item has multiple tracking and ONE is overdue, main status = 'Overdue'<br>";
 echo "</div>";
 
