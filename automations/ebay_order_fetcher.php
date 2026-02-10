@@ -516,23 +516,38 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                         // ========================================
                         // ✅ DELIVERY STATUS UPDATE
                         // ========================================
+                        
                         $newDeliveryStatus = !empty($order['delivery_status']) ? trim($order['delivery_status']) : '';
                         $existingDeliveryStatus = isset($existingRecord['delivery_status']) ? trim($existingRecord['delivery_status']) : '';
-                        
+
                         $finalStatuses = ['Delivered', 'Cancelled', 'Refunded'];
-                        
+
+                        // ✅ CRITICAL FIX: Only update if we have a REAL status (not Unknown, Not Found)
+                        $ignoredStatuses = ['Unknown', 'Not Found', ''];
+
                         if (!empty($newDeliveryStatus) && 
+                            !in_array($newDeliveryStatus, $ignoredStatuses) &&
                             $newDeliveryStatus !== $existingDeliveryStatus &&
                             !in_array($existingDeliveryStatus, $finalStatuses)) {
                             
                             $updateFields[] = "delivery_status = ?";
                             $updateValues[] = $newDeliveryStatus;
                             $updateTypes .= "s";
-                            echo "   → Delivery Status: '<strong style='color: #28a745;'>{$newDeliveryStatus}</strong>'<br>";
+                            
+                            echo "   → Delivery Status: '<strong style='color: #28a745;'>{$newDeliveryStatus}</strong>' ";
+                            echo "(was: '{$existingDeliveryStatus}')<br>";
+                            
                         } elseif (in_array($existingDeliveryStatus, $finalStatuses)) {
                             echo "   ⛔ Delivery Status NOT updated - already in final state: '<strong>{$existingDeliveryStatus}</strong>'<br>";
+                            
+                        } elseif (in_array($newDeliveryStatus, $ignoredStatuses)) {
+                            echo "   ⏭️ Skipping delivery status update - new status is '{$newDeliveryStatus}'<br>";
+                            
                         } elseif (!empty($existingDeliveryStatus) && $newDeliveryStatus === $existingDeliveryStatus) {
                             echo "   ℹ️ Delivery Status unchanged: '{$existingDeliveryStatus}'<br>";
+                            
+                        } else {
+                            echo "   ℹ️ No delivery status to update<br>";
                         }
                         
                         // ========================================
@@ -2602,20 +2617,30 @@ function batch17TrackLookup($orders)
         'Content-Type: application/json'
     ];
     
-    // Collect unique tracking numbers that need lookup
+    echo "<br><div style='background: #fff3cd; padding: 15px; border: 2px solid #ffc107;'>";
+    echo "<strong>📦 BATCH 17TRACK LOOKUP - DETAILED DEBUG</strong><br>";
+    echo "===========================================<br>";
+    
+    // Collect unique tracking numbers
     $trackingMap = []; // trackingNumber => [orderIndices]
     $results = [];     // trackingNumber => status result
     
     foreach ($orders as $idx => $order) {
         $tracking = trim($order['tracking_number1'] ?? '');
-        if (empty($tracking)) continue;
-        
-        // Check DB for final status first — skip if already Delivered/Cancelled/Refunded
         $orderId = $order['order_id'];
+        
+        if (empty($tracking)) {
+            echo "⚠️ Order {$orderId}: NO TRACKING NUMBER<br>";
+            continue;
+        }
+        
+        echo "📋 Order {$orderId}: Tracking = <strong>{$tracking}</strong><br>";
+        
+        // Check DB for final status first
         $existingStatus = getExistingDeliveryStatus($orderId);
         
         if ($existingStatus && in_array($existingStatus['status'], ['Delivered', 'Cancelled', 'Refunded'])) {
-            echo "   ⏭️ Skipping 17track for {$orderId} — already '{$existingStatus['status']}'<br>";
+            echo "   ✅ Already '{$existingStatus['status']}' in DB - SKIPPING 17track<br>";
             $results[$tracking] = $existingStatus;
             continue;
         }
@@ -2626,28 +2651,37 @@ function batch17TrackLookup($orders)
         $trackingMap[$tracking][] = $idx;
     }
     
-    // Filter out already-resolved tracking numbers
+    // Filter out already-resolved
     $toLookup = array_diff_key($trackingMap, $results);
     $trackingNumbers = array_keys($toLookup);
     
+    echo "<br>📊 SUMMARY:<br>";
+    echo "   Total orders: " . count($orders) . "<br>";
+    echo "   With tracking: " . count($trackingMap) . "<br>";
+    echo "   Already resolved: " . count($results) . "<br>";
+    echo "   Need 17track lookup: <strong>" . count($trackingNumbers) . "</strong><br>";
+    echo "</div><br>";
+    
     if (empty($trackingNumbers)) {
-        echo "   All tracking numbers already resolved from DB<br>";
+        echo "✅ All tracking numbers already resolved from DB<br>";
         return $results;
     }
     
-    echo "   📦 Batch 17track lookup for " . count($trackingNumbers) . " tracking numbers<br>";
-    
-    // Process in batches of 40 (17track limit)
+    // Process in batches of 40
     $batches = array_chunk($trackingNumbers, 40);
     
     foreach ($batches as $batchIdx => $batch) {
-        echo "   Batch " . ($batchIdx + 1) . "/" . count($batches) . " (" . count($batch) . " numbers)<br>";
+        echo "<div style='background: #d1ecf1; padding: 10px; margin: 10px 0;'>";
+        echo "<strong>🌐 17TRACK BATCH " . ($batchIdx + 1) . "/" . count($batches) . "</strong><br>";
+        echo "Processing " . count($batch) . " tracking numbers...<br>";
         
-        // Step 1: Register all (will ignore already-registered ones)
+        // Step 1: Register
         $registerData = [];
         foreach ($batch as $tn) {
             $registerData[] = ['number' => $tn];
         }
+        
+        echo "<br>📤 REGISTERING with 17track...<br>";
         
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, 'https://api.17track.net/track/v2.2/register');
@@ -2661,19 +2695,28 @@ function batch17TrackLookup($orders)
         $registerResponse = curl_exec($ch);
         $regData = json_decode($registerResponse, true);
         
-        // Log rejections but don't fail — "already exists" is fine
+        // Debug register response
+        if (isset($regData['data']['accepted'])) {
+            $acceptedCount = count($regData['data']['accepted']);
+            echo "   ✅ Registered: {$acceptedCount}<br>";
+        }
+        
         if (isset($regData['data']['rejected'])) {
             foreach ($regData['data']['rejected'] as $rej) {
+                $num = $rej['number'] ?? 'unknown';
                 $errCode = $rej['error']['code'] ?? 0;
+                $errMsg = $rej['error']['message'] ?? 'unknown';
+                
                 if ($errCode == -18019901) {
-                    // Already registered — fine
+                    echo "   ℹ️ {$num}: Already registered (OK)<br>";
                 } else {
-                    echo "   ⚠️ Register rejected {$rej['number']}: code {$errCode}<br>";
+                    echo "   ⚠️ {$num}: REJECTED - Code {$errCode}: {$errMsg}<br>";
                 }
             }
         }
         
-        // Step 2: Wait then get track info for all
+        // Step 2: Get tracking info
+        echo "<br>📥 FETCHING TRACKING INFO...<br>";
         sleep(1);
         
         $getTrackData = [];
@@ -2685,53 +2728,146 @@ function batch17TrackLookup($orders)
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($getTrackData));
         
         $trackResponse = curl_exec($ch);
+        $trackHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+        
+        echo "   HTTP Response Code: {$trackHttpCode}<br>";
+        
+        if ($trackHttpCode !== 200) {
+            echo "   ❌ 17track API returned HTTP {$trackHttpCode}<br>";
+            echo "   Response: " . substr($trackResponse, 0, 200) . "...<br>";
+            continue;
+        }
         
         $trackData = json_decode($trackResponse, true);
         
-        if (isset($trackData['data']['accepted'])) {
-            foreach ($trackData['data']['accepted'] as $track) {
-                $tn = $track['number'] ?? '';
-                $trackInfo = $track['track_info'] ?? [];
-                $latestEvent = $trackInfo['latest_event'] ?? [];
-                $latestStatus = $trackInfo['latest_status'] ?? [];
-                $statusCode = $latestStatus['status'] ?? 0;
-                $eventTime = $latestEvent['time_iso'] ?? null;
-                $description = $latestEvent['description'] ?? 'Unknown';
-                
-                $deliveredDate = null;
-                if ($eventTime) {
-                    try {
-                        $deliveredDate = (new DateTime($eventTime))->format('Y-m-d H:i:s');
-                    } catch (Exception $e) {}
-                }
-                
-                $carrierName = $track['provider_name'] ?? 'Unknown';
-                
-                switch ($statusCode) {
-                    case 40:
-                        $results[$tn] = ['status' => 'Delivered', 'delivered_date' => $deliveredDate, 'carrier' => $carrierName, 'source' => '17track_actual'];
-                        break;
-                    case 10: case 20: case 30:
-                        $results[$tn] = ['status' => 'In Transit', 'carrier' => $carrierName, 'source' => '17track'];
-                        break;
-                    case 35: case 50:
-                        $results[$tn] = ['status' => 'Delivery Exception', 'carrier' => $carrierName, 'source' => '17track'];
-                        break;
-                    default:
-                        $results[$tn] = ['status' => 'Unknown', 'carrier' => $carrierName, 'source' => '17track'];
-                        break;
-                }
-                
-                echo "   → {$tn}: {$results[$tn]['status']}<br>";
-            }
+        if (!isset($trackData['data']['accepted'])) {
+            echo "   ⚠️ No 'accepted' data in response<br>";
+            echo "   Raw response: " . substr($trackResponse, 0, 300) . "...<br>";
+            continue;
         }
+        
+        $acceptedTracks = $trackData['data']['accepted'];
+        echo "   📦 Received tracking info for " . count($acceptedTracks) . " numbers<br><br>";
+        
+        foreach ($acceptedTracks as $track) {
+            $tn = $track['number'] ?? '';
+            
+            if (empty($tn)) {
+                echo "   ⚠️ Track result missing tracking number<br>";
+                continue;
+            }
+            
+            $trackInfo = $track['track_info'] ?? [];
+            $latestEvent = $trackInfo['latest_event'] ?? [];
+            $latestStatus = $trackInfo['latest_status'] ?? [];
+            $statusCode = $latestStatus['status'] ?? 0;
+            $eventTime = $latestEvent['time_iso'] ?? null;
+            $description = $latestEvent['description'] ?? 'Unknown';
+            $carrierName = $track['provider_name'] ?? 'Unknown';
+            
+            echo "   🔍 <strong>{$tn}</strong>:<br>";
+            echo "      Status Code: {$statusCode}<br>";
+            echo "      Carrier: {$carrierName}<br>";
+            echo "      Description: {$description}<br>";
+            
+            $deliveredDate = null;
+            if ($eventTime) {
+                try {
+                    $deliveredDate = (new DateTime($eventTime))->format('Y-m-d H:i:s');
+                    echo "      Event Time: {$deliveredDate}<br>";
+                } catch (Exception $e) {
+                    echo "      ⚠️ Failed to parse date: {$eventTime}<br>";
+                }
+            }
+            
+            // Map status code to status text
+            switch ($statusCode) {
+                case 40:
+                    $results[$tn] = [
+                        'status' => 'Delivered',
+                        'delivered_date' => $deliveredDate,
+                        'carrier' => $carrierName,
+                        'source' => '17track_actual'
+                    ];
+                    echo "      ✅ <strong style='color: #28a745;'>DELIVERED</strong>";
+                    if ($deliveredDate) {
+                        echo " on {$deliveredDate}";
+                    }
+                    echo "<br>";
+                    break;
+                    
+                case 10:
+                case 20:
+                case 30:
+                    $results[$tn] = [
+                        'status' => 'In Transit',
+                        'carrier' => $carrierName,
+                        'source' => '17track'
+                    ];
+                    echo "      📦 <strong style='color: #007bff;'>IN TRANSIT</strong><br>";
+                    break;
+                    
+                case 35:
+                case 50:
+                    $results[$tn] = [
+                        'status' => 'Delivery Exception',
+                        'carrier' => $carrierName,
+                        'source' => '17track'
+                    ];
+                    echo "      ⚠️ <strong style='color: #ffc107;'>DELIVERY EXCEPTION</strong><br>";
+                    break;
+                    
+                case 0:
+                    $results[$tn] = [
+                        'status' => 'Not Found',
+                        'carrier' => $carrierName,
+                        'source' => '17track'
+                    ];
+                    echo "      ❓ <strong>NOT FOUND</strong><br>";
+                    break;
+                    
+                default:
+                    $results[$tn] = [
+                        'status' => 'Unknown',
+                        'carrier' => $carrierName,
+                        'source' => '17track'
+                    ];
+                    echo "      ❓ <strong>UNKNOWN STATUS ({$statusCode})</strong><br>";
+                    break;
+            }
+            
+            echo "<br>";
+        }
+        
+        echo "</div>";
         
         // Delay between batches
         if ($batchIdx < count($batches) - 1) {
+            echo "⏳ Waiting 2 seconds before next batch...<br>";
             sleep(2);
         }
     }
+    
+    echo "<div style='background: #d4edda; padding: 15px; border: 2px solid #28a745;'>";
+    echo "<strong>✅ BATCH 17TRACK LOOKUP COMPLETE</strong><br>";
+    echo "Total results: " . count($results) . "<br>";
+    
+    // Show breakdown
+    $statusCounts = [];
+    foreach ($results as $result) {
+        $status = $result['status'];
+        if (!isset($statusCounts[$status])) {
+            $statusCounts[$status] = 0;
+        }
+        $statusCounts[$status]++;
+    }
+    
+    echo "<br>Status breakdown:<br>";
+    foreach ($statusCounts as $status => $count) {
+        echo "   {$status}: {$count}<br>";
+    }
+    echo "</div><br>";
     
     return $results;
 }
