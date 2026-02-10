@@ -23,17 +23,14 @@
                         <!-- Use custom image display for captured images -->
                         <div
                             v-if="
-                                data.capturedImages &&
-                                data.capturedImages.capturedimg1
+                                data.capturedImages
                             "
                             class="gallery-thumbnail position-relative"
                             @click="openImageModal(data)"
                             style="cursor: pointer"
                         >
                             <img
-                                :src="`/images/product_images/${
-                                    data.company || 'Airstaffs'
-                                }/${data.capturedImages.capturedimg1}`"
+                                :src="getFirstAvailableImage(data)"
                                 :alt="getDisplayTitle(data)"
                                 style="
                                     width: 50px;
@@ -441,8 +438,7 @@
                 <form method="POST" class="editOrderForm">
                     <div class="form-grid-wrapper">
                         <div class="form-col-left">
-                            <div class="image-section" v-if="allImages.length">
-                                <!-- Main Image -->
+                            <!-- <div class="image-section" v-if="allImages.length">
                                 <div class="main-image">
                                     <img
                                         :src="activeImageUrl"
@@ -452,7 +448,6 @@
                                     />
                                 </div>
 
-                                <!-- Thumbnails -->
                                 <div class="thumbnail-carousel">
                                     <div
                                         v-for="(img, index) in allImages"
@@ -472,8 +467,34 @@
                                         />
                                     </div>
                                 </div>
-                            </div>
-
+                            </div> -->
+                             <ProductImageGallery 
+                                 label="Serial Images"
+                                :imageList="serialImageList"
+                                :imageType="'serial'"
+                                :maxImages="2"
+                                :productId="item.ProductID"
+                                :company="item.company"
+                                @request-refresh="fetchInventory()"
+                            />
+                            <ProductImageGallery 
+                                 label="Product Images"
+                                :imageList="imageList"
+                                :imageType="'captured'"
+                                :maxImages="12"
+                                :productId="item.ProductID"
+                                :company="item.company"
+                                @request-refresh="fetchInventory()"
+                            />
+                            <ProductImageGallery 
+                                 label="Tracking Images"
+                                :imageList="trackingImageList"
+                                :imageType="'tracking'"
+                                :maxImages="2"
+                                :productId="item.ProductID"
+                                :company="item.company"
+                                @request-refresh="fetchInventory()"
+                            />
                             <Card>
                                 <template #title>
                                     <div
@@ -1671,6 +1692,7 @@ import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewIm
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 import { showPricingForPH } from "../../utils/helpers.js";
+import ProductImageGallery from "../../components/ProductImageGallery/ProductImageGallery.vue";
 
 const TABLE_COLUMNS = [
     // {
@@ -1803,6 +1825,7 @@ export default {
         ViewImageGalleryModal,
         AnimateDiv,
         Tag,
+        ProductImageGallery
     },
     data() {
         return {
@@ -1836,6 +1859,24 @@ export default {
         window.addEventListener("resize", this.checkMobile);
     },
     methods: {
+        refreshProductData(updatedProduct) {
+            console.log('🔄 Images updated, refreshing parent data');
+            
+            // Update the item
+            Object.assign(this.item, updatedProduct);
+            
+            // Update in inventory
+            const index = this.inventory.findIndex(
+                p => p.ProductID === updatedProduct.ProductID
+            );
+            if (index !== -1) {
+                this.inventory[index] = updatedProduct;
+            }
+            
+            // Force recompute
+            this.$forceUpdate();
+            this.fetchInventory()
+        },
         toggle(event, item) {
             this.currentActionItem = item;
             this.menuActions = this.getMoreActionItems(this.currentActionItem);

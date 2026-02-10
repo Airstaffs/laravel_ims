@@ -14,156 +14,201 @@ class FnskuController extends BasetablesController
     /**
      * Extract base FNSKU from prefixed FNSKU
      */
-    private function extractBaseFnsku($fnsku)
-    {
-        if (empty($fnsku)) {
-            return $fnsku;
-        }
+        private function extractBaseFnsku($fnsku)
+        {
+            if (empty($fnsku)) {
+                return $fnsku;
+            }
 
-        // Check if it's a prefixed FNSKU (starts with C followed by digits)
-        if (preg_match('/^C(\d+)(.+)$/', $fnsku, $matches)) {
-            return $matches[2]; // Return the base FNSKU without prefix
-        }
+            // Check if it's a prefixed FNSKU (starts with letter C-W or Y-Z, excluding X)
+            // Pattern: Letter(C-W,Y-Z) + Number(1-9) + BaseFNSKU (which starts with X)
+            if (preg_match('/^([C-W]|[Y-Z])(\d+)(X.+)$/', $fnsku, $matches)) {
+                return $matches[3]; // Return the base FNSKU (starting with X)
+            }
 
-        return $fnsku; // Return as-is if not prefixed
-    }/* */
+            return $fnsku; // Return as-is if not prefixed
+        }
+    
+    /* */
 
     /**
      * Generate the next available FNSKU with incremental prefix based on remaining units
      */
 private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $storename)
-    {
-        try {
-            // ✅ Lock FNSKU record using MSKU (only change - more accurate lookup)
-            $fnskuRecord = DB::table($this->fnskuTable)
-                ->where('MSKU', $msku)
-                ->where('ASIN', $asin)
-                ->where('grading', $grading)
-                ->where('storename', $storename)
-                ->where('LimitStatus', 'False')
-                ->whereIn('amazon_status', ['Active', 'Inactive', 'Notposted'])
-                ->lockForUpdate()
-                ->first();
+{
+    try {
+        // ✅ Lock FNSKU record using MSKU
+        $fnskuRecord = DB::table($this->fnskuTable)
+            ->where('MSKU', $msku)
+            ->where('ASIN', $asin)
+            ->where('grading', $grading)
+            ->where('storename', $storename)
+            ->where('LimitStatus', 'False')
+            ->whereIn('amazon_status', ['Active', 'Inactive', 'Notposted'])
+            ->lockForUpdate()
+            ->first();
 
-            if (!$fnskuRecord) {
-                Log::warning("FNSKU not found in database", [
-                    'base_fnsku' => $baseFnsku,
-                    'msku' => $msku,
-                    'asin' => $asin,
-                    'grading' => $grading,
-                    'storename' => $storename
-                ]);
-                
-                return [
-                    'actual_fnsku' => $baseFnsku,
-                    'actual_msku' => $msku,
-                    'times_used' => 0,
-                    'remaining_units' => 0
+        if (!$fnskuRecord) {
+            Log::warning("FNSKU not found in database", [
+                'base_fnsku' => $baseFnsku,
+                'msku' => $msku,
+                'asin' => $asin,
+                'grading' => $grading,
+                'storename' => $storename
+            ]);
+            
+            return [
+                'actual_fnsku' => $baseFnsku,
+                'actual_msku' => $msku,
+                'times_used' => 0,
+                'remaining_units' => 0
+            ];
+        }
+
+        $currentUnits = $fnskuRecord->Units;
+
+        if ($currentUnits <= 0) {
+            throw new \Exception("No remaining units for MSKU: {$msku} (Units: {$currentUnits})");
+        }
+
+        // ✅ Get ALL active FNSKUs (with and without prefix) currently in use
+        $activeFnskus = DB::table($this->productTable)
+            ->select('FNSKUviewer')
+            ->where(function($query) use ($baseFnsku) {
+                $query->where('FNSKUviewer', $baseFnsku)
+                      ->orWhere('FNSKUviewer', 'LIKE', '%' . $baseFnsku); // Match any prefix
+            })
+            ->whereNotIn('ProductModuleLoc', ['Shipment', 'Soldlist', 'Returnlist', 'Merged', 'RTS'])
+            ->lockForUpdate()
+            ->pluck('FNSKUviewer')
+            ->toArray();
+
+        Log::info("Active FNSKUs found", [
+            'base_fnsku' => $baseFnsku,
+            'active_fnskus' => $activeFnskus,
+            'active_count' => count($activeFnskus),
+            'remaining_units' => $currentUnits
+        ]);
+
+        // ✅ Extract used prefixes from active products (supports C-W, Y-Z, excluding X)
+        $usedPrefixes = [];
+        
+        foreach ($activeFnskus as $fnsku) {
+            if ($fnsku === $baseFnsku) {
+                // Base FNSKU (no prefix) is used
+                $usedPrefixes[] = ['letter' => null, 'number' => 0];
+            } elseif (preg_match('/^([C-W]|[Y-Z])(\d+)' . preg_quote($baseFnsku, '/') . '$/', $fnsku, $matches)) {
+                // Extract prefix letter and number (e.g., "C3", "D5", "E1")
+                // Excluding X since base FNSKUs start with X
+                $usedPrefixes[] = [
+                    'letter' => $matches[1],
+                    'number' => (int)$matches[2]
                 ];
             }
+        }
 
-            $currentUnits = $fnskuRecord->Units;
+        Log::info("Prefix analysis", [
+            'base_fnsku' => $baseFnsku,
+            'used_prefixes' => $usedPrefixes,
+            'used_count' => count($usedPrefixes),
+            'remaining_units_in_db' => $currentUnits
+        ]);
 
-            if ($currentUnits <= 0) {
-                throw new \Exception("No remaining units for MSKU: {$msku} (Units: {$currentUnits})");
+        // ✅ Generate prefix sequence from C to Z (excluding X since base FNSKUs start with X)
+        // C-W (22 letters) + Y-Z (2 letters) = 24 letters total
+        // 24 letters × 9 numbers = 216 slots + 1 base = 217 total
+        $prefixSequence = [];
+        
+        // No prefix (base FNSKU)
+        $prefixSequence[] = ['letter' => null, 'number' => 0];
+        
+        // C through W (excluding X)
+        for ($charCode = ord('C'); $charCode <= ord('W'); $charCode++) {
+            $letter = chr($charCode);
+            for ($i = 1; $i <= 9; $i++) {
+                $prefixSequence[] = ['letter' => $letter, 'number' => $i];
             }
-            // ✅ ORIGINAL LOGIC - Get ALL active FNSKUs (with and without prefix) currently in use
-            $activeFnskus = DB::table($this->productTable)
-                ->select('FNSKUviewer')
-                ->where(function($query) use ($baseFnsku) {
-                    $query->where('FNSKUviewer', $baseFnsku)
-                          ->orWhere('FNSKUviewer', 'LIKE', 'C%' . $baseFnsku);
-                })
-                ->whereNotIn('ProductModuleLoc', ['Shipment', 'Soldlist', 'Returnlist', 'Merged', 'RTS'])
-                ->lockForUpdate()
-                ->pluck('FNSKUviewer')
-                ->toArray();
+        }
+        
+        // Y through Z
+        for ($charCode = ord('Y'); $charCode <= ord('Z'); $charCode++) {
+            $letter = chr($charCode);
+            for ($i = 1; $i <= 9; $i++) {
+                $prefixSequence[] = ['letter' => $letter, 'number' => $i];
+            }
+        }
 
-            Log::info("Active FNSKUs found", [
-                'base_fnsku' => $baseFnsku,
-                'active_fnskus' => $activeFnskus,
-                'active_count' => count($activeFnskus),
-                'remaining_units' => $currentUnits
-            ]);
+        Log::info("Prefix sequence generated", [
+            'total_slots_available' => count($prefixSequence),
+            'pattern' => 'base + C1-W9 + Y1-Z9 (excluding X)'
+        ]);
 
-            // ✅ ORIGINAL LOGIC - Extract used prefixes from active products
-            $usedPrefixes = [];
+        // ✅ Find first UNUSED prefix in sequence
+        $nextPrefix = null;
+
+        foreach ($prefixSequence as $candidate) {
+            $isUsed = false;
             
-            foreach ($activeFnskus as $fnsku) {
-                if ($fnsku === $baseFnsku) {
-                    // Base FNSKU (no prefix) is used
-                    $usedPrefixes[] = 0;
-                } elseif (preg_match('/^C(\d+)' . preg_quote($baseFnsku, '/') . '$/', $fnsku, $matches)) {
-                    // Extract prefix number (e.g., "C3" -> 3)
-                    $usedPrefixes[] = (int)$matches[1];
-                }
-            }
-
-            sort($usedPrefixes);
-
-            // ✅ ORIGINAL LOGIC - Maximum prefix is 9 (C0 through C9 = 10 total slots)
-            $maxAllowedPrefix = 9;
-
-            Log::info("Prefix analysis", [
-                'base_fnsku' => $baseFnsku,
-                'used_prefixes' => $usedPrefixes,
-                'used_count' => count($usedPrefixes),
-                'max_allowed_prefix' => $maxAllowedPrefix,
-                'remaining_units_in_db' => $currentUnits
-            ]);
-
-            // ✅ ORIGINAL LOGIC - Find first UNUSED prefix within the allowed range
-            $nextPrefix = null;
-
-            for ($i = 0; $i <= $maxAllowedPrefix; $i++) {
-                if (!in_array($i, $usedPrefixes)) {
-                    $nextPrefix = $i;
+            foreach ($usedPrefixes as $used) {
+                if ($used['letter'] === $candidate['letter'] && 
+                    $used['number'] === $candidate['number']) {
+                    $isUsed = true;
                     break;
                 }
             }
-
-            // ✅ ORIGINAL LOGIC - Check if we found an available prefix slot
-            if ($nextPrefix === null) {
-                throw new \Exception(
-                    "All prefix slots exhausted for FNSKU: {$baseFnsku}. " .
-                    "All " . ($maxAllowedPrefix + 1) . " prefixes (C0-C9) are in use. " .
-                    "Used prefixes: " . implode(', ', $usedPrefixes)
-                );
+            
+            if (!$isUsed) {
+                $nextPrefix = $candidate;
+                break;
             }
-
-            // ✅ ORIGINAL LOGIC - Generate FNSKU with correct prefix
-            if ($nextPrefix === 0) {
-                $actualFnsku = $baseFnsku; // No prefix
-            } else {
-                $actualFnsku = "C{$nextPrefix}{$baseFnsku}";
-            }
-
-            Log::info("✅ Generated FNSKU with available prefix", [
-                'base_fnsku' => $baseFnsku,
-                'used_prefixes' => $usedPrefixes,
-                'next_prefix' => $nextPrefix,
-                'actual_fnsku' => $actualFnsku,
-                'remaining_units' => $currentUnits
-            ]);
-
-            return [
-                'actual_fnsku' => $actualFnsku,
-                'actual_msku' => $msku,  // ✅ Return MSKU for consistency
-                'times_used' => count($usedPrefixes),
-                'remaining_units' => $currentUnits,
-                'next_prefix' => $nextPrefix
-            ];
-
-        } catch (\Exception $e) {
-            Log::error("Error in getNextAvailableFnsku: " . $e->getMessage(), [
-                'base_fnsku' => $baseFnsku,
-                'msku' => $msku,
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            throw $e;
         }
+
+        // ✅ Check if we found an available prefix slot
+        if ($nextPrefix === null) {
+            throw new \Exception(
+                "All prefix slots exhausted for FNSKU: {$baseFnsku}. " .
+                "All " . count($prefixSequence) . " prefixes (base + C1-W9 + Y1-Z9) are in use."
+            );
+        }
+
+        // ✅ Generate FNSKU with correct prefix
+        if ($nextPrefix['letter'] === null) {
+            $actualFnsku = $baseFnsku; // No prefix (base FNSKU)
+        } else {
+            $actualFnsku = "{$nextPrefix['letter']}{$nextPrefix['number']}{$baseFnsku}";
+        }
+
+        $prefixDisplay = $nextPrefix['letter'] 
+            ? "{$nextPrefix['letter']}{$nextPrefix['number']}" 
+            : 'base';
+
+        Log::info("✅ Generated FNSKU with available prefix", [
+            'base_fnsku' => $baseFnsku,
+            'used_count' => count($usedPrefixes),
+            'next_prefix' => $prefixDisplay,
+            'actual_fnsku' => $actualFnsku,
+            'remaining_units' => $currentUnits,
+            'total_capacity' => count($prefixSequence)
+        ]);
+
+        return [
+            'actual_fnsku' => $actualFnsku,
+            'actual_msku' => $msku,
+            'times_used' => count($usedPrefixes),
+            'remaining_units' => $currentUnits,
+            'next_prefix' => $prefixDisplay
+        ];
+
+    } catch (\Exception $e) {
+        Log::error("Error in getNextAvailableFnsku: " . $e->getMessage(), [
+            'base_fnsku' => $baseFnsku,
+            'msku' => $msku,
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        throw $e;
     }
+}
 
 
     /**
@@ -285,176 +330,202 @@ private function updateFnskuUnits($msku, $asin, $grading, $storename, $currentFn
     /**
      * UPDATED getFnskuList to handle prefixed FNSKUs in exclusion logic
      */
-    public function getFnskuList(Request $request)
-    {
-        try {
-            Log::info('=== FNSKU LIST REQUEST START ===');
-            Log::info('Request parameters:', $request->all());
+public function getFnskuList(Request $request)
+{
+    try {
+        Log::info('=== FNSKU LIST REQUEST START ===');
+        Log::info('Request parameters:', $request->all());
 
-            // Get all filter parameters
-            $perPage = min($request->input('limit', 50), 500);
-            $search = $request->input('search', '');
-            $fnsku = $request->input('fnsku', ''); // FNSKU filter
-            $store = $request->input('store', ''); // Store filter
-            $grading = $request->input('grading', ''); // Grading filter
-            $exclude_assigned = $request->boolean('exclude_assigned', true);
+        // Get all filter parameters
+        $perPage = min($request->input('limit', 50), 500);
+        $search = $request->input('search', '');
+        $fnsku = $request->input('fnsku', ''); // FNSKU filter
+        $store = $request->input('store', ''); // Store filter
+        $grading = $request->input('grading', ''); // Grading filter
+        $exclude_assigned = $request->boolean('exclude_assigned', true);
 
-            Log::info('Processed parameters:', [
-                'per_page' => $perPage,
-                'search' => $search,
-                'fnsku' => $fnsku,
-                'store' => $store,
-                'grading' => $grading,
-                'exclude_assigned' => $exclude_assigned,
-            ]);
+        Log::info('Processed parameters:', [
+            'per_page' => $perPage,
+            'search' => $search,
+            'fnsku' => $fnsku,
+            'store' => $store,
+            'grading' => $grading,
+            'exclude_assigned' => $exclude_assigned,
+        ]);
 
-            if (! isset($this->fnskuTable) || ! isset($this->asinTable) || ! isset($this->productTable)) {
-                Log::error('Table properties not set');
-
-                return response()->json([
-                    'error' => 'Database configuration error',
-                    'data' => [],
-                ], 500);
-            }
-
-            // Build base query
-            $query = DB::table($this->fnskuTable.' as fnsku')
-                ->select([
-                    'fnsku.FNSKU',
-                    'fnsku.MSKU',
-                    'fnsku.ASIN',
-                    'fnsku.grading',
-                    'fnsku.Units',
-                    'fnsku.storename',
-                    'fnsku.fnsku_status',
-                    'asin.internal as astitle',
-                    'asin.asin_limit as asinLimit'
-                ])
-                ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->where('fnsku.fnsku_status', 'available')
-                ->where('fnsku.Units', '>', 0)
-                ->whereNotNull('fnsku.FNSKU')
-                ->where('fnsku.FNSKU', '!=', '')
-                ->where('fnsku.FNSKU', '!=', 'NULL')
-                ->whereNotNull('fnsku.ASIN')
-                ->where('fnsku.ASIN', '!=', '')
-                ->where('fnsku.ASIN', '!=', 'NULL')
-                ->where('fnsku.LimitStatus', 'False')
-                ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted']);
-
-            // Apply exclusion logic
-            if ($exclude_assigned) {
-                $query->whereNotIn('fnsku.FNSKU', function ($subquery) {
-                    $subquery->select('FNSKUviewer')
-                        ->from($this->productTable)
-                        ->whereNotNull('FNSKUviewer')
-                        ->where('FNSKUviewer', '!=', '')
-                        ->where('FNSKUviewer', '!=', 'NULL');
-                });
-                Log::info('Exclusion logic applied');
-            }
-
-            // STACK ALL FILTERS with AND logic
-
-            // Filter 1: General search (Title or ASIN)
-            if (! empty($search)) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('fnsku.ASIN', 'like', "%{$search}%")
-                        ->orWhere('asin.internal', 'like', "%{$search}%")
-                        ->orWhere('asin.system_title', 'like', "%{$search}%");
-                });
-                Log::info('Search filter applied:', ['search' => $search]);
-            }
-
-            // Filter 2: FNSKU exact or partial match
-            if (! empty($fnsku)) {
-                $query->where('fnsku.FNSKU', 'like', "%{$fnsku}%");
-                Log::info('FNSKU filter applied:', ['fnsku' => $fnsku]);
-            }
-
-            // Filter 3: Store filter
-            if (! empty($store)) {
-                $query->where('fnsku.storename', $store);
-                Log::info('Store filter applied:', ['store' => $store]);
-            }
-
-            // Filter 4: Grading/Condition filter
-            if (! empty($grading)) {
-                $query->where('fnsku.grading', $grading);
-                Log::info('Grading filter applied:', ['grading' => $grading]);
-            }
-
-            // Apply sorting
-            if (! empty($search)) {
-                // When searching, prioritize exact matches
-                $query->orderByRaw('
-                CASE 
-                    WHEN fnsku.ASIN = ? THEN 1
-                    WHEN fnsku.ASIN LIKE ? THEN 2
-                    WHEN asin.internal LIKE ? THEN 3
-                    ELSE 4
-                END, fnsku.FNSKU
-            ', [$search, $search.'%', '%'.$search.'%']);
-            } else {
-                $query->orderBy('fnsku.ASIN')
-                    ->orderBy('fnsku.FNSKU');
-            }
-
-            Log::info('About to execute query...');
-
-            // Get total count for the filtered results
-            $totalCount = $query->count();
-            Log::info('Total filtered records:', ['count' => $totalCount]);
-
-            // Paginate
-            $fnskuList = $query->simplePaginate($perPage);
-
-            Log::info('Query executed successfully', [
-                'current_page_count' => $fnskuList->count(),
-                'per_page' => $perPage,
-                'current_page' => $fnskuList->currentPage(),
-            ]);
-
-            // Filter out any remaining empty FNSKUs
-            $filteredItems = $fnskuList->getCollection()->filter(function ($item) {
-                return ! empty($item->FNSKU) && $item->FNSKU !== 'NULL' && trim($item->FNSKU) !== '';
-            })->values();
-
-            $fnskuList->setCollection($filteredItems);
-
-            Log::info('After filtering empty FNSKUs:', ['count' => $fnskuList->count()]);
-            Log::info('=== FNSKU LIST REQUEST END ===');
+        if (! isset($this->fnskuTable) || ! isset($this->asinTable) || ! isset($this->productTable)) {
+            Log::error('Table properties not set');
 
             return response()->json([
-                'data' => $fnskuList->items(),
-                'current_page' => $fnskuList->currentPage(),
-                'per_page' => $fnskuList->perPage(),
-                'has_more_pages' => $fnskuList->hasMorePages(),
-                'from' => $fnskuList->firstItem(),
-                'to' => $fnskuList->lastItem(),
-                'total' => $totalCount,
-                'excluded_assigned' => $exclude_assigned,
-                'filters_applied' => [
-                    'search' => ! empty($search),
-                    'fnsku' => ! empty($fnsku),
-                    'store' => ! empty($store),
-                    'grading' => ! empty($grading),
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('=== FNSKU LIST ERROR ===');
-            Log::error('Error message: '.$e->getMessage());
-            Log::error('Error line: '.$e->getLine());
-            Log::error('Stack trace: '.$e->getTraceAsString());
-
-            return response()->json([
-                'error' => 'Failed to fetch FNSKU list',
-                'message' => $e->getMessage(),
+                'error' => 'Database configuration error',
                 'data' => [],
             ], 500);
         }
+
+        // Build base query
+        $query = DB::table($this->fnskuTable.' as fnsku')
+            ->select([
+                'fnsku.FNSKU',
+                'fnsku.MSKU',
+                'fnsku.ASIN',
+                'fnsku.grading',
+                'fnsku.Units',
+                'fnsku.storename',
+                'fnsku.fnsku_status',
+                'asin.internal as astitle',
+                'asin.asin_limit as asinLimit'
+            ])
+            ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+            ->where('fnsku.fnsku_status', 'available')
+            ->where('fnsku.Units', '>', 0)
+            ->whereNotNull('fnsku.FNSKU')
+            ->where('fnsku.FNSKU', '!=', '')
+            ->where('fnsku.FNSKU', '!=', 'NULL')
+            ->whereNotNull('fnsku.ASIN')
+            ->where('fnsku.ASIN', '!=', '')
+            ->where('fnsku.ASIN', '!=', 'NULL')
+            ->where('fnsku.LimitStatus', 'False')
+            ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted']);
+
+        // Apply exclusion logic
+        if ($exclude_assigned) {
+            $query->whereNotIn('fnsku.FNSKU', function ($subquery) {
+                $subquery->select('FNSKUviewer')
+                    ->from($this->productTable)
+                    ->whereNotNull('FNSKUviewer')
+                    ->where('FNSKUviewer', '!=', '')
+                    ->where('FNSKUviewer', '!=', 'NULL');
+            });
+            Log::info('Exclusion logic applied');
+        }
+
+        // STACK ALL FILTERS with AND logic
+
+        // Filter 1: General search (Title or ASIN)
+        if (! empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('fnsku.ASIN', 'like', "%{$search}%")
+                    ->orWhere('asin.internal', 'like', "%{$search}%")
+                    ->orWhere('asin.system_title', 'like', "%{$search}%");
+            });
+            Log::info('Search filter applied:', ['search' => $search]);
+        }
+
+        // Filter 2: FNSKU exact or partial match
+        if (! empty($fnsku)) {
+            $query->where('fnsku.FNSKU', 'like', "%{$fnsku}%");
+            Log::info('FNSKU filter applied:', ['fnsku' => $fnsku]);
+        }
+
+        // Filter 3: Store filter
+        if (! empty($store)) {
+            $query->where('fnsku.storename', $store);
+            Log::info('Store filter applied:', ['store' => $store]);
+        }
+
+        // Filter 4: Grading/Condition filter
+        if (! empty($grading)) {
+            $query->where('fnsku.grading', $grading);
+            Log::info('Grading filter applied:', ['grading' => $grading]);
+        }
+
+        // Apply sorting
+        if (! empty($search)) {
+            // When searching, prioritize exact matches
+            $query->orderByRaw('
+            CASE 
+                WHEN fnsku.ASIN = ? THEN 1
+                WHEN fnsku.ASIN LIKE ? THEN 2
+                WHEN asin.internal LIKE ? THEN 3
+                ELSE 4
+            END, fnsku.FNSKU
+        ', [$search, $search.'%', '%'.$search.'%']);
+        } else {
+            $query->orderBy('fnsku.ASIN')
+                ->orderBy('fnsku.FNSKU');
+        }
+
+        Log::info('About to execute query...');
+
+        // Get total count for the filtered results
+        $totalCount = $query->count();
+        Log::info('Total filtered records:', ['count' => $totalCount]);
+
+        // Paginate
+        $fnskuList = $query->simplePaginate($perPage);
+
+        Log::info('Query executed successfully', [
+            'current_page_count' => $fnskuList->count(),
+            'per_page' => $perPage,
+            'current_page' => $fnskuList->currentPage(),
+        ]);
+
+        // Filter out any remaining empty FNSKUs
+        $filteredItems = $fnskuList->getCollection()->filter(function ($item) {
+            return ! empty($item->FNSKU) && $item->FNSKU !== 'NULL' && trim($item->FNSKU) !== '';
+        })->values();
+
+        // ✅ ADD NEXT FNSKU TO USE FOR EACH ITEM
+        $filteredItems->transform(function ($item) {
+            try {
+                $fnskuInfo = $this->getNextAvailableFnsku(
+                    $item->FNSKU,
+                    $item->MSKU,
+                    $item->ASIN,
+                    $item->grading,
+                    $item->storename
+                );
+                
+                $item->next_fnsku_to_use = $fnskuInfo['actual_fnsku'];
+                $item->next_prefix = $fnskuInfo['next_prefix'] ?? 'base';
+                $item->times_used = $fnskuInfo['times_used'] ?? 0;
+            } catch (\Exception $e) {
+                Log::warning('Could not get next FNSKU for MSKU: ' . $item->MSKU, [
+                    'error' => $e->getMessage()
+                ]);
+                $item->next_fnsku_to_use = $item->FNSKU;
+                $item->next_prefix = 'base';
+                $item->times_used = 0;
+            }
+            
+            return $item;
+        });
+
+        $fnskuList->setCollection($filteredItems);
+
+        Log::info('After filtering empty FNSKUs and adding next FNSKU:', ['count' => $fnskuList->count()]);
+        Log::info('=== FNSKU LIST REQUEST END ===');
+
+        return response()->json([
+            'data' => $fnskuList->items(),
+            'current_page' => $fnskuList->currentPage(),
+            'per_page' => $fnskuList->perPage(),
+            'has_more_pages' => $fnskuList->hasMorePages(),
+            'from' => $fnskuList->firstItem(),
+            'to' => $fnskuList->lastItem(),
+            'total' => $totalCount,
+            'excluded_assigned' => $exclude_assigned,
+            'filters_applied' => [
+                'search' => ! empty($search),
+                'fnsku' => ! empty($fnsku),
+                'store' => ! empty($store),
+                'grading' => ! empty($grading),
+            ],
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('=== FNSKU LIST ERROR ===');
+        Log::error('Error message: '.$e->getMessage());
+        Log::error('Error line: '.$e->getLine());
+        Log::error('Stack trace: '.$e->getTraceAsString());
+
+        return response()->json([
+            'error' => 'Failed to fetch FNSKU list',
+            'message' => $e->getMessage(),
+            'data' => [],
+        ], 500);
     }
+}
 
     public function insertFnsku(Request $request)
     {

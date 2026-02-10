@@ -386,20 +386,21 @@ export default {
                 const orderId = order.platform_order_id;
                 if (!orderId) return;
 
-                if (!this.forms[orderId]) {
-                    this.forms[orderId] = {
-                        deliveryExperience:
-                            "DeliveryConfirmationWithoutSignature",
-                        length: "",
-                        width: "",
-                        height: "",
-                        dimensionUnit: "inches",
-                        weight: "",
-                        weightUnit: "pound",
-                        carrier_description: "",
-                        shipBy: new Date().toISOString(), // or your preferred default
-                    };
-                }
+    if (!this.forms[orderId]) {
+        const defaults = this.getDefaultPackageFromItems(order.items || []);
+
+        this.forms[orderId] = {
+            deliveryExperience: "DeliveryConfirmationWithoutSignature",
+            length: defaults?.length ?? "",
+            width: defaults?.width ?? "",
+            height: defaults?.height ?? "",
+            dimensionUnit: defaults?.dimensionUnit ?? "inches",
+            weight: defaults?.weight ?? "",
+            weightUnit: defaults?.weightUnit ?? "pound",
+            carrier_description: "",
+            shipBy: new Date().toISOString(),
+        };
+    }
 
                 if (this.selectedCarriers[orderId] === undefined) {
                     this.selectedCarriers[orderId] = "";
@@ -424,6 +425,37 @@ export default {
         closeShipmentLabelModal() {
             this.showShipmentLabelModal = false;
         },
+
+        getDefaultPackageFromItems(items = []) {
+    // pick first non-null as baseline
+    const first = items.find(it =>
+        it.white_length || it.white_width || it.white_height || it.white_value
+    );
+
+    if (!first) return null;
+
+    const same = (k) => items.every(it => {
+        const a = it[k];
+        const b = first[k];
+        // treat null/undefined/"" as null
+        return (a ?? null) === (b ?? null);
+    });
+
+    const keys = ['white_length','white_width','white_height','white_value','white_unit'];
+    const allSame = keys.every(k => same(k));
+
+    if (!allSame) return null;
+
+    return {
+        length: first.white_length ?? '',
+        width: first.white_width ?? '',
+        height: first.white_height ?? '',
+        weight: first.white_value ?? '',
+        weightUnit: (first.white_unit ?? '').toLowerCase() || 'pound',
+        // dimension unit isn’t stored in tblasin from your screenshot
+        dimensionUnit: 'inches',
+    };
+},
 
         async getRates() {
             try {

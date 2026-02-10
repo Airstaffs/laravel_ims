@@ -87,19 +87,20 @@ class FBAShipmentController extends Controller
         return response()->json(['message' => 'Item removed from shipment.']);
     }
 
-    private function extractBaseFnsku($fnsku)
-    {
-        if (empty($fnsku)) {
-            return $fnsku;
-        }
+        private function extractBaseFnsku($fnsku)
+        {
+            if (empty($fnsku)) {
+                return $fnsku;
+            }
 
-        // Check if it's a prefixed FNSKU (starts with C followed by digits)
-        if (preg_match('/^C(\d+)(.+)$/', $fnsku, $matches)) {
-            return $matches[2]; // Return the base FNSKU without prefix
-        }
+            // Check if it's a prefixed FNSKU (starts with letter C-W or Y-Z, excluding X)
+            // Pattern: Letter(C-W,Y-Z) + Number(1-9) + BaseFNSKU (which starts with X)
+            if (preg_match('/^([C-W]|[Y-Z])(\d+)(X.+)$/', $fnsku, $matches)) {
+                return $matches[3]; // Return the base FNSKU (starting with X)
+            }
 
-        return $fnsku; // Return as-is if not prefixed
-    }
+            return $fnsku; // Return as-is if not prefixed
+        }
 
     public function fetch_shipment(Request $request)
     {

@@ -2543,7 +2543,7 @@ export default {
                     },
                 );
 
-                if (response.data.status === "success") {
+                if (response.data.success) {
                     alert("Item Posted.");
                 } else {
                     alert("Error: " + response.data.message);
@@ -2587,9 +2587,9 @@ export default {
                     },
                 );
 
-                if (response.data.status === "success") {
+                    if (response.data.success) {
                     alert("Items successfully posted to Amazon.");
-                } else {
+                    } else {
                     alert(
                         "Error: " + (response.data.message || "Unknown error."),
                     );
