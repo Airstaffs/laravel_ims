@@ -2923,32 +2923,42 @@ public function shippinglabelselecteditem(Request $request)
         return response()->json(['error' => 'Missing item IDs'], 400);
     }
 
-    $itemIdArray = explode(',', $itemIds);
+    $itemIdArray = array_values(array_filter(array_map('intval', explode(',', $itemIds))));
+    if (empty($itemIdArray)) {
+        return response()->json(['error' => 'No valid item IDs'], 400);
+    }
 
-    // Fetch the selected order items
-    $items = DB::table('tbloutboundordersitem')
-        ->whereIn('outboundorderitemid', $itemIdArray)
-        ->get();
+    // ✅ Fetch the selected order items + tblasin white_* defaults
+    $items = DB::table('tbloutboundordersitem as i')
+        ->leftJoin('tblasin as a', 'a.ASIN', '=', 'i.platform_asin')
+        ->whereIn('i.outboundorderitemid', $itemIdArray)
+        ->get([
+            'i.*',
 
-    // Group items by platform_order_id
+            // from tblasin
+            'a.white_length',
+            'a.white_width',
+            'a.white_height',
+            'a.white_value',
+            'a.white_unit',
+        ]);
+
     $itemsGrouped = $items->groupBy('platform_order_id');
-
-    // Fetch the corresponding orders
-    $platformOrderIds = $itemsGrouped->keys();
+    $platformOrderIds = $itemsGrouped->keys()->values();
 
     $orders = DB::table('tbloutboundorders')
         ->whereIn('platform_order_id', $platformOrderIds)
         ->get();
 
-    // Combine items into each order
     $response = $orders->map(function ($order) use ($itemsGrouped) {
         $orderArray = (array) $order;
-        $orderArray['items'] = $itemsGrouped[$order->platform_order_id]->values();
+        $orderArray['items'] = ($itemsGrouped[$order->platform_order_id] ?? collect())->values();
         return $orderArray;
-    });
+    })->values();
 
     return response()->json($response);
 }
+
 
 public function fbmorderauthorizedusers(Request $request)
 {
