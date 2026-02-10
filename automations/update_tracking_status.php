@@ -94,14 +94,11 @@ while ($row = $result->fetch_assoc()) {
         
         // SKIP if already in final status
         if (in_array($currentStatus, $finalStatuses)) {
-            echo "⏭️ Skipping {$trackingNumber} (already {$currentStatus})<br>";
             continue;
         }
         
         // SKIP if checked recently (within cache duration)
         if ($timeSinceCheck < CACHE_DURATION) {
-            $hoursAgo = round($timeSinceCheck / 3600, 1);
-            echo "⏭️ Skipping {$trackingNumber} (checked {$hoursAgo}h ago)<br>";
             continue;
         }
         
@@ -198,7 +195,7 @@ foreach ($batches as $batchIdx => $batch) {
     }
     
     if (isset($regData['data']['accepted'])) {
-        echo "   ✅ Registered: " . count($regData['data']['accepted']) . " tracking numbers<br>";
+        echo "✅ Registered: " . count($regData['data']['accepted']) . " tracking numbers<br>";
     }
     
     // Wait before getting track info
@@ -220,7 +217,7 @@ foreach ($batches as $batchIdx => $batch) {
     $trackHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     
-    echo "   HTTP Response: {$trackHttpCode}<br>";
+    echo "HTTP Response: {$trackHttpCode}<br>";
     
     if ($trackHttpCode !== 200) {
         echo "<span style='color: red;'>❌ 17track API returned HTTP {$trackHttpCode}</span><br>";
@@ -288,6 +285,11 @@ foreach ($batches as $batchIdx => $batch) {
                 break;
         }
         
+        // *** FIX: If status is Unknown but we have a delivered date, mark as Delivered ***
+        if ($status === 'Unknown' && $deliveredDate) {
+            $status = 'Delivered';
+        }
+        
         $trackingResults[$tn] = [
             'status' => $status,
             'delivered_date' => $deliveredDate,
@@ -348,9 +350,9 @@ foreach ($trackingToCheck as $trackingNumber => $records) {
     $status = $result['status'];
     $deliveredDate = $result['delivered_date'];
     
-    // Skip if status is Unknown or Not Found
-    if ($status === 'Unknown' || $status === 'Not Found') {
-        echo "→ Skipping {$trackingNumber} (status: {$status})<br>";
+    // *** FIX: Only skip if status is truly unknown (no delivered date) or Not Found ***
+    if (($status === 'Unknown' && !$deliveredDate) || $status === 'Not Found') {
+        echo "→ Skipping {$trackingNumber} (status: {$status}, no delivery info)<br>";
         $skippedCount++;
         continue;
     }
@@ -373,8 +375,8 @@ foreach ($trackingToCheck as $trackingNumber => $records) {
         $updateValues[] = $status;
         $updateTypes .= "s";
         
-        // Update delivered date if status is Delivered
-        if ($deliveredDate && $status === 'Delivered') {
+        // Update delivered date if we have one
+        if ($deliveredDate) {
             $updateFields[] = "{$dateField} = ?";
             $updateValues[] = $deliveredDate;
             $updateTypes .= "s";
@@ -400,7 +402,7 @@ foreach ($trackingToCheck as $trackingNumber => $records) {
         
         if ($stmt->execute()) {
             echo "→ <strong>ProductID {$productID}</strong> | tracking{$trackingIndex}_status = '<strong>{$status}</strong>'";
-            if ($deliveredDate && $status === 'Delivered') {
+            if ($deliveredDate) {
                 echo " | Date: {$deliveredDate}";
             }
             echo "<br>";
