@@ -1,6 +1,8 @@
 <template>
     <div class="vue-container orders-module">
-       <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
+        <div
+            class="d-flex align-items-center justify-content-between flex-wrap mb-4"
+        >
             <TitlePage
                 title="Order Module"
                 subtitle="View and manage all current and past shipment orders, including tracking information and status."
@@ -16,185 +18,378 @@
             />
         </div>
 
+        <!-- Date Range Filters - Toggle Version with Column Layout -->
+        <div class="filter-section mb-3 px-4">
+            <!-- Filter Toggle Button -->
+            <div class="mb-2">
+                <Button
+                    @click="showFilters = !showFilters"
+                    size="small"
+                    severity="secondary"
+                    outlined
+                >
+                    <i
+                        :class="
+                            showFilters ? 'pi pi-filter-slash' : 'pi pi-filter'
+                        "
+                        class="me-2"
+                    ></i>
+                    {{ showFilters ? "Hide Filters" : "Show Filters" }}
+                    <span
+                        v-if="hasActiveFilters"
+                        class="badge bg-primary text-white ms-2"
+                    >
+                        {{ activeFilterCount }}
+                    </span>
+                </Button>
+            </div>
+
+            <!-- Filter Panel -->
+            <transition name="filter-slide">
+                <div v-show="showFilters" class="card p-3 filter-panel">
+                    <div class="d-flex flex-column align-items-start gap-2">
+                        <!-- Filter Icon & Title -->
+                        <div
+                            class="w-100 d-flex justify-content-between align-items-center"
+                        >
+                            <div class="filter-title">
+                                <i class="pi pi-filter me-2"></i>
+                                <span class="fw-semibold">Date Filters</span>
+                            </div>
+                            <Button
+                                v-if="hasActiveFilters"
+                                icon="pi pi-times"
+                                size="small"
+                                severity="secondary"
+                                text
+                                label="Clear filters"
+                                rounded
+                                @click="clearFilters"
+                                v-tooltip.top="'Clear filters'"
+                            />
+                        </div>
+
+                        <!-- Filters Container -->
+                        <div class="d-flex flex-column gap-3 flex-grow-0">
+                            <!-- Order Date Range -->
+                            <div class="filter-row">
+                                <div
+                                    class="d-flex align-items-center gap-2"
+                                    style="width: 100px"
+                                >
+                                    <i
+                                        class="pi pi-calendar"
+                                        style="font-size: 0.85rem"
+                                    ></i>
+                                    <small class="fw-semibold">Order:</small>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <input
+                                        type="date"
+                                        v-model="dateFilters.orderDateFrom"
+                                        class="form-control form-control-sm"
+                                        placeholder="From"
+                                        :max="
+                                            dateFilters.orderDateTo ||
+                                            getCurrentDate()
+                                        "
+                                        style="width: 160px"
+                                    />
+                                    <span class="text-muted">-</span>
+                                    <input
+                                        type="date"
+                                        v-model="dateFilters.orderDateTo"
+                                        class="form-control form-control-sm"
+                                        placeholder="To"
+                                        :min="dateFilters.orderDateFrom"
+                                        :max="getCurrentDate()"
+                                        style="width: 160px"
+                                    />
+                                </div>
+                            </div>
+
+                            <!-- Delivery Date Range -->
+                            <div class="filter-row">
+                                <div
+                                    class="d-flex align-items-center gap-2"
+                                    style="width: 100px"
+                                >
+                                    <i
+                                        class="pi pi-box"
+                                        style="font-size: 0.85rem"
+                                    ></i>
+                                    <small class="fw-semibold">Delivery:</small>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <input
+                                        type="date"
+                                        v-model="dateFilters.deliveryDateFrom"
+                                        class="form-control form-control-sm"
+                                        placeholder="From"
+                                        :max="
+                                            dateFilters.deliveryDateTo ||
+                                            getCurrentDate()
+                                        "
+                                        style="width: 160px"
+                                    />
+                                    <span class="text-muted">-</span>
+                                    <input
+                                        type="date"
+                                        v-model="dateFilters.deliveryDateTo"
+                                        class="form-control form-control-sm"
+                                        placeholder="To"
+                                        :min="dateFilters.deliveryDateFrom"
+                                        style="width: 160px"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Clear Button & Count -->
+                        <!-- <div
+                            class="ms-auto d-flex flex-column align-items-end gap-2"
+                        >
+                            <Button
+                                v-if="hasActiveFilters"
+                                icon="pi pi-times"
+                                size="small"
+                                severity="secondary"
+                                text
+                                rounded
+                                @click="clearFilters"
+                                v-tooltip.top="'Clear filters'"
+                            />
+                            <small class="text-muted">
+                                {{ totalFilteredCount }} /
+                                {{ totalInventoryCount }} items
+                            </small>
+                        </div> -->
+                    </div>
+                </div>
+            </transition>
+        </div>
+
         <!-- Desktop Table Container -->
         <AnimateDiv :delay="200" class="px-4">
-           <XDataTable
-        :value="sortedInventory"
-        :loading="loading"
-        :columns="columns"
-        :paginator="false"
-        selectionMode="multiple"
-        selection="multiple"
-        tableClass="desktop-view"
-        dataKey="ProductID"
-    >
-        <!-- Gallery Column -->
-        <template #gallery="{ data }">
-            <div class="d-flex justify-content-center align-items-center">
-                <TableGallery
-                    :data="data"
-                    :openImageModal="openImageModal"
-                    :handleImageError="handleImageError"
-                    :countAdditionalImages="countAdditionalImages"
-                />
-            </div>
-        </template>
+            <XDataTable
+                :value="filteredAndSortedInventory"
+                :loading="loading"
+                :columns="columns"
+                :paginator="false"
+                selectionMode="multiple"
+                selection="multiple"
+                tableClass="desktop-view"
+                dataKey="ProductID"
+            >
+                <!-- Gallery Column -->
+                <template #gallery="{ data }">
+                    <div
+                        class="d-flex justify-content-center align-items-center"
+                    >
+                        <TableGallery
+                            :data="data"
+                            :openImageModal="openImageModal"
+                            :handleImageError="handleImageError"
+                            :countAdditionalImages="countAdditionalImages"
+                        />
+                    </div>
+                </template>
 
-        <!-- Product Title Column -->
-        <template #ProductTitle="{ data }">
-            <div class="d-flex align-items-start gap-4">
-                <div
-                    style="
-                        word-break: break-word;
-                        white-space: normal;
-                        overflow-wrap: break-word;
-                        flex: 1;
-                    "
-                >
-                    <p style="font-size: 0.8rem">
-                        RT# {{ data.rtcounter }}
-                    </p>
-                    <p class="fw-semibold">
-                        {{ data.ProductTitle }}
-                    </p>
-                </div>
-            </div>
-        </template>
+                <!-- Product Title Column -->
+                <template #ProductTitle="{ data }">
+                    <div class="d-flex align-items-start gap-4">
+                        <div
+                            style="
+                                word-break: break-word;
+                                white-space: normal;
+                                overflow-wrap: break-word;
+                                flex: 1;
+                            "
+                        >
+                            <p style="font-size: 0.8rem">
+                                RT# {{ data.rtcounter }}
+                            </p>
+                            <p class="fw-semibold">
+                                {{ data.ProductTitle }}
+                            </p>
+                        </div>
+                    </div>
+                </template>
 
-        <!-- ASIN Column -->
-        <template #asin="{ data }">
-            <div class="asin-cell">
-                <span v-if="data.display_asin || data.ASIN" class="badge bg-primary">
-                    {{ data.display_asin || data.ASIN }}
-                </span>
-                <span v-else class="text-muted small">
-                    No ASIN
-                </span>
-            </div>
-        </template>
+                <!-- ASIN Column -->
+                <template #asin="{ data }">
+                    <div class="asin-cell">
+                        <span
+                            v-if="data.display_asin || data.ASIN"
+                            class="badge bg-primary"
+                        >
+                            {{ data.display_asin || data.ASIN }}
+                        </span>
+                        <span v-else class="text-muted small"> No ASIN </span>
+                    </div>
+                </template>
 
-        <!-- Quantity Column with Inline Editing -->
-        <template #quantity="{ data }">
-            <div class="quantity-cell">
-                <div v-if="editingQuantity === data.ProductID" class="quantity-edit">
-                    <InputText
-                        v-model="tempQuantity"
-                        type="number"
-                        size="small"
-                        style="width: 60px"
-                        @keyup.enter="saveQuantity(data)"
-                        @keyup.esc="cancelQuantityEdit"
-                        @blur="saveQuantity(data)"
-                        :ref="`quantityInput-${data.ProductID}`"
-                    />
-                </div>
-                <div v-else class="quantity-display" @click="startQuantityEdit(data)">
-                    <span class="quantity-value">{{ data.quantity || 0 }}</span>
-                    <i class="pi pi-pencil text-muted ms-1" style="font-size: 0.7rem"></i>
-                </div>
-            </div>
-        </template>
+                <!-- Quantity Column with Inline Editing -->
+                <template #quantity="{ data }">
+                    <div class="quantity-cell">
+                        <div
+                            v-if="editingQuantity === data.ProductID"
+                            class="quantity-edit"
+                        >
+                            <InputText
+                                v-model="tempQuantity"
+                                type="number"
+                                size="small"
+                                style="width: 60px"
+                                @keyup.enter="saveQuantity(data)"
+                                @keyup.esc="cancelQuantityEdit"
+                                @blur="saveQuantity(data)"
+                                :ref="`quantityInput-${data.ProductID}`"
+                            />
+                        </div>
+                        <div
+                            v-else
+                            class="quantity-display"
+                            @click="startQuantityEdit(data)"
+                        >
+                            <span class="quantity-value">{{
+                                data.quantity || 0
+                            }}</span>
+                            <i
+                                class="pi pi-pencil text-muted ms-1"
+                                style="font-size: 0.7rem"
+                            ></i>
+                        </div>
+                    </div>
+                </template>
 
+                <template #tracking="{ data }">
+                    <div class="tracking-cell">
+                        <!-- Tracking Number -->
+                        <div class="tracking-number">
+                            <i
+                                class="pi pi-box text-muted me-1"
+                                style="font-size: 0.8rem"
+                            ></i>
+                            <span v-if="data.trackingnumber">{{
+                                data.trackingnumber
+                            }}</span>
+                            <span v-else class="text-muted small"
+                                >No tracking</span
+                            >
+                        </div>
 
-        <template #tracking="{ data }">
-            <div class="tracking-cell">
-                <!-- Tracking Number -->
-                <div class="tracking-number">
-                    <i class="pi pi-box text-muted me-1" style="font-size: 0.8rem"></i>
-                    <span v-if="data.trackingnumber">{{ data.trackingnumber }}</span>
-                    <span v-else class="text-muted small">No tracking</span>
-                </div>
-                
-                <!-- Delivery Status -->
-                <div class="delivery-status mt-1">
+                        <!-- Delivery Status -->
+                        <div class="delivery-status mt-1">
+                            <Badge
+                                v-if="data.delivery_status"
+                                :severity="
+                                    getDeliveryStatusSeverity(
+                                        data.delivery_status,
+                                    )
+                                "
+                                :value="data.delivery_status"
+                                size="small"
+                            />
+                            <span v-else class="text-muted small"
+                                >Status unknown</span
+                            >
+                        </div>
+                    </div>
+                </template>
+
+                <template #deliverydate="{ data }">
+                    <div class="delivery-date-cell">
+                        <!-- Actual Delivered Date -->
+                        <div
+                            v-if="
+                                data.datedelivered &&
+                                data.datedelivered !== '0000-00-00' &&
+                                data.datedelivered !== '0000-00-00 00:00:00'
+                            "
+                        >
+                            <i
+                                class="pi pi-check-circle text-success me-1"
+                                style="font-size: 0.8rem"
+                            ></i>
+                            <span class="fw-semibold text-success">{{
+                                formatDeliveryDate(data.datedelivered)
+                            }}</span>
+                        </div>
+
+                        <!-- Estimated Date -->
+                        <div v-else-if="data.estimated_deliverydate">
+                            <i
+                                class="pi pi-clock text-info me-1"
+                                style="font-size: 0.8rem"
+                            ></i>
+                            <span class="text-info">{{
+                                data.estimated_deliverydate
+                            }}</span>
+                        </div>
+
+                        <!-- No Date -->
+                        <span v-else class="text-muted small">N/A</span>
+                    </div>
+                </template>
+
+                <!-- Order Date Column -->
+                <template #orderdate="{ data }">
+                    {{ convertToLocalDate(data.orderdate) }}
+                </template>
+
+                <!-- Status Column -->
+                <template #status="{ data }">
                     <Badge
-                        v-if="data.delivery_status"
-                        :severity="getDeliveryStatusSeverity(data.delivery_status)"
-                        :value="data.delivery_status"
-                        size="small"
+                        :severity="
+                            {
+                                Working: 'success',
+                                Pending: 'warning',
+                            }[data.itemstatus] || 'secondary'
+                        "
+                        :value="data.itemstatus"
                     />
-                    <span v-else class="text-muted small">Status unknown</span>
-                </div>
-            </div>
-        </template>
+                </template>
 
+                <!-- Actions Column -->
+                <template #actions="{ data }">
+                    <div class="action-buttons">
+                        <!-- Edit Button (always visible) -->
+                        <Button
+                            size="small"
+                            icon="pi pi-pencil"
+                            @click="openEditModal(data)"
+                            label="Edit"
+                            severity="contrast"
+                            text
+                        />
 
-       <template #deliverydate="{ data }">
-            <div class="delivery-date-cell">
-                <!-- Actual Delivered Date -->
-                <div v-if="data.datedelivered && data.datedelivered !== '0000-00-00' && data.datedelivered !== '0000-00-00 00:00:00'">
-                    <i class="pi pi-check-circle text-success me-1" style="font-size: 0.8rem"></i>
-                    <span class="fw-semibold text-success">{{ formatDeliveryDate(data.datedelivered) }}</span>
-                </div>
-                
-                <!-- Estimated Date -->
-                <div v-else-if="data.estimated_deliverydate">
-                    <i class="pi pi-clock text-info me-1" style="font-size: 0.8rem"></i>
-                    <span class="text-info">{{ data.estimated_deliverydate }}</span>
-                </div>
-                
-                <!-- No Date -->
-                <span v-else class="text-muted small">N/A</span>
-            </div>
-    </template>
+                        <!-- Set ASIN Button (show when NO ASIN) -->
+                        <Button
+                            v-if="!data.ASINviewer && !data.display_asin"
+                            size="small"
+                            icon="pi pi-link"
+                            @click="openSetAsinModal(data)"
+                            label="Set ASIN"
+                            severity="success"
+                            text
+                            class="set-asin-btn"
+                        />
 
-        <!-- Order Date Column -->
-        <template #orderdate="{ data }">
-            {{ convertToLocalDate(data.orderdate) }}
-        </template>
-
-        <!-- Status Column -->
-        <template #status="{ data }">
-            <Badge
-                :severity="
-                    {
-                        Working: 'success',
-                        Pending: 'warning',
-                    }[data.itemstatus] || 'secondary'
-                "
-                :value="data.itemstatus"
-            />
-        </template>
-
-        <!-- Actions Column -->
-<template #actions="{ data }">
-    <div class="action-buttons">
-        <!-- Edit Button (always visible) -->
-        <Button
-            size="small"
-            icon="pi pi-pencil"
-            @click="openEditModal(data)"
-            label="Edit"
-            severity="contrast"
-            text
-        />
-
-        <!-- Set ASIN Button (show when NO ASIN) -->
-        <Button
-            v-if="!data.ASINviewer && !data.display_asin"
-            size="small"
-            icon="pi pi-link"
-            @click="openSetAsinModal(data)"
-            label="Set ASIN"
-            severity="success"
-            text
-            class="set-asin-btn"
-        />
-        
-        <!-- Remove ASIN Button (show when HAS ASIN) -->
-        <Button
-            v-if="data.ASINviewer || data.display_asin"
-            size="small"
-            icon="pi pi-unlink"
-            @click="removeAsin(data)"
-            label="Remove ASIN"
-            severity="danger"
-            text
-            class="remove-asin-btn"
-        />
-    </div>
-</template>
-    </XDataTable>
+                        <!-- Remove ASIN Button (show when HAS ASIN) -->
+                        <Button
+                            v-if="data.ASINviewer || data.display_asin"
+                            size="small"
+                            icon="pi pi-unlink"
+                            @click="removeAsin(data)"
+                            label="Remove ASIN"
+                            severity="danger"
+                            text
+                            class="remove-asin-btn"
+                        />
+                    </div>
+                </template>
+            </XDataTable>
         </AnimateDiv>
 
         <!-- Mobile Cards View -->
@@ -246,23 +441,29 @@
                                 {{ item.Ebay_seller_location }}</span
                             >
                         </div>
-                        
-                     <div class="mobile-detail-row mb-2">
-                        <span class="mobile-detail-label">Tracking Number:</span>
-                        <div class="d-flex flex-column align-items-end">
-                            <span class="mobile-detal-value">
-                                {{ item.trackingnumber || 'No tracking' }}
-                            </span>
-                            <Badge
-                                v-if="item.delivery_status"
-                                :severity="getDeliveryStatusSeverity(item.delivery_status)"
-                                :value="item.delivery_status"
-                                size="small"
-                                class="mt-1"
-                            />
+
+                        <div class="mobile-detail-row mb-2">
+                            <span class="mobile-detail-label"
+                                >Tracking Number:</span
+                            >
+                            <div class="d-flex flex-column align-items-end">
+                                <span class="mobile-detal-value">
+                                    {{ item.trackingnumber || "No tracking" }}
+                                </span>
+                                <Badge
+                                    v-if="item.delivery_status"
+                                    :severity="
+                                        getDeliveryStatusSeverity(
+                                            item.delivery_status,
+                                        )
+                                    "
+                                    :value="item.delivery_status"
+                                    size="small"
+                                    class="mt-1"
+                                />
+                            </div>
                         </div>
-                    </div>
-                    
+
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label"
                                 >Ordered Condition:</span
@@ -909,10 +1110,8 @@
 
         <ScrollTop />
 
-
-        
-            <!-- Set ASIN Modal -->
-          <SetASINModal
+        <!-- Set ASIN Modal -->
+        <SetASINModal
             v-model:visible="showSetAsinModal"
             :productId="selectedItem?.ProductID"
             :rtCounter="selectedItem?.rtcounter"
@@ -920,15 +1119,13 @@
             @asin-selected="handleAsinSelected"
         />
 
-
-          <!-- Incoming Counter Modal -->
+        <!-- Incoming Counter Modal -->
         <IncomingCountItem
             v-model:visible="showIncomingCounter"
             @close="showIncomingCounter = false"
         />
-   </div>
+    </div>
 </template>
-
 
 <script>
 import Orders from "./orders.js";
@@ -950,8 +1147,8 @@ import {
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
-import SetASINModal from './modals/setASIN.vue';
-import IncomingCountItem from './modals/IncomingCountItem.vue';  
+import SetASINModal from "./modals/setASIN.vue";
+import IncomingCountItem from "./modals/IncomingCountItem.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 import { showPricingForPH } from "../../utils/helpers.js";
 
@@ -1013,7 +1210,7 @@ const TABLE_COLUMNS = [
         header: "Qty",
         sortable: true,
         headerStyle: "font-size: 16px;",
-        slot: "quantity", 
+        slot: "quantity",
         style: { fontSize: "14px", minWidth: "100px", textAlign: "center" },
     },
     {
@@ -1053,7 +1250,7 @@ export default {
         AnimateDiv,
         Tag,
         SetASINModal,
-        IncomingCountItem
+        IncomingCountItem,
     },
     data() {
         return {
@@ -1096,7 +1293,16 @@ export default {
             showPricingSection: showPricingForPH(),
             showSetAsinModal: false,
             selectedItem: null,
-            showIncomingCounter: false
+            showIncomingCounter: false,
+
+            showFilters: false,
+
+            dateFilters: {
+                orderDateFrom: null,
+                orderDateTo: null,
+                deliveryDateFrom: null,
+                deliveryDateTo: null,
+            },
         };
     },
     beforeUnmount() {
@@ -1147,53 +1353,126 @@ export default {
                 this.item.datedelivered = this.convertFromLocalDate(value);
             },
         },
+
+        filteredAndSortedInventory() {
+            let filtered = [...this.sortedInventory]; // Use your existing sortedInventory
+
+            // Filter by Order Date
+            if (this.dateFilters.orderDateFrom) {
+                filtered = filtered.filter((item) => {
+                    if (!item.orderdate) return false;
+                    const orderDate = this.convertToLocalDate(item.orderdate);
+                    return orderDate >= this.dateFilters.orderDateFrom;
+                });
+            }
+
+            if (this.dateFilters.orderDateTo) {
+                filtered = filtered.filter((item) => {
+                    if (!item.orderdate) return false;
+                    const orderDate = this.convertToLocalDate(item.orderdate);
+                    return orderDate <= this.dateFilters.orderDateTo;
+                });
+            }
+
+            // Filter by Delivery Date
+            if (this.dateFilters.deliveryDateFrom) {
+                filtered = filtered.filter((item) => {
+                    // Check both datedelivered and estimated_deliverydate
+                    const deliveryDate = this.getDeliveryDateForFilter(item);
+                    if (!deliveryDate) return false;
+                    return deliveryDate >= this.dateFilters.deliveryDateFrom;
+                });
+            }
+
+            if (this.dateFilters.deliveryDateTo) {
+                filtered = filtered.filter((item) => {
+                    // Check both datedelivered and estimated_deliverydate
+                    const deliveryDate = this.getDeliveryDateForFilter(item);
+                    if (!deliveryDate) return false;
+                    return deliveryDate <= this.dateFilters.deliveryDateTo;
+                });
+            }
+
+            return filtered;
+        },
+
+        hasActiveFilters() {
+            return !!(
+                this.dateFilters.orderDateFrom ||
+                this.dateFilters.orderDateTo ||
+                this.dateFilters.deliveryDateFrom ||
+                this.dateFilters.deliveryDateTo
+            );
+        },
+
+        activeFilterCount() {
+            let count = 0;
+            if (this.dateFilters.orderDateFrom) count++;
+            if (this.dateFilters.orderDateTo) count++;
+            if (this.dateFilters.deliveryDateFrom) count++;
+            if (this.dateFilters.deliveryDateTo) count++;
+            return count;
+        },
+
+        totalFilteredCount() {
+            return this.filteredAndSortedInventory.length;
+        },
+
+        totalInventoryCount() {
+            // Replace 'inventory' with your actual data source property name
+            // This should be the unfiltered, unpaginated full dataset
+            return this.inventory
+                ? this.inventory.length
+                : this.sortedInventory.length;
+        },
     },
     methods: {
+        formatDeliveryDate(dateString) {
+            if (
+                !dateString ||
+                dateString === "0000-00-00" ||
+                dateString === "0000-00-00 00:00:00"
+            ) {
+                return "N/A";
+            }
 
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    timeZone: this.currentTimezone || "UTC",
+                });
+            } catch (error) {
+                console.error("Error formatting delivery date:", error);
+                return dateString;
+            }
+        },
 
-            formatDeliveryDate(dateString) {
-                if (!dateString || dateString === '0000-00-00' || dateString === '0000-00-00 00:00:00') {
-                    return 'N/A';
-                }
-                
-                try {
-                    const date = new Date(dateString);
-                    return date.toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        timeZone: this.currentTimezone || 'UTC'
-                    });
-                } catch (error) {
-                    console.error('Error formatting delivery date:', error);
-                    return dateString;
-                }
-            },
-
-
-         getDeliveryStatusSeverity(status) {
+        getDeliveryStatusSeverity(status) {
             const statusMap = {
-                'Delivered': 'success',
-                'In Transit': 'info',
-                'Awaiting Shipment': 'warning',
-                'Payment Pending': 'secondary',
-                'Delivery Exception': 'danger',
-                'Cancelled': 'danger',
-                'Refunded': 'danger',
-                'Not Found': 'secondary',
-                'Unknown': 'secondary',
-                'Active': 'info',
-                'Delivered (Estimated)': 'success'
+                Delivered: "success",
+                "In Transit": "info",
+                "Awaiting Shipment": "warning",
+                "Payment Pending": "secondary",
+                "Delivery Exception": "danger",
+                Cancelled: "danger",
+                Refunded: "danger",
+                "Not Found": "secondary",
+                Unknown: "secondary",
+                Active: "info",
+                "Delivered (Estimated)": "success",
             };
-            
-            return statusMap[status] || 'secondary';
+
+            return statusMap[status] || "secondary";
         },
 
         openIncomingCounter() {
             this.showIncomingCounter = true;
         },
 
-         convertToLocalDate(dateString) {
+        convertToLocalDate(dateString) {
             if (!dateString) return "";
 
             try {
@@ -1298,18 +1577,76 @@ export default {
             this.showPricingSection = showPricingForPH();
         },
 
-     
-     
+        clearFilters() {
+            this.dateFilters = {
+                orderDateFrom: null,
+                orderDateTo: null,
+                deliveryDateFrom: null,
+                deliveryDateTo: null,
+            };
+        },
+
+        getCurrentDate() {
+            return new Date().toISOString().split("T")[0];
+        },
+
+        getDeliveryDateForFilter(item) {
+            // Try multiple possible delivery date fields
+            let dateToUse = null;
+
+            // Check delivery_sort_date first (seems to be in your data based on column config)
+            if (
+                item.delivery_sort_date &&
+                item.delivery_sort_date !== "0000-00-00" &&
+                item.delivery_sort_date !== "0000-00-00 00:00:00"
+            ) {
+                dateToUse = item.delivery_sort_date;
+            }
+            // Then check datedelivered
+            else if (
+                item.datedelivered &&
+                item.datedelivered !== "0000-00-00" &&
+                item.datedelivered !== "0000-00-00 00:00:00"
+            ) {
+                dateToUse = item.datedelivered;
+            }
+
+            if (!dateToUse) return null;
+
+            try {
+                // If it's already in YYYY-MM-DD format, return as is
+                if (/^\d{4}-\d{2}-\d{2}$/.test(dateToUse)) {
+                    return dateToUse;
+                }
+
+                // Otherwise convert using timezone
+                const date = new Date(dateToUse);
+                const options = {
+                    timeZone: this.currentTimezone || "UTC",
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                };
+                const formatter = new Intl.DateTimeFormat("en-CA", options);
+                return formatter.format(date);
+            } catch (error) {
+                console.error(
+                    "Error converting delivery date for filter:",
+                    error,
+                    dateToUse,
+                );
+                return null;
+            }
+        },
     },
 };
 </script>
-
 
 <style scoped>
 /* Vertical stacked layout */
 .action-buttons-vertical {
     display: flex;
-    flex-direction: column;  /* Stack vertically */
+    flex-direction: column; /* Stack vertically */
     gap: 0.25rem;
     align-items: flex-start; /* Align to left */
 }
@@ -1355,5 +1692,61 @@ export default {
 
 .search-field :deep(.p-input-icon-left > .p-inputtext) {
     padding-left: 2.5rem;
+}
+
+.filter-section {
+    margin-bottom: 1rem;
+}
+
+.filter-panel {
+    width: fit-content;
+    max-width: 100%;
+}
+
+.filter-row {
+    display: flex;
+    flex-direction: column;
+}
+
+.filter-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: #495057;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.form-control[type="date"] {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.form-control-sm[type="date"] {
+    height: 32px;
+}
+
+/* Filter slide animation */
+.filter-slide-enter-active,
+.filter-slide-leave-active {
+    transition: all 0.3s ease;
+}
+
+.filter-slide-enter-from {
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.filter-slide-leave-to {
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 10px;
 }
 </style>
