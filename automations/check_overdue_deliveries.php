@@ -138,12 +138,13 @@ while ($row = $result->fetch_assoc()) {
         // ========================================
         
         // If status is "In Transit" OR "Unknown" -> change to "Overdue"
-        if ($currentStatus === 'In Transit' || $currentStatus === 'Unknown') {
+        if ($currentStatus === 'In Transit' || $currentStatus === 'Unknown' || $currentStatus === '') {
             $updatesNeeded[$statusField] = 'Overdue';
             
+            $displayStatus = empty($currentStatus) ? 'Empty' : $currentStatus;
             $statusColor = $currentStatus === 'In Transit' ? '#007bff' : '#6c757d';
             
-            echo "   → Tracking{$i} (<code>{$trackingNumber}</code>): '<span style='color: {$statusColor};'>{$currentStatus}</span>' → '<span style='color: #dc3545; font-weight: bold;'>Overdue</span>'<br>";
+            echo "   → Tracking{$i} (<code>{$trackingNumber}</code>): '<span style='color: {$statusColor};'>{$displayStatus}</span>' → '<span style='color: #dc3545; font-weight: bold;'>Overdue</span>'<br>";
             $totalMarkedOverdue++;
         }
         // If status is "Overdue" but now delivered -> keep as Delivered (don't change)
