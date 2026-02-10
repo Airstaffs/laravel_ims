@@ -12,94 +12,136 @@ class OrdersController extends BasetablesController
 {
     use TracksHistory;
 
-public function index(Request $request)
-{
-    try {
-        $perPage = $request->input('per_page', 10);
-        $search = $request->input('search', '');
-        $location = $request->input('location', 'Orders');
+    public function index(Request $request)
+    {
+        try {
+            $perPage = $request->input('per_page', 10);
+            $search = $request->input('search', '');
+            $location = $request->input('location', 'Orders');
 
-        // Build query with ASIN join using ASINviewer
-        $productsQuery = DB::table($this->productTable . ' as prod')
-            ->leftJoin($this->asinTable . ' as asin', 'prod.ASINviewer', '=', 'asin.ASIN')
-            ->select([
-                'prod.*',
-                'asin.ASIN as asin_code',
-                DB::raw("COALESCE(
-                    NULLIF(TRIM(asin.system_title), ''), 
-                    NULLIF(TRIM(asin.internal), ''), 
-                    NULLIF(TRIM(prod.ProductTitle), '')
-                ) as AStitle"),
-                'asin.internal',
-                'asin.system_title',
-                'asin.metakeyword',
-                'asin.EAN',
-                'asin.UPC',
-                'asin.ParentAsin',
-                'asin.QuantityInside as asin_quantity',
-                'prod.delivery_status',
-                'prod.datedelivered',
-                'prod.estimated_deliverydate',
-                // ✅ ADD THIS: Computed sort field that uses whichever date exists
-                DB::raw("COALESCE(
-                    prod.datedelivered, 
-                    SUBSTRING_INDEX(prod.estimated_deliverydate, ' to ', 1),
-                    '9999-12-31'
-                ) as delivery_sort_date")
-            ])
-            ->where('prod.ProductModuleLoc', $location)
-            ->whereYear('prod.orderdate', 2026)
-            ->orderBy('prod.orderdate', 'desc');
+            // Build query with ASIN join using ASINviewer
+            $productsQuery = DB::table($this->productTable . ' as prod')
+                ->leftJoin($this->asinTable . ' as asin', 'prod.ASINviewer', '=', 'asin.ASIN')
+                ->select([
+                    'prod.*',
+                    'asin.ASIN as asin_code',
+                    DB::raw("COALESCE(
+                        NULLIF(TRIM(asin.system_title), ''), 
+                        NULLIF(TRIM(asin.internal), ''), 
+                        NULLIF(TRIM(prod.ProductTitle), '')
+                    ) as AStitle"),
+                    'asin.internal',
+                    'asin.system_title',
+                    'asin.metakeyword',
+                    'asin.EAN',
+                    'asin.UPC',
+                    'asin.ParentAsin',
+                    'asin.QuantityInside as asin_quantity',
+                    // ✅ NEW: Include individual tracking statuses and dates
+                    'prod.tracking1_status',
+                    'prod.tracking2_status',
+                    'prod.tracking3_status',
+                    'prod.tracking4_status',
+                    'prod.tracking1_delivered_date',
+                    'prod.tracking2_delivered_date',
+                    'prod.tracking3_delivered_date',
+                    'prod.tracking4_delivered_date',
+                    'prod.tracking_last_checked',
+                    // ✅ Computed sort field using earliest delivered date from all tracking numbers
+                    DB::raw("COALESCE(
+                        LEAST(
+                            COALESCE(prod.tracking1_delivered_date, '9999-12-31'),
+                            COALESCE(prod.tracking2_delivered_date, '9999-12-31'),
+                            COALESCE(prod.tracking3_delivered_date, '9999-12-31'),
+                            COALESCE(prod.tracking4_delivered_date, '9999-12-31')
+                        ),
+                        prod.datedelivered,
+                        SUBSTRING_INDEX(prod.estimated_deliverydate, ' to ', 1),
+                        '9999-12-31'
+                    ) as delivery_sort_date")
+                ])
+                ->where('prod.ProductModuleLoc', $location)
+                ->whereYear('prod.orderdate', 2026)
+                ->orderBy('prod.orderdate', 'desc');
 
-        // Apply search filters
-        if (!empty($search)) {
-            $productsQuery->where(function ($q) use ($search) {
-                $q->where('prod.ProductTitle', 'like', "%{$search}%")
-                    ->orWhere('prod.rtid', 'like', "%{$search}%")
-                    ->orWhere('prod.itemnumber', 'like', "%{$search}%")
-                    ->orWhere('prod.trackingnumber', 'like', "%{$search}%")
-                    ->orWhere('prod.delivery_status', 'like', "%{$search}%")
-                    ->orWhere('prod.rtcounter', 'like', "%{$search}%")
-                    ->orWhere('prod.ASINviewer', 'like', "%{$search}%")
-                    ->orWhere('asin.ASIN', 'like', "%{$search}%")
-                    ->orWhere('asin.internal', 'like', "%{$search}%")
-                    ->orWhere('asin.system_title', 'like', "%{$search}%")
-                    ->orWhere('asin.metakeyword', 'like', "%{$search}%");
-            });
-        }
-
-        $products = $productsQuery->paginate($perPage);
-
-        Log::info('Orders fetched successfully with ASIN join', ['count' => $products->count()]);
-
-        // Transform products to organize data properly
-        $products->getCollection()->transform(function ($product) {
-            if (empty($product->asin_code) && !empty($product->ASINviewer)) {
-                $product->asin_code = $product->ASINviewer;
+            // Apply search filters
+            if (!empty($search)) {
+                $productsQuery->where(function ($q) use ($search) {
+                    $q->where('prod.ProductTitle', 'like', "%{$search}%")
+                        ->orWhere('prod.rtid', 'like', "%{$search}%")
+                        ->orWhere('prod.itemnumber', 'like', "%{$search}%")
+                        ->orWhere('prod.trackingnumber', 'like', "%{$search}%")
+                        ->orWhere('prod.trackingnumber2', 'like', "%{$search}%")
+                        ->orWhere('prod.trackingnumber3', 'like', "%{$search}%")
+                        ->orWhere('prod.trackingnumber4', 'like', "%{$search}%")
+                        ->orWhere('prod.rtcounter', 'like', "%{$search}%")
+                        ->orWhere('prod.ASINviewer', 'like', "%{$search}%")
+                        ->orWhere('asin.ASIN', 'like', "%{$search}%")
+                        ->orWhere('asin.internal', 'like', "%{$search}%")
+                        ->orWhere('asin.system_title', 'like', "%{$search}%")
+                        ->orWhere('asin.metakeyword', 'like', "%{$search}%");
+                });
             }
 
-            $product->display_asin = $product->asin_code ?? $product->ASINviewer ?? null;
-            $product->asin_quantity_inside = $product->asin_quantity ?? null;
+            $products = $productsQuery->paginate($perPage);
 
-            unset($product->asin_quantity);
+            Log::info('Orders fetched successfully with ASIN join', ['count' => $products->count()]);
 
-            return $product;
-        });
+            // Transform products to organize data properly
+            $products->getCollection()->transform(function ($product) {
+                if (empty($product->asin_code) && !empty($product->ASINviewer)) {
+                    $product->asin_code = $product->ASINviewer;
+                }
 
-        return response()->json($products);
+                $product->display_asin = $product->asin_code ?? $product->ASINviewer ?? null;
+                $product->asin_quantity_inside = $product->asin_quantity ?? null;
 
-    } catch (\Exception $e) {
-        Log::error('Error in OrdersController index', [
-            'message' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-        ]);
+                // ✅ NEW: Build tracking info array
+                $product->tracking_info = $this->buildTrackingInfo($product);
 
-        return response()->json([
-            'error' => 'An error occurred while fetching orders',
-            'message' => $e->getMessage(),
-        ], 500);
+                unset($product->asin_quantity);
+
+                return $product;
+            });
+
+            return response()->json($products);
+
+        } catch (\Exception $e) {
+            Log::error('Error in OrdersController index', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'error' => 'An error occurred while fetching orders',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
-}
+
+    private function buildTrackingInfo($product)
+    {
+        $trackingInfo = [];
+        
+        for ($i = 1; $i <= 4; $i++) {
+            $trackingField = $i === 1 ? 'trackingnumber' : "trackingnumber{$i}";
+            $statusField = "tracking{$i}_status";
+            $dateField = "tracking{$i}_delivered_date";
+            
+            $trackingNumber = $product->{$trackingField} ?? null;
+            
+            if (!empty($trackingNumber)) {
+                $trackingInfo[] = [
+                    'number' => $trackingNumber,
+                    'status' => $product->{$statusField} ?? 'Unknown',
+                    'delivered_date' => $product->{$dateField} ?? null,
+                    'index' => $i
+                ];
+            }
+        }
+        
+        return $trackingInfo;
+    }
  public function updateQuantity(Request $request, $id)
     {
         try {
