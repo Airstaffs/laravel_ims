@@ -12,7 +12,7 @@ class OrdersController extends BasetablesController
 {
     use TracksHistory;
 
-    public function index(Request $request)
+   public function index(Request $request)
     {
         try {
             $perPage = $request->input('per_page', 10);
@@ -119,6 +119,9 @@ class OrdersController extends BasetablesController
         }
     }
 
+    /**
+     * ✅ NEW: Build tracking information array
+     */
     private function buildTrackingInfo($product)
     {
         $trackingInfo = [];
@@ -142,6 +145,8 @@ class OrdersController extends BasetablesController
         
         return $trackingInfo;
     }
+
+    
  public function updateQuantity(Request $request, $id)
     {
         try {
@@ -722,16 +727,17 @@ public function removeAsin(Request $request)
 }
 
 
+
 public function getIncomingCount(Request $request)
 {
     try {
         $search = $request->input('search', '');
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
-        $deliveryStatus = $request->input('delivery_status', '');
-        $seller = $request->input('seller', ''); // ✅ NEW
+        $trackingStatus = $request->input('delivery_status', ''); // Keep param name for frontend compatibility
+        $seller = $request->input('seller', '');
 
-        Log::info('Incoming count search params', compact('search', 'dateFrom', 'dateTo', 'deliveryStatus', 'seller'));
+        Log::info('Incoming count search params', compact('search', 'dateFrom', 'dateTo', 'trackingStatus', 'seller'));
 
         // Build base query
         $subQuery = DB::table($this->productTable . ' as prod')
@@ -745,9 +751,17 @@ public function getIncomingCount(Request $request)
                 ) as title"),
                 'prod.seller',
                 'prod.quantity',
-                'prod.datedelivered',
-                'prod.estimated_deliverydate', // VARCHAR field - can be "2026-01-15 to 2026-01-20"
-                'prod.delivery_status'
+                // ✅ Use individual tracking delivered dates
+                'prod.tracking1_delivered_date',
+                'prod.tracking2_delivered_date',
+                'prod.tracking3_delivered_date',
+                'prod.tracking4_delivered_date',
+                // ✅ Use individual tracking statuses
+                'prod.tracking1_status',
+                'prod.tracking2_status',
+                'prod.tracking3_status',
+                'prod.tracking4_status',
+                'prod.estimated_deliverydate'
             ])
             ->where('prod.ProductModuleLoc', 'Orders')
             ->whereNotNull('prod.ASINviewer')
@@ -764,42 +778,49 @@ public function getIncomingCount(Request $request)
             });
         }
 
-        // ✅ Apply seller filter
+        // Apply seller filter
         if (!empty($seller)) {
             $subQuery->where('prod.seller', 'like', "%{$seller}%");
         }
 
-        // Apply delivery status filter
-        if (!empty($deliveryStatus)) {
-            $subQuery->where('prod.delivery_status', '=', $deliveryStatus);
+        // ✅ Apply tracking status filter - check ALL tracking statuses
+        if (!empty($trackingStatus)) {
+            $subQuery->where(function ($q) use ($trackingStatus) {
+                $q->where('prod.tracking1_status', '=', $trackingStatus)
+                    ->orWhere('prod.tracking2_status', '=', $trackingStatus)
+                    ->orWhere('prod.tracking3_status', '=', $trackingStatus)
+                    ->orWhere('prod.tracking4_status', '=', $trackingStatus);
+            });
         }
 
-        // ✅ CRITICAL: Date range filter for VARCHAR estimated_deliverydate field
+        // ✅ Date range filter using individual tracking dates
         if (!empty($dateFrom) || !empty($dateTo)) {
             $subQuery->where(function ($q) use ($dateFrom, $dateTo) {
-                // Check actual delivered date (DATE field)
-                if (!empty($dateFrom) && !empty($dateTo)) {
-                    $q->whereBetween('prod.datedelivered', [$dateFrom, $dateTo]);
-                } elseif (!empty($dateFrom)) {
-                    $q->where('prod.datedelivered', '>=', $dateFrom);
-                } elseif (!empty($dateTo)) {
-                    $q->where('prod.datedelivered', '<=', $dateTo);
-                }
+                // Check any of the tracking delivered dates
+                $q->where(function ($trackingQ) use ($dateFrom, $dateTo) {
+                    for ($i = 1; $i <= 4; $i++) {
+                        $trackingQ->orWhere(function ($dateQ) use ($i, $dateFrom, $dateTo) {
+                            if (!empty($dateFrom) && !empty($dateTo)) {
+                                $dateQ->whereBetween("prod.tracking{$i}_delivered_date", [$dateFrom, $dateTo]);
+                            } elseif (!empty($dateFrom)) {
+                                $dateQ->where("prod.tracking{$i}_delivered_date", '>=', $dateFrom);
+                            } elseif (!empty($dateTo)) {
+                                $dateQ->where("prod.tracking{$i}_delivered_date", '<=', $dateTo);
+                            }
+                        });
+                    }
+                });
                 
-                // ✅ ALSO check estimated_deliverydate VARCHAR field
-                // This handles ranges like "2026-01-15 to 2026-01-20"
+                // Also check estimated_deliverydate VARCHAR field
                 $q->orWhere(function ($subQ) use ($dateFrom, $dateTo) {
                     if (!empty($dateFrom)) {
-                        // Check if estimated date range contains or overlaps with search range
                         $subQ->where('prod.estimated_deliverydate', 'like', "%{$dateFrom}%");
                     }
                     if (!empty($dateTo)) {
                         $subQ->orWhere('prod.estimated_deliverydate', 'like', "%{$dateTo}%");
                     }
-                    // Also check if the VARCHAR contains any date in the range
                     if (!empty($dateFrom) && !empty($dateTo)) {
                         $subQ->orWhere(function ($dateQ) use ($dateFrom, $dateTo) {
-                            // Extract first date from "2026-01-15 to 2026-01-20" format
                             $dateQ->whereRaw("
                                 (SUBSTRING_INDEX(prod.estimated_deliverydate, ' to ', 1) BETWEEN ? AND ?)
                                 OR (SUBSTRING_INDEX(prod.estimated_deliverydate, ' to ', -1) BETWEEN ? AND ?)
@@ -818,17 +839,46 @@ public function getIncomingCount(Request $request)
                 'sub.title',
                 DB::raw('GROUP_CONCAT(DISTINCT sub.seller ORDER BY sub.seller SEPARATOR ", ") as sellers'),
                 DB::raw('SUM(COALESCE(sub.quantity, 1)) as total_quantity'),
-                // ✅ For display: prefer datedelivered, fallback to estimated_deliverydate (VARCHAR)
-                DB::raw('MIN(COALESCE(sub.datedelivered, SUBSTRING_INDEX(sub.estimated_deliverydate, " to ", 1))) as earliest_delivery'),
-                DB::raw('MAX(COALESCE(sub.datedelivered, SUBSTRING_INDEX(sub.estimated_deliverydate, " to ", -1))) as latest_delivery'),
-                DB::raw('MAX(sub.delivery_status) as delivery_status'),
-                // ✅ Flag to indicate if we have actual dates vs estimated
-                DB::raw('MAX(CASE WHEN sub.datedelivered IS NOT NULL THEN 1 ELSE 0 END) as has_actual_date')
+                // ✅ Get earliest delivery date - use MIN with NULLIF to ignore nulls
+                DB::raw('MIN(
+                    CASE 
+                        WHEN sub.tracking1_delivered_date IS NOT NULL THEN sub.tracking1_delivered_date
+                        WHEN sub.tracking2_delivered_date IS NOT NULL THEN sub.tracking2_delivered_date
+                        WHEN sub.tracking3_delivered_date IS NOT NULL THEN sub.tracking3_delivered_date
+                        WHEN sub.tracking4_delivered_date IS NOT NULL THEN sub.tracking4_delivered_date
+                        ELSE SUBSTRING_INDEX(sub.estimated_deliverydate, " to ", 1)
+                    END
+                ) as earliest_delivery'),
+                // ✅ Get latest delivery date
+                DB::raw('MAX(
+                    CASE 
+                        WHEN sub.tracking1_delivered_date IS NOT NULL THEN sub.tracking1_delivered_date
+                        WHEN sub.tracking2_delivered_date IS NOT NULL THEN sub.tracking2_delivered_date
+                        WHEN sub.tracking3_delivered_date IS NOT NULL THEN sub.tracking3_delivered_date
+                        WHEN sub.tracking4_delivered_date IS NOT NULL THEN sub.tracking4_delivered_date
+                        ELSE SUBSTRING_INDEX(sub.estimated_deliverydate, " to ", -1)
+                    END
+                ) as latest_delivery'),
+                // ✅ Get primary tracking status (prioritize Delivered > In Transit > others)
+                DB::raw("MAX(CASE
+                    WHEN sub.tracking1_status = 'Delivered' OR sub.tracking2_status = 'Delivered' OR sub.tracking3_status = 'Delivered' OR sub.tracking4_status = 'Delivered' THEN 'Delivered'
+                    WHEN sub.tracking1_status = 'In Transit' OR sub.tracking2_status = 'In Transit' OR sub.tracking3_status = 'In Transit' OR sub.tracking4_status = 'In Transit' THEN 'In Transit'
+                    WHEN sub.tracking1_status = 'Exception' OR sub.tracking2_status = 'Exception' OR sub.tracking3_status = 'Exception' OR sub.tracking4_status = 'Exception' THEN 'Exception'
+                    WHEN sub.tracking1_status = 'Out for Delivery' OR sub.tracking2_status = 'Out for Delivery' OR sub.tracking3_status = 'Out for Delivery' OR sub.tracking4_status = 'Out for Delivery' THEN 'Out for Delivery'
+                    ELSE COALESCE(sub.tracking1_status, sub.tracking2_status, sub.tracking3_status, sub.tracking4_status, 'Unknown')
+                END) as delivery_status"),
+                // ✅ Flag to indicate if we have actual dates
+                DB::raw('MAX(CASE 
+                    WHEN sub.tracking1_delivered_date IS NOT NULL OR sub.tracking2_delivered_date IS NOT NULL OR sub.tracking3_delivered_date IS NOT NULL OR sub.tracking4_delivered_date IS NOT NULL 
+                    THEN 1 ELSE 0 
+                END) as has_actual_date')
             ])
             ->groupBy('sub.asin', 'sub.title')
             ->orderByDesc('total_quantity');
 
         $results = $query->get();
+
+        Log::info('Query results count', ['count' => $results->count()]);
 
         // Transform results
         $results = $results->map(function ($item) {
@@ -840,7 +890,7 @@ public function getIncomingCount(Request $request)
                 'earliest_delivery' => $item->earliest_delivery,
                 'latest_delivery' => $item->latest_delivery,
                 'delivery_status' => $item->delivery_status ?: 'Unknown',
-                'has_actual_date' => (bool) $item->has_actual_date // ✅ Tells frontend to show green check vs blue clock
+                'has_actual_date' => (bool) $item->has_actual_date
             ];
         });
 
@@ -857,13 +907,15 @@ public function getIncomingCount(Request $request)
     } catch (\Exception $e) {
         Log::error('Error in getIncomingCount', [
             'message' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
+            'trace' => $e->getTraceAsString(),
+            'line' => $e->getLine()
         ]);
 
         return response()->json([
             'success' => false,
             'message' => 'An error occurred',
-            'error' => $e->getMessage()
+            'error' => $e->getMessage(),
+            'trace' => config('app.debug') ? $e->getTraceAsString() : null
         ], 500);
     }
 }
@@ -876,8 +928,8 @@ public function getIncomingCountDetails(Request $request)
         $search = $request->input('search', '');
         $dateFrom = $request->input('date_from', '');
         $dateTo = $request->input('date_to', '');
-        $deliveryStatus = $request->input('delivery_status', '');
-        $seller = $request->input('seller', ''); // ✅ NEW
+        $trackingStatus = $request->input('delivery_status', '');
+        $seller = $request->input('seller', '');
 
         $query = DB::table($this->productTable . ' as prod')
             ->leftJoin($this->asinTable . ' as asin', 'prod.ASINviewer', '=', 'asin.ASIN')
@@ -886,19 +938,44 @@ public function getIncomingCountDetails(Request $request)
                 'prod.rtcounter',
                 'prod.ProductTitle',
                 'prod.quantity',
-                'prod.datedelivered',
-                'prod.estimated_deliverydate',
+                // ✅ Include all tracking fields
                 'prod.trackingnumber',
+                'prod.trackingnumber2',
+                'prod.trackingnumber3',
+                'prod.trackingnumber4',
+                'prod.tracking1_status',
+                'prod.tracking2_status',
+                'prod.tracking3_status',
+                'prod.tracking4_status',
+                'prod.tracking1_delivered_date',
+                'prod.tracking2_delivered_date',
+                'prod.tracking3_delivered_date',
+                'prod.tracking4_delivered_date',
+                'prod.estimated_deliverydate',
                 'prod.serialnumber',
                 'prod.warehouselocation',
-                'prod.delivery_status',
                 'prod.seller',
                 'asin.ASIN as asin_code',
                 DB::raw("COALESCE(
                     NULLIF(TRIM(asin.system_title), ''), 
                     NULLIF(TRIM(asin.internal), ''), 
                     NULLIF(TRIM(prod.ProductTitle), '')
-                ) as display_title")
+                ) as display_title"),
+                // ✅ Computed delivery status
+                DB::raw("CASE
+                    WHEN prod.tracking1_status = 'Delivered' OR prod.tracking2_status = 'Delivered' OR prod.tracking3_status = 'Delivered' OR prod.tracking4_status = 'Delivered' THEN 'Delivered'
+                    WHEN prod.tracking1_status = 'In Transit' OR prod.tracking2_status = 'In Transit' OR prod.tracking3_status = 'In Transit' OR prod.tracking4_status = 'In Transit' THEN 'In Transit'
+                    WHEN prod.tracking1_status = 'Exception' OR prod.tracking2_status = 'Exception' OR prod.tracking3_status = 'Exception' OR prod.tracking4_status = 'Exception' THEN 'Exception'
+                    ELSE COALESCE(prod.tracking1_status, prod.tracking2_status, prod.tracking3_status, prod.tracking4_status, 'Unknown')
+                END as delivery_status"),
+                // ✅ Earliest delivered date
+                DB::raw('CASE 
+                    WHEN prod.tracking1_delivered_date IS NOT NULL THEN prod.tracking1_delivered_date
+                    WHEN prod.tracking2_delivered_date IS NOT NULL THEN prod.tracking2_delivered_date
+                    WHEN prod.tracking3_delivered_date IS NOT NULL THEN prod.tracking3_delivered_date
+                    WHEN prod.tracking4_delivered_date IS NOT NULL THEN prod.tracking4_delivered_date
+                    ELSE NULL
+                END as datedelivered')
             ])
             ->where('prod.ProductModuleLoc', 'Orders');
 
@@ -920,26 +997,38 @@ public function getIncomingCountDetails(Request $request)
             });
         }
 
-        // ✅ Seller filter
+        // Seller filter
         if (!empty($seller)) {
             $query->where('prod.seller', 'like', "%{$seller}%");
         }
 
-        // Delivery status filter
-        if (!empty($deliveryStatus)) {
-            $query->where('prod.delivery_status', '=', $deliveryStatus);
+        // ✅ Tracking status filter
+        if (!empty($trackingStatus)) {
+            $query->where(function ($q) use ($trackingStatus) {
+                $q->where('prod.tracking1_status', '=', $trackingStatus)
+                    ->orWhere('prod.tracking2_status', '=', $trackingStatus)
+                    ->orWhere('prod.tracking3_status', '=', $trackingStatus)
+                    ->orWhere('prod.tracking4_status', '=', $trackingStatus);
+            });
         }
 
-        // ✅ Date filter
+        // ✅ Date filter using tracking dates
         if (!empty($dateFrom) || !empty($dateTo)) {
             $query->where(function ($q) use ($dateFrom, $dateTo) {
-                if (!empty($dateFrom) && !empty($dateTo)) {
-                    $q->whereBetween('prod.datedelivered', [$dateFrom, $dateTo]);
-                } elseif (!empty($dateFrom)) {
-                    $q->where('prod.datedelivered', '>=', $dateFrom);
-                } elseif (!empty($dateTo)) {
-                    $q->where('prod.datedelivered', '<=', $dateTo);
-                }
+                // Check any tracking delivered date
+                $q->where(function ($trackingQ) use ($dateFrom, $dateTo) {
+                    for ($i = 1; $i <= 4; $i++) {
+                        $trackingQ->orWhere(function ($dateQ) use ($i, $dateFrom, $dateTo) {
+                            if (!empty($dateFrom) && !empty($dateTo)) {
+                                $dateQ->whereBetween("prod.tracking{$i}_delivered_date", [$dateFrom, $dateTo]);
+                            } elseif (!empty($dateFrom)) {
+                                $dateQ->where("prod.tracking{$i}_delivered_date", '>=', $dateFrom);
+                            } elseif (!empty($dateTo)) {
+                                $dateQ->where("prod.tracking{$i}_delivered_date", '<=', $dateTo);
+                            }
+                        });
+                    }
+                });
                 
                 // Also check VARCHAR estimated_deliverydate
                 $q->orWhere(function ($subQ) use ($dateFrom, $dateTo) {
@@ -953,7 +1042,7 @@ public function getIncomingCountDetails(Request $request)
             });
         }
 
-        $query->orderByDesc(DB::raw('COALESCE(prod.datedelivered, prod.estimated_deliverydate)'));
+        $query->orderByDesc('prod.ProductID');
 
         $items = $query->get();
 

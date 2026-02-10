@@ -887,7 +887,7 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
         throw new Exception("Failed to prepare insert statement: " . $mysqli->error);
     }
     
-    $stmt->bind_param("ssssdiddddsssssssssisssssssssss", 
+    $stmt->bind_param("ssssdiddddsssssssssissssssssss", 
         $orderID,              // 1  - s - rtid
         $itemID,               // 2  - s - itemnumber
         $title,                // 3  - s - ProductTitle
