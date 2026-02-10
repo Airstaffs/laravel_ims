@@ -451,15 +451,9 @@ export default {
         /**
          * Calculate what FNSKU will actually be assigned (with prefix if needed)
          */
-        getNextFnskuToUse(fnsku) {
-            const timesUsed = 10 - fnsku.Units;
-
-            if (timesUsed === 0) {
-                return fnsku.FNSKU; // First use - original FNSKU
-            } else {
-                return `C${timesUsed}${fnsku.FNSKU}`; // Add prefix
-            }
-        },
+      getNextFnskuToUse(fnsku) {
+     return fnsku.next_fnsku_to_use || fnsku.FNSKU;
+},
 
         /**
          * Get usage badge class based on usage count - FIXED TYPO
