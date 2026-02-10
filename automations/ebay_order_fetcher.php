@@ -347,7 +347,6 @@ function processOrdersWithResume($pageOrders, $currentPage) {
     $totalProcessed = $progress['total_processed'];
     $pageOrderIndex = 0;
     
-    // Resume logic
     if ($currentPage == $progress['current_page'] && !$progress['page_completed']) {
         $pageOrderIndex = $progress['page_order_index'];
         echo "Resuming page $currentPage from order index $pageOrderIndex<br>";
@@ -358,21 +357,17 @@ function processOrdersWithResume($pageOrders, $currentPage) {
     echo "=== PROCESSING PAGE $currentPage ===<br>";
     echo "Total orders on this page: " . count($pageOrders) . "<br>";
     echo "Starting from index: $pageOrderIndex<br>";
-    echo "MODE: SMART PROCESSING - Prevent duplicates, Smart update for Orders module<br>";
+    echo "MODE: SMART PROCESSING - Insert new, Update existing (NO tracking status updates)<br>";
     echo "====================================<br><br>";
     
     $currentProcessed = 0;
     $skippedCount = 0;
     $errorCount = 0;
-    $trackingUpdatedCount = 0;
     $newRecordsCount = 0;
     $existingRecordsUpdated = 0;
-    $smartUpdatedCount = 0;
     $preventedDuplicates = 0;
     
-    // Process orders starting from the correct index within the page
     for ($i = $pageOrderIndex; $i < count($pageOrders); $i++) {
-        // CRITICAL: Check database connection at the start of each loop iteration
         checkDatabaseConnection();
         
         $order = $pageOrders[$i];
@@ -387,7 +382,6 @@ function processOrdersWithResume($pageOrders, $currentPage) {
         }
         
         try {
-            // Process each item in the order
             foreach ($order['items'] as $itemIndex => $item) {
                 $itemID = $item['item_id'];
                 
@@ -406,18 +400,12 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                 echo "📊 Status: {$orderStatus}<br>";
                 echo "<br>";
 
-                // ============================================
-                // CRITICAL: Check for existing record FIRST
-                // ============================================
-                echo "<strong style='color: #0056b3;'>🔎 CHECKING DATABASE FOR EXISTING RECORD...</strong><br>";
-                
+                // Check for existing record
                 checkDatabaseConnection();
                 $checkStmt = $mysqli->prepare("
                     SELECT ProductID, ProductModuleLoc, rtid, itemnumber,
-                           trackingnumber, trackingnumber2, trackingnumber3, 
-                           trackingnumber4, carrier, shipdate,
-                           listedcondition, itemstatus, delivery_status, 
-                           datedelivered, estimated_deliverydate
+                           trackingnumber, trackingnumber2, trackingnumber3, trackingnumber4,
+                           carrier, shipdate, listedcondition, itemstatus
                     FROM tblproduct 
                     WHERE rtid = ? AND itemnumber = ?
                     LIMIT 1
@@ -428,7 +416,6 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                 }
                 
                 $checkStmt->bind_param("ss", $orderID, $itemID);
-                echo "   Searching: rtid='{$orderID}' AND itemnumber='{$itemID}'<br>";
                 
                 if (!$checkStmt->execute()) {
                     throw new Exception("Failed to execute check: " . $checkStmt->error);
@@ -438,11 +425,8 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                 $existingRecord = $result->fetch_assoc();
                 $checkStmt->close();
 
-                // ============================================
-                // DECISION POINT: Existing vs New Record
-                // ============================================
                 if ($existingRecord) {
-                    // EXISTING RECORD FOUND
+                    // EXISTING RECORD
                     echo "<div style='background: #fff3cd; padding: 8px; border-left: 4px solid #ffc107;'>";
                     echo "<strong>✅ EXISTING RECORD FOUND</strong><br>";
                     echo "   ProductID: {$existingRecord['ProductID']}<br>";
@@ -455,9 +439,9 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                     // Only update if in Orders module
                     if ($existingRecord['ProductModuleLoc'] === 'Orders') {
                         echo "<div style='background: #d1ecf1; padding: 8px; margin-top: 5px;'>";
-                        echo "<strong>📝 Orders Module - Applying Smart Updates</strong><br>";
+                        echo "<strong>📝 Orders Module - Applying Updates</strong><br>";
                         
-                        // Extract tracking data from current order
+                        // Extract data from current order
                         $newTrackingNumber1 = !empty($order['tracking_number1']) ? trim($order['tracking_number1']) : '';
                         $newTrackingNumber2 = !empty($order['tracking_number2']) ? trim($order['tracking_number2']) : '';
                         $newTrackingNumber3 = !empty($order['tracking_number3']) ? trim($order['tracking_number3']) : '';
@@ -470,7 +454,7 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                         $updateValues = [];
                         $updateTypes = "";
                         
-                        // Build update fields for tracking
+                        // Update tracking numbers
                         if (!empty($newTrackingNumber1)) {
                             $updateFields[] = "trackingnumber = ?";
                             $updateValues[] = $newTrackingNumber1;
@@ -513,96 +497,19 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                             echo "   → ShipDate: '{$newShipDate}'<br>";
                         }
                         
-                        // ========================================
-                        // ✅ DELIVERY STATUS UPDATE
-                        // ========================================
-                        $newDeliveryStatus = !empty($order['delivery_status']) ? trim($order['delivery_status']) : '';
-                        $existingDeliveryStatus = isset($existingRecord['delivery_status']) ? trim($existingRecord['delivery_status']) : '';
+                        // ✅ REMOVED: ALL delivery_status and datedelivered update logic
                         
-                        $finalStatuses = ['Delivered', 'Cancelled', 'Refunded'];
-                        
-                        if (!empty($newDeliveryStatus) && 
-                            $newDeliveryStatus !== $existingDeliveryStatus &&
-                            !in_array($existingDeliveryStatus, $finalStatuses)) {
-                            
-                            $updateFields[] = "delivery_status = ?";
-                            $updateValues[] = $newDeliveryStatus;
-                            $updateTypes .= "s";
-                            echo "   → Delivery Status: '<strong style='color: #28a745;'>{$newDeliveryStatus}</strong>'<br>";
-                        } elseif (in_array($existingDeliveryStatus, $finalStatuses)) {
-                            echo "   ⛔ Delivery Status NOT updated - already in final state: '<strong>{$existingDeliveryStatus}</strong>'<br>";
-                        } elseif (!empty($existingDeliveryStatus) && $newDeliveryStatus === $existingDeliveryStatus) {
-                            echo "   ℹ️ Delivery Status unchanged: '{$existingDeliveryStatus}'<br>";
-                        }
-                        
-                        // ========================================
-                        // ✅ ACTUAL DELIVERED DATE (from 17track only)
-                        // ✅ CRITICAL FIX: Only update if status is "Delivered"
-                        // ========================================
-                        $actualDeliveredDate = isset($order['actual_delivered_date']) ? $order['actual_delivered_date'] : null;
-                        $existingDeliveredDate = isset($existingRecord['datedelivered']) ? trim($existingRecord['datedelivered']) : '';
-                        
-                        // ✅ Check if the NEW delivery status is "Delivered"
-                        $isDelivered = (
-                            $newDeliveryStatus === 'Delivered' || 
-                            stripos($newDeliveryStatus, 'Delivered') !== false
-                        );
-                        
-                        // Only update datedelivered if:
-                        // 1. Status is "Delivered" (not "In Transit", "Awaiting Shipment", etc.)
-                        // 2. We have ACTUAL date from 17track
-                        // 3. No existing date in DB (or it's empty/zero date)
-                        if ($isDelivered && 
-                            !empty($actualDeliveredDate) && 
-                            (empty($existingDeliveredDate) || $existingDeliveredDate === '0000-00-00 00:00:00')) {
-                            
-                            $updateFields[] = "datedelivered = ?";
-                            $updateValues[] = $actualDeliveredDate;
-                            $updateTypes .= "s";
-                            echo "   → 📅 ACTUAL Delivered Date: '<strong style='color: #28a745;'>{$actualDeliveredDate}</strong>' (from 17track, status: {$newDeliveryStatus})<br>";
-                            
-                        } elseif (!$isDelivered && !empty($actualDeliveredDate)) {
-                            // ✅ IMPORTANT: Don't set date if status isn't "Delivered"
-                            echo "   ⚠️ NOT setting delivered date - Status is '<strong>{$newDeliveryStatus}</strong>' (not Delivered)<br>";
-                            echo "      Available date ignored: {$actualDeliveredDate}<br>";
-                            
-                        } elseif (!empty($existingDeliveredDate) && $existingDeliveredDate !== '0000-00-00 00:00:00') {
-                            echo "   ✓ ACTUAL Delivered Date already set: '<strong>{$existingDeliveredDate}</strong>' (NOT overwriting)<br>";
-                            
-                        } elseif ($isDelivered && empty($actualDeliveredDate)) {
-                            echo "   ℹ️ Status is Delivered but no actual date from 17track yet<br>";
-                        }
-                        
-                        // ========================================
-                        // ✅ ESTIMATED DELIVERY DATE (from eBay)
-                        // ========================================
+                        // Update estimated delivery date
                         $newEstimatedDate = isset($order['estimated_deliverydate']) ? $order['estimated_deliverydate'] : null;
-                        $existingEstimatedDate = isset($existingRecord['estimated_deliverydate']) ? trim($existingRecord['estimated_deliverydate']) : '';
                         
-                        // Update estimated date if:
-                        // 1. We have a new estimate from eBay
-                        // 2. New estimate is different from existing
-                        // 3. No actual delivered date exists yet (once actual exists, estimate is irrelevant)
-                        if (!empty($newEstimatedDate) && 
-                            $newEstimatedDate !== $existingEstimatedDate &&
-                            (empty($existingDeliveredDate) || $existingDeliveredDate === '0000-00-00 00:00:00')) {
-                            
+                        if (!empty($newEstimatedDate)) {
                             $updateFields[] = "estimated_deliverydate = ?";
                             $updateValues[] = $newEstimatedDate;
                             $updateTypes .= "s";
-                            echo "   → 📅 Estimated Delivery: '<strong>{$newEstimatedDate}</strong>' (from eBay)<br>";
-                            
-                        } elseif (!empty($existingDeliveredDate) && $existingDeliveredDate !== '0000-00-00 00:00:00') {
-                            echo "   ℹ️ Estimated Date not needed - ACTUAL delivered date exists: '{$existingDeliveredDate}'<br>";
-                        } elseif (!empty($existingEstimatedDate) && $newEstimatedDate === $existingEstimatedDate) {
-                            echo "   ℹ️ Estimated Delivery unchanged: '{$existingEstimatedDate}'<br>";
-                        } elseif (empty($newEstimatedDate)) {
-                            echo "   ℹ️ No estimated delivery date from eBay<br>";
+                            echo "   → 📅 Estimated Delivery: '{$newEstimatedDate}'<br>";
                         }
                         
-                        // ========================================
                         // Other order fields
-                        // ========================================
                         $paymentDate = isset($order['paid_time']) ? date('Y-m-d H:i:s', strtotime($order['paid_time'])) : null;
                         $paymentMethod = 'eBay';
                         $sellerName = $order['seller_user_id'] ?? 'N/A';
@@ -698,9 +605,6 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                                 
                                 $existingProductID = $existingRecord['ProductID'];
                                 smartImageUpdateForExistingRecord($existingProductID, $itemID);
-                                
-                                $trackingUpdatedCount++;
-                                $smartUpdatedCount++;
                             } else {
                                 throw new Exception("Update failed: " . $updateStmt->error);
                             }
@@ -709,21 +613,19 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                             echo "   ℹ️ No fields to update<br>";
                         }
                         
-                        echo "</div>"; // End Orders module update div
-                        
+                        echo "</div>";
                         $existingRecordsUpdated++;
                         
                     } else {
                         // NON-ORDERS MODULE
                         echo "<div style='background: #f8d7da; padding: 8px; margin-top: 5px;'>";
                         echo "<strong>⏭️ Non-Orders Module ('{$existingRecord['ProductModuleLoc']}') - NO UPDATES</strong><br>";
-                        echo "   Record exists in different module, skipping all operations<br>";
                         echo "</div>";
                         $skippedCount++;
                     }
                     
                 } else {
-                    // NO EXISTING RECORD - Safe to insert
+                    // NO EXISTING RECORD
                     echo "<div style='background: #d4edda; padding: 8px; border-left: 4px solid #28a745;'>";
                     echo "<strong>🆕 NO EXISTING RECORD FOUND</strong><br>";
                     
@@ -737,28 +639,25 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                         echo "   🆕 Proceeding with INSERT...<br>";
                         echo "</div>";
                         
-                        // Insert new record
                         insertNewRecord($order, $item, $orderID, $itemID, $title);
                         echo "<strong style='color: #28a745;'>✅ INSERT COMPLETED</strong><br>";
                         $newRecordsCount++;
                     }
                 }
                 
-                echo "</div>"; // End item div
+                echo "</div>";
                 echo "<br>";
             }
             
             $currentProcessed++;
             $totalProcessed++;
             
-            // Save progress with page index every few items
             if ($currentProcessed % 5 == 0) {
                 saveProgress($orderID, isset($itemID) ? $itemID : null, $currentPage, $totalProcessed, $i + 1, false);
                 echo "💾 <strong>CHECKPOINT SAVED</strong><br><br>";
             }
             
-            // Small delay between items
-            usleep(100000); // 0.1 second delay
+            usleep(100000);
             
         } catch (Exception $e) {
             $errorCount++;
@@ -766,7 +665,6 @@ function processOrdersWithResume($pageOrders, $currentPage) {
             echo "<strong>❌ ERROR:</strong> " . $e->getMessage() . "<br>";
             echo "</div>";
             
-            // If it's a MySQL error, force reconnection
             if (strpos($e->getMessage(), 'MySQL') !== false || 
                 strpos($e->getMessage(), 'gone away') !== false ||
                 strpos($e->getMessage(), 'Lost connection') !== false) {
@@ -776,15 +674,11 @@ function processOrdersWithResume($pageOrders, $currentPage) {
             
             $currentProcessed++;
             $totalProcessed++;
-            
-            // Still save progress even on error
             saveProgress($orderID, isset($itemID) ? $itemID : null, $currentPage, $totalProcessed, $i + 1, false);
-            
             continue;
         }
     }
     
-    // Mark this page as completed and move to next page
     echo "<hr>";
     echo "✅ Page $currentPage processing completed<br>";
     saveProgress(null, null, $currentPage + 1, $totalProcessed, 0, true);
@@ -792,7 +686,7 @@ function processOrdersWithResume($pageOrders, $currentPage) {
     echo "<br><div style='background: #e7f3ff; padding: 15px; border: 2px solid #007bff;'>";
     echo "<strong>=== PAGE $currentPage SUMMARY ===</strong><br>";
     echo "📊 Orders processed: <strong>{$currentProcessed}</strong><br>";
-    echo "✅ Smart updates: <strong>{$smartUpdatedCount}</strong><br>";
+    echo "✅ Existing updated: <strong>{$existingRecordsUpdated}</strong><br>";
     echo "🆕 New records: <strong>{$newRecordsCount}</strong><br>";
     echo "🚫 Prevented duplicates: <strong style='color: #dc3545;'>{$preventedDuplicates}</strong><br>";
     echo "⏭️ Skipped: <strong>{$skippedCount}</strong><br>";
@@ -986,14 +880,14 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
 
     $rtcounter = fetchRtCounter();
     
-    $stmt = $mysqli->prepare("INSERT INTO tblproduct (rtid, itemnumber, ProductTitle, orderdate, total, quantity, price, Discount, priceshipping, tax, trackingnumber, trackingnumber2, trackingnumber3, trackingnumber4, carrier, listedcondition, seller, shipdate, paymentdate, rtcounter, description, notes, paymentmethod, datedelivered, estimated_deliverydate, itemstatus, conditionStatusApplied, fetchStatus, ProductModuleLoc, materialtype, Ebay_seller_location, delivery_status)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $mysqli->prepare("INSERT INTO tblproduct (rtid, itemnumber, ProductTitle, orderdate, total, quantity, price, Discount, priceshipping, tax, trackingnumber, trackingnumber2, trackingnumber3, trackingnumber4, carrier, listedcondition, seller, shipdate, paymentdate, rtcounter, description, notes, paymentmethod, estimated_deliverydate, itemstatus, conditionStatusApplied, fetchStatus, ProductModuleLoc, materialtype, Ebay_seller_location)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     
     if (!$stmt) {
         throw new Exception("Failed to prepare insert statement: " . $mysqli->error);
     }
     
-    $stmt->bind_param("ssssdiddddsssssssssissssssssssss", 
+    $stmt->bind_param("ssssdiddddsssssssssisssssssssss", 
         $orderID,              // 1  - s - rtid
         $itemID,               // 2  - s - itemnumber
         $title,                // 3  - s - ProductTitle
@@ -1017,15 +911,13 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
         $itemDescription,      // 21 - s - description
         $sellerNotes,          // 22 - s - notes
         $PaymentMethod,        // 23 - s - paymentmethod
-        $actualDeliveredDate,  // 24 - s - datedelivered (NULL unless Delivered)
-        $estimatedDeliveryDate,// 25 - s - estimated_deliverydate (always store)
-        $itemStatus,           // 26 - s - itemstatus
-        $appliedCondition,     // 27 - s - conditionStatusApplied
-        $fetchStatus,          // 28 - s - fetchStatus
-        $moduleLoc,            // 29 - s - ProductModuleLoc
-        $materialType,         // 30 - s - materialtype
-        $locationdetails,      // 31 - s - Ebay_seller_location
-        $deliveryStatus        // 32 - s - delivery_status
+        $estimatedDeliveryDate,// 24 - s - estimated_deliverydate (always store)
+        $itemStatus,           // 25 - s - itemstatus
+        $appliedCondition,     // 26 - s - conditionStatusApplied
+        $fetchStatus,          // 27 - s - fetchStatus
+        $moduleLoc,            // 28 - s - ProductModuleLoc
+        $materialType,         // 29 - s - materialtype
+        $locationdetails,      // 30 - s - Ebay_seller_location
     );
 
     if ($stmt->execute()) {
@@ -1200,7 +1092,6 @@ function processOrders($response, $accessToken)
 
     $orders = $response['OrderArray']['Order'];
     
-    // ✅ FIX: Handle single order (not wrapped in array)
     if (isset($orders['OrderID'])) {
         $orders = [$orders];
     }
@@ -1208,37 +1099,36 @@ function processOrders($response, $accessToken)
     $processedOrders = [];
     $exchangeRates = fetchExchangeRates('f5d29ab775a644eca3f13e4c');
 
-    // ========================================
-    // PHASE 1: Build all orders (eBay data only, NO 17track calls)
-    // ========================================
-    echo "<br>=== PHASE 1: Processing eBay order data ===<br>";
+    echo "<br><div style='background: #e7f3ff; padding: 15px; border: 2px solid #007bff;'>";
+    echo "<strong>=== PROCESSING EBAY ORDER DATA ===</strong><br>";
+    echo "Total orders from eBay: " . count($orders) . "<br>";
+    echo "</div><br>";
     
-    foreach ($orders as $order) {
+    foreach ($orders as $orderIdx => $order) {
+        $orderId = $order['OrderID'] ?? 'UNKNOWN';
+        echo "📦 Processing eBay order: <strong>{$orderId}</strong><br>";
+        
         $currency = $order['AmountPaid']['@currencyID'] ?? 'USD';
-        $ebayorderid = $order['OrderID'] ?? null;
         $amountPaid = $order['AmountPaid'] ?? 0;
         $amountPaidInUSD = convertToUSD($amountPaid, $currency, $exchangeRates);
 
         $preshippingServiceCost = $order['ShippingServiceSelected']['ShippingServiceCost'] ?? 0;
-        
-        // ========================================
+        $shipping_currency = $currency;
+        $shippingServiceCost = convertToUSD($preshippingServiceCost, $shipping_currency, $exchangeRates);
+
         // Extract ESTIMATED delivery range from eBay
-        // ========================================
         $estimatedDeliveryMin = null;
         $estimatedDeliveryMax = null;
         $estimatedDeliveryRange = null;
         
         if (isset($order['TransactionArray']['Transaction']['ShippingServiceSelected']['ShippingPackageInfo']['EstimatedDeliveryTimeMin'])) {
             $estimatedDeliveryMin = $order['TransactionArray']['Transaction']['ShippingServiceSelected']['ShippingPackageInfo']['EstimatedDeliveryTimeMin'];
-            echo "DEBUG: Found EstimatedDeliveryTimeMin = '{$estimatedDeliveryMin}' for Order: {$order['OrderID']}<br>";
         }
         
         if (isset($order['TransactionArray']['Transaction']['ShippingServiceSelected']['ShippingPackageInfo']['EstimatedDeliveryTimeMax'])) {
             $estimatedDeliveryMax = $order['TransactionArray']['Transaction']['ShippingServiceSelected']['ShippingPackageInfo']['EstimatedDeliveryTimeMax'];
-            echo "DEBUG: Found EstimatedDeliveryTimeMax = '{$estimatedDeliveryMax}' for Order: {$order['OrderID']}<br>";
         }
         
-        // Format as range
         if ($estimatedDeliveryMin && $estimatedDeliveryMax) {
             try {
                 $minDate = new DateTime($estimatedDeliveryMin);
@@ -1253,52 +1143,50 @@ function processOrders($response, $accessToken)
                     $estimatedDeliveryRange = $minFormatted . ' to ' . $maxFormatted;
                 }
                 
-                echo "DEBUG: Estimated delivery range: '{$estimatedDeliveryRange}' for Order: {$order['OrderID']}<br>";
+                echo "   📅 Estimated delivery: {$estimatedDeliveryRange}<br>";
             } catch (Exception $e) {
-                echo "DEBUG: Failed to parse estimated delivery dates: {$e->getMessage()}<br>";
+                // Ignore
             }
         } elseif ($estimatedDeliveryMax) {
             try {
                 $maxDate = new DateTime($estimatedDeliveryMax);
                 $estimatedDeliveryRange = $maxDate->format('Y-m-d');
-                echo "DEBUG: Estimated delivery (MAX only): '{$estimatedDeliveryRange}' for Order: {$order['OrderID']}<br>";
-            } catch (Exception $e) {
-                echo "DEBUG: Failed to parse MAX date: {$e->getMessage()}<br>";
-            }
-        } else {
-            echo "DEBUG: No estimated delivery date found for Order: {$order['OrderID']}<br>";
+                echo "   📅 Estimated delivery (MAX): {$estimatedDeliveryRange}<br>";
+            } catch (Exception $e) {}
         }
-        
-        $shipping_currency = $currency;
-        $shippingServiceCost = convertToUSD($preshippingServiceCost, $shipping_currency, $exchangeRates);
 
+        // Collect ALL tracking numbers (1-4)
         $trackingNumber1 = $trackingNumber2 = $trackingNumber3 = $trackingNumber4 = '';
         $shippingCarrier = '';
         $items = [];
         $locationDetails = 'N/A';
 
-        // Tracking Details
         if (isset($order['TransactionArray']['Transaction']['ShippingDetails']['ShipmentTrackingDetails'])) {
             $trackingDetails = $order['TransactionArray']['Transaction']['ShippingDetails']['ShipmentTrackingDetails'];
             $isArray = isset($trackingDetails[0]);
 
-            for ($i = 0; $i <= 4; $i++) {
-                $numField = 'trackingNumber' . ($i + 1);
+            for ($i = 0; $i <= 3; $i++) {
+                $trackingVar = 'trackingNumber' . ($i + 1);
+                
                 if ($isArray && isset($trackingDetails[$i]['ShipmentTrackingNumber'])) {
-                    ${$numField} = $trackingDetails[$i]['ShipmentTrackingNumber'];
+                    ${$trackingVar} = trim($trackingDetails[$i]['ShipmentTrackingNumber']);
+                    echo "   🔢 Tracking" . ($i + 1) . ": " . ${$trackingVar} . "<br>";
                 } elseif (!$isArray && $i === 0 && isset($trackingDetails['ShipmentTrackingNumber'])) {
-                    $trackingNumber1 = $trackingDetails['ShipmentTrackingNumber'];
+                    $trackingNumber1 = trim($trackingDetails['ShipmentTrackingNumber']);
+                    echo "   🔢 Tracking1: {$trackingNumber1}<br>";
                 }
             }
 
             if ($isArray && isset($trackingDetails[0]['ShippingCarrierUsed'])) {
                 $shippingCarrier = $trackingDetails[0]['ShippingCarrierUsed'];
+                echo "   🚚 Carrier: {$shippingCarrier}<br>";
             } elseif (!$isArray && isset($trackingDetails['ShippingCarrierUsed'])) {
                 $shippingCarrier = $trackingDetails['ShippingCarrierUsed'];
+                echo "   🚚 Carrier: {$shippingCarrier}<br>";
             }
         }
 
-        // Transactions
+        // Process transactions
         if (!empty($order['TransactionArray']['Transaction'])) {
             $transactions = $order['TransactionArray']['Transaction'];
             if (!isset($transactions[0]))
@@ -1327,7 +1215,7 @@ function processOrders($response, $accessToken)
             }
         }
 
-        // Build processed order (WITHOUT delivery status — that comes in Phase 2)
+        // Build processed order
         $processedOrder = [
             'order_id' => $order['OrderID'] ?? null,
             'order_status' => $order['OrderStatus'] ?? null,
@@ -1349,79 +1237,15 @@ function processOrders($response, $accessToken)
             'items' => $items,
             'locationdetails' => $locationDetails,
             'estimated_deliverydate' => $estimatedDeliveryRange,
-            // Placeholders — filled in Phase 2
-            'delivery_status' => 'Unknown',
-            'actual_delivered_date' => null,
         ];
 
         $processedOrders[] = $processedOrder;
+        echo "<br>";
     }
 
-    // ========================================
-    // PHASE 2: BATCH 17track lookup (ONE call per 40 tracking numbers)
-    // Instead of 1 API call per order, we do 1 call per 40 orders
-    // ========================================
-    echo "<br>=== PHASE 2: Batch 17track delivery status lookup ===<br>";
-    echo "Total orders to check: " . count($processedOrders) . "<br>";
-    
-    $trackingResults = batch17TrackLookup($processedOrders);
-    
-    echo "17track results received: " . count($trackingResults) . " tracking numbers resolved<br>";
-    
-    // ✅ BULK UPDATE: Update ALL rows in tblproduct that share the same tracking number
-    // This ensures multi-item orders and any other rows with the same tracking get updated
-    bulkUpdateDeliveryStatusByTracking($trackingResults);
-
-    // ========================================
-    // PHASE 3: Attach 17track results to each order
-    // ========================================
-    echo "<br>=== PHASE 3: Attaching delivery statuses to orders ===<br>";
-    
-    foreach ($processedOrders as $idx => &$po) {
-        $tn = trim($po['tracking_number1'] ?? '');
-        $orderId = $po['order_id'];
-        
-        if (!empty($tn) && isset($trackingResults[$tn])) {
-            // Got result from 17track batch or DB cache
-            $result = $trackingResults[$tn];
-            $po['delivery_status'] = $result['status'] ?? 'Unknown';
-            
-            if (isset($result['delivered_date']) && !empty($result['delivered_date'])) {
-                $po['actual_delivered_date'] = $result['delivered_date'];
-                echo "   📅 Order {$orderId}: Status=<strong>{$po['delivery_status']}</strong>, Delivered={$result['delivered_date']}<br>";
-            } else {
-                echo "   📦 Order {$orderId}: Status=<strong>{$po['delivery_status']}</strong><br>";
-            }
-            
-        } else {
-            // No tracking number or no result — use fallback estimate
-            $fallbackStatus = getEstimateFallbackStatus($po);
-            
-            // fallbackStatus can be a string or array
-            if (is_array($fallbackStatus)) {
-                $po['delivery_status'] = $fallbackStatus['status'] ?? 'Unknown';
-                if (isset($fallbackStatus['delivered_date'])) {
-                    $po['actual_delivered_date'] = $fallbackStatus['delivered_date'];
-                }
-            } else {
-                $po['delivery_status'] = $fallbackStatus;
-            }
-            
-            echo "   🔄 Order {$orderId}: Status=<strong>{$po['delivery_status']}</strong> (fallback";
-            if (empty($tn)) {
-                echo ", no tracking number";
-            }
-            echo ")<br>";
-        }
-        
-        // Log summary
-        if (!empty($po['estimated_deliverydate'])) {
-            echo "      Estimated delivery (eBay): {$po['estimated_deliverydate']}<br>";
-        }
-    }
-    unset($po); // break reference
-    
-    echo "<br>=== Order processing complete: " . count($processedOrders) . " orders ready ===<br>";
+    echo "<div style='background: #d4edda; padding: 15px; border: 2px solid #28a745;'>";
+    echo "<strong>✅ Order processing complete: " . count($processedOrders) . " orders ready</strong><br>";
+    echo "</div><br>";
 
     return $processedOrders;
 }
@@ -2122,809 +1946,4 @@ function refreshEbayAccessToken($credentials)
     }
 }
 
-
-   /**
- * Check delivery status using 17track API (supports 1,700+ carriers globally)
- * Documentation: https://api.17track.net/en/doc
- */
-function check17TrackDeliveryStatus($trackingNumber, $carrierCode = null)
-{
-    try {
-        $apiKey = '5EC4C3FCD4929687DC76822C8D154C20';
-        
-        if (empty($apiKey)) {
-            echo 'WARNING: 17track API key not configured<br>';
-            return ['status' => 'Unknown', 'error' => 'API not configured'];
-        }
-        
-        $headers = [
-            '17token: ' . $apiKey,
-            'Content-Type: application/json'
-        ];
-        
-        // Step 1: Try to register tracking
-        $registerUrl = 'https://api.17track.net/track/v2.2/register';
-        
-        $trackingData = [
-            ['number' => $trackingNumber]
-        ];
-        
-        if ($carrierCode !== null && is_int($carrierCode)) {
-            $trackingData[0]['carrier'] = $carrierCode;
-        }
-        
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $registerUrl);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($trackingData));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        
-        $registerResponse = curl_exec($ch);
-        $registerData = json_decode($registerResponse, true);
-        
-        $skipToGetInfo = false;
-        
-        if (isset($registerData['data']['rejected']) && !empty($registerData['data']['rejected'])) {
-            $rejectedError = $registerData['data']['rejected'][0]['error'] ?? [];
-            $errorCode = $rejectedError['code'] ?? 0;
-            
-            // -18019901 = "tracking number already exists" — this is FINE, just skip to gettrackinfo
-            if ($errorCode == -18019901) {
-                echo "   ✓ Tracking {$trackingNumber} already registered in 17track, skipping to gettrackinfo<br>";
-                $skipToGetInfo = true;
-            }
-            // -18010011 = invalid carrier code — retry without carrier
-            elseif ($errorCode == -18010011) {
-                echo "   ⚠️ Invalid carrier code, retrying without carrier...<br>";
-                $retryData = [['number' => $trackingNumber]];
-                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($retryData));
-                $retryResponse = curl_exec($ch);
-                $retryData = json_decode($retryResponse, true);
-                
-                // Check if retry also says "already exists"
-                if (isset($retryData['data']['rejected']) && !empty($retryData['data']['rejected'])) {
-                    $retryErrorCode = $retryData['data']['rejected'][0]['error']['code'] ?? 0;
-                    if ($retryErrorCode == -18019901) {
-                        echo "   ✓ Already registered, proceeding to gettrackinfo<br>";
-                        $skipToGetInfo = true;
-                    } else {
-                        echo "   ❌ Registration failed even without carrier (error: {$retryErrorCode})<br>";
-                        curl_close($ch);
-                        return ['status' => 'Unknown', 'error' => 'Registration failed'];
-                    }
-                }
-            }
-            else {
-                echo "   ❌ Unknown rejection error: {$errorCode}<br>";
-                // Still try gettrackinfo — it might have been registered in a previous run
-                $skipToGetInfo = true;
-            }
-        }
-        
-        // Step 2: Get tracking info (always do this)
-        if (!$skipToGetInfo) {
-            sleep(1); // Only delay if we just registered
-        }
-        
-        $getTrackUrl = 'https://api.17track.net/track/v2.2/gettrackinfo';
-        $getTrackPayload = json_encode([['number' => $trackingNumber]]);
-        
-        curl_setopt($ch, CURLOPT_URL, $getTrackUrl);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $getTrackPayload);
-        
-        $trackResponse = curl_exec($ch);
-        $trackHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        
-        if ($trackHttpCode !== 200 || !$trackResponse) {
-            echo "   17track gettrackinfo error: HTTP {$trackHttpCode}<br>";
-            return ['status' => 'Unknown', 'error' => 'API request failed'];
-        }
-        
-        $trackData = json_decode($trackResponse, true);
-        
-        if (!isset($trackData['data']['accepted']) || empty($trackData['data']['accepted'])) {
-            echo "   No tracking data found for {$trackingNumber}<br>";
-            return ['status' => 'Unknown', 'error' => 'No tracking data found'];
-        }
-        
-        $track = $trackData['data']['accepted'][0];
-        $trackInfo = $track['track_info'] ?? [];
-        $latestEvent = $trackInfo['latest_event'] ?? [];
-        $latestStatus = $trackInfo['latest_status'] ?? [];
-        
-        $statusCode = $latestStatus['status'] ?? 0;
-        $statusDescription = $latestEvent['description'] ?? 'Unknown';
-        $eventTime = $latestEvent['time_iso'] ?? null;
-        
-        echo "   17track result for {$trackingNumber}: statusCode={$statusCode}, desc={$statusDescription}<br>";
-        
-        // Parse delivery date
-        $actualDeliveredDate = null;
-        if ($eventTime) {
-            try {
-                $dt = new DateTime($eventTime);
-                $actualDeliveredDate = $dt->format('Y-m-d H:i:s');
-            } catch (Exception $e) {
-                echo "   ⚠️ Failed to parse date: {$eventTime}<br>";
-            }
-        }
-        
-        $carrierName = $track['provider_name'] ?? 'Unknown';
-        $carrierCodeResult = $track['provider'] ?? null;
-        
-        switch ($statusCode) {
-            case 40:
-                return [
-                    'status' => 'Delivered',
-                    'delivered_date' => $actualDeliveredDate,
-                    'raw_status' => $statusDescription,
-                    'carrier' => $carrierName,
-                    'source' => '17track_actual'
-                ];
-            case 10:
-            case 20:
-            case 30:
-                return [
-                    'status' => 'In Transit',
-                    'raw_status' => $statusDescription,
-                    'carrier' => $carrierName,
-                    'source' => '17track'
-                ];
-            case 35:
-            case 50:
-                return [
-                    'status' => 'Delivery Exception',
-                    'raw_status' => $statusDescription,
-                    'carrier' => $carrierName,
-                    'source' => '17track'
-                ];
-            case 0:
-                return [
-                    'status' => 'Not Found',
-                    'raw_status' => 'Tracking number not found',
-                    'carrier' => $carrierName,
-                    'source' => '17track'
-                ];
-            default:
-                return [
-                    'status' => 'Unknown',
-                    'raw_status' => $statusDescription,
-                    'carrier' => $carrierName,
-                    'source' => '17track'
-                ];
-        }
-        
-    } catch (Exception $e) {
-        echo "   17track exception: " . $e->getMessage() . "<br>";
-        return ['status' => 'Unknown', 'error' => $e->getMessage()];
-    }
-}
-
-/**
- * Convert carrier name from eBay to 17track carrier code
- * Documentation: https://res.17track.net/asset/carrier/info/apicarrier.all.json
- */
-function getCarrierCodeFor17Track($carrierName)
-{
-    if (empty($carrierName)) {
-        return null;
-    }
-    
-    $carrierName = strtoupper(trim($carrierName));
-    
-    // Map common eBay carrier names to 17track carrier codes
-    // ✅ CRITICAL: These MUST be integers
-    $carrierMap = [
-        // US Carriers
-        'USPS' => 70001,
-        'US POSTAL SERVICE' => 70001,
-        'UNITED STATES POSTAL SERVICE' => 70001,
-        'FEDEX' => 70002,
-        'FEDERAL EXPRESS' => 70002,
-        'FDX' => 70002,
-        'UPS' => 70003,
-        'UNITED PARCEL SERVICE' => 70003,
-        'DHL' => 70004,
-        'DHL EXPRESS' => 70004,
-        'DHL ECOMMERCE' => 2159,
-        
-        // UK Carriers
-        'ROYAL MAIL' => 60001,
-        'PARCELFORCE' => 60002,
-        
-        // China Carriers
-        'CHINA POST' => 20001,
-        'EMS' => 20002,
-        'YANWEN' => 2076,
-        'SF EXPRESS' => 20021,
-        'CHINA EMS' => 20002,
-        
-        // Other Popular
-        'ONTRAC' => 2087,
-        'LASERSHIP' => 2109,
-        'AMAZON' => 2196,
-        'AMAZON LOGISTICS' => 2196,
-    ];
-    
-    // Try exact match first
-    if (isset($carrierMap[$carrierName])) {
-        $code = (int)$carrierMap[$carrierName]; // ✅ Force integer
-        echo "   Carrier '{$carrierName}' mapped to code: {$code} (type: " . gettype($code) . ")<br>";
-        return $code;
-    }
-    
-    // Try partial match
-    foreach ($carrierMap as $key => $code) {
-        if (strpos($carrierName, $key) !== false) {
-            $code = (int)$code; // ✅ Force integer
-            echo "   Carrier '{$carrierName}' partially matched '{$key}' to code: {$code} (type: " . gettype($code) . ")<br>";
-            return $code;
-        }
-    }
-    
-    // If no match, let 17track auto-detect
-    echo "   No carrier mapping found for '{$carrierName}', using auto-detection<br>";
-    return null;
-}
-
-
-/**
- * Get the most accurate delivery status using 17track (supports 1,700+ carriers)
- * Optimized to avoid unnecessary API calls for already-delivered/cancelled/refunded orders
- */
-function getAccurateDeliveryStatusCombined($order, $accessToken)
-{
-    global $mysqli;
-    
-    $orderId = $order['order_id'];
-    $trackingNumber = trim($order['tracking_number1'] ?? '');
-    $carrier = trim($order['shipping_carrier'] ?? '');
-    
-    // ========================================
-    // STEP 1: CHECK DATABASE FIRST (BEFORE API CALL)
-    // ========================================
-    checkDatabaseConnection();
-    
-    $checkStmt = $mysqli->prepare("
-        SELECT delivery_status, datedelivered
-        FROM tblproduct 
-        WHERE rtid = ? 
-        LIMIT 1
-    ");
-    
-    if ($checkStmt) {
-        $checkStmt->bind_param("s", $orderId);
-        $checkStmt->execute();
-        $result = $checkStmt->get_result();
-        $existingRecord = $result->fetch_assoc();
-        $checkStmt->close();
-        
-        if ($existingRecord && !empty($existingRecord['delivery_status'])) {
-            $currentStatus = $existingRecord['delivery_status'];
-            
-            // ✅ If already in a final state, SKIP 17track API call completely
-            $finalStatuses = ['Delivered', 'Cancelled', 'Refunded'];
-            if (in_array($currentStatus, $finalStatuses)) {
-                echo "✓ Order {$orderId} already has final status: <strong>{$currentStatus}</strong> - SKIPPING 17track API call<br>";
-                
-                // ✅ Return array with existing delivered date if available
-                if (!empty($existingRecord['datedelivered']) && $existingRecord['datedelivered'] !== '0000-00-00 00:00:00') {
-                    return [
-                        'status' => $currentStatus,
-                        'delivered_date' => $existingRecord['datedelivered'],
-                        'source' => 'database_cache'
-                    ];
-                }
-                
-                return [
-                    'status' => $currentStatus,
-                    'source' => 'database_cache'
-                ];
-            } else {
-                echo "Order {$orderId} current status: '{$currentStatus}' (not final, will check for updates)<br>";
-            }
-        } else {
-            echo "Order {$orderId} has no delivery status yet, will check 17track<br>";
-        }
-    }
-    
-    // ========================================
-    // STEP 2: Check eBay order status for Cancelled
-    // ========================================
-    $orderStatus = $order['order_status'] ?? '';
-    
-    if ($orderStatus === 'Cancelled') {
-        echo "Order {$orderId} is Cancelled per eBay (no API call needed)<br>";
-        return [
-            'status' => 'Cancelled',
-            'source' => 'ebay'
-        ];
-    }
-    
-    // ========================================
-    // STEP 3: Call 17track API
-    // ========================================
-    if (!empty($trackingNumber)) {
-        echo "🌐 Calling 17track API for Order {$orderId}: Tracking={$trackingNumber}, Carrier={$carrier}<br>";
-        
-        $carrierCode = getCarrierCodeFor17Track($carrier);
-        
-        if ($carrierCode) {
-            echo "   Mapped carrier '{$carrier}' to 17track code: {$carrierCode}<br>";
-        } else {
-            echo "   No carrier code found for '{$carrier}', using auto-detection<br>";
-        }
-        
-        $trackingStatus = check17TrackDeliveryStatusWithRateLimit($trackingNumber, $carrierCode);
-
-        // ✅ CRITICAL FIX: Check the response properly
-        if ($trackingStatus && is_array($trackingStatus)) {
-            echo "   📦 17track response type: array<br>";
-            echo "   📦 17track response: " . json_encode($trackingStatus) . "<br>";
-            
-            $status = $trackingStatus['status'] ?? 'Unknown';
-            $hasError = isset($trackingStatus['error']);
-            
-            echo "   📦 Extracted status: '{$status}'<br>";
-            echo "   📦 Has error: " . ($hasError ? 'YES' : 'NO') . "<br>";
-            
-            // ✅ Check if we got a valid status (not Unknown, Not Found, or error)
-            if (!$hasError && $status !== 'Unknown' && $status !== 'Not Found') {
-                echo "   ✅ Valid status from 17track: <strong>{$status}</strong><br>";
-                
-                if (isset($trackingStatus['delivered_date'])) {
-                    echo "   📅 Delivered date: <strong>{$trackingStatus['delivered_date']}</strong><br>";
-                }
-                
-                // ✅ RETURN THE FULL ARRAY
-                return $trackingStatus;
-            } else {
-                echo "   ⚠️ Invalid or error status from 17track: {$status}<br>";
-                if ($hasError) {
-                    echo "      Error: {$trackingStatus['error']}<br>";
-                }
-            }
-        } else {
-            echo "   ⚠️ 17track response is not an array or is empty<br>";
-        }
-    } else {
-        echo "No tracking number available for Order {$orderId}<br>";
-    }
-    
-    // ========================================
-    // STEP 4: Fall back to basic logic
-    // ========================================
-    echo "   🔄 Falling back to estimate logic<br>";
-    
-    if (!empty($order['shipped_time'])) {
-        $shippedDate = new DateTime($order['shipped_time']);
-        $now = new DateTime();
-        $daysSinceShipped = $now->diff($shippedDate)->days;
-        
-        if ($daysSinceShipped >= 14) {
-            echo "   → Estimated as Delivered (shipped {$daysSinceShipped} days ago)<br>";
-            return [
-                'status' => 'Delivered (Estimated)',
-                'source' => 'estimate',
-                'days_since_shipped' => $daysSinceShipped
-            ];
-        }
-        
-        echo "   → Status: In Transit (shipped {$daysSinceShipped} days ago)<br>";
-        return [
-            'status' => 'In Transit',
-            'source' => 'estimate',
-            'days_since_shipped' => $daysSinceShipped
-        ];
-    }
-    
-    if (!empty($order['paid_time']) && empty($order['shipped_time'])) {
-        echo "   → Status: Awaiting Shipment<br>";
-        return [
-            'status' => 'Awaiting Shipment',
-            'source' => 'ebay'
-        ];
-    }
-    
-    if (empty($order['paid_time'])) {
-        echo "   → Status: Payment Pending<br>";
-        return [
-            'status' => 'Payment Pending',
-            'source' => 'ebay'
-        ];
-    }
-    
-    echo "   → Status: Active (default)<br>";
-    return [
-        'status' => 'Active',
-        'source' => 'default'
-    ];
-}
-
-
-/**
- * Check delivery status with rate limiting
- */
-function check17TrackDeliveryStatusWithRateLimit($trackingNumber, $carrierCode = null)
-{
-    // Simple file-based cache (1 hour)
-    $cacheDir = '/home/imsv2/public_html/laravel_ims/automations/cache';
-    if (!file_exists($cacheDir)) {
-        mkdir($cacheDir, 0755, true);
-    }
-    
-    $cacheKey = md5("track17_{$trackingNumber}");
-    $cacheFile = $cacheDir . '/' . $cacheKey . '.json';
-    
-    // Check cache
-    if (file_exists($cacheFile)) {
-        $cacheData = json_decode(file_get_contents($cacheFile), true);
-        $cacheAge = time() - filemtime($cacheFile);
-        
-        if ($cacheAge < 3600) { // 1 hour
-            echo "Using cached 17track result for {$trackingNumber} (age: {$cacheAge}s)<br>";
-            return $cacheData;
-        }
-    }
-    
-    // Rate limiting
-    static $lastRequestTime = 0;
-    $now = microtime(true);
-    $timeSinceLastRequest = $now - $lastRequestTime;
-    
-    if ($timeSinceLastRequest < 1.0) {
-        $sleepTime = 1.0 - $timeSinceLastRequest;
-        usleep($sleepTime * 1000000);
-    }
-    
-    $result = check17TrackDeliveryStatus($trackingNumber, $carrierCode);
-    
-    $lastRequestTime = microtime(true);
-    
-    // Cache the result
-    if ($result && $result['status'] !== 'Unknown') {
-        file_put_contents($cacheFile, json_encode($result));
-    }
-    
-    return $result;
-}
-
-
-function batch17TrackLookup($orders)
-{
-    $apiKey = '5EC4C3FCD4929687DC76822C8D154C20';
-    $headers = [
-        '17token: ' . $apiKey,
-        'Content-Type: application/json'
-    ];
-    
-    // Collect unique tracking numbers that need lookup
-    $trackingMap = []; // trackingNumber => [orderIndices]
-    $results = [];     // trackingNumber => status result
-    
-    foreach ($orders as $idx => $order) {
-        $tracking = trim($order['tracking_number1'] ?? '');
-        if (empty($tracking)) continue;
-        
-        // Check DB for final status first — skip if already Delivered/Cancelled/Refunded
-        $orderId = $order['order_id'];
-        $existingStatus = getExistingDeliveryStatus($orderId);
-        
-        if ($existingStatus && in_array($existingStatus['status'], ['Delivered', 'Cancelled', 'Refunded'])) {
-            echo "   ⏭️ Skipping 17track for {$orderId} — already '{$existingStatus['status']}'<br>";
-            $results[$tracking] = $existingStatus;
-            continue;
-        }
-        
-        if (!isset($trackingMap[$tracking])) {
-            $trackingMap[$tracking] = [];
-        }
-        $trackingMap[$tracking][] = $idx;
-    }
-    
-    // Filter out already-resolved tracking numbers
-    $toLookup = array_diff_key($trackingMap, $results);
-    $trackingNumbers = array_keys($toLookup);
-    
-    if (empty($trackingNumbers)) {
-        echo "   All tracking numbers already resolved from DB<br>";
-        return $results;
-    }
-    
-    echo "   📦 Batch 17track lookup for " . count($trackingNumbers) . " tracking numbers<br>";
-    
-    // Process in batches of 40 (17track limit)
-    $batches = array_chunk($trackingNumbers, 40);
-    
-    foreach ($batches as $batchIdx => $batch) {
-        echo "   Batch " . ($batchIdx + 1) . "/" . count($batches) . " (" . count($batch) . " numbers)<br>";
-        
-        // Step 1: Register all (will ignore already-registered ones)
-        $registerData = [];
-        foreach ($batch as $tn) {
-            $registerData[] = ['number' => $tn];
-        }
-        
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, 'https://api.17track.net/track/v2.2/register');
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($registerData));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        
-        $registerResponse = curl_exec($ch);
-        $regData = json_decode($registerResponse, true);
-        
-        // Log rejections but don't fail — "already exists" is fine
-        if (isset($regData['data']['rejected'])) {
-            foreach ($regData['data']['rejected'] as $rej) {
-                $errCode = $rej['error']['code'] ?? 0;
-                if ($errCode == -18019901) {
-                    // Already registered — fine
-                } else {
-                    echo "   ⚠️ Register rejected {$rej['number']}: code {$errCode}<br>";
-                }
-            }
-        }
-        
-        // Step 2: Wait then get track info for all
-        sleep(1);
-        
-        $getTrackData = [];
-        foreach ($batch as $tn) {
-            $getTrackData[] = ['number' => $tn];
-        }
-        
-        curl_setopt($ch, CURLOPT_URL, 'https://api.17track.net/track/v2.2/gettrackinfo');
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($getTrackData));
-        
-        $trackResponse = curl_exec($ch);
-        curl_close($ch);
-        
-        $trackData = json_decode($trackResponse, true);
-        
-        if (isset($trackData['data']['accepted'])) {
-            foreach ($trackData['data']['accepted'] as $track) {
-                $tn = $track['number'] ?? '';
-                $trackInfo = $track['track_info'] ?? [];
-                $latestEvent = $trackInfo['latest_event'] ?? [];
-                $latestStatus = $trackInfo['latest_status'] ?? [];
-                $statusCode = $latestStatus['status'] ?? 0;
-                $eventTime = $latestEvent['time_iso'] ?? null;
-                $description = $latestEvent['description'] ?? 'Unknown';
-                
-                $deliveredDate = null;
-                if ($eventTime) {
-                    try {
-                        $deliveredDate = (new DateTime($eventTime))->format('Y-m-d H:i:s');
-                    } catch (Exception $e) {}
-                }
-                
-                $carrierName = $track['provider_name'] ?? 'Unknown';
-                
-                switch ($statusCode) {
-                    case 40:
-                        $results[$tn] = ['status' => 'Delivered', 'delivered_date' => $deliveredDate, 'carrier' => $carrierName, 'source' => '17track_actual'];
-                        break;
-                    case 10: case 20: case 30:
-                        $results[$tn] = ['status' => 'In Transit', 'carrier' => $carrierName, 'source' => '17track'];
-                        break;
-                    case 35: case 50:
-                        $results[$tn] = ['status' => 'Delivery Exception', 'carrier' => $carrierName, 'source' => '17track'];
-                        break;
-                    default:
-                        $results[$tn] = ['status' => 'Unknown', 'carrier' => $carrierName, 'source' => '17track'];
-                        break;
-                }
-                
-                echo "   → {$tn}: {$results[$tn]['status']}<br>";
-            }
-        }
-        
-        // Delay between batches
-        if ($batchIdx < count($batches) - 1) {
-            sleep(2);
-        }
-    }
-    
-    return $results;
-}
-
-/**
- * Helper: Check DB for existing delivery status
- */
-function getExistingDeliveryStatus($orderId)
-{
-    global $mysqli;
-    checkDatabaseConnection();
-    
-    $stmt = $mysqli->prepare("SELECT delivery_status, datedelivered FROM tblproduct WHERE rtid = ? LIMIT 1");
-    if (!$stmt) return null;
-    
-    $stmt->bind_param("s", $orderId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $row = $result->fetch_assoc();
-    $stmt->close();
-    
-    if ($row && !empty($row['delivery_status'])) {
-        return [
-            'status' => $row['delivery_status'],
-            'delivered_date' => (!empty($row['datedelivered']) && $row['datedelivered'] !== '0000-00-00 00:00:00') 
-                ? $row['datedelivered'] : null,
-            'source' => 'database_cache'
-        ];
-    }
-    
-    return null;
-}
-
-/**
- * Simple fallback when no tracking number exists
- */
-function getEstimateFallbackStatus($order)
-{
-    if (($order['order_status'] ?? '') === 'Cancelled') {
-        return 'Cancelled';
-    }
-    
-    if (!empty($order['shipped_time'])) {
-        $shippedDate = new DateTime($order['shipped_time']);
-        $daysSince = (new DateTime())->diff($shippedDate)->days;
-        return $daysSince >= 14 ? 'Delivered (Estimated)' : 'In Transit';
-    }
-    
-    if (!empty($order['paid_time']) && empty($order['shipped_time'])) {
-        return 'Awaiting Shipment';
-    }
-    
-    return 'Unknown';
-}
-
-function bulkUpdateDeliveryStatusByTracking($trackingResults)
-{
-    global $mysqli;
-    
-    if (empty($trackingResults)) {
-        echo "No tracking results to bulk update<br>";
-        return 0;
-    }
-    
-    $totalUpdated = 0;
-    $skippedFinal = 0;
-    $skippedUnchanged = 0;
-    
-    $finalStatuses = ['Delivered', 'Cancelled', 'Refunded'];
-    
-    echo "<br>=== BULK TRACKING UPDATE: Updating ALL rows matching each tracking number ===<br>";
-    
-    foreach ($trackingResults as $trackingNumber => $result) {
-        $newStatus = $result['status'] ?? 'Unknown';
-        $deliveredDate = $result['delivered_date'] ?? null;
-        
-        // Skip if the result itself is Unknown or Not Found
-        if ($newStatus === 'Unknown' || $newStatus === 'Not Found') {
-            continue;
-        }
-        
-        checkDatabaseConnection();
-        
-        // Find ALL rows with this tracking number (check all 4 tracking fields)
-        $findStmt = $mysqli->prepare("
-            SELECT ProductID, rtid, itemnumber, delivery_status, datedelivered, ProductModuleLoc
-            FROM tblproduct 
-            WHERE (trackingnumber = ? OR trackingnumber2 = ? OR trackingnumber3 = ? OR trackingnumber4 = ?)
-        ");
-        
-        if (!$findStmt) {
-            echo "   ❌ Failed to prepare find statement: " . $mysqli->error . "<br>";
-            continue;
-        }
-        
-        $findStmt->bind_param("ssss", $trackingNumber, $trackingNumber, $trackingNumber, $trackingNumber);
-        $findStmt->execute();
-        $findResult = $findStmt->get_result();
-        $matchingRows = $findResult->fetch_all(MYSQLI_ASSOC);
-        $findStmt->close();
-        
-        if (empty($matchingRows)) {
-            continue; // No rows with this tracking number
-        }
-        
-        $rowCount = count($matchingRows);
-        if ($rowCount > 1) {
-            echo "   📦 Tracking {$trackingNumber}: Found <strong>{$rowCount} rows</strong> sharing this tracking<br>";
-        }
-        
-        foreach ($matchingRows as $row) {
-            $productID = $row['ProductID'];
-            $existingStatus = trim($row['delivery_status'] ?? '');
-            $existingDelivered = trim($row['datedelivered'] ?? '');
-            $moduleLoc = $row['ProductModuleLoc'] ?? '';
-            
-            // Skip non-Orders module
-            if ($moduleLoc !== 'Orders') {
-                continue;
-            }
-            
-            // Skip if already in a final state
-            if (in_array($existingStatus, $finalStatuses)) {
-                $skippedFinal++;
-                continue;
-            }
-            
-            // Skip if status is the same
-            if ($existingStatus === $newStatus) {
-                $skippedUnchanged++;
-                continue;
-            }
-            
-            // Build update
-            $updateFields = [];
-            $updateValues = [];
-            $updateTypes = "";
-            
-            // Update delivery status
-            $updateFields[] = "delivery_status = ?";
-            $updateValues[] = $newStatus;
-            $updateTypes .= "s";
-            
-            // Update datedelivered ONLY if status is Delivered AND we have a date AND no existing date
-            $isDelivered = ($newStatus === 'Delivered' || stripos($newStatus, 'Delivered') !== false);
-            $hasNoExistingDate = (empty($existingDelivered) || $existingDelivered === '0000-00-00 00:00:00');
-            
-            if ($isDelivered && !empty($deliveredDate) && $hasNoExistingDate) {
-                $updateFields[] = "datedelivered = ?";
-                $updateValues[] = $deliveredDate;
-                $updateTypes .= "s";
-            }
-            
-            if (!empty($updateFields)) {
-                checkDatabaseConnection();
-                
-                $updateSQL = "UPDATE tblproduct SET " . implode(", ", $updateFields) . " WHERE ProductID = ?";
-                $updateValues[] = $productID;
-                $updateTypes .= "i";
-                
-                $updateStmt = $mysqli->prepare($updateSQL);
-                if (!$updateStmt) {
-                    echo "   ❌ Failed to prepare update for ProductID {$productID}: " . $mysqli->error . "<br>";
-                    continue;
-                }
-                
-                $updateStmt->bind_param($updateTypes, ...$updateValues);
-                
-                if ($updateStmt->execute()) {
-                    $affected = $updateStmt->affected_rows;
-                    if ($affected > 0) {
-                        $totalUpdated++;
-                        echo "   ✅ ProductID {$productID} (Order: {$row['rtid']}): '{$existingStatus}' → '<strong>{$newStatus}</strong>'";
-                        if ($isDelivered && !empty($deliveredDate) && $hasNoExistingDate) {
-                            echo " | Date: {$deliveredDate}";
-                        }
-                        echo "<br>";
-                    }
-                } else {
-                    echo "   ❌ Update failed for ProductID {$productID}: " . $updateStmt->error . "<br>";
-                }
-                $updateStmt->close();
-            }
-        }
-    }
-    
-    echo "<br><div style='background: #e7f3ff; padding: 10px; border: 2px solid #007bff;'>";
-    echo "<strong>=== BULK TRACKING UPDATE SUMMARY ===</strong><br>";
-    echo "✅ Rows updated: <strong>{$totalUpdated}</strong><br>";
-    echo "⏭️ Skipped (already final): <strong>{$skippedFinal}</strong><br>";
-    echo "⏭️ Skipped (unchanged): <strong>{$skippedUnchanged}</strong><br>";
-    echo "</div><br>";
-    
-    return $totalUpdated;
-}
 ?>
