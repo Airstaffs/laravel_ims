@@ -1100,6 +1100,78 @@ class ShippingLabelController extends Controller
                         continue;
                     }
 
+
+                    // ✅ Resolve ASIN for this shipped item (prefer outbound latest row, fallback to tblproduct)
+                    $asin = DB::table('tbloutboundordersitem')
+                        ->where('platform_order_id', $amazonOrderId)
+                        ->where('platform_order_item_id', $orderItemId)
+                        ->orderByDesc('outboundorderitemid')
+                        ->value('platform_asin');
+
+                    if (!$asin) {
+                        $asin = DB::table('tblproduct')
+                            ->where('ProductID', $productId)
+                            ->value('ASIN'); // change to your actual column name if different
+                    }
+
+
+                    $asin = trim((string) $asin);
+
+                    if ($asin !== '') {
+
+                        // --- Normalize weight exactly like your shipment request ---
+                        $pkgWeightValue = isset($form['weight']) ? (float) $form['weight'] : null;
+                        $pkgWeightUnit = isset($form['weightUnit']) ? strtolower((string) $form['weightUnit']) : null;
+
+                        if ($pkgWeightValue !== null) {
+                            if ($pkgWeightUnit === 'pound') {
+                                $pkgWeightValue *= 453.592;
+                                $pkgWeightUnit = 'grams';
+                            } elseif ($pkgWeightUnit === 'kilogram') {
+                                $pkgWeightValue *= 1000;
+                                $pkgWeightUnit = 'grams';
+                            }
+                        }
+
+                        // If your form weight is “per item”, multiply by total qty in this shipment payload
+                        $totalQty = 0;
+                        foreach ((array) data_get($payload, 'ItemList', []) as $it2) {
+                            $totalQty += (int) (data_get($it2, 'Quantity') ?? 1);
+                        }
+                        if ($totalQty > 0 && $pkgWeightValue !== null) {
+                            $pkgWeightValue = $pkgWeightValue * $totalQty;
+                        }
+
+                        // ✅ Update tblasin measurements (you can choose overwrite vs only-if-null)
+                        DB::table('tblasin')
+                            ->where('ASIN', $asin)
+                            ->update([
+                                'white_length' => isset($form['length']) ? (float) $form['length'] : null,
+                                'white_width' => isset($form['width']) ? (float) $form['width'] : null,
+                                'white_height' => isset($form['height']) ? (float) $form['height'] : null,
+                                'white_value' => $pkgWeightValue,
+                                'white_unit' => $pkgWeightUnit,
+                            ]);
+
+                        $log['steps'][] = [
+                            'step' => 'update_tblasin_white_dimensions_weight',
+                            'ok' => true,
+                            'asin' => $asin,
+                            'white_length' => $form['length'] ?? null,
+                            'white_width' => $form['width'] ?? null,
+                            'white_height' => $form['height'] ?? null,
+                            'white_value' => $pkgWeightValue,
+                            'white_unit' => $pkgWeightUnit,
+                        ];
+                    } else {
+                        $log['steps'][] = [
+                            'step' => 'resolve_ASIN',
+                            'ok' => false,
+                            'orderItemId' => $orderItemId,
+                            'error' => 'ASIN not found from outbound latest row or tblproduct',
+                        ];
+                    }
+
                     $rowsProduct = DB::table('tblproduct')
                         ->where('ProductID', $productId)
                         ->update(['ProductModuleLoc' => 'Shipment']);

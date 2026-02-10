@@ -32,7 +32,7 @@ define('WEB_RUN_KEY', 'Rawr');
 
 if (php_sapi_name() !== 'cli') {
     // Gate the endpoint
-    $key = (string)($_GET['key'] ?? '');
+    $key = (string) ($_GET['key'] ?? '');
     if ($key !== WEB_RUN_KEY) {
         http_response_code(403);
         exit('Forbidden');
@@ -42,9 +42,10 @@ if (php_sapi_name() !== 'cli') {
     $RUN_ONCE = !empty($_GET['run_once']);
 
     // Default web testing is LIMIT 1
-    $LIMIT = isset($_GET['limit']) ? max(1, (int)$_GET['limit']) : 1;
+    $LIMIT = isset($_GET['limit']) ? max(1, (int) $_GET['limit']) : 1;
 
-    if ($RUN_ONCE) $LIMIT = 1;
+    if ($RUN_ONCE)
+        $LIMIT = 1;
 
     if ($DEBUG) {
         header('Content-Type: text/plain; charset=utf-8');
@@ -60,7 +61,8 @@ if (php_sapi_name() !== 'cli') {
 function out(string $label, $data = null): void
 {
     global $DEBUG;
-    if (!$DEBUG) return;
+    if (!$DEBUG)
+        return;
 
     $ts = date('Y-m-d H:i:s');
     echo "\n==================== {$ts} :: {$label} ====================\n";
@@ -579,7 +581,8 @@ function getUpsTrackingQueueLatestDispense(mysqli $db, int $limit = 0): array
     if ($limit > 0) {
         $sql .= " LIMIT ?";
         $stmt = $db->prepare($sql);
-        if (!$stmt) return ['error' => true, 'message' => 'Prepare failed: ' . $db->error];
+        if (!$stmt)
+            return ['error' => true, 'message' => 'Prepare failed: ' . $db->error];
 
         $stmt->bind_param("i", $limit);
         $stmt->execute();
@@ -610,14 +613,8 @@ function getUpsTrackingQueueLatestDispense(mysqli $db, int $limit = 0): array
     return $items;
 }
 
-function handleDeliveredTransaction(
-    mysqli $db,
-    int $outboundId,
-    int $productId,
-    string $fnskuviewer,
-    string $mskuviewer,
-    string $asinviewer
-): array {
+function handleDeliveredTransaction(mysqli $db, int $outboundId, int $productId, string $fnskuviewer, string $mskuviewer, string $asinviewer): array
+{
     if ($outboundId <= 0 || $productId <= 0) {
         return ['ok' => false, 'error' => 'Missing outboundId/productId'];
     }
@@ -631,37 +628,26 @@ function handleDeliveredTransaction(
             SET order_status = 'Delivered'
             WHERE outboundorderitemid = ? AND order_status = 'Shipped'
         ");
-        if (!$stmt1) throw new Exception($db->error);
+        if (!$stmt1)
+            throw new Exception($db->error);
 
         $stmt1->bind_param("i", $outboundId);
         $stmt1->execute();
         if ($stmt1->affected_rows <= 0) {
+            $stmt1->close();
             throw new Exception("Outbound item already processed or not Shipped");
         }
         $stmt1->close();
 
-        // 2) Move ONLY dispensed product to SoldList
-        $stmt2 = $db->prepare("
-            UPDATE tblproduct
-            SET ProductModuleLoc = 'SoldList'
-            WHERE ProductID = ?
-        ");
-        if (!$stmt2) throw new Exception($db->error);
-
-        $stmt2->bind_param("i", $productId);
-        $stmt2->execute();
-        if ($stmt2->affected_rows <= 0) {
-            throw new Exception("Product not moved to SoldList");
-        }
-        $stmt2->close();
-
-        // 3) Load product info (to detect pack)
+        // 2) Load product info FIRST (needed to detect pack + rtcounter)
         $stmt = $db->prepare("
             SELECT mergeId, rtcounter, FNSKUviewer, MSKUviewer, ASINviewer
             FROM tblproduct
             WHERE ProductID = ?
+            LIMIT 1
         ");
-        if (!$stmt) throw new Exception($db->error);
+        if (!$stmt)
+            throw new Exception($db->error);
 
         $stmt->bind_param("i", $productId);
         $stmt->execute();
@@ -672,34 +658,54 @@ function handleDeliveredTransaction(
             throw new Exception("Product not found for ProductID={$productId}");
         }
 
-        // Prefer DB values (row values are fine, but DB is source of truth)
+        $isPackParent = !empty($prod['mergeId']);
+        $rtcounter = (int) ($prod['rtcounter'] ?? 0);
+
+        // Prefer DB values (DB is source of truth)
         $fnskuviewer = trim((string) ($prod['FNSKUviewer'] ?? $fnskuviewer));
         $mskuviewer = trim((string) ($prod['MSKUviewer'] ?? $mskuviewer));
         $asinviewer = trim((string) ($prod['ASINviewer'] ?? $asinviewer));
 
+        // 3) Move to SoldList (Option A: parent always; children if pack)
+        $movedRows = moveProductParentAndChildrenToSoldList($db, $productId, $rtcounter, $isPackParent);
+        if ($movedRows <= 0) {
+            throw new Exception("No tblproduct rows moved to Soldlist");
+        }
+
+        // 4) Build idCounts for tblfnsku increments
         $idCounts = [];
 
-        // CASE A: Single item (no mergeId)
-        if (empty($prod['mergeId'])) {
+        if (!$isPackParent) {
+            // Single item
             $tuple = normalizeIdentifierTuple($fnskuviewer, $mskuviewer, $asinviewer);
             $key = json_encode($tuple, JSON_UNESCAPED_SLASHES);
             $idCounts[$key] = ($idCounts[$key] ?? 0) + 1;
-        } else {
-            // CASE B: Pack parent → expand children
-            $rtcounter = (int) $prod['rtcounter'];
 
+        } else {
+            // Pack parent: count parent as 1 (so 4-pack => 5 total if 4 children exist)
+            $tupleParent = normalizeIdentifierTuple($fnskuviewer, $mskuviewer, $asinviewer);
+            $keyParent = json_encode($tupleParent, JSON_UNESCAPED_SLASHES);
+            $idCounts[$keyParent] = ($idCounts[$keyParent] ?? 0) + 1;
+
+            if ($rtcounter <= 0) {
+                throw new Exception("Pack parent missing rtcounter for ProductID={$productId}");
+            }
+
+            // Add children
             $stmt = $db->prepare("
                 SELECT FNSKUviewer, MSKUviewer, ASINviewer
                 FROM tblproduct
                 WHERE mergeTO = ?
             ");
-            if (!$stmt) throw new Exception($db->error);
+            if (!$stmt)
+                throw new Exception($db->error);
 
             $stmt->bind_param("i", $rtcounter);
             $stmt->execute();
             $res = $stmt->get_result();
 
             if ($res->num_rows === 0) {
+                $stmt->close();
                 throw new Exception("Pack parent found but no children for rtcounter={$rtcounter}");
             }
 
@@ -716,10 +722,11 @@ function handleDeliveredTransaction(
             $stmt->close();
         }
 
-        // 4) Apply increments to tblfnsku by matching FNSKU OR MSKU OR ASIN
+        // 5) Apply increments to tblfnsku by matching FNSKU OR MSKU OR ASIN
         $updates = [];
         foreach ($idCounts as $key => $qty) {
             $tuple = json_decode($key, true);
+
             $r = increment_tblfnsku_units_by_any_identifier(
                 $db,
                 (int) $qty,
@@ -733,10 +740,10 @@ function handleDeliveredTransaction(
             }
 
             $updates[] = [
-                'qty' => $qty,
-                'fnsku' => $tuple['fnsku'],
-                'msku' => $tuple['msku'],
-                'asin' => $tuple['asin'],
+                'qty' => (int) $qty,
+                'fnsku' => (string) ($tuple['fnsku'] ?? ''),
+                'msku' => (string) ($tuple['msku'] ?? ''),
+                'asin' => (string) ($tuple['asin'] ?? ''),
                 'rowsAffected' => $r['rowsAffected'] ?? null,
             ];
         }
@@ -745,6 +752,7 @@ function handleDeliveredTransaction(
 
         return [
             'ok' => true,
+            'movedRows' => $movedRows,
             'fnsku_updates' => $updates,
         ];
 
@@ -815,20 +823,21 @@ function fetchUpsCredentialsFromMainApp(): array
 function normalizeIdentifierTuple(string $fnskuviewer, string $mskuviewer, string $asinviewer): array
 {
     $fnsku = normalizeFnskuViewer($fnskuviewer);
-    $msku  = strtoupper(trim($mskuviewer));
-    $asin  = strtoupper(trim($asinviewer));
+    $msku = strtoupper(trim($mskuviewer));
+    $asin = strtoupper(trim($asinviewer));
 
     return [
         'fnsku' => $fnsku,
-        'msku'  => $msku,
-        'asin'  => $asin,
+        'msku' => $msku,
+        'asin' => $asin,
     ];
 }
 
 function normalizeFnskuViewer(string $fnsku): string
 {
     $s = strtoupper(trim($fnsku));
-    if ($s === '') return '';
+    if ($s === '')
+        return '';
 
     $pos = strpos($s, 'X');
     if ($pos !== false) {
@@ -838,8 +847,10 @@ function normalizeFnskuViewer(string $fnsku): string
         }
     }
 
-    if (preg_match('/^[A-Z][0-9](X[0-9A-Z]+)$/', $s, $m)) return $m[1];
-    if (preg_match('/^[A-Z]{2}(X[0-9A-Z]+)$/', $s, $m)) return $m[1];
+    if (preg_match('/^[A-Z][0-9](X[0-9A-Z]+)$/', $s, $m))
+        return $m[1];
+    if (preg_match('/^[A-Z]{2}(X[0-9A-Z]+)$/', $s, $m))
+        return $m[1];
 
     return $s;
 }
@@ -851,15 +862,28 @@ function increment_tblfnsku_units_by_any_identifier(
     string $msku,
     string $asin
 ): array {
-    if ($qty <= 0) return ['ok' => false, 'error' => 'qty must be > 0'];
+    if ($qty <= 0)
+        return ['ok' => false, 'error' => 'qty must be > 0'];
 
     $conds = [];
     $types = "i";
     $params = [$qty];
 
-    if ($fnsku !== '') { $conds[] = "FNSKU = ?"; $types .= "s"; $params[] = $fnsku; }
-    if ($msku  !== '') { $conds[] = "MSKU  = ?"; $types .= "s"; $params[] = $msku; }
-    if ($asin  !== '') { $conds[] = "ASIN  = ?"; $types .= "s"; $params[] = $asin; }
+    if ($fnsku !== '') {
+        $conds[] = "FNSKU = ?";
+        $types .= "s";
+        $params[] = $fnsku;
+    }
+    if ($msku !== '') {
+        $conds[] = "MSKU  = ?";
+        $types .= "s";
+        $params[] = $msku;
+    }
+    if ($asin !== '') {
+        $conds[] = "ASIN  = ?";
+        $types .= "s";
+        $params[] = $asin;
+    }
 
     if (count($conds) === 0) {
         return ['ok' => false, 'error' => 'No identifiers (fnsku/msku/asin) provided'];
@@ -872,7 +896,8 @@ function increment_tblfnsku_units_by_any_identifier(
     ";
 
     $stmt = $db->prepare($sql);
-    if (!$stmt) return ['ok' => false, 'error' => $db->error];
+    if (!$stmt)
+        return ['ok' => false, 'error' => $db->error];
 
     $bind = [];
     $bind[] = $types;
@@ -887,7 +912,8 @@ function increment_tblfnsku_units_by_any_identifier(
     $err = $stmt->error;
     $stmt->close();
 
-    if ($err) return ['ok' => false, 'error' => $err];
+    if ($err)
+        return ['ok' => false, 'error' => $err];
 
     if ($affected <= 0) {
         return [
@@ -897,4 +923,54 @@ function increment_tblfnsku_units_by_any_identifier(
     }
 
     return ['ok' => true, 'rowsAffected' => $affected];
+}
+
+function moveProductParentAndChildrenToSoldList(mysqli $db, int $productId, int $rtcounter, bool $isPackParent): int
+{
+    $moved = 0;
+
+    // 1) Move parent
+    $stmtP = $db->prepare("
+        UPDATE tblproduct
+        SET ProductModuleLoc = 'Soldlist'
+        WHERE ProductID = ?
+    ");
+    if (!$stmtP)
+        throw new Exception($db->error);
+
+    $stmtP->bind_param("i", $productId);
+    $stmtP->execute();
+    $moved += (int) $stmtP->affected_rows;
+    $err = $stmtP->error;
+    $stmtP->close();
+
+    if ($err)
+        throw new Exception("Move parent failed: {$err}");
+
+    // 2) Move children (only if pack parent)
+    if ($isPackParent) {
+
+        if ($rtcounter <= 0) {
+            throw new Exception("Pack parent missing rtcounter (cannot move children)");
+        }
+
+        $stmtC = $db->prepare("
+            UPDATE tblproduct
+            SET ProductModuleLoc = 'Soldlist'
+            WHERE mergeTO = ?
+        ");
+        if (!$stmtC)
+            throw new Exception($db->error);
+
+        $stmtC->bind_param("i", $rtcounter);
+        $stmtC->execute();
+        $moved += (int) $stmtC->affected_rows;
+        $err2 = $stmtC->error;
+        $stmtC->close();
+
+        if ($err2)
+            throw new Exception("Move children failed: {$err2}");
+    }
+
+    return $moved;
 }

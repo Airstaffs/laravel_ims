@@ -73,12 +73,12 @@ export default {
         },
         serialKeys() {
             return Object.keys(this.item).filter((k) =>
-                /^serialnumber[a-z]?$/.test(k)
+                /^serialnumber[a-z]?$/.test(k),
             );
         },
         trackingKeys() {
             return Object.keys(this.item).filter((k) =>
-                /^trackingnumber\d*$/.test(k)
+                /^trackingnumber\d*$/.test(k),
             );
         },
 
@@ -134,7 +134,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.materialtype)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -144,7 +144,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.sourceType)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -154,190 +154,203 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.carrier)
-                        .filter((c) => c && c.trim() !== "")
+                        .filter((c) => c && c.trim() !== ""),
                 ),
             ].sort();
         },
     },
     methods: {
+        openSetAsinModal(item) {
+            this.selectedItem = item;
+            this.showSetAsinModal = true;
+        },
 
- openSetAsinModal(item) {
-        this.selectedItem = item;
-        this.showSetAsinModal = true;
-    },
-
-    async handleAsinSelected(asinData) {
-        try {
-            this.loading = true;
-            
-            // Call the setAsin endpoint to update ASINviewer
-            const response = await axios.post('/api/orders/set-asin', {
-                ProductID: this.selectedItem.ProductID,
-                ASIN: asinData.ASIN,
-                _token: document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            });
-            
-            if (response.data.success) {
-                await Swal.fire({
-                    icon: 'success',
-                    title: 'Success!',
-                    text: `ASIN ${asinData.ASIN} has been set successfully.`,
-                    confirmButtonText: 'OK',
-                    timer: 2000
-                });
-                
-                await this.fetchInventory();
-            }
-        } catch (error) {
-            console.error('Error setting ASIN:', error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Failed to set ASIN. Please try again.',
-                confirmButtonText: 'OK'
-            });
-        } finally {
-            this.loading = false;
-        }
-    },
-    
-   async removeAsin(item) {
-        try {
-            const result = await Swal.fire({
-                title: 'Remove ASIN?',
-                text: `Are you sure you want to remove ASIN ${item.display_asin || item.ASINviewer} from RT#${item.rtcounter}?`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6',
-                confirmButtonText: 'Yes, remove it!',
-                cancelButtonText: 'Cancel'
-            });
-            
-            if (result.isConfirmed) {
+        async handleAsinSelected(asinData) {
+            try {
                 this.loading = true;
-                
-                // Call removeAsin endpoint
-                const response = await axios.post('/api/orders/remove-asin', {
-                    ProductID: item.ProductID,
-                    _token: document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+
+                // Call the setAsin endpoint to update ASINviewer
+                const response = await axios.post("/api/orders/set-asin", {
+                    ProductID: this.selectedItem.ProductID,
+                    ASIN: asinData.ASIN,
+                    _token: document
+                        .querySelector('meta[name="csrf-token"]')
+                        .getAttribute("content"),
                 });
-                
+
                 if (response.data.success) {
                     await Swal.fire({
-                        icon: 'success',
-                        title: 'Removed!',
-                        text: 'ASIN has been removed successfully.',
-                        confirmButtonText: 'OK',
-                        timer: 2000
+                        icon: "success",
+                        title: "Success!",
+                        text: `ASIN ${asinData.ASIN} has been set successfully.`,
+                        confirmButtonText: "OK",
+                        timer: 2000,
                     });
-                    
+
                     await this.fetchInventory();
                 }
+            } catch (error) {
+                console.error("Error setting ASIN:", error);
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: "Failed to set ASIN. Please try again.",
+                    confirmButtonText: "OK",
+                });
+            } finally {
+                this.loading = false;
             }
-        } catch (error) {
-            console.error('Error removing ASIN:', error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Failed to remove ASIN. Please try again.',
-                confirmButtonText: 'OK'
-            });
-        } finally {
-            this.loading = false;
-        }
-    },
-    // === QUANTITY EDITING METHODS ===
-    startQuantityEdit(item) {
-        this.editingQuantity = item.ProductID;
-        this.tempQuantity = item.quantity || 0;
-        
-        // Focus the input after Vue updates the DOM
-        this.$nextTick(() => {
-            const refName = `quantityInput-${item.ProductID}`;
-            const input = this.$refs[refName];
-            
-            if (input) {
-                // Check if it's an array (multiple refs with same name)
-                const inputElement = Array.isArray(input) ? input[0] : input;
-                
-                // If it's a PrimeVue InputText component
-                if (inputElement?.$el) {
-                    const nativeInput = inputElement.$el.querySelector('input');
-                    if (nativeInput) {
-                        nativeInput.focus();
-                        nativeInput.select();
-                    }
-                } 
-                // If it's a native input
-                else if (inputElement?.tagName === 'INPUT') {
-                    inputElement.focus();
-                    inputElement.select();
-                }
-            }
-        });
-    },
+        },
 
-    cancelQuantityEdit() {
-        this.editingQuantity = null;
-        this.tempQuantity = null;
-    },
-
-    async saveQuantity(item) {
-        // Don't save if nothing changed
-        if (this.tempQuantity === item.quantity) {
-            this.cancelQuantityEdit();
-            return;
-        }
-
-        try {
-            const response = await axios.put(`/api/orders/products/${item.ProductID}/quantity`, {
-                quantity: this.tempQuantity,
-                _token: document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            });
-
-            if (response.data.success) {
-                // Update the item in the inventory array
-                const index = this.inventory.findIndex(p => p.ProductID === item.ProductID);
-                if (index !== -1) {
-                    this.inventory[index].quantity = this.tempQuantity;
-                }
-
-                // Show success message (compact toast)
-                const Toast = Swal.mixin({
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    timer: 1500,
-                    timerProgressBar: true,
-                    width: '300px',  // Fixed width
-                    padding: '0.75rem',  // Smaller padding
-                    customClass: {
-                        popup: 'compact-toast'
-                    }
+        async removeAsin(item) {
+            try {
+                const result = await Swal.fire({
+                    title: "Remove ASIN?",
+                    text: `Are you sure you want to remove ASIN ${item.display_asin || item.ASINviewer} from RT#${item.rtcounter}?`,
+                    icon: "warning",
+                    showCancelButton: true,
+                    confirmButtonColor: "#d33",
+                    cancelButtonColor: "#3085d6",
+                    confirmButtonText: "Yes, remove it!",
+                    cancelButtonText: "Cancel",
                 });
 
-                Toast.fire({
-                    icon: 'success',
-                    title: 'Quantity updated',
-                    text: ''  // No additional text
+                if (result.isConfirmed) {
+                    this.loading = true;
+
+                    // Call removeAsin endpoint
+                    const response = await axios.post(
+                        "/api/orders/remove-asin",
+                        {
+                            ProductID: item.ProductID,
+                            _token: document
+                                .querySelector('meta[name="csrf-token"]')
+                                .getAttribute("content"),
+                        },
+                    );
+
+                    if (response.data.success) {
+                        await Swal.fire({
+                            icon: "success",
+                            title: "Removed!",
+                            text: "ASIN has been removed successfully.",
+                            confirmButtonText: "OK",
+                            timer: 2000,
+                        });
+
+                        await this.fetchInventory();
+                    }
+                }
+            } catch (error) {
+                console.error("Error removing ASIN:", error);
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: "Failed to remove ASIN. Please try again.",
+                    confirmButtonText: "OK",
                 });
+            } finally {
+                this.loading = false;
             }
-        } catch (error) {
-            console.error('Error updating quantity:', error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Failed to update quantity. Please try again.',
-                confirmButtonText: 'OK'
+        },
+        // === QUANTITY EDITING METHODS ===
+        startQuantityEdit(item) {
+            this.editingQuantity = item.ProductID;
+            this.tempQuantity = item.quantity || 0;
+
+            // Focus the input after Vue updates the DOM
+            this.$nextTick(() => {
+                const refName = `quantityInput-${item.ProductID}`;
+                const input = this.$refs[refName];
+
+                if (input) {
+                    // Check if it's an array (multiple refs with same name)
+                    const inputElement = Array.isArray(input)
+                        ? input[0]
+                        : input;
+
+                    // If it's a PrimeVue InputText component
+                    if (inputElement?.$el) {
+                        const nativeInput =
+                            inputElement.$el.querySelector("input");
+                        if (nativeInput) {
+                            nativeInput.focus();
+                            nativeInput.select();
+                        }
+                    }
+                    // If it's a native input
+                    else if (inputElement?.tagName === "INPUT") {
+                        inputElement.focus();
+                        inputElement.select();
+                    }
+                }
             });
-        } finally {
-            this.cancelQuantityEdit();
-        }
-    },
+        },
 
+        cancelQuantityEdit() {
+            this.editingQuantity = null;
+            this.tempQuantity = null;
+        },
 
-  
+        async saveQuantity(item) {
+            // Don't save if nothing changed
+            if (this.tempQuantity === item.quantity) {
+                this.cancelQuantityEdit();
+                return;
+            }
+
+            try {
+                const response = await axios.put(
+                    `/api/orders/products/${item.ProductID}/quantity`,
+                    {
+                        quantity: this.tempQuantity,
+                        _token: document
+                            .querySelector('meta[name="csrf-token"]')
+                            .getAttribute("content"),
+                    },
+                );
+
+                if (response.data.success) {
+                    // Update the item in the inventory array
+                    const index = this.inventory.findIndex(
+                        (p) => p.ProductID === item.ProductID,
+                    );
+                    if (index !== -1) {
+                        this.inventory[index].quantity = this.tempQuantity;
+                    }
+
+                    // Show success message (compact toast)
+                    const Toast = Swal.mixin({
+                        toast: true,
+                        position: "top-end",
+                        showConfirmButton: false,
+                        timer: 1500,
+                        timerProgressBar: true,
+                        width: "300px", // Fixed width
+                        padding: "0.75rem", // Smaller padding
+                        customClass: {
+                            popup: "compact-toast",
+                        },
+                    });
+
+                    Toast.fire({
+                        icon: "success",
+                        title: "Quantity updated",
+                        text: "", // No additional text
+                    });
+                }
+            } catch (error) {
+                console.error("Error updating quantity:", error);
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: "Failed to update quantity. Please try again.",
+                    confirmButtonText: "OK",
+                });
+            } finally {
+                this.cancelQuantityEdit();
+            }
+        },
 
         handleImageError(event) {
             // If image fails to load, use an inline SVG placeholder
@@ -378,7 +391,7 @@ export default {
                 await this.fetchItems();
 
                 const freshItem = this.items.find(
-                    (i) => i.itemnumber === item.itemnumber
+                    (i) => i.itemnumber === item.itemnumber,
                 );
                 const itemToUse = freshItem || item;
 
@@ -431,7 +444,7 @@ export default {
             // await this.fetchItems();
 
             const freshItem = this.items.find(
-                (i) => i.itemnumber === item.itemnumber
+                (i) => i.itemnumber === item.itemnumber,
             );
             this.item = { ...(freshItem || item) };
 
@@ -507,12 +520,12 @@ export default {
 
                 const response = await axios.post(
                     "/api/orders/products",
-                    payload
+                    payload,
                 );
                 const updated = response.data.product;
 
                 const index = this.items.findIndex(
-                    (p) => p.itemnumber === updated.itemnumber
+                    (p) => p.itemnumber === updated.itemnumber,
                 );
                 if (index !== -1) {
                     this.items.splice(index, 1, updated);
@@ -561,7 +574,7 @@ export default {
 
         // Fetch inventory data from the API
         async fetchInventory() {
-            this.loading = true
+            this.loading = true;
             try {
                 const response = await axios.get(
                     `${API_BASE_URL}/api/orders/products`,
@@ -572,7 +585,7 @@ export default {
                             per_page: this.perPage,
                             location: "Orders",
                         },
-                    }
+                    },
                 );
 
                 this.inventory = response.data.data;
@@ -582,7 +595,7 @@ export default {
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
             } finally {
-                this.loading = false
+                this.loading = false;
             }
         },
 
@@ -691,4 +704,3 @@ export default {
         }
     },
 };
-

@@ -688,7 +688,7 @@
             }"
             :style="{ width: '95%' }"
         >
-            <div class="process-form">        
+            <div class="process-form">
                 <div class="form-group" v-if="singleItemSelected">
                     <label>New Location (optional):</label>
                     <InputText
@@ -853,7 +853,10 @@
         >
             <div class="product-details-layout">
                 <div class="product-details-left">
-                    <div class="product-details-image clickable" @click="enlargeImage = !enlargeImage">
+                    <div
+                        class="product-details-image clickable"
+                        @click="enlargeImage = !enlargeImage"
+                    >
                         <img
                             :src="
                                 selectedProduct.useDefaultImage
@@ -966,45 +969,41 @@
                     </div>
                     <Panel header="FNSKUs" toggleable :collapsed="true">
                         <div
-                                v-for="fnsku in selectedProduct.fnskus"
-                                :key="fnsku.FNSKU"
-                                class="w-100 product-details-fnsku-item"
-                            >
-                                <div class="fnsku-main">
-                                    {{ fnsku.FNSKU || fnsku }}
-                                </div>
-                                <div class="fnsku-details">
-                                    <span class="fnsku-detail"
-                                        >Store:
-                                        {{
-                                            fnsku.storename || "-"
-                                        }}</span
-                                    >
-                                    <span class="fnsku-detail"
-                                        >MSKU:
-                                        {{ fnsku.MSKU || "-" }}</span
-                                    >
-                                    <span class="fnsku-detail"
-                                        >Grade:
-                                        {{
-                                            fnsku.display_grading ||
-                                            getDisplayGrading(
-                                                fnsku,
-                                                fnsku.storename,
-                                            )
-                                        }}</span
-                                    >
-                                </div>
+                            v-for="fnsku in selectedProduct.fnskus"
+                            :key="fnsku.FNSKU"
+                            class="w-100 product-details-fnsku-item"
+                        >
+                            <div class="fnsku-main">
+                                {{ fnsku.FNSKU || fnsku }}
                             </div>
-                            <div
-                                v-if="
-                                    !selectedProduct.fnskus ||
-                                    selectedProduct.fnskus.length === 0
-                                "
-                                class="product-details-empty"
-                            >
-                                No FNSKUs found
+                            <div class="fnsku-details">
+                                <span class="fnsku-detail"
+                                    >Store: {{ fnsku.storename || "-" }}</span
+                                >
+                                <span class="fnsku-detail"
+                                    >MSKU: {{ fnsku.MSKU || "-" }}</span
+                                >
+                                <span class="fnsku-detail"
+                                    >Grade:
+                                    {{
+                                        fnsku.display_grading ||
+                                        getDisplayGrading(
+                                            fnsku,
+                                            fnsku.storename,
+                                        )
+                                    }}</span
+                                >
                             </div>
+                        </div>
+                        <div
+                            v-if="
+                                !selectedProduct.fnskus ||
+                                selectedProduct.fnskus.length === 0
+                            "
+                            class="product-details-empty"
+                        >
+                            No FNSKUs found
+                        </div>
                     </Panel>
                 </div>
                 <div class="product-details-right">
@@ -1103,15 +1102,15 @@
                                 required
                             />
                         </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" type="submit">
+                                Submit
+                            </button>
+                        </div>
                     </form>
                 </div>
                 <div class="modal-body" v-else>
                     <p>Processing... Please wait.</p>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-primary" type="submit">
-                        Submit
-                    </button>
                 </div>
             </div>
         </div>
@@ -1152,7 +1151,7 @@ import {
     ScrollTop,
     Select,
     Textarea,
-    Panel
+    Panel,
 } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
@@ -1265,7 +1264,7 @@ export default {
         OverlayBadge,
         Badge,
         AnimateDiv,
-        Panel
+        Panel,
     },
     data() {
         return {
