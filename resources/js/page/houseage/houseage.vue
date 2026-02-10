@@ -397,180 +397,34 @@
                     <div class="form-grid-wrapper">
                         <!-- LEFT: IMAGE + GENERAL INFO -->
                         <div class="form-col-left">
-                            <!----Tracking Image List--->
-                            <div class="image-section">
-                                <fieldset>
-                                    <label>Tracking Number</label>
-                                    <div
-                                        class="main-image"
-                                        @click="
-                                            handleOpenProductImageDialog(
-                                                'tracking',
-                                                2,
-                                            )
-                                        "
-                                    >
-                                        <img
-                                            :src="activeTrackingImageUrl"
-                                            :key="`main-${activeTrackingImageUrl}-${imageRenderKey}`"
-                                            alt="Tracking Image"
-                                            loading="lazy"
-                                            @error="onImageErrorMain"
-                                        />
-                                    </div>
-                                    <div class="thumbnail-carousel">
-                                        <div
-                                            v-for="(
-                                                img, index
-                                            ) in trackingImgList"
-                                            :key="`thumb-${index}-${img}-${imageRenderKey}`"
-                                            :class="[
-                                                'thumbnail',
-                                                {
-                                                    active:
-                                                        index ===
-                                                        trackingActiveIndex,
-                                                },
-                                            ]"
-                                            @click="trackingActiveIndex = index"
-                                            @mouseenter="
-                                                trackingActiveIndex = index
-                                            "
-                                        >
-                                            <img
-                                                :src="
-                                                    img.startsWith('/images/')
-                                                        ? img
-                                                        : basePath + img
-                                                "
-                                                alt="Thumbnail"
-                                                loading="lazy"
-                                                @error="
-                                                    onThumbnailError($event)
-                                                "
-                                            />
-                                        </div>
-                                    </div>
-                                </fieldset>
-                            </div>
-                            <fieldset>
-                                <label for="">Product Images</label>
-                                <!-- <div
-                                    class="image-section"
-                                    v-if="imageList.length"
-                                    :key="`section-${imageRenderKey}`"
-                                > -->
-                                <div
-                                    class="image-section"
-                                >
-                                    <!-- Main Image -->
-                                    <div
-                                        class="main-image"
-                                        @click="
-                                            handleOpenProductImageDialog(
-                                                'product',
-                                                12,
-                                            )
-                                        "
-                                    >
-                                        <img
-                                            :src="activeImageUrl"
-                                            :key="`main-${activeImageUrl}-${imageRenderKey}`"
-                                            alt="Main Product Image"
-                                            loading="lazy"
-                                            @error="onImageErrorMain"
-                                        />
-                                    </div>
+                          <ProductImageGallery 
+                                 label="Serial Images"
+                                :imageList="serialImgList"
+                                :imageType="'serial'"
+                                :maxImages="2"
+                                :productId="item.ProductID"
+                                :company="item.company"
+                                @request-refresh="fetchInventory()"
+                            />
+                            <ProductImageGallery 
+                                 label="Product Images"
+                                :imageList="imageList"
+                                :imageType="'captured'"
+                                :maxImages="12"
+                                :productId="item.ProductID"
+                                :company="item.company"
+                                @request-refresh="fetchInventory()"
+                            />
 
-                                    <!-- Thumbnails -->
-                                    <div class="thumbnail-carousel">
-                                        <div
-                                            v-for="(img, index) in imageList"
-                                            :key="`thumb-${index}-${img}-${imageRenderKey}`"
-                                            :class="[
-                                                'thumbnail',
-                                                {
-                                                    active:
-                                                        index === activeIndex,
-                                                },
-                                            ]"
-                                            @click="activeIndex = index"
-                                            @mouseenter="activeIndex = index"
-                                        >
-                                            <img
-                                                :src="
-                                                    img.startsWith('/images/')
-                                                        ? img
-                                                        : basePath + img
-                                                "
-                                                alt="Thumbnail"
-                                                loading="lazy"
-                                                @error="
-                                                    onThumbnailError($event)
-                                                "
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </fieldset>
-
-                            <div class="image-section">
-                                <fieldset>
-                                    <label>Serial Number</label>
-                                    <div
-                                        class="main-image"
-                                        @click="
-                                            handleOpenProductImageDialog(
-                                                'serial',
-                                                2,
-                                            )
-                                        "
-                                    >
-                                        <img
-                                            :src="activeSerialImageUrl"
-                                            :key="`main-${activeSerialImageUrl}-${imageRenderKey}`"
-                                            alt="Serial Image"
-                                            loading="lazy"
-                                            @error="onImageErrorMain"
-                                        />
-                                    </div>
-                                    <div class="thumbnail-carousel">
-                                        <div
-                                            v-for="(
-                                                img, index
-                                            ) in serialImgList"
-                                            :key="`thumb-${index}-${img}-${imageRenderKey}`"
-                                            :class="[
-                                                'thumbnail',
-                                                {
-                                                    active:
-                                                        index ===
-                                                        serialActiveIndex,
-                                                },
-                                            ]"
-                                            @click="serialActiveIndex = index"
-                                            @mouseenter="
-                                                serialActiveIndex = index
-                                            "
-                                        >
-                                            <img
-                                                :src="
-                                                    img.startsWith('/images/')
-                                                        ? img
-                                                        : basePath + img
-                                                "
-                                                alt="Thumbnail"
-                                                loading="lazy"
-                                                @error="
-                                                    onThumbnailError($event)
-                                                "
-                                            />
-                                        </div>
-                                    </div>
-                                </fieldset>
-                            </div>
-
-                            
+                             <ProductImageGallery 
+                                 label="Tracking Images"
+                                :imageList="trackingImgList"
+                                :imageType="'tracking'"
+                                :maxImages="2"
+                                :productId="item.ProductID"
+                                :company="item.company"
+                                @request-refresh="fetchInventory()"
+                            />
                         </div>
 
                         <!-- CENTER: ALL OTHER INFO EXCEPT PRICING -->
@@ -1417,8 +1271,7 @@ import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewIm
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 import { showPricingForPH } from "../../utils/helpers.js";
-import axios from "axios";
-import Swal from "sweetalert2";
+import ProductImageGallery from "../../components/ProductImageGallery/ProductImageGallery.vue";
 
 const TABLE_COLUMNS = [
     {
@@ -1507,6 +1360,7 @@ export default {
         TitlePage,
         ViewImageGalleryModal,
         AnimateDiv,
+        ProductImageGallery
     },
     data() {
         return {
@@ -1543,384 +1397,10 @@ export default {
             ],
             rowsPerPage: ROWS_PER_PAGE,
             showPricingSection: showPricingForPH(),
-            openCapturedImageDialog: false,
-            uploadingIndex: null,
-            deletingIndex: null,
-            imageRenderKey: 0,
-            selectedImageList: [],
-            imageLimitCount: 0,
-            imageType: '',
-            imgNumber: 0,
+            openCapturedImageDialog: false
         };
     },
     methods: {
-        handleOpenProductImageDialog(type, limit) {
-            this.imageLimitCount = limit;
-            switch (type) {
-                case "product":
-                    this.selectedImageList = this.imageList;
-                    this.imageType = "captured";
-                    break;
-                case "tracking":
-                    this.selectedImageList = this.trackingImgList;
-                    this.imageType = "tracking";
-                    break;
-                case "serial":
-                    this.selectedImageList = this.serialImgList;
-                    this.imageType = "serial";
-                    break;
-                default:
-                    break;
-            }
-
-            this.openCapturedImageDialog = true;
-        },
-
-        handleUploadClick(index, currentImage) {
-            const fileInput = this.$refs.capturedProductImageRef;
-            if (fileInput && fileInput[index]) {
-                fileInput[index].click();
-            }
-            this.imgNumber = currentImage.split('_').pop().match(/(\d+)/)?.[1];
-        },
-
-        extractImageNumbers(imageList) {
-            if (!imageList || !Array.isArray(imageList)) {
-                return [];
-            }
-
-            const numbers = [];
-            
-            imageList.forEach(imagePath => {
-                if (!imagePath) return;
-                
-                const imageNumber = imagePath.split('_').pop().match(/(\d+)/)?.[1];
-                
-                if (imageNumber) {
-                    const num = parseInt(imageNumber, 10);
-                    if (num >= 1 && num <= 12 && !numbers.includes(num)) {
-                        numbers.push(num);
-                    }
-                }
-            });
-            
-            return numbers.sort((a, b) => a - b);
-        },
-
-        findNextAvailableImageNumber(imageList, maxCount = 12) {
-            const usedNumbers = this.extractImageNumbers(imageList);
-            
-            for (let i = 1; i <= maxCount; i++) {
-                if (!usedNumbers.includes(i)) {
-                    return i;
-                }
-            }
-            
-            return null;
-        },
-
-        handleAddNewImageClick() {
-            this.$refs.addNewImageInputRef.click();
-        },
-
-        addCacheBuster(url, bust = null) {
-            if (!url) return url;
-
-            const buster = bust || Date.now();
-            const separator = url.includes("?") ? "&" : "?";
-            const cleanUrl = url.replace(/[?&](t|v|_)=\d+/g, "");
-
-            return `${cleanUrl}${separator}t=${buster}`;
-        },
-
-        removeCacheBuster(url) {
-            if (!url) return url;
-            return url.replace(/[?&](t|v|_)=\d+/g, "").replace(/\?$/, "");
-        },
-
-        /**
-         * Build image list from item data with cache busters
-         */
-        buildImageList(item, imageType, maxCount, timestamp) {
-            const images = [];
-            const basePath = `/images/product_images/${item.company || 'Airstaffs'}/`;
-            
-            if (imageType === 'captured') {
-                // Check capturedImages object first
-                if (item.capturedImages) {
-                    for (let i = 1; i <= maxCount; i++) {
-                        const imgKey = `capturedimg${i}`;
-                        if (item.capturedImages[imgKey]) {
-                            const path = basePath + item.capturedImages[imgKey];
-                            images.push(this.addCacheBuster(path, timestamp));
-                        }
-                    }
-                }
-                
-                // Fallback to regular img properties if no captured images
-                if (images.length === 0) {
-                    for (let i = 1; i <= maxCount; i++) {
-                        const imgKey = `img${i}`;
-                        if (item[imgKey]) {
-                            const path = this.basePath + item[imgKey];
-                            images.push(this.addCacheBuster(path, timestamp));
-                        }
-                    }
-                }
-            } else {
-                // For serial and tracking images
-                for (let i = 1; i <= maxCount; i++) {
-                    const imgKey = `${imageType}img${i}`;
-                    if (item[imgKey]) {
-                        const path = basePath + item[imgKey];
-                        images.push(this.addCacheBuster(path, timestamp));
-                    }
-                }
-            }
-            
-            return images;
-        },
-
-        /**
-         * Refresh current item from inventory
-         */
-        async refreshCurrentItem() {
-            const updatedItem = this.inventory.find(
-                inv => inv.ProductID === this.item.ProductID
-            );
-            
-            if (updatedItem) {
-                Object.assign(this.item, updatedItem);
-                
-                console.log('Item refreshed:', {
-                    productId: this.item.ProductID,
-                    imageType: this.imageType,
-                    capturedImages: this.item.capturedImages,
-                    serialImages: {
-                        serialimg1: this.item.serialimg1,
-                        serialimg2: this.item.serialimg2,
-                    },
-                    trackingImages: {
-                        trackingimg1: this.item.trackingimg1,
-                        trackingimg2: this.item.trackingimg2,
-                    }
-                });
-                
-                this.imageRenderKey++;
-                this.$forceUpdate();
-            }
-        },
-
-        /**
-         * Rebuild image lists from fresh item data
-         */
-        rebuildImageLists() {
-            const timestamp = Date.now();
-            
-            switch (this.imageType) {
-                case "captured":
-                    this.imageList = this.buildImageList(this.item, 'captured', 12, timestamp);
-                    this.selectedImageList = [...this.imageList];
-                    this.activeIndex = Math.min(this.activeIndex, this.imageList.length - 1);
-                    if (this.activeIndex < 0 && this.imageList.length > 0) this.activeIndex = 0;
-                    break;
-                    
-                case "tracking":
-                    this.trackingImgList = this.buildImageList(this.item, 'tracking', 2, timestamp);
-                    this.selectedImageList = [...this.trackingImgList];
-                    this.trackingActiveIndex = Math.min(this.trackingActiveIndex, this.trackingImgList.length - 1);
-                    if (this.trackingActiveIndex < 0 && this.trackingImgList.length > 0) this.trackingActiveIndex = 0;
-                    break;
-                    
-                case "serial":
-                    this.serialImgList = this.buildImageList(this.item, 'serial', 2, timestamp);
-                    this.selectedImageList = [...this.serialImgList];
-                    this.serialActiveIndex = Math.min(this.serialActiveIndex, this.serialImgList.length - 1);
-                    if (this.serialActiveIndex < 0 && this.serialImgList.length > 0) this.serialActiveIndex = 0;
-                    break;
-            }
-            
-            this.imageRenderKey++;
-            
-            this.$nextTick(() => {
-                this.$forceUpdate();
-            });
-        },
-
-        async handleFileChange(event, index) {
-            try {
-                const file = event.target.files[0];
-                if (!file) return;
-
-                this.uploadingIndex = index;
-
-                const formData = new FormData();
-                formData.append("image", file);
-                formData.append("productId", this.item.ProductID);
-                formData.append("capturedImgCount", this.imgNumber);
-                formData.append("imageType", this.imageType);
-
-                const response = await axios.post(
-                    "api/houseage/upload-image",
-                    formData,
-                    {
-                        headers: { "Content-Type": "multipart/form-data" },
-                        withCredentials: true,
-                    },
-                );
-
-                if (response.data.success) {
-                    await this.fetchInventory();
-                    await this.refreshCurrentItem();
-                    this.rebuildImageLists();
-
-                    await Swal.fire({
-                        title: "Upload Success",
-                        text: response.data.message || 'Image uploaded successfully',
-                        icon: "success",
-                        timer: 2000,
-                        showConfirmButton: false,
-                    });
-                }
-            } catch (error) {
-                console.error("Error uploading product image:", error);
-                await Swal.fire({
-                    title: "Error",
-                    text: error.response?.data?.message || "Failed to upload image",
-                    icon: "error",
-                    confirmButtonColor: "#ef4444",
-                });
-            } finally {
-                event.target.value = "";
-                this.uploadingIndex = null;
-            }
-        },
-
-        async handleAddImageChange(event) {
-            try {
-                const file = event.target.files[0];
-                if (!file) return;
-
-                const nextImageNumber = this.findNextAvailableImageNumber(
-                    this.selectedImageList,
-                    this.imageLimitCount
-                );
-
-                if (nextImageNumber === null) {
-                    await Swal.fire({
-                        title: "Limit Reached",
-                        text: `Maximum ${this.imageLimitCount} images allowed`,
-                        icon: "warning",
-                        confirmButtonColor: "#f59e0b",
-                    });
-                    return;
-                }
-
-                this.uploadingIndex = this.selectedImageList.length;
-
-                const formData = new FormData();
-                formData.append("image", file);
-                formData.append("productId", this.item.ProductID);
-                formData.append("capturedImgCount", nextImageNumber);
-                formData.append("imageType", this.imageType);
-
-                const response = await axios.post(
-                    "api/houseage/upload-image",
-                    formData,
-                    {
-                        headers: { "Content-Type": "multipart/form-data" },
-                        withCredentials: true,
-                    },
-                );
-
-                if (response.data.success) {
-                    await this.fetchInventory();
-                    await this.refreshCurrentItem();
-                    this.rebuildImageLists();
-
-                    await Swal.fire({
-                        title: "Upload Success",
-                        text: `Image added to slot ${nextImageNumber}`,
-                        icon: "success",
-                        timer: 2000,
-                        showConfirmButton: false,
-                    });
-                }
-            } catch (error) {
-                console.error("Error adding image:", error);
-                await Swal.fire({
-                    title: "Error",
-                    text: error.response?.data?.message || "Failed to add image",
-                    icon: "error",
-                    confirmButtonColor: "#ef4444",
-                });
-            } finally {
-                event.target.value = "";
-                this.uploadingIndex = null;
-            }
-        },
-
-        async confirmDeleteImage(index, currentImage) {
-            this.imgNumber = currentImage.split('_').pop().match(/(\d+)/)?.[1];
-
-            const result = await Swal.fire({
-                title: "Delete Image?",
-                text: `Are you sure you want to delete image ${this.imgNumber}? This action cannot be undone.`,
-                icon: "warning",
-                showCancelButton: true,
-                confirmButtonColor: "#ef4444",
-                cancelButtonColor: "#6b7280",
-                confirmButtonText: "Yes, delete it!",
-                cancelButtonText: "Cancel",
-                reverseButtons: true,
-            });
-
-            if (result.isConfirmed) {
-                await this.handleDeleteImage(index);
-            }
-        },
-
-        async handleDeleteImage(index) {
-            try {
-                this.deletingIndex = index;
-
-                const response = await axios.post(
-                    "api/houseage/delete-image",
-                    {
-                        productId: String(this.item.ProductID),
-                        capturedImgCount: this.imgNumber,
-                        imageType: this.imageType,
-                    },
-                    {
-                        withCredentials: true,
-                    },
-                );
-
-                if (response.data.success) {
-                    await this.fetchInventory();
-                    await this.refreshCurrentItem();
-                    this.rebuildImageLists();
-
-                    Swal.fire({
-                        title: "Deleted!",
-                        text: `Image ${this.imgNumber} has been deleted.`,
-                        icon: "success",
-                        timer: 2000,
-                        showConfirmButton: false,
-                    });
-                }
-            } catch (error) {
-                console.error("Error deleting image:", error);
-                Swal.fire({
-                    title: "Error!",
-                    text: error.response?.data?.message || "Failed to delete image",
-                    icon: "error",
-                    confirmButtonColor: "#ef4444",
-                });
-            } finally {
-                this.deletingIndex = null;
-            }
-        },
     },
     computed: {
         courierOptions() {

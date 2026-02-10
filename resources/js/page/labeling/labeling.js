@@ -120,11 +120,26 @@ export default {
                 .map((key) => this.item[key]);
         },
 
-        // imageList() {
-        //     return Object.keys(this.item.capturedImages)
-        //     .filter((key) => key.startsWith("capturedimg") && this.item.capturedImages[key])
-        //     .map((key) => this.item.capturedImages[key]);
-        // },
+        //product images
+        imageList() {
+            return Object.keys(this.item.capturedImages)
+            .filter((key) => key.startsWith("capturedimg") && this.item.capturedImages[key])
+            .map((key) => this.item.capturedImages[key]);
+        },
+
+        //serial images
+         serialImageList() {
+            return Object.keys(this.item.capturedImages)
+            .filter((key) => key.startsWith("serial") && this.item.capturedImages[key])
+            .map((key) => this.item.capturedImages[key]);
+        },
+
+        //tracking images
+         trackingImageList() {
+            return Object.keys(this.item.capturedImages)
+            .filter((key) => key.startsWith("tracking") && this.item.capturedImages[key])
+            .map((key) => this.item.capturedImages[key]);
+        },
 
         // Company path images (capturedimg1 to capturedimg5)
         companyImages() {
@@ -219,41 +234,6 @@ export default {
             return `/images/product_images/${company}/`;
         },
 
-        // activeImageUrl() {
-        //     const totalRegularImages = this.imageList.length;
-        //     // If activeIndex is within regular images
-        //     if (this.activeIndex < totalRegularImages) {
-        //         return this.dynamicBasePath + this.imageList[this.activeIndex];
-        //     }
-
-        //     // If activeIndex points to serialimg1
-        //     if (
-        //         this.activeIndex === totalRegularImages &&
-        //         this.item.capturedImages &&
-        //         this.item.capturedImages.serialimg1
-        //     ) {
-        //         return (
-        //             this.dynamicBasePath + this.item.capturedImages.serialimg1
-        //         );
-        //     }
-
-        //     // If activeIndex points to serialimg2
-        //     const serialimg1Offset = this.item.capturedImages?.serialimg1
-        //         ? 1
-        //         : 0;
-        //     if (
-        //         this.activeIndex === totalRegularImages + serialimg1Offset &&
-        //         this.item.capturedImages &&
-        //         this.item.capturedImages.serialimg2
-        //     ) {
-        //         return (
-        //             this.dynamicBasePath + this.item.capturedImages.serialimg2
-        //         );
-        //     }
-
-        //     // Fallback to first image
-        //     return this.dynamicBasePath + this.imageList[0];
-        // },
 
         serialKeys() {
             return Object.keys(this.item).filter((k) =>
@@ -420,6 +400,34 @@ export default {
     },
 
     methods: {
+        //get images to display main thumbnail in the table
+        getFirstAvailableImage(product) {
+    try {
+        // Safety checks
+        if (!product || !product.capturedImages) {
+            return DEFAULT_IMAGE;
+        }
+
+        const company = product.company || 'Airstaffs'; // Dynamic company
+        const basePath = `/images/product_images/${company}/`;
+        
+        // Get all image values and filter out NULL/empty
+        const imagesArray = Object.values(product.capturedImages).filter(
+            img => img && img !== 'NULL' && img !== 'null' && img.trim() !== ''
+        );
+        
+        if (imagesArray && imagesArray.length > 0) {
+            const filename = imagesArray[0];
+            console.log('✅ First image:', basePath + filename);
+            return basePath + filename;
+        }
+        
+        return DEFAULT_IMAGE;
+    } catch (error) {
+        console.error('❌ Error getting image:', error);
+        return DEFAULT_IMAGE;
+    }
+},
         openCopyDetailsModal(item) {
             if (!item) {
                 console.warn("No item provided to copy details modal");
@@ -532,6 +540,10 @@ export default {
             // Also check serial images
             if (this.isValidImage(capturedImagesObj.serialimg1)) count++;
             if (this.isValidImage(capturedImagesObj.serialimg2)) count++;
+
+             // Also check serial images
+            if (this.isValidImage(capturedImagesObj.trackingimg1)) count++;
+            if (this.isValidImage(capturedImagesObj.trackingimg2)) count++;
 
             console.log("🔍 Total captured images found:", count);
             return count;
@@ -659,6 +671,21 @@ export default {
                     const path = `/images/product_images/${companyFolder}/${filename}`;
                     this.capturedImages.push(path);
                     console.log("✅ Added serial image 2:", path);
+                }
+
+                 // Load tracking images (trackingimg1 and trackingimg2)
+                if (this.isValidImage(capturedImagesObj.trackingimg1)) {
+                    const filename = capturedImagesObj.trackingimg1;
+                    const path = `/images/product_images/${companyFolder}/${filename}`;
+                    this.capturedImages.push(path);
+                    console.log("✅ Added tracking image 1:", path);
+                }
+
+                if (this.isValidImage(capturedImagesObj.trackingimg2)) {
+                    const filename = capturedImagesObj.trackingimg2;
+                    const path = `/images/product_images/${companyFolder}/${filename}`;
+                    this.capturedImages.push(path);
+                    console.log("✅ Added tracking image 2:", path);
                 }
             }
 

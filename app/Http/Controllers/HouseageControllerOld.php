@@ -35,38 +35,24 @@ class HouseageController extends BasetablesController
     }
 
     public function index(Request $request)
-{
-    try {
-        $perPage = $request->input('per_page', 10);
-        $search = $request->input('search', '');
-        $includeImages = $request->boolean('include_images', false);
+    {
+        try {
+            Log::info('Tables being used:', [
+                'productTable' => $this->productTable,
+                'capturedImagesTable' => $this->capturedImagesTable,
+                'fnskuTable' => $this->fnskuTable,
+                'asinTable' => $this->asinTable,
+                'company' => $this->company,
+            ]);
 
-        // ✅ Only do joins when searching (MAJOR PERFORMANCE BOOST)
-        if (empty($search)) {
-            // Fast query without joins
-            $products = DB::table('tblproduct as prod')
-                ->select('prod.*')
-                ->orderBy('prod.ProductID', 'desc')
-                ->paginate($perPage);
-                
-            $products->getCollection()->transform(function ($product) {
-                $product->company = $this->company;
-                $product->ASIN = null;
-                $product->MSKU = $product->MSKUviewer;
-                $product->FNSKU = $product->FNSKUviewer;
-                $product->grading = null;
-                $product->storename = null;
-                $product->AStitle = $product->ProductTitle;
-                $product->internal = null;
-                $product->system_title = null;
-                $product->metakeyword = null;
-                return $product;
-            });
-        } else {
-            // Query with joins only when searching
-            $products = DB::table('tblproduct as prod')
-                ->leftJoin('tblfnsku as fnsku', 'prod.MSKUviewer', '=', 'fnsku.MSKU')
-                ->leftJoin('tblasin as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+            $perPage = $request->input('per_page', 10);
+            $search = $request->input('search', '');
+            $includeImages = $request->boolean('include_images', false);
+
+            // ✅ Build query with MSKU join instead of FNSKU
+            $baseProductsQuery = DB::table($this->productTable.' as prod')
+                ->leftJoin($this->fnskuTable.' as fnsku', 'prod.MSKUviewer', '=', 'fnsku.MSKU')
+                ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                 ->select([
                     'prod.*',
                     'fnsku.ASIN',
@@ -75,15 +61,18 @@ class HouseageController extends BasetablesController
                     'fnsku.grading',
                     'fnsku.storename',
                     DB::raw("COALESCE(
-                        NULLIF(TRIM(asin.system_title), ''), 
-                        NULLIF(TRIM(asin.internal), ''), 
-                        NULLIF(TRIM(prod.ProductTitle), '')
-                    ) as AStitle"),
+                    NULLIF(TRIM(asin.system_title), ''), 
+                    NULLIF(TRIM(asin.internal), ''), 
+                    NULLIF(TRIM(prod.ProductTitle), '')
+                ) as AStitle"),
                     'asin.internal',
                     'asin.system_title',
                     'asin.metakeyword',
-                ])
-                ->where(function ($q) use ($search) {
+                ]);
+
+            // Apply search on product fields and joined data
+            if (! empty($search)) {
+                $baseProductsQuery->where(function ($q) use ($search) {
                     $q->where('prod.serialnumber', 'like', "%{$search}%")
                         ->orWhere('prod.ProductTitle', 'like', "%{$search}%")
                         ->orWhere('prod.rtid', 'like', "%{$search}%")
@@ -101,132 +90,124 @@ class HouseageController extends BasetablesController
                         ->orWhere('asin.internal', 'like', "%{$search}%")
                         ->orWhere('asin.system_title', 'like', "%{$search}%")
                         ->orWhere('asin.metakeyword', 'like', "%{$search}%");
-                })
-                ->orderBy('prod.ProductID', 'desc')
-                ->paginate($perPage);
-                
-            $products->getCollection()->transform(function ($product) {
-                $product->company = $this->company;
-                if (empty($product->FNSKU) && !empty($product->FNSKUviewer)) {
-                    $product->FNSKU = $product->FNSKUviewer;
-                }
-                if (empty($product->MSKU) && !empty($product->MSKUviewer)) {
-                    $product->MSKU = $product->MSKUviewer;
-                }
-                return $product;
-            });
-        }
-
-        Log::info('Products fetched', [
-            'count' => $products->count(),
-            'total' => $products->total(),
-            'has_search' => !empty($search)
-        ]);
-
-        // ✅ Handle images
-        if ($includeImages) {
-            $this->attachImages($products);
-        } else {
-            $products->getCollection()->transform(function ($product) {
-                $product->capturedImages = (object) [];
-                return $product;
-            });
-        }
-
-        return response()->json($products);
-        
-    } catch (\Exception $e) {
-        Log::error('Error in HouseageController index', [
-            'message' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-        ]);
-
-        return response()->json([
-            'error' => true,
-            'message' => 'An error occurred while fetching products',
-            'details' => config('app.debug') ? $e->getMessage() : null,
-        ], 500);
-    }
-}
-
-/**
- * Attach images to products collection (extracted for cleaner code)
- */
-private function attachImages($products)
-{
-    try {
-        $productIds = $products->pluck('ProductID')->toArray();
-        
-        if (empty($productIds)) {
-            $products->getCollection()->transform(function ($product) {
-                $product->capturedImages = (object) [];
-                return $product;
-            });
-            return;
-        }
-
-        Log::info('Fetching images', ['count' => count($productIds)]);
-
-        if (!Schema::hasTable('tblcapturedimages')) {
-            $products->getCollection()->transform(function ($product) {
-                $product->capturedImages = (object) [];
-                return $product;
-            });
-            return;
-        }
-
-        // ✅ Use keyBy() for O(1) lookup instead of foreach loop
-        $capturedImages = DB::table('tblcapturedimages')
-            ->whereIn('ProductID', $productIds)
-            ->get()
-            ->keyBy('ProductID');
-
-        $products->getCollection()->transform(function ($product) use ($capturedImages) {
-            $capturedImg = $capturedImages->get($product->ProductID);
-
-            if ($capturedImg) {
-                $capturedImagesObj = [];
-
-                // Captured images 1-12
-                for ($i = 1; $i <= 12; $i++) {
-                    $field = "capturedimg{$i}";
-                    if (!empty($capturedImg->$field) && $capturedImg->$field !== 'NULL') {
-                        $capturedImagesObj[$field] = $capturedImg->$field;
-                    }
-                }
-
-                // Serial images 1-2
-                for ($i = 1; $i <= 2; $i++) {
-                    $field = "serialimg{$i}";
-                    if (!empty($capturedImg->$field) && $capturedImg->$field !== 'NULL') {
-                        $capturedImagesObj[$field] = $capturedImg->$field;
-                    }
-                }
-
-                // Tracking images 1-2
-                for ($i = 1; $i <= 2; $i++) {
-                    $field = "trackingimg{$i}";
-                    if (!empty($capturedImg->$field) && $capturedImg->$field !== 'NULL') {
-                        $capturedImagesObj[$field] = $capturedImg->$field;
-                    }
-                }
-
-                $product->capturedImages = (object) $capturedImagesObj;
-            } else {
-                $product->capturedImages = (object) [];
+                });
             }
 
-            return $product;
-        });
+            $products = $baseProductsQuery->paginate($perPage);
 
-    } catch (\Exception $e) {
-        Log::error('Error fetching images', ['message' => $e->getMessage()]);
-        $products->getCollection()->transform(function ($product) {
-            $product->capturedImages = (object) [];
-            return $product;
-        });
+            Log::info('Products fetched with MSKU join', [
+                'count' => $products->count(),
+                'total' => $products->total(),
+            ]);
+
+            // ✅ Transform products
+            $products->getCollection()->transform(function ($product) {
+                // Set FNSKU - prefer from join, fallback to FNSKUviewer
+                if (empty($product->FNSKU) && ! empty($product->FNSKUviewer)) {
+                    $product->FNSKU = $product->FNSKUviewer;
+                }
+
+                // Set MSKUviewer - prefer from join, fallback to MSKUviewer
+                if (empty($product->MSKU) && ! empty($product->MSKUviewer)) {
+                    $product->MSKU = $product->MSKUviewer;
+                }
+
+                $product->company = $this->company;
+
+                return $product;
+            });
+
+            // ✅ Handle images
+            if ($includeImages) {
+                try {
+                    $productIds = $products->pluck('ProductID')->toArray();
+                    Log::info('Product IDs for image fetch', ['count' => count($productIds), 'ids' => $productIds]);
+
+                    $capturedImagesTableName = $this->capturedImagesTable;
+
+                    if (! Schema::hasTable($capturedImagesTableName)) {
+                        $products->getCollection()->transform(function ($product) {
+                            $product->capturedImages = (object) [];
+
+                            return $product;
+                        });
+                    } else {
+                        $capturedImages = DB::table($capturedImagesTableName)
+                            ->whereIn('ProductID', $productIds)
+                            ->get();
+
+                        $imagesByProductId = [];
+                        foreach ($capturedImages as $img) {
+                            $imagesByProductId[$img->ProductID] = $img;
+                        }
+
+                        $products->getCollection()->transform(function ($product) use ($imagesByProductId) {
+                            if (isset($imagesByProductId[$product->ProductID])) {
+                                $capturedImg = $imagesByProductId[$product->ProductID];
+                                $capturedImagesObj = [];
+
+                                for ($i = 1; $i <= 12; $i++) {
+                                    $field = "capturedimg{$i}";
+                                    if (! empty($capturedImg->$field)) {
+                                        $capturedImagesObj[$field] = $capturedImg->$field;
+                                    }
+                                }
+
+                                if (! empty($capturedImg->serialimg1)) {
+                                    $capturedImagesObj['serialimg1'] = $capturedImg->serialimg1;
+                                }
+                                if (! empty($capturedImg->serialimg2)) {
+                                    $capturedImagesObj['serialimg2'] = $capturedImg->serialimg2;
+                                }
+                                if (! empty($capturedImg->trackingimg1)) {
+                                    $capturedImagesObj['trackingimg1'] = $capturedImg->trackingimg1;
+                                }
+                                if (! empty($capturedImg->trackingimg2)) {
+                                    $capturedImagesObj['trackingimg2'] = $capturedImg->trackingimg2;
+                                }
+
+                                $product->capturedImages = (object) $capturedImagesObj;
+
+                                if (empty($product->img1) && ! empty($capturedImg->capturedimg1)) {
+                                    $product->img1 = $capturedImg->capturedimg1;
+                                }
+                            } else {
+                                $product->capturedImages = (object) [];
+                            }
+
+                            return $product;
+                        });
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Error fetching images', ['message' => $e->getMessage()]);
+                    $products->getCollection()->transform(function ($product) {
+                        $product->capturedImages = (object) [];
+
+                        return $product;
+                    });
+                }
+            } else {
+                $products->getCollection()->transform(function ($product) {
+                    $product->capturedImages = (object) [];
+
+                    return $product;
+                });
+            }
+
+            return response()->json($products);
+        } catch (\Exception $e) {
+            Log::error('Error in HouseageController index', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'error' => true,
+                'message' => 'An error occurred while fetching products',
+                'details' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
-}
 
     public function store(Request $request)
     {
