@@ -34,148 +34,98 @@ class HouseageController extends BasetablesController
         return $fnsku; // Return as-is if not prefixed
     }
 
- public function index(Request $request)
+    public function index(Request $request)
 {
     try {
-        $perPage       = (int) $request->input('per_page', 10);
-        $search        = trim($request->input('search', ''));
+        $perPage = $request->input('per_page', 10);
+        $search = $request->input('search', '');
         $includeImages = $request->boolean('include_images', false);
 
-        $query = DB::table($this->productTable . ' as prod')
-            ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.MSKUviewer', '=', 'fnsku.MSKU')
-            ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-            ->select([
-                'prod.*',
-                // 'prod.ProductID',
-                // 'prod.ProductTitle',
-                // 'prod.serialnumber',
-                // 'prod.serialnumberb',
-                // 'prod.serialnumberc',
-                // 'prod.serialnumberd',
-                // 'prod.itemnumber',
-                // 'prod.trackingnumber',
-                // 'prod.trackingnumber2',
-                // 'prod.trackingnumber3',
-                // 'prod.trackingnumber4',
-                // 'prod.trackingnumber5',
-                // 'prod.MSKUviewer',
-                // 'prod.FNSKUviewer',
-                // 'prod.PCN',
-                // 'prod.RPN',
-                // 'prod.PRD',
-                // 'prod.rtid',
-                // 'prod.rtcounter',
-                // 'prod.ProductModuleLoc',
-                // 'prod.returnstatus',
-                // 'prod.fulfillment_status',
-                // 'prod.quantity',
-                // 'prod.validation_status',
-
-                'fnsku.ASIN',
-                'fnsku.MSKU',
-                'fnsku.FNSKU',
-                'fnsku.grading',
-                'fnsku.storename',
-
-                'asin.internal',
-                'asin.system_title',
-                'asin.metakeyword',
-
-                DB::raw("
-                    COALESCE(
-                        NULLIF(TRIM(asin.system_title), ''),
-                        NULLIF(TRIM(asin.internal), ''),
+        // ✅ Only do joins when searching (MAJOR PERFORMANCE BOOST)
+        if (empty($search)) {
+            // Fast query without joins
+            $products = DB::table('tblproduct as prod')
+                ->select('prod.*')
+                ->orderBy('prod.ProductID', 'desc')
+                ->paginate($perPage);
+                
+            $products->getCollection()->transform(function ($product) {
+                $product->company = $this->company;
+                $product->ASIN = null;
+                $product->MSKU = $product->MSKUviewer;
+                $product->FNSKU = $product->FNSKUviewer;
+                $product->grading = null;
+                $product->storename = null;
+                $product->AStitle = $product->ProductTitle;
+                $product->internal = null;
+                $product->system_title = null;
+                $product->metakeyword = null;
+                return $product;
+            });
+        } else {
+            // Query with joins only when searching
+            $products = DB::table('tblproduct as prod')
+                ->leftJoin('tblfnsku as fnsku', 'prod.MSKUviewer', '=', 'fnsku.MSKU')
+                ->leftJoin('tblasin as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->select([
+                    'prod.*',
+                    'fnsku.ASIN',
+                    'fnsku.MSKU',
+                    'fnsku.FNSKU',
+                    'fnsku.grading',
+                    'fnsku.storename',
+                    DB::raw("COALESCE(
+                        NULLIF(TRIM(asin.system_title), ''), 
+                        NULLIF(TRIM(asin.internal), ''), 
                         NULLIF(TRIM(prod.ProductTitle), '')
-                    ) as AStitle
-                "),
-            ]);
-
-        /**
-         * 🔎 SEARCH OPTIMIZATION
-         */
-        if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-
-                // 1️⃣ FAST exact / indexed matches first
-                $q->where('prod.serialnumber', $search)
-                  ->orWhere('prod.itemnumber', $search)
-                  ->orWhere('prod.PCN', $search)
-                  ->orWhere('prod.RPN', $search)
-                  ->orWhere('prod.PRD', $search)
-                  ->orWhere('prod.rtid', $search)
-                  ->orWhere('prod.MSKUviewer', $search)
-                  ->orWhere('prod.FNSKUviewer', $search)
-                  ->orWhere('fnsku.ASIN', $search)
-                  ->orWhere('fnsku.MSKU', $search)
-                  ->orWhere('fnsku.FNSKU', $search);
-
-                // 2️⃣ Tracking numbers (last 12 chars only)
-                if (strlen($search) >= 8) {
-                    $q->orWhere('prod.trackingnumber', 'like', '%' . substr($search, -12));
+                    ) as AStitle"),
+                    'asin.internal',
+                    'asin.system_title',
+                    'asin.metakeyword',
+                ])
+                ->where(function ($q) use ($search) {
+                    $q->where('prod.serialnumber', 'like', "%{$search}%")
+                        ->orWhere('prod.ProductTitle', 'like', "%{$search}%")
+                        ->orWhere('prod.rtid', 'like', "%{$search}%")
+                        ->orWhere('prod.itemnumber', 'like', "%{$search}%")
+                        ->orWhere('prod.trackingnumber', 'like', '%'.substr($search, -12).'%')
+                        ->orWhere('prod.PCN', 'like', "%{$search}%")
+                        ->orWhere('prod.RPN', 'like', "%{$search}%")
+                        ->orWhere('prod.PRD', 'like', "%{$search}%")
+                        ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
+                        ->orWhere('prod.MSKUviewer', 'like', "%{$search}%")
+                        ->orWhere('prod.rtcounter', 'like', "%{$search}%")
+                        ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
+                        ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
+                        ->orWhere('fnsku.FNSKU', 'like', "%{$search}%")
+                        ->orWhere('asin.internal', 'like', "%{$search}%")
+                        ->orWhere('asin.system_title', 'like', "%{$search}%")
+                        ->orWhere('asin.metakeyword', 'like', "%{$search}%");
+                })
+                ->orderBy('prod.ProductID', 'desc')
+                ->paginate($perPage);
+                
+            $products->getCollection()->transform(function ($product) {
+                $product->company = $this->company;
+                if (empty($product->FNSKU) && !empty($product->FNSKUviewer)) {
+                    $product->FNSKU = $product->FNSKUviewer;
                 }
-
-                // 3️⃣ TEXT search (LIMITED scope – slow but controlled)
-                $q->orWhere(function ($text) use ($search) {
-                    $text->where('prod.ProductTitle', 'like', "%{$search}%")
-                         ->orWhere('asin.system_title', 'like', "%{$search}%")
-                         ->orWhere('asin.internal', 'like', "%{$search}%")
-                         ->orWhere('asin.metakeyword', 'like', "%{$search}%");
-                });
+                if (empty($product->MSKU) && !empty($product->MSKUviewer)) {
+                    $product->MSKU = $product->MSKUviewer;
+                }
+                return $product;
             });
         }
 
-        // ⏱️ Default ordering helps pagination stability
-        $query->orderByDesc('prod.ProductID');
+        Log::info('Products fetched', [
+            'count' => $products->count(),
+            'total' => $products->total(),
+            'has_search' => !empty($search)
+        ]);
 
-        $products = $query->paginate($perPage);
-
-        /**
-         * 🧠 TRANSFORM
-         */
-        $products->getCollection()->transform(function ($product) {
-            $product->FNSKU   = $product->FNSKU ?: $product->FNSKUviewer;
-            $product->MSKU    = $product->MSKU ?: $product->MSKUviewer;
-            $product->company = $this->company;
-            return $product;
-        });
-
-        /**
-         * 🖼️ IMAGES (already efficient)
-         */
+        // ✅ Handle images
         if ($includeImages) {
-            $productIds = $products->pluck('ProductID');
-
-            if (Schema::hasTable($this->capturedImagesTable) && $productIds->isNotEmpty()) {
-                $images = DB::table($this->capturedImagesTable)
-                    ->whereIn('ProductID', $productIds)
-                    ->get()
-                    ->keyBy('ProductID');
-
-                $products->getCollection()->transform(function ($product) use ($images) {
-                    $img = $images->get($product->ProductID);
-                    if ($img) {
-                        $capturedImagesObj = [];
-                        for ($i = 1; $i <= 12; $i++) {
-                            $field = "capturedimg{$i}";
-                            if (!empty($img->$field)) $capturedImagesObj[$field] = $img->$field;
-                        }
-                        if (!empty($img->serialimg1)) $capturedImagesObj['serialimg1'] = $img->serialimg1;
-                        if (!empty($img->serialimg2)) $capturedImagesObj['serialimg2'] = $img->serialimg2;
-                        if (!empty($img->trackingimg1)) $capturedImagesObj['trackingimg1'] = $img->trackingimg1;
-                        if (!empty($img->trackingimg2)) $capturedImagesObj['trackingimg2'] = $img->trackingimg2;
-
-                        $product->capturedImages = (object)$capturedImagesObj;
-
-                        // maintain img1 fallback
-                        if (empty($product->img1) && !empty($img->capturedimg1)) {
-                            $product->img1 = $img->capturedimg1;
-                        }
-                    } else {
-                        $product->capturedImages = (object)[];
-                    }
-                    return $product;
-                });
-            } 
+            $this->attachImages($products);
         } else {
             $products->getCollection()->transform(function ($product) {
                 $product->capturedImages = (object) [];
@@ -184,16 +134,17 @@ class HouseageController extends BasetablesController
         }
 
         return response()->json($products);
-
+        
     } catch (\Exception $e) {
-        Log::error('Houseage index error', [
+        Log::error('Error in HouseageController index', [
             'message' => $e->getMessage(),
-            'trace'   => $e->getTraceAsString(),
+            'trace' => $e->getTraceAsString(),
         ]);
 
         return response()->json([
-            'error'   => true,
-            'message' => 'Failed to fetch products',
+            'error' => true,
+            'message' => 'An error occurred while fetching products',
+            'details' => config('app.debug') ? $e->getMessage() : null,
         ], 500);
     }
 }
