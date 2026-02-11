@@ -31,38 +31,38 @@ $API_KEY = '5EC4C3FCD4929687DC76822C8D154C20';
 
 // ========================================
 // CARRIER MAPPING: Map your DB carrier names to 17track carrier codes
-// Full list: https://api.17track.net/en/doc
+// Official codes from: https://api.17track.net/en/doc
 // ========================================
 $carrierMapping = [
-    // US Carriers
-    'USPS' => 70019,
-    'UPS' => 70002,
-    'FedEx' => 70001,
-    'FedEx Express' => 70001,
-    'FedEx Ground' => 70001,
-    'FedEx Home Delivery' => 70001,
-    'FedEx SmartPost' => 70157,
-    'DHL' => 70003,
-    'DHL Express' => 70003,
-    'DHL eCommerce' => 70015,
-    'Amazon Logistics' => 70172,
-    'OnTrac' => 70049,
-    'LaserShip' => 70050,
-    'LSO' => 70050, // LaserShip alias
-    'Central Transport' => null, // Let 17track auto-detect (not a standard international carrier)
+    // US Carriers - CORRECTED CODES
+    'USPS' => 11001,           // ✅ CORRECTED: USPS
+    'UPS' => 2001,             // ✅ CORRECTED: UPS
+    'FedEx' => 2003,           // ✅ CORRECTED: FedEx
+    'FedEx Express' => 2003,
+    'FedEx Ground' => 2003,
+    'FedEx Home Delivery' => 2003,
+    'FedEx SmartPost' => 11028, // ✅ CORRECTED: FedEx SmartPost
+    'DHL' => 2005,             // ✅ CORRECTED: DHL Express
+    'DHL Express' => 2005,
+    'DHL eCommerce' => 11006,
+    'Amazon Logistics' => 30019,
+    'OnTrac' => 11012,
+    'LaserShip' => 11014,
+    'LSO' => 11014,
+    'Central Transport' => null,
     
     // International
-    'Canada Post' => 70020,
-    'Royal Mail' => 70030,
-    'China Post' => 70013,
-    'EMS' => 70012,
-    'SF Express' => 70015,
-    'Yun Express' => 70135,
-    'Yanwen' => 70048,
-    'DPD' => 70021,
-    'TNT' => 70008,
-    'Hermes' => 70027,
-    'Parcelforce' => 70039,
+    'Canada Post' => 2004,
+    'Royal Mail' => 2006,
+    'China Post' => 2010,
+    'EMS' => 2009,
+    'SF Express' => 2012,
+    'Yun Express' => 30008,
+    'Yanwen' => 30004,
+    'DPD' => 2007,
+    'TNT' => 2008,
+    'Hermes' => 2013,
+    'Parcelforce' => 2015,
     
     // Add more carriers as needed
 ];
@@ -88,12 +88,12 @@ function get17trackCarrier($carrierName, $carrierMapping) {
         }
     }
     
-    // Common abbreviations
-    if (strpos($carrierName, 'ups') !== false) return 70002;
-    if (strpos($carrierName, 'usps') !== false) return 70019;
-    if (strpos($carrierName, 'fedex') !== false || strpos($carrierName, 'fed ex') !== false) return 70001;
-    if (strpos($carrierName, 'dhl') !== false) return 70003;
-    if (strpos($carrierName, 'amazon') !== false) return 70172;
+    // Common abbreviations - CORRECTED CODES
+    if (strpos($carrierName, 'ups') !== false) return 2001;
+    if (strpos($carrierName, 'usps') !== false) return 11001;
+    if (strpos($carrierName, 'fedex') !== false || strpos($carrierName, 'fed ex') !== false) return 2003;
+    if (strpos($carrierName, 'dhl') !== false) return 2005;
+    if (strpos($carrierName, 'amazon') !== false) return 30019;
     
     return null; // Let 17track try auto-detection
 }
