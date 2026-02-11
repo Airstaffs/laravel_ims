@@ -309,67 +309,74 @@ foreach ($batches as $batchIdx => $batch) {
     
     echo "<br>📤 Registering with 17track...<br>";
     
-    // ✅ CRITICAL FIX: Ensure tracking numbers stay as strings, carriers as integers
-    // We CANNOT use JSON_NUMERIC_CHECK because it converts tracking numbers to integers
-    // Instead, manually ensure carrier is integer in the array
+    // ✅ LAST RESORT: Build JSON as raw bytes to prevent ANY modification
     $registerDataFixed = [];
     foreach ($registerData as $item) {
-        $fixed = ['number' => strval($item['number'])]; // FORCE string
+        $fixed = ['number' => strval($item['number'])]; 
         if (isset($item['carrier'])) {
-            $fixed['carrier'] = intval($item['carrier']); // FORCE integer
+            $fixed['carrier'] = intval($item['carrier']);
         }
         $registerDataFixed[] = $fixed;
     }
     
-    // Now encode WITHOUT JSON_NUMERIC_CHECK
-    $oldLocale = setlocale(LC_ALL, 0);
-    setlocale(LC_ALL, 'C');
+    $jsonPayload = json_encode($registerDataFixed, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     
-    $jsonPayload = json_encode($registerDataFixed, JSON_UNESCAPED_SLASHES);
-    
-    setlocale(LC_ALL, $oldLocale);
-    
-    // Debug: Show what we're sending
-    echo "<strong>🔍 JSON Payload Being Sent:</strong><br>";
+    // Debug output
+    echo "<strong>🔍 JSON Payload (Length: " . strlen($jsonPayload) . " bytes):</strong><br>";
     echo "<pre style='background: #f5f5f5; padding: 10px; border: 1px solid #ddd;'>" . 
          htmlspecialchars($jsonPayload) . "</pre><br>";
     
-    // Verify the JSON is valid and contains proper types
-    $decoded = json_decode($jsonPayload, true);
-    echo "<strong>🔍 Verification - First item after decode:</strong><br>";
-    echo "<pre style='background: #e7f3ff; padding: 10px; border: 1px solid #007bff;'>";
-    if (isset($decoded[0])) {
-        echo "Tracking: " . $decoded[0]['number'] . " (type: " . gettype($decoded[0]['number']) . ")\n";
-        if (isset($decoded[0]['carrier'])) {
-            echo "Carrier: " . $decoded[0]['carrier'] . " (type: " . gettype($decoded[0]['carrier']) . ")\n";
-        }
+    // Show hex dump to verify no hidden characters
+    echo "<strong>🔬 Hex dump of carrier value in JSON:</strong><br>";
+    $carrierPos = strpos($jsonPayload, '"carrier":');
+    if ($carrierPos !== false) {
+        $snippet = substr($jsonPayload, $carrierPos, 30);
+        echo "<pre style='background: #fff3cd; padding: 10px; font-family: monospace; font-size: 11px;'>";
+        echo "Text: " . htmlspecialchars($snippet) . "\n";
+        echo "Hex:  " . bin2hex($snippet) . "\n";
+        echo "</pre><br>";
     }
-    echo "</pre><br>";
-    
-    // ✅ CRITICAL: Add Content-Length header
-    $headers_with_length = array_merge($headers, [
-        'Content-Length: ' . strlen($jsonPayload)
-    ]);
     
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, 'https://api.17track.net/track/v2.2/register');
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers_with_length);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        '17token: ' . $API_KEY,
+        'Content-Type: application/json; charset=utf-8',
+        'Content-Length: ' . strlen($jsonPayload),
+        'Accept: application/json',
+        'User-Agent: PHP-CURL-17Track-Client/1.0'
+    ]);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);  // Enable SSL verification
     curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    curl_setopt($ch, CURLOPT_ENCODING, ''); // Disable compression
     curl_setopt($ch, CURLINFO_HEADER_OUT, true);
     
+    // Try to get verbose output
+    $verbose = fopen('php://temp', 'w+');
+    curl_setopt($ch, CURLOPT_VERBOSE, true);
+    curl_setopt($ch, CURLOPT_STDERR, $verbose);
+    
     $registerResponse = curl_exec($ch);
+    
+    // Get CURL verbose output
+    rewind($verbose);
+    $verboseLog = stream_get_contents($verbose);
+    fclose($verbose);
+    
+    echo "<strong>🔍 CURL Verbose Log:</strong><br>";
+    echo "<pre style='background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; font-size: 10px; max-height: 400px; overflow-y: auto;'>" . 
+         htmlspecialchars($verboseLog) . "</pre><br>";
+    
     $regData = json_decode($registerResponse, true);
     
-    // ✅ DEBUG: Show what CURL actually sent
-    $sentHeaders = curl_getinfo($ch, CURLINFO_HEADER_OUT);
-    echo "<strong>📨 Headers Sent by CURL:</strong><br>";
-    echo "<pre style='background: #fff3cd; padding: 10px; border: 1px solid #ffc107; font-size: 11px;'>" . 
-         htmlspecialchars($sentHeaders) . "</pre><br>";
+    // Show response
+    echo "<strong>📥 API Response:</strong><br>";
+    echo "<pre style='background: #fff3cd; padding: 10px; border: 1px solid #ffc107; max-height: 300px; overflow-y: auto;'>" . 
+         htmlspecialchars($registerResponse) . "</pre><br>";
     
     // Handle registration errors with better details
     if (isset($regData['data']['rejected'])) {
