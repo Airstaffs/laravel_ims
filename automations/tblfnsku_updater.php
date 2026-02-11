@@ -5,6 +5,7 @@
  * - Manual mode: pass ?msku=XXXX&store=RT
  * - Auto mode: leave blank; it will pull next rows from tblfnsku where FNSKU/grading missing
  * - Resume via tblautomationshandler.additional_config (cron_automation = 'tblfnsku_updater')
+ *
  */
 
 session_start();
@@ -18,7 +19,7 @@ $maxPerRun = 30;  // how many rows to process per run (auto mode)
 
 // ---- Manual inputs (also supports query string) ----
 $manualMsku = isset($_GET['msku']) ? trim($_GET['msku']) : '';
-$manualStore = isset($_GET['store']) ? trim($_GET['store']) : ''; // RT or AR (recommended)
+$manualStore = isset($_GET['store']) ? trim($_GET['store']) : ''; // RT or AR
 
 // ---- DB ----
 $Connect = dbDatabase();
@@ -26,7 +27,6 @@ $Connect = dbDatabase();
 // ---- Load cache from tblautomationshandler ----
 $cronAutomation = 'tblfnsku_updater';
 $cache = getAutomationCache($Connect, $cronAutomation);
-// cache example: ["last_id" => 123, "last_msku"=>"X", "last_store"=>"RT", "updated"=>5, "skipped"=>2, "errors"=>1]
 if (!is_array($cache))
     $cache = [];
 $lastId = isset($cache['last_id']) ? (int) $cache['last_id'] : 0;
@@ -45,7 +45,6 @@ $stats = [
 $manualMode = ($manualMsku !== '' || $manualStore !== '');
 
 if ($manualMode) {
-    // Validate manual inputs
     if ($manualMsku === '' || $manualStore === '') {
         jsonOut([
             'ok' => false,
@@ -63,8 +62,6 @@ if ($manualMode) {
     ];
 } else {
     $stats['mode'] = 'auto';
-
-    // Pull next rows after last processed id, only valid rows (msku & storename not empty)
     $items = fetchNextMissingFnskuRows($Connect, $lastId, $maxPerRun);
 }
 
@@ -74,7 +71,6 @@ foreach ($items as $row) {
     $msku = trim((string) ($row['msku'] ?? ''));
     $store = trim((string) ($row['storename'] ?? ''));
 
-    // Validate required fields
     if ($msku === '' || $store === '') {
         $stats['skipped']++;
         $stats['items'][] = [
@@ -110,34 +106,32 @@ foreach ($items as $row) {
             throw new Exception("Failed to fetch access token for store={$store}");
         }
 
-        // Determine selling partner endpoint host
         $endpointHost = ($system === "Test")
             ? 'sandbox.sellingpartnerapi-na.amazon.com'
             : 'sellingpartnerapi-na.amazon.com';
 
-        // Get SellerId (SID) based on store
-        $SID = $credentials['MerchantID']; // SellerId directly
+        $SID = $credentials['MerchantID']; // SellerId
         if (!$SID) {
             throw new Exception("SID not found for store={$store}");
         }
 
         // Call Listings Items API for this MSKU
         $apiRaw = fetchListingsItem($credentials, $accessToken, $SID, $msku, $endpointHost);
-
         $api = json_decode($apiRaw, true);
+
         if (!is_array($api)) {
             throw new Exception("Invalid JSON from Amazon for msku={$msku}");
         }
 
         // Extract FNSKU + grading (best-effort)
-        $fnsku = findFirstValueByKeyInsensitive($api, ['fnsku', 'fnSku', 'fNSKU', 'fn_sku']);
+        $amazonFnsku = findFirstValueByKeyInsensitive($api, ['fnsku', 'fnSku', 'fNSKU', 'fn_sku']);
         $grading = findFirstValueByKeyInsensitive($api, ['grading', 'conditionType', 'condition_type', 'itemCondition', 'condition']);
 
-        $fnsku = is_string($fnsku) ? trim($fnsku) : '';
+        $amazonFnsku = is_string($amazonFnsku) ? trim($amazonFnsku) : '';
         $grading = normalizeGrading($grading);
 
         // If neither exists, do not update
-        if ($fnsku === '' && $grading === '') {
+        if ($amazonFnsku === '' && $grading === '') {
             $stats['skipped']++;
             $stats['items'][] = [
                 'id' => $rowId,
@@ -149,18 +143,160 @@ foreach ($items as $row) {
             continue;
         }
 
-        // Update tblfnsku only if values present; do NOT overwrite non-empty fields
-        $didUpdate = updateTblFnskuIfEmpty($Connect, $rowId, $msku, $store, $fnsku, $grading);
+        // ============================================================
+        // 0) HARD BLOCK: if fnsku_update_conflict is already 1, STOP.
+        //    (User must clear it. We do NOT auto-clear it.)
+        // ============================================================
+        if (isFnskuUpdateBlocked($Connect, $rowId, $msku, $store)) {
 
-        if ($didUpdate) {
+            if (!alreadyNotifiedToday($Connect, $rowId, $msku, $store)) {
+                $title = "FNSKU update is BLOCKED (needs all-clear). MSKU: {$msku}";
+                $subtitle = "fnsku_update_conflict = 1";
+                $content = "This MSKU is blocked from syncing because fnsku_update_conflict=1. "
+                    . "After relabel/verification, clear the conflict flag to allow updates.";
+
+                $linkData = [
+                    "type" => "modal",
+                    "modal_id" => "fnskuMismatchResolver",
+                    "actions" => [
+                        [
+                            "id" => "view_items",
+                            "label" => "View mismatch items",
+                            "type" => "redirect",
+                            "method" => "GET",
+                            "url" => "/stockroom/fnsku-mismatch?msku={$msku}",
+                        ],
+                        [
+                            "id" => "resolve",
+                            "label" => "Clear block (after relabel)",
+                            "type" => "api",
+                            "method" => "POST",
+                            "url" => "/api/fnsku/resolve-mismatch",
+                            "payload" => ["msku" => $msku],
+                        ],
+                        [
+                            "id" => "override",
+                            "label" => "Override (force sync)",
+                            "type" => "api",
+                            "method" => "POST",
+                            "url" => "/api/fnsku/override-sync",
+                            "payload" => ["msku" => $msku, "store" => $store],
+                        ],
+                    ],
+                    "context" => [
+                        "msku" => $msku,
+                        "amazon_fnsku" => $amazonFnsku,
+                        "note" => "Blocked until user clears fnsku_update_conflict.",
+                    ],
+                ];
+
+                $userIds = getAllUserIdsToNotify($Connect);
+                createNotification($Connect, "All", $title, $subtitle, $content, "warning", $linkData, $userIds);
+
+                markNotifiedToday($Connect, $rowId, $msku, $store);
+            }
+
+            $stats['skipped']++;
+            $stats['items'][] = [
+                'id' => $rowId,
+                'msku' => $msku,
+                'store' => $store,
+                'status' => 'skipped',
+                'reason' => 'fnsku_update_conflict=1 (blocked until user clears)',
+                'amazon_fnsku' => $amazonFnsku,
+            ];
+            continue;
+        }
+
+        // ============================================================
+        // 1) CONFLICT CHECK FIRST (before any DB updates)
+        //    Compare:
+        //      - Amazon FNSKU (base)
+        //      - tblproduct.FNSKUviewer (base, ignoring prefix)
+        // ============================================================
+        if ($amazonFnsku !== '') {
+            $chk = checkFnskuConflictTblproduct($Connect, $msku, $amazonFnsku);
+
+            if ($chk['conflict']) {
+                // Set conflict flag (blocks updates)
+                setFnskuConflictFlag($Connect, $rowId, $msku, $store, true);
+
+                // Notify once/day
+                if (!alreadyNotifiedToday($Connect, $rowId, $msku, $store)) {
+                    $title = "FNSKU update conflict! MSKU: {$msku}";
+                    $subtitle = "Relabel required before syncing FNSKU";
+                    $content = "FNSKU mismatch detected (Amazon vs tblproduct.FNSKUviewer). "
+                        . "Please relabel the following items based on MSKU ({$msku}).";
+
+                    $linkData = [
+                        "type" => "actions",               // (new semantic label; your Vue will render actions list)
+                        "actions" => [
+                            [
+                                "id" => "clear_block",
+                                "label" => "Clear Block (Override)",
+                                "type" => "api",
+                                "method" => "POST",
+                                "url" => "/fnsku/clear-block",
+                                "payload" => [
+                                    "msku" => $msku,
+                                    "store" => $store,
+                                    "row_id" => $rowId,     // optional but helpful
+                                ],
+                            ],
+                        ],
+                        "context" => [
+                            "msku" => $msku,
+                            "store" => $store,
+                            "amazon_fnsku" => $amazonFnsku,
+                            "note" => "Clears fnsku_update_conflict so automation can resume.",
+                        ],
+                    ];
+
+                    $userIds = getAllUserIdsToNotify($Connect);
+                    createNotification($Connect, "All", $title, $subtitle, $content, "warning", $linkData, $userIds);
+
+                    markNotifiedToday($Connect, $rowId, $msku, $store);
+                }
+
+                // IMPORTANT: block ALL updates when conflict exists
+                $stats['skipped']++;
+                $stats['items'][] = [
+                    'id' => $rowId,
+                    'msku' => $msku,
+                    'store' => $store,
+                    'status' => 'skipped',
+                    'reason' => 'Conflict detected: updates blocked until resolved',
+                    'amazon_fnsku' => $amazonFnsku,
+                    'mismatch_count' => $chk['mismatch_count'],
+                    'distinct_fnsku_count' => $chk['distinct_fnsku_count'],
+                ];
+                continue;
+            }
+        }
+
+        // ============================================================
+        // 2) SAFE ZONE (conflict-free + not blocked)
+        //    - Update tblfnsku only if empty fields
+        //    - Update tblproduct.FNSKUviewer by MSKUviewer (preserve prefix)
+        // ============================================================
+
+        $didUpdateFnsku = updateTblFnskuIfEmpty($Connect, $rowId, $msku, $store, $amazonFnsku, $grading);
+
+        $updatedProducts = 0;
+        if ($amazonFnsku !== '') {
+            $updatedProducts = updateTblproductFnskuViewerByMskuPreservePrefix($Connect, $msku, $amazonFnsku);
+        }
+
+        if ($didUpdateFnsku || $updatedProducts > 0) {
             $stats['updated']++;
             $stats['items'][] = [
                 'id' => $rowId,
                 'msku' => $msku,
                 'store' => $store,
                 'status' => 'updated',
-                'fnsku' => $fnsku,
+                'fnsku' => $amazonFnsku,
                 'grading' => $grading,
+                'tblproduct_updated' => $updatedProducts,
             ];
         } else {
             $stats['skipped']++;
@@ -169,8 +305,8 @@ foreach ($items as $row) {
                 'msku' => $msku,
                 'store' => $store,
                 'status' => 'skipped',
-                'reason' => 'Row already had values or nothing to update',
-                'fnsku' => $fnsku,
+                'reason' => 'Nothing to update (already filled / already correct)',
+                'fnsku' => $amazonFnsku,
                 'grading' => $grading,
             ];
         }
@@ -184,7 +320,6 @@ foreach ($items as $row) {
             'status' => 'error',
             'error' => $e->getMessage(),
         ];
-        // continue to next item (skip-on-fail)
         continue;
     }
 }
@@ -215,18 +350,17 @@ function jsonOut($arr)
 
 function fetchNextMissingFnskuRows(mysqli $db, int $lastId, int $limit): array
 {
-    // Adjust column names if yours differ
     $sql = "
-    SELECT FNSKUID as id, MSKU as msku, storename
-    FROM tblfnsku
-    WHERE FNSKUID > ?
-      AND (FNSKU IS NULL OR FNSKU = '' OR grading IS NULL OR grading = '')
-      AND (MSKU IS NOT NULL AND MSKU <> '')
-      AND (storename IS NOT NULL AND storename <> '')
-      AND amazon_status != 'Deleted'
-    ORDER BY FNSKUID ASC
-    LIMIT ?
-";
+        SELECT FNSKUID as id, MSKU as msku, storename
+        FROM tblfnsku
+        WHERE FNSKUID > ?
+          AND (FNSKU IS NULL OR FNSKU = '' OR grading IS NULL OR grading = '')
+          AND (MSKU IS NOT NULL AND MSKU <> '')
+          AND (storename IS NOT NULL AND storename <> '')
+          AND (amazon_status IS NULL OR amazon_status <> 'Deleted')
+        ORDER BY FNSKUID ASC
+        LIMIT ?
+    ";
     $stmt = $db->prepare($sql);
     $stmt->bind_param("ii", $lastId, $limit);
     $stmt->execute();
@@ -235,14 +369,13 @@ function fetchNextMissingFnskuRows(mysqli $db, int $lastId, int $limit): array
     $rows = [];
     while ($r = $res->fetch_assoc())
         $rows[] = $r;
-
     $stmt->close();
     return $rows;
 }
 
 function updateTblFnskuIfEmpty(mysqli $db, int $rowId, string $msku, string $store, string $fnsku, string $grading): bool
 {
-    // If rowId=0 (manual mode), update by msku+storename instead
+    // NOTE: this function ONLY updates empty fields; never overwrites existing
     if ($rowId > 0) {
         $sql = "
             UPDATE tblfnsku
@@ -250,6 +383,7 @@ function updateTblFnskuIfEmpty(mysqli $db, int $rowId, string $msku, string $sto
                 FNSKU = CASE WHEN (FNSKU IS NULL OR FNSKU='') AND ? <> '' THEN ? ELSE FNSKU END,
                 grading = CASE WHEN (grading IS NULL OR grading='') AND ? <> '' THEN ? ELSE grading END
             WHERE FNSKUID = ?
+              AND (fnsku_update_conflict IS NULL OR fnsku_update_conflict = 0)
         ";
         $stmt = $db->prepare($sql);
         $stmt->bind_param("ssssi", $fnsku, $fnsku, $grading, $grading, $rowId);
@@ -261,6 +395,7 @@ function updateTblFnskuIfEmpty(mysqli $db, int $rowId, string $msku, string $sto
                 grading = CASE WHEN (grading IS NULL OR grading='') AND ? <> '' THEN ? ELSE grading END
             WHERE MSKU = ?
               AND storename = ?
+              AND (fnsku_update_conflict IS NULL OR fnsku_update_conflict = 0)
         ";
         $stmt = $db->prepare($sql);
         $stmt->bind_param("sssss", $fnsku, $fnsku, $grading, $grading, $msku, $store);
@@ -269,7 +404,6 @@ function updateTblFnskuIfEmpty(mysqli $db, int $rowId, string $msku, string $sto
     $stmt->execute();
     $affected = $stmt->affected_rows;
     $stmt->close();
-
     return ($affected > 0);
 }
 
@@ -285,7 +419,6 @@ function getAutomationCache(mysqli $db, string $cronAutomation): array
 
     if (!$row)
         return [];
-
     $raw = (string) ($row['additional_config'] ?? '');
     if (trim($raw) === '')
         return [];
@@ -298,8 +431,6 @@ function updateAutomationCache(mysqli $db, string $cronAutomation, array $cache)
 {
     $json = json_encode($cache, JSON_UNESCAPED_SLASHES);
 
-    // Ensure row exists; if not, create it
-    $exists = false;
     $chk = $db->prepare("SELECT id FROM tblautomationshandler WHERE cron_automation = ? LIMIT 1");
     $chk->bind_param("s", $cronAutomation);
     $chk->execute();
@@ -329,12 +460,12 @@ function fetchListingsItem(array $credentials, string $accessToken, string $SID,
     $service = 'execute-api';
 
     $path = "/listings/2021-08-01/items/{$SID}/" . rawurlencode($SKU);
-
     $query = buildQueryString();
     $url = "{$endpoint}{$path}?{$query}";
 
     $tries = 0;
     $maxTries = 6;
+    $result = '';
 
     do {
         $tries++;
@@ -352,19 +483,17 @@ function fetchListingsItem(array $credentials, string $accessToken, string $SID,
         curl_close($ch);
 
         if ($httpcode == 429) {
-            sleep(10); // smaller backoff; you can raise if needed
+            sleep(10);
             continue;
         }
 
         if ($httpcode == 401) {
-            // token expired
             $accessToken = fetchAccessToken($credentials, false);
             if (!$accessToken)
                 break;
             continue;
         }
 
-        // Return whatever Amazon said (even if 4xx) so caller can decide
         return $result ?: '';
     } while ($tries < $maxTries);
 
@@ -373,8 +502,6 @@ function fetchListingsItem(array $credentials, string $accessToken, string $SID,
 
 function buildQueryString(): string
 {
-    // Keep it exactly as Amazon expects; order matters for signature if you sign the query string.
-    // If you edit, ensure signature uses the same exact string.
     return 'marketplaceIds=ATVPDKIKX0DER&issueLocale=en_US&includedData=issues,attributes,summaries,offers,fulfillmentAvailability,procurement';
 }
 
@@ -396,12 +523,10 @@ function calculateSignature(array $credentials, string $amzDate, string $host, s
     $method = 'GET';
     $canonicalUri = $path;
 
-    // Canonical headers MUST match the real host used
     $canonicalHeaders = "host:{$host}\n" . "x-amz-date:{$amzDate}\n";
     $signedHeaders = 'host;x-amz-date';
 
-    $payloadHash = hash('sha256', ""); // GET payload is empty
-
+    $payloadHash = hash('sha256', "");
     $canonicalRequest = "{$method}\n{$canonicalUri}\n{$canonicalQueryString}\n{$canonicalHeaders}\n{$signedHeaders}\n{$payloadHash}";
 
     $algorithm = 'AWS4-HMAC-SHA256';
@@ -454,38 +579,12 @@ function findFirstValueByKeyInsensitive($data, array $keys)
                 $stack[] = $v;
         }
     }
-
     return null;
-}
-
-function getSID(mysqli $db, string $store)
-{
-    // Map store code -> tblcompanydetails id
-    // RT => 2, AR => 3 (based on your comment)
-    $store = strtoupper(trim($store));
-    $companyId = null;
-    if ($store === 'RT' || $store === 'Renovartech')
-        $companyId = 2;
-    if ($store === 'AR' || $store === 'Allrenewed')
-        $companyId = 3;
-
-    if (!$companyId)
-        return null;
-
-    $stmt = $db->prepare("SELECT SID FROM tblcompanydetails WHERE id = ? LIMIT 1");
-    $stmt->bind_param("i", $companyId);
-    $stmt->execute();
-    $res = $stmt->get_result();
-    $row = $res->fetch_assoc();
-    $stmt->close();
-
-    return $row['SID'] ?? null;
 }
 
 function dbDatabase()
 {
-    // Define server mode here
-    $servertype = "local laravel";
+    $servertype = "laravel_ims";
 
     switch ($servertype) {
         case "ims":
@@ -542,7 +641,6 @@ function AWSCredentials(mysqli $db, string $store)
         WHERE storename = ?
         LIMIT 1
     ";
-
     $stmt = $db->prepare($sql);
     $stmt->bind_param("s", $store);
     $stmt->execute();
@@ -553,7 +651,6 @@ function AWSCredentials(mysqli $db, string $store)
     if (!$row) {
         throw new Exception("Store '{$store}' not found in tblstores");
     }
-
     return $row;
 }
 
@@ -576,12 +673,10 @@ function fetchAccessToken(array $credentials, bool $returnRaw = false)
     ]);
 
     $response = curl_exec($ch);
-
     if ($response === FALSE) {
         curl_close($ch);
         return false;
     }
-
     curl_close($ch);
 
     $decoded = json_decode($response, true);
@@ -590,13 +685,13 @@ function fetchAccessToken(array $credentials, bool $returnRaw = false)
 
     if ($returnRaw)
         return $decoded;
-
     return $decoded['access_token'] ?? false;
 }
 
 function normalizeGrading(?string $skucondition): string
 {
-    if (!$skucondition) return '';
+    if (!$skucondition)
+        return '';
 
     $map = [
         'new_new' => 'New',
@@ -612,6 +707,251 @@ function normalizeGrading(?string $skucondition): string
     ];
 
     $key = strtolower(trim($skucondition));
+    return $map[$key] ?? $skucondition;
+}
 
-    return $map[$key] ?? $skucondition; // fallback if already clean
+/**
+ * Extract base FNSKU from a possibly-prefixed value in tblproduct.FNSKUviewer.
+ * Example: C1X123... -> X123...
+ *          X123...   -> X123...
+ */
+function extractBaseFnsku(string $fnsku): string
+{
+    $fnsku = trim($fnsku);
+    if ($fnsku === '')
+        return '';
+
+    if (preg_match('/^([C-W]|[Y-Z])(\d+)(X.+)$/', $fnsku, $m)) {
+        return $m[3];
+    }
+    return $fnsku;
+}
+
+/**
+ * Conflict check:
+ * - Reads tblproduct.FNSKUviewer for MSKUviewer = $msku
+ * - Compares BASE values (ignoring prefix) vs Amazon base fnsku
+ * - conflict if:
+ *   a) any mismatch exists, OR
+ *   b) more than 1 distinct base fnsku exists in tblproduct for that MSKU
+ */
+function checkFnskuConflictTblproduct(mysqli $db, string $msku, string $amazonFnsku): array
+{
+    $amazonFnsku = trim($amazonFnsku);
+
+    $sql = "
+        SELECT DISTINCT FNSKUviewer
+        FROM tblproduct
+        WHERE MSKUviewer = ?
+          AND FNSKUviewer IS NOT NULL
+          AND FNSKUviewer <> ''
+          AND (ProductModuleLoc IS NULL OR ProductModuleLoc <> 'SoldList')
+    ";
+    $stmt = $db->prepare($sql);
+    $stmt->bind_param("s", $msku);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    $distinctBase = [];
+    $mismatchCount = 0;
+
+    while ($row = $res->fetch_assoc()) {
+        $raw = trim((string) ($row['FNSKUviewer'] ?? ''));
+        if ($raw === '')
+            continue;
+
+        $base = extractBaseFnsku($raw);
+        if ($base === '')
+            continue;
+
+        $distinctBase[$base] = true;
+
+        if ($amazonFnsku !== '' && $base !== $amazonFnsku) {
+            $mismatchCount++;
+        }
+    }
+
+    $stmt->close();
+
+    $distinctCount = count($distinctBase);
+
+    return [
+        'conflict' => ($mismatchCount > 0 || $distinctCount > 1),
+        'mismatch_count' => $mismatchCount,
+        'distinct_fnsku_count' => $distinctCount,
+        'distinct_base_fnskus' => array_keys($distinctBase),
+    ];
+}
+
+function updateTblproductFnskuViewerByMskuPreservePrefix(mysqli $db, string $msku, string $amazonFnsku): int
+{
+    $amazonFnsku = trim($amazonFnsku);
+    if ($amazonFnsku === '')
+        return 0;
+
+    $sql = "
+        SELECT ProductID, FNSKUviewer
+        FROM tblproduct
+        WHERE MSKUviewer = ?
+          AND (ProductModuleLoc IS NULL OR ProductModuleLoc <> 'SoldList')
+    ";
+    $stmt = $db->prepare($sql);
+    $stmt->bind_param("s", $msku);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    $updates = 0;
+
+    while ($row = $res->fetch_assoc()) {
+        $pid = (int) ($row['ProductID'] ?? 0);
+        if ($pid <= 0)
+            continue;
+
+        $current = trim((string) ($row['FNSKUviewer'] ?? ''));
+
+        // Preserve prefix if present (C1/B1/G3/etc)
+        if ($current !== '' && preg_match('/^([C-W]|[Y-Z])(\d+)(X.+)$/', $current, $m)) {
+            $prefix = $m[1] . $m[2];           // e.g. C1
+            $newVal = $prefix . $amazonFnsku;  // e.g. C1X...
+        } else {
+            $newVal = $amazonFnsku;
+        }
+
+        // If base already matches Amazon, skip
+        $baseNow = extractBaseFnsku($current);
+        if ($baseNow === $amazonFnsku && $current !== '') {
+            continue;
+        }
+
+        $u = $db->prepare("UPDATE tblproduct SET FNSKUviewer = ? WHERE ProductID = ?");
+        $u->bind_param("si", $newVal, $pid);
+        $u->execute();
+        if ($u->affected_rows > 0)
+            $updates++;
+        $u->close();
+    }
+
+    $stmt->close();
+    return $updates;
+}
+
+function setFnskuConflictFlag(mysqli $db, int $rowId, string $msku, string $store, bool $isConflict): void
+{
+    $flag = $isConflict ? 1 : 0;
+
+    if ($rowId > 0) {
+        $sql = "
+            UPDATE tblfnsku
+            SET fnsku_update_conflict = ?,
+                fnsku_conflict_detected_at = CASE WHEN ?=1 THEN NOW() ELSE fnsku_conflict_detected_at END
+            WHERE FNSKUID = ?
+        ";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("iii", $flag, $flag, $rowId);
+    } else {
+        $sql = "
+            UPDATE tblfnsku
+            SET fnsku_update_conflict = ?,
+                fnsku_conflict_detected_at = CASE WHEN ?=1 THEN NOW() ELSE fnsku_conflict_detected_at END
+            WHERE MSKU = ?
+              AND storename = ?
+        ";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("iiss", $flag, $flag, $msku, $store);
+    }
+
+    $stmt->execute();
+    $stmt->close();
+}
+
+function isFnskuUpdateBlocked(mysqli $db, int $rowId, string $msku, string $store): bool
+{
+    if ($rowId > 0) {
+        $sql = "SELECT fnsku_update_conflict AS f FROM tblfnsku WHERE FNSKUID = ? LIMIT 1";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("i", $rowId);
+    } else {
+        $sql = "SELECT fnsku_update_conflict AS f FROM tblfnsku WHERE MSKU = ? AND storename = ? LIMIT 1";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("ss", $msku, $store);
+    }
+
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $row = $res->fetch_assoc();
+    $stmt->close();
+
+    return ((int) ($row['f'] ?? 0) === 1);
+}
+
+function alreadyNotifiedToday(mysqli $db, int $rowId, string $msku, string $store): bool
+{
+    if ($rowId > 0) {
+        $sql = "SELECT fnsku_conflict_last_notified_at AS d FROM tblfnsku WHERE FNSKUID = ? LIMIT 1";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("i", $rowId);
+    } else {
+        $sql = "SELECT fnsku_conflict_last_notified_at AS d FROM tblfnsku WHERE MSKU = ? AND storename = ? LIMIT 1";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("ss", $msku, $store);
+    }
+
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $row = $res->fetch_assoc();
+    $stmt->close();
+
+    $d = (string) ($row['d'] ?? '');
+    return ($d === date('Y-m-d'));
+}
+
+function markNotifiedToday(mysqli $db, int $rowId, string $msku, string $store): void
+{
+    $today = date('Y-m-d');
+    if ($rowId > 0) {
+        $sql = "UPDATE tblfnsku SET fnsku_conflict_last_notified_at = ? WHERE FNSKUID = ?";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("si", $today, $rowId);
+    } else {
+        $sql = "UPDATE tblfnsku SET fnsku_conflict_last_notified_at = ? WHERE MSKU = ? AND storename = ?";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("sss", $today, $msku, $store);
+    }
+    $stmt->execute();
+    $stmt->close();
+}
+
+function getAllUserIdsToNotify(mysqli $db): array
+{
+    $ids = [1, 4, 14, 15, 16, 17, 18, 19, 20, 21, 22, 26];
+
+    return $ids;
+}
+
+function createNotification(mysqli $db, string $module, string $title, string $subtitle, string $content, string $severity, array $linkData, array $userIds): void
+{
+    $linkJson = json_encode($linkData, JSON_UNESCAPED_SLASHES);
+
+    $sql = "
+        INSERT INTO tblnotifications (module, title, subtitle, content, severity, created_at, link_data)
+        VALUES (?, ?, ?, ?, ?, NOW(), ?)
+    ";
+    $stmt = $db->prepare($sql);
+    $stmt->bind_param("ssssss", $module, $title, $subtitle, $content, $severity, $linkJson);
+    $stmt->execute();
+    $notifId = (int) $stmt->insert_id;
+    $stmt->close();
+
+    if ($notifId <= 0)
+        return;
+
+    $sql2 = "INSERT INTO tblnotificationsuser (notif_id, userid, read_status, created_at) VALUES (?, ?, 'unread', NOW())";
+    $stmt2 = $db->prepare($sql2);
+
+    foreach ($userIds as $uid) {
+        $uid = (int) $uid;
+        $stmt2->bind_param("ii", $notifId, $uid);
+        $stmt2->execute();
+    }
+    $stmt2->close();
 }

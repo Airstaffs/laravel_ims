@@ -1031,6 +1031,49 @@ public function updateFnsku(Request $request)
             'msku' => $msku,
         ]);
     }
+
+    public function clearBlock(Request $request)
+{
+    $data = $request->validate([
+        'msku' => ['required','string'],
+        'store' => ['nullable','string'],   // optional
+        'row_id' => ['nullable','integer'], // optional
+    ]);
+
+    $msku = trim($data['msku']);
+    $store = isset($data['store']) ? trim($data['store']) : null;
+    $rowId = $data['row_id'] ?? null;
+
+    $affected = 0;
+
+    DB::transaction(function () use ($msku, $store, $rowId, &$affected) {
+
+        $q = DB::table('tblfnsku');
+
+        if ($rowId) {
+            $q->where('FNSKUID', $rowId);
+        } else {
+            $q->where('MSKU', $msku);
+            if ($store) $q->where('storename', $store);
+        }
+
+        // Only flip if currently blocked (optional)
+        $affected = $q->update([
+            'fnsku_update_conflict' => 0,
+            // optional cleanup fields
+            // 'fnsku_conflict_last_notified_at' => null,
+            // 'fnsku_conflict_detected_at' => null,
+        ]);
+    });
+
+    return response()->json([
+        'ok' => true,
+        'message' => $affected > 0
+            ? 'Block cleared. Automation can sync this MSKU again.'
+            : 'No rows updated (already unblocked or not found).',
+        'affected' => $affected,
+    ]);
+}
 }
 
 
