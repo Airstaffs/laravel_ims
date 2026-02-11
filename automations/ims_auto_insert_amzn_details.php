@@ -122,10 +122,6 @@ foreach ($stores as $store) {
                 $PRODUCT_NAME = trim($summary['itemName'] ?? '');
                 $asin_status = null;
 
-                if (empty($FNSKU)) {
-                    $FNSKU = $ASIN;
-                }
-
                 if ($store == 'AR') {
                     $asin_status = (stripos($PRODUCT_NAME, 'renewed') !== false) ? 'renewed' : null;
                 }
@@ -142,13 +138,6 @@ foreach ($stores as $store) {
 
                 if (empty($asin_status)) {
                     $asin_status = null;
-                }
-
-                // Check if FNSKU is empty, and if so, skip this row
-                if (empty($FNSKU) && !empty($MSKU)) {
-                    $FNSKU = 'X00' . str_replace('-', '', $MSKU);
-                } else if (empty($FNSKU)) {
-                    $FNSKU = null;
                 }
 
                 if (empty($MSKU)) {
@@ -181,13 +170,6 @@ foreach ($stores as $store) {
 
                 if (empty($PRODUCT_NAME)) {
                     $PRODUCT_NAME = null;
-                }
-
-                // If FNSKU contains 'X0', keep everything from 'X0' onwards
-                if (!empty($FNSKU)) {
-                    if (($pos = strpos($FNSKU, 'X')) !== false) {
-                        $FNSKU = substr($FNSKU, $pos);
-                    }
                 }
 
                 // Assuming you have retrieved data from your database into $row
@@ -224,20 +206,30 @@ foreach ($stores as $store) {
                     echo "<br>Amzn Details: $store - $ASIN - $FNSKU - $MSKU<br>";
 
 
+
+
                     // Check if the row already exists in the database with the same FNSKU, ASIN, and PRODUCT_NAME
-                    $checkQuery = "SELECT * FROM $tblname 
-                                                    WHERE (FNSKU = ? OR (FNSKU IS NULL AND ? IS NULL)) 
-                                                      AND (ASIN = ? OR (ASIN IS NULL AND ? IS NULL)) 
-                                                      AND (MSKU = ? OR (MSKU IS NULL AND ? IS NULL))";
+                    $checkQuery = "SELECT FNSKUID, FNSKU, MSKU, ASIN, amazon_status
+                        FROM $tblname
+                        WHERE storename = ?
+                            AND MSKU = ?
+                            AND ASIN = ?
+                        ORDER BY insert_date DESC
+                        LIMIT 1";
 
                     $stmtCheck = $Connect->prepare($checkQuery);
-                    $stmtCheck->bind_param("ssssss", $FNSKU, $FNSKU, $ASIN, $ASIN, $MSKU, $MSKU);
+                    $stmtCheck->bind_param("sss", $storename, $MSKU, $ASIN);
                     $stmtCheck->execute();
                     $resultCheck = $stmtCheck->get_result();
 
                     $rawStatus = getNewlyCreatedItemStatus($Connect, $merchantId, $MSKU);
                     $amazon_status = mapNewlyCreatedStatusToAmazonStatus($rawStatus);
 
+                    if (trim((string) $FNSKU) === '' && $amazon_status !== 'Deleted') {
+                        $skipCount++;
+                        updateCronInsertStatus($Connect, $MSKU, $merchantId);
+                        continue;
+                    }
 
                     if ($resultCheck->num_rows == 0) {
                         $insertQuery = "
@@ -248,7 +240,7 @@ foreach ($stores as $store) {
                         ";
                         $stmt = $Connect->prepare($insertQuery);
 
-                        $units = 10;
+                        $units = 30;
                         $hehe = "available";
 
                         $stmt->bind_param(
@@ -281,24 +273,52 @@ foreach ($stores as $store) {
                     } else {
                         // Row already exists in the database
                         $existingRow = $resultCheck->fetch_assoc();
-                        /*
-                        // if all data is equivalent then skip the duplicate!
-                        if ($existingRow['astitle'] != $PRODUCT_NAME) { // Update the PRODUCT_NAME if it's different (and not NULL)
-                            $updateQuery = "UPDATE $tblname SET astitle = ?, insert_date = ? WHERE FNSKUID = ?";
-                            $stmtUpdate = $Connect->prepare($updateQuery);
-                            $stmtUpdate->bind_param("sss", $PRODUCT_NAME, $currentDateTime, $existingRow['FNSKUID']);
 
-                            if ($stmtUpdate->execute()) {
-                                $logMessage = "PRODUCT_NAME updated successfully for FNSKU: $FNSKU $PRODUCT_NAME";
-                                // uploading_Logs($Connect, $log_message = $logMessage, $reference_id = $ref, $upload_name = $uploader);
+                        // Decide what we are allowed to update
+                        $incomingFnsku = trim((string) $FNSKU);
+                        $incomingStatus = trim((string) $amazon_status);
+
+                        // Rule A: If Amazon says Deleted -> ALWAYS mark Deleted
+                        if (strcasecmp($incomingStatus, 'Deleted') === 0) {
+
+                            $updateQuery = "UPDATE tblfnsku
+                    SET amazon_status = 'Deleted',
+                        insert_date = ?
+                    WHERE FNSKUID = ?";
+                            $stmtUpd = $Connect->prepare($updateQuery);
+                            $stmtUpd->bind_param("si", $currentDateTime, $existingRow['FNSKUID']);
+                            $stmtUpd->execute();
+                            $stmtUpd->close();
+
+                            $updateCount++;
+                            updateCronInsertStatus($Connect, $MSKU, $merchantId);
+
+                        } else {
+
+                            // Rule B: If retrieved FNSKU is empty -> DO NOT UPDATE ANYTHING AT ALL
+                            // (you asked: "if retrieved FNSKU is empty then it will not update at all")
+                            if ($incomingFnsku === '') {
+                                $skipCount++;
+                                updateCronInsertStatus($Connect, $MSKU, $merchantId);
+                                // optional debug:
+                                // echo "Skip update: empty FNSKU for MSKU {$MSKU} / ASIN {$ASIN}<br>";
+                            } else {
+
+                                // Otherwise update ONLY FNSKU + amazon_status (non-deleted)
+                                $updateQuery = "UPDATE tblfnsku
+                        SET FNSKU = ?,
+                            amazon_status = ?,
+                            insert_date = ?
+                        WHERE FNSKUID = ?";
+                                $stmtUpd = $Connect->prepare($updateQuery);
+                                $stmtUpd->bind_param("sssi", $incomingFnsku, $incomingStatus, $currentDateTime, $existingRow['FNSKUID']);
+                                $stmtUpd->execute();
+                                $stmtUpd->close();
 
                                 $updateCount++;
-                            } else {
-                                $logMessage = "Error updating PROUCT_NAME for FNSKU: $FNSKU - Error: " . $stmtUpdate->error;
-                                // uploading_Logs($Connect, $log_message = $logMessage, $reference_id = $ref, $upload_name = $uploader);
-                                $errorCount++;
+                                updateCronInsertStatus($Connect, $MSKU, $merchantId);
                             }
-                        } else */
+                        }
                         if (
                             ($FNSKU == $existingRow['FNSKU'] || ($FNSKU === null && $existingRow['FNSKU'] === null)) &&
                             ($MSKU == $existingRow['MSKU'] || ($MSKU === null && $existingRow['MSKU'] === null)) &&
@@ -351,7 +371,7 @@ foreach ($stores as $store) {
 
                 // Prepare the update statement
                 $updateStmt_rawr_101 = $Connect->prepare("UPDATE tblasin SET amazon_title = ? WHERE ASIN = ?");
-                $updateStmt_rawr_101->bind_param("ss", $PRODUCT_NAME, $asin);
+                $updateStmt_rawr_101->bind_param("ss", $PRODUCT_NAME, $ASIN);
 
                 if ($updateStmt_rawr_101->execute()) {
                     echo "Updated ASIN $asin with title: $PRODUCT_NAME<br>";
