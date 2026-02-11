@@ -1,4 +1,9 @@
 <?php
+// ✅ FORCE OPCACHE RESET
+if (function_exists('opcache_reset')) {
+    opcache_reset();
+}
+
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -9,6 +14,7 @@ setlocale(LC_NUMERIC, 'C');
 
 echo "<h2>🚚 TRACKING STATUS UPDATE CRON JOB</h2>";
 echo "Started: " . date('Y-m-d H:i:s') . "<br><br>";
+echo "<strong>⚠️ CACHE CLEARED</strong><br><br>";
 
 // === DB CONFIG ===
 $mysqli = new mysqli("localhost", "imsv2_dbims_user", "Imsv2_dbims_user", "imsv2_dbims");
