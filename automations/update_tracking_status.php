@@ -27,7 +27,7 @@ define('FORCE_RECHECK', isset($_GET['force']) ? true : false);
 
 // API Keys
 $TRACK17_API_KEY = '5EC4C3FCD4929687DC76822C8D154C20';
-$SHIP24_API_KEY  = 'YOUR_SHIP24_API_KEY_HERE';  // ← Get from https://ship24.com
+$SHIP24_API_KEY  = 'apik_0enxLOPgm7vJBt4rAt83XHrvFhwUds';
 
 // ========================================
 // HELPER FUNCTIONS
@@ -214,7 +214,7 @@ function check17track($batch, $apiKey) {
  * Ship24 uses a simple POST to get tracking results instantly
  */
 function checkShip24Single($trackingNumber, $apiKey) {
-    if (empty($apiKey) || $apiKey === 'apik_0enxLOPgm7vJBt4rAt83XHrvFhwUds') {
+    if (empty($apiKey) || $apiKey === 'YOUR_SHIP24_API_KEY_HERE') {
         return null; // Ship24 not configured
     }
 
