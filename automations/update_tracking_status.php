@@ -28,16 +28,27 @@ $API_KEY = '5EC4C3FCD4929687DC76822C8D154C20';
 
 // ========================================
 // CARRIER MAPPING: Map your DB carrier names to 17track carrier codes
+// Full list: https://api.17track.net/en/doc
 // ========================================
 $carrierMapping = [
+    // US Carriers
     'USPS' => 70019,
     'UPS' => 70002,
     'FedEx' => 70001,
+    'FedEx Express' => 70001,
+    'FedEx Ground' => 70001,
+    'FedEx Home Delivery' => 70001,
+    'FedEx SmartPost' => 70157,
     'DHL' => 70003,
     'DHL Express' => 70003,
+    'DHL eCommerce' => 70015,
     'Amazon Logistics' => 70172,
     'OnTrac' => 70049,
     'LaserShip' => 70050,
+    'LSO' => 70050, // LaserShip alias
+    'Central Transport' => null, // Let 17track auto-detect (not a standard international carrier)
+    
+    // International
     'Canada Post' => 70020,
     'Royal Mail' => 70030,
     'China Post' => 70013,
@@ -45,6 +56,11 @@ $carrierMapping = [
     'SF Express' => 70015,
     'Yun Express' => 70135,
     'Yanwen' => 70048,
+    'DPD' => 70021,
+    'TNT' => 70008,
+    'Hermes' => 70027,
+    'Parcelforce' => 70039,
+    
     // Add more carriers as needed
 ];
 
@@ -77,6 +93,52 @@ function get17trackCarrier($carrierName, $carrierMapping) {
     if (strpos($carrierName, 'amazon') !== false) return 70172;
     
     return null; // Let 17track try auto-detection
+}
+
+/**
+ * Validate tracking number format for known carriers
+ */
+function validateTrackingFormat($trackingNumber, $carrierName) {
+    $tn = preg_replace('/\s+/', '', $trackingNumber); // Remove spaces
+    
+    // FedEx validation (12, 15, 20, or 22 digits)
+    if (stripos($carrierName, 'fedex') !== false) {
+        if (preg_match('/^\d{12}$|^\d{15}$|^\d{20}$|^\d{22}$/', $tn)) {
+            return ['valid' => true, 'message' => 'Valid FedEx format'];
+        }
+        return ['valid' => false, 'message' => 'Invalid FedEx format (expected 12, 15, 20, or 22 digits)'];
+    }
+    
+    // USPS validation (20-22 digits or starts with 9)
+    if (stripos($carrierName, 'usps') !== false) {
+        if (preg_match('/^(94|93|92|94|95|96|82|[A-Z]{2}\d{9}US|\d{20,22})/', $tn)) {
+            return ['valid' => true, 'message' => 'Valid USPS format'];
+        }
+        return ['valid' => false, 'message' => 'Invalid USPS format'];
+    }
+    
+    // UPS validation (18 characters starting with 1Z)
+    if (stripos($carrierName, 'ups') !== false) {
+        if (preg_match('/^1Z[A-Z0-9]{16}$/', $tn)) {
+            return ['valid' => true, 'message' => 'Valid UPS format'];
+        }
+        return ['valid' => false, 'message' => 'Invalid UPS format (expected 1Z followed by 16 characters)'];
+    }
+    
+    // DHL validation (10-11 digits)
+    if (stripos($carrierName, 'dhl') !== false) {
+        if (preg_match('/^\d{10,11}$/', $tn)) {
+            return ['valid' => true, 'message' => 'Valid DHL format'];
+        }
+        return ['valid' => false, 'message' => 'Invalid DHL format (expected 10-11 digits)'];
+    }
+    
+    // Default: assume valid if it has at least 8 characters
+    if (strlen($tn) >= 8) {
+        return ['valid' => true, 'message' => 'Format check passed'];
+    }
+    
+    return ['valid' => false, 'message' => 'Tracking number too short (minimum 8 characters)'];
 }
 
 // ========================================
@@ -209,26 +271,43 @@ foreach ($batches as $batchIdx => $batch) {
     echo "<div style='background: #d1ecf1; padding: 10px; margin: 10px 0; border-left: 4px solid #17a2b8;'>";
     echo "<strong>📦 BATCH " . ($batchIdx + 1) . "/" . count($batches) . "</strong> (" . count($batch) . " tracking numbers)<br><br>";
     
-    // ✅ FIXED: Register with carrier codes
+    // ✅ FIXED: Register with carrier codes and validation
     $registerData = [];
     foreach ($batch as $tn) {
         $carrierName = $trackingToCheck[$tn]['carrier_name'] ?? '';
         $carrierCode = get17trackCarrier($carrierName, $carrierMapping);
         
+        // Validate tracking format
+        $validation = validateTrackingFormat($tn, $carrierName);
+        
+        if (!$validation['valid']) {
+            echo "⚠️ <strong>{$tn}</strong>: {$validation['message']} - <span style='color: red;'>SKIPPING</span><br>";
+            continue; // Skip invalid tracking numbers
+        }
+        
         $trackData = ['number' => $tn];
         
         // Add carrier code if we found one
         if ($carrierCode) {
-            $trackData['carrier'] = $carrierCode;
-            echo "→ {$tn}: Using carrier '{$carrierName}' (code: {$carrierCode})<br>";
+            $trackData['carrier'] = (int)$carrierCode; // ✅ FORCE INTEGER TYPE
+            echo "→ {$tn}: Using carrier '{$carrierName}' (code: {$carrierCode}) - {$validation['message']}<br>";
         } else {
-            echo "→ {$tn}: Auto-detect carrier (DB carrier: '{$carrierName}')<br>";
+            echo "→ {$tn}: Auto-detect carrier (DB carrier: '{$carrierName}') - {$validation['message']}<br>";
         }
         
         $registerData[] = $trackData;
     }
     
+    if (empty($registerData)) {
+        echo "<br><span style='color: orange;'>⚠️ No valid tracking numbers in this batch - SKIPPING API CALL</span><br></div>";
+        continue;
+    }
+    
     echo "<br>📤 Registering with 17track...<br>";
+    
+    // Debug: Show what we're sending
+    echo "<details><summary>🔍 Debug: Request payload</summary><pre>" . 
+         json_encode($registerData, JSON_PRETTY_PRINT) . "</pre></details><br>";
     
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, 'https://api.17track.net/track/v2.2/register');
