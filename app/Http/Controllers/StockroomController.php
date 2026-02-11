@@ -2067,6 +2067,8 @@ public function processScan(Request $request)
     {
         require_once base_path('automations/bulk_msku_creation.php');
 
+        $batchSummary = []; // keyed by msku
+
         if (empty($items)) {
             echo 'No items to post.<br>';
 
@@ -2228,6 +2230,14 @@ public function processScan(Request $request)
         $createdocumentid_data = Create_feed_document_passing_json($first['storename'], null);
         $feeddocumentid = $createdocumentid_data['data']['feedDocumentId'];
 
+        $batchSummary[$data['msku']] = [
+    'msku' => $data['msku'],
+    'asin' => $data['asin'],
+    'storename' => $data['storename'],
+    'condition' => $amzncondition,
+    'qty' => (int) $data['count'],
+];
+
         $payload = [
             'header' => [
                 'version' => '2.0',
@@ -2255,14 +2265,29 @@ public function processScan(Request $request)
 
         if ($uploadSuccess) {
             $feedId = create_feed_from_document($first['storename'], $feeddocumentid, $payload);
-            if ($feedId) {
-                insert_created_feed(
-                    $feedId,
-                    'JSON_LISTINGS_FEED',
-                    $feeddocumentid,
-                    $first['storename']
-                );
-            }
+if ($feedId && !empty($batchSummary)) {
+
+    $lines = [];
+    foreach ($batchSummary as $row) {
+        $lines[] = "{$row['msku']} | ASIN {$row['asin']} | {$row['condition']} | QTY {$row['qty']}";
+    }
+
+    create_notification([
+        'module' => 'Stockroom',
+        'title' => 'Amazon Posting: Feed Submitted',
+        'subtitle' => "Feed ID: {$feedId}",
+        'content' => "Submitted the following MSKUs:\n" . implode("\n", $lines),
+        'severity' => 'success',
+        'user_ids' => [session('userid')],
+        'link_data' => [
+            'feed_id' => $feedId,
+            'feed_type' => 'JSON_LISTINGS_FEED',
+            'store' => $first['storename'],
+            'marketplace' => $marketplace,
+            'batch' => array_values($batchSummary),
+        ],
+    ]);
+}
         }
     }
 

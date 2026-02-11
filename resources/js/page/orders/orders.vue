@@ -263,58 +263,93 @@
                     </div>
                 </template>
 
-                <template #tracking="{ data }">
+               <template #tracking="{ data }">
                     <div class="tracking-cell">
-                        <!-- Tracking Number -->
-                        <div class="tracking-number">
-                            <i
-                                class="pi pi-box text-muted me-1"
-                                style="font-size: 0.8rem"
-                            ></i>
-                            <span v-if="data.trackingnumber">{{
-                                data.trackingnumber
-                            }}</span>
-                            <span v-else class="text-muted small"
-                                >No tracking</span
+                        <!-- Show all tracking numbers with their individual statuses -->
+                        <div 
+                            v-if="data.tracking_info && data.tracking_info.length > 0" 
+                            class="tracking-list"
+                        >
+                            <div 
+                                v-for="(tracking, idx) in data.tracking_info" 
+                                :key="idx"
+                                class="tracking-item mb-2"
                             >
+                                <!-- Tracking Number -->
+                                <div class="tracking-number d-flex align-items-center">
+                                    <i 
+                                        class="pi pi-box text-muted me-1" 
+                                        style="font-size: 0.7rem"
+                                    ></i>
+                                    <span class="fw-semibold" style="font-size: 0.85rem">
+                                        {{ tracking.number }}
+                                    </span>
+                                </div>
+
+                                <!-- Tracking Status Badge -->
+                                <div class="tracking-status mt-1 d-flex align-items-center gap-2">
+                                    <Badge
+                                        :severity="getTrackingStatusSeverity(tracking.status)"
+                                        :value="tracking.status"
+                                        size="small"
+                                    />
+                                    
+                                    <!-- Delivered Date (if exists) -->
+                                    <div 
+                                        v-if="tracking.delivered_date"
+                                        class="delivered-info"
+                                    >
+                                        <i 
+                                            class="pi pi-check-circle text-success me-1" 
+                                            style="font-size: 0.7rem"
+                                        ></i>
+                                        <span class="text-success" style="font-size: 0.75rem">
+                                            {{ formatDeliveryDate(tracking.delivered_date) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Last Checked Timestamp -->
+                            <div 
+                                v-if="data.tracking_last_checked" 
+                                class="last-checked mt-2 pt-2 border-top"
+                            >
+                                <small class="text-muted">
+                                    <i class="pi pi-clock me-1" style="font-size: 0.7rem"></i>
+                                    Updated: {{ formatLastChecked(data.tracking_last_checked) }}
+                                </small>
+                            </div>
                         </div>
 
-                        <!-- Delivery Status -->
-                        <div class="delivery-status mt-1">
-                            <Badge
-                                v-if="data.delivery_status"
-                                :severity="
-                                    getDeliveryStatusSeverity(
-                                        data.delivery_status,
-                                    )
-                                "
-                                :value="data.delivery_status"
-                                size="small"
-                            />
-                            <span v-else class="text-muted small"
-                                >Status unknown</span
-                            >
+                        <!-- No Tracking Available -->
+                        <div v-else class="no-tracking">
+                            <span class="text-muted small">No tracking</span>
                         </div>
                     </div>
                 </template>
 
                 <template #deliverydate="{ data }">
                     <div class="delivery-date-cell">
-                        <!-- Actual Delivered Date -->
-                        <div
-                            v-if="
-                                data.datedelivered &&
-                                data.datedelivered !== '0000-00-00' &&
-                                data.datedelivered !== '0000-00-00 00:00:00'
-                            "
-                        >
+                        <!-- Show earliest delivered date from all tracking numbers -->
+                        <div v-if="getEarliestDeliveryDate(data)">
                             <i
                                 class="pi pi-check-circle text-success me-1"
                                 style="font-size: 0.8rem"
                             ></i>
-                            <span class="fw-semibold text-success">{{
-                                formatDeliveryDate(data.datedelivered)
-                            }}</span>
+                            <span class="fw-semibold text-success">
+                                {{ formatDeliveryDate(getEarliestDeliveryDate(data)) }}
+                            </span>
+                            <!-- Show if multiple deliveries -->
+                            <div 
+                                v-if="hasMultipleDeliveries(data)" 
+                                class="mt-1"
+                            >
+                                <small class="text-info">
+                                    <i class="pi pi-info-circle me-1" style="font-size: 0.7rem"></i>
+                                    Multiple deliveries
+                                </small>
+                            </div>
                         </div>
 
                         <!-- Estimated Date -->
@@ -323,9 +358,9 @@
                                 class="pi pi-clock text-info me-1"
                                 style="font-size: 0.8rem"
                             ></i>
-                            <span class="text-info">{{
-                                data.estimated_deliverydate
-                            }}</span>
+                            <span class="text-info">
+                                {{ data.estimated_deliverydate }}
+                            </span>
                         </div>
 
                         <!-- No Date -->
@@ -803,56 +838,76 @@
                                 <!-- SECTION: Serial & Tracking -->
                                 <div class="serial-tracking-section">
                                     <Card>
-                                        <template #title>
-                                            <div>
-                                                <h6 class="text-primary">
-                                                    Serial & Tracking
-                                                </h6>
-                                                <Divider />
-                                            </div>
-                                        </template>
-                                        <template #content>
-                                            <template v-if="serialKeys.length">
-                                                <fieldset
-                                                    v-for="(
-                                                        key, index
-                                                    ) in serialKeys"
-                                                    :key="key"
-                                                >
-                                                    <label
-                                                        >Serial Number
-                                                        {{
-                                                            getLabel(index)
-                                                        }}:</label
-                                                    >
-                                                    <InputText
-                                                        size="small"
-                                                        fluid
-                                                        v-model="item[key]"
-                                                    />
-                                                </fieldset>
-                                            </template>
-                                            <template
-                                                v-if="trackingKeys.length"
-                                            >
-                                                <fieldset
-                                                    v-for="(
-                                                        key, index
-                                                    ) in trackingKeys"
-                                                    :key="key"
-                                                >
-                                                    <label
-                                                        >Tracking Number
-                                                        {{ index + 1 }}:</label
-                                                    >
-                                                    <InputText
-                                                        size="small"
-                                                        fluid
-                                                        v-model="item[key]"
-                                                    />
-                                                </fieldset>
-                                            </template>
-                                        </template>
+  <template #title>
+            <div>
+                <h6 class="text-primary">Serial & Tracking</h6>
+                <Divider />
+            </div>
+        </template>
+        <template #content>
+            <!-- Serial Numbers -->
+            <template v-if="serialKeys.length">
+                <fieldset
+                    v-for="(key, index) in serialKeys"
+                    :key="key"
+                >
+                    <label>Serial Number {{ getLabel(index) }}:</label>
+                    <InputText
+                        size="small"
+                        fluid
+                        v-model="item[key]"
+                    />
+                </fieldset>
+            </template>
+
+            <Divider v-if="serialKeys.length && trackingKeys.length" />
+
+            <!-- Tracking Numbers - EDITABLE, Status READ-ONLY -->
+            <template v-if="trackingKeys.length">
+                <fieldset
+                    v-for="(key, index) in trackingKeys"
+                    :key="key"
+                >
+                    <label class="d-flex align-items-center justify-content-between">
+                        <span>Tracking Number {{ index + 1 }}:</span>
+                        <!-- Show status badge if exists - READ ONLY -->
+                        <Badge
+                            v-if="item[`tracking${index + 1}_status`]"
+                            :severity="getTrackingStatusSeverity(item[`tracking${index + 1}_status`])"
+                            :value="item[`tracking${index + 1}_status`]"
+                            size="small"
+                        />
+                    </label>
+                    <InputText
+                        size="small"
+                        fluid
+                        v-model="item[key]"
+                    />
+                    
+                    <!-- Show delivered date if exists - READ ONLY -->
+                    <div 
+                        v-if="item[`tracking${index + 1}_delivered_date`]" 
+                        class="mt-1"
+                    >
+                        <small class="text-success">
+                            <i class="pi pi-check-circle me-1"></i>
+                            Delivered: {{ formatDeliveryDate(item[`tracking${index + 1}_delivered_date`]) }}
+                        </small>
+                    </div>
+                </fieldset>
+            </template>
+
+            <!-- Last Checked Info - READ ONLY -->
+            <div
+                v-if="item.tracking_last_checked"
+                class="mt-3 pt-3 border-top"
+            >
+                <small class="text-muted">
+                    <i class="pi pi-clock me-1"></i>
+                    Last checked: {{ formatLastChecked(item.tracking_last_checked) }}
+                </small>
+            </div>
+        </template>
                                     </Card>
                                 </div>
 
@@ -1286,6 +1341,9 @@ export default {
                 { label: "Bank Transfer", value: "Bank Transfer" },
                 { label: "Check", value: "Check" },
             ],
+
+
+
             rowsPerPageOptions: ROWS_PER_PAGE,
 
             currentTimezone: "UTC",

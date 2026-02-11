@@ -38,6 +38,21 @@ export default {
 
             editingQuantity: null,
             tempQuantity: null,
+
+             trackingStatusOptions: [
+            { label: 'Delivered', value: 'Delivered' },
+            { label: 'Out for Delivery', value: 'Out for Delivery' },
+            { label: 'In Transit', value: 'In Transit' },
+            { label: 'Pickup', value: 'Pickup' },
+            { label: 'Info Received', value: 'InfoReceived' },
+            { label: 'Available for Pickup', value: 'AvailableForPickup' },
+            { label: 'Exception', value: 'Exception' },
+            { label: 'Failed Attempt', value: 'Failed Attempt' },
+            { label: 'Expired', value: 'Expired' },
+            { label: 'Not Found', value: 'NotFound' },
+            { label: 'Unknown', value: 'Unknown' },
+            { label: 'Pending', value: 'Pending' },
+          ],
         };
     },
     computed: {
@@ -160,6 +175,212 @@ export default {
         },
     },
     methods: {
+
+        getTrackingStatusKey(index) {
+            return `tracking${index}_status`;
+        },
+
+        /**
+         * Get tracking delivered date field key
+         */
+        getTrackingDeliveredDateKey(index) {
+            return `tracking${index}_delivered_date`;
+        }, 
+
+         getTrackingStatusSeverity(status) {
+            const statusMap = {
+                'Delivered': 'success',
+                'Out for Delivery': 'info',
+                'In Transit': 'info',
+                'Pickup': 'info',
+                'InfoReceived': 'secondary',
+                'Expired': 'warning',
+                'AvailableForPickup': 'info',
+                'Exception': 'danger',
+                'Failed Attempt': 'warning',
+                'NotFound': 'secondary',
+                'Unknown': 'secondary',
+                'Pending': 'warning',
+            };
+
+            return statusMap[status] || 'secondary';
+        },
+
+        /**
+         * Get the earliest delivery date from all tracking numbers
+         */
+        getEarliestDeliveryDate(item) {
+            if (!item.tracking_info || item.tracking_info.length === 0) {
+                // Fallback to old datedelivered field if exists
+                if (item.datedelivered && 
+                    item.datedelivered !== '0000-00-00' && 
+                    item.datedelivered !== '0000-00-00 00:00:00') {
+                    return item.datedelivered;
+                }
+                return null;
+            }
+
+            const dates = item.tracking_info
+                .map(t => t.delivered_date)
+                .filter(d => d && d !== '0000-00-00' && d !== '0000-00-00 00:00:00')
+                .map(d => new Date(d))
+                .filter(d => !isNaN(d));
+
+            if (dates.length === 0) return null;
+
+            const earliest = new Date(Math.min(...dates));
+            return earliest.toISOString().split('T')[0];
+        },
+
+        /**
+         * Check if item has multiple delivery dates
+         */
+        hasMultipleDeliveries(item) {
+            if (!item.tracking_info || item.tracking_info.length === 0) {
+                return false;
+            }
+
+            const deliveredDates = item.tracking_info
+                .map(t => t.delivered_date)
+                .filter(d => d && d !== '0000-00-00' && d !== '0000-00-00 00:00:00');
+
+            return deliveredDates.length > 1;
+        },
+
+        /**
+         * Format last checked timestamp
+         */
+        formatLastChecked(timestamp) {
+            if (!timestamp) return '';
+
+            try {
+                const date = new Date(timestamp);
+                const now = new Date();
+                const diffMs = now - date;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMs / 3600000);
+                const diffDays = Math.floor(diffMs / 86400000);
+
+                if (diffMins < 1) return 'Just now';
+                if (diffMins < 60) return `${diffMins}m ago`;
+                if (diffHours < 24) return `${diffHours}h ago`;
+                if (diffDays < 7) return `${diffDays}d ago`;
+
+                return date.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    timeZone: this.currentTimezone || 'UTC',
+                });
+            } catch (error) {
+                console.error('Error formatting last checked:', error);
+                return timestamp;
+            }
+        },
+
+        /**
+         * Update tracking status for a specific tracking number
+         */
+        async updateTrackingStatus(productId, trackingIndex, status, deliveredDate = null) {
+            try {
+                this.loading = true;
+
+                const response = await axios.put(
+                    `/api/orders/products/${productId}/tracking-status`,
+                    {
+                        tracking_index: trackingIndex,
+                        status: status,
+                        delivered_date: deliveredDate,
+                        _token: document
+                            .querySelector('meta[name="csrf-token"]')
+                            .getAttribute('content'),
+                    }
+                );
+
+                if (response.data.success) {
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'Updated!',
+                        text: 'Tracking status has been updated successfully.',
+                        confirmButtonText: 'OK',
+                        timer: 2000,
+                    });
+
+                    await this.fetchInventory();
+                }
+            } catch (error) {
+                console.error('Error updating tracking status:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to update tracking status. Please try again.',
+                    confirmButtonText: 'OK',
+                });
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        /**
+         * Get delivery date for filter (updated to check all tracking dates)
+         */
+        getDeliveryDateForFilter(item) {
+            // Try to get earliest delivery date from tracking info
+            const earliestDate = this.getEarliestDeliveryDate(item);
+            if (earliestDate) {
+                return earliestDate;
+            }
+
+            // Fallback to old delivery_sort_date field
+            if (item.delivery_sort_date &&
+                item.delivery_sort_date !== '0000-00-00' &&
+                item.delivery_sort_date !== '0000-00-00 00:00:00') {
+                return item.delivery_sort_date;
+            }
+
+            // Check estimated_deliverydate
+            if (item.estimated_deliverydate) {
+                try {
+                    // Extract first date from range format
+                    const match = item.estimated_deliverydate.match(/\d{4}-\d{2}-\d{2}/);
+                    if (match) return match[0];
+                } catch (error) {
+                    console.error('Error parsing estimated delivery date:', error);
+                }
+            }
+
+            return null;
+        },
+
+        /**
+         * Fixed autoResize method - only resize textareas that exist
+         */
+        autoResize() {
+            this.$nextTick(() => {
+                const refNames = [
+                    'productTextarea',
+                    'descriptionarea',
+                    'supplierNotesarea',
+                    'employeeNotesarea',
+                ];
+
+                refNames.forEach((refName) => {
+                    const el = this.$refs[refName];
+                    if (el && el.$el) {
+                        // PrimeVue component
+                        const textarea = el.$el.querySelector('textarea');
+                        if (textarea) {
+                            textarea.style.height = 'auto';
+                            textarea.style.height = textarea.scrollHeight + 'px';
+                        }
+                    } else if (el && el.tagName === 'TEXTAREA') {
+                        // Native textarea
+                        el.style.height = 'auto';
+                        el.style.height = el.scrollHeight + 'px';
+                    }
+                });
+            });
+        },
+
         openSetAsinModal(item) {
             this.selectedItem = item;
             this.showSetAsinModal = true;
