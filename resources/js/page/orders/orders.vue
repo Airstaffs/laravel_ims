@@ -288,11 +288,21 @@
 
                                 <!-- Tracking Status Badge -->
                                 <div class="tracking-status mt-1 d-flex align-items-center gap-2">
-                                    <Badge
-                                        :severity="getTrackingStatusSeverity(tracking.status)"
-                                        :value="tracking.status"
-                                        size="small"
-                                    />
+                                <Badge
+                                    :severity="getTrackingStatusSeverity(
+                                        tracking.status, 
+                                        tracking.delivered_date, 
+                                        data.estimated_deliverydate
+                                    )"
+                                    :value="tracking.status"
+                                    size="small"
+                                    :class="getOverdueBadgeClass(
+                                        tracking.status, 
+                                        tracking.delivered_date, 
+                                        data.estimated_deliverydate
+                                    )"
+                                />
+
                                     
                                     <!-- Delivered Date (if exists) -->
                                     <div 
@@ -353,15 +363,28 @@
                         </div>
 
                         <!-- Estimated Date -->
-                        <div v-else-if="data.estimated_deliverydate">
-                            <i
-                                class="pi pi-clock text-info me-1"
-                                style="font-size: 0.8rem"
-                            ></i>
-                            <span class="text-info">
-                                {{ data.estimated_deliverydate }}
-                            </span>
-                        </div>
+                            <div v-else-if="data.estimated_deliverydate">
+                                <div class="d-flex align-items-center gap-1">
+                                    <i
+                                        class="pi pi-clock me-1"
+                                        :class="getOverdueIconClass(data.estimated_deliverydate)"
+                                        style="font-size: 0.8rem"
+                                    ></i>
+                                    <span :class="getOverdueDateClass(data.estimated_deliverydate)">
+                                        {{ data.estimated_deliverydate }}
+                                    </span>
+                                </div>
+                                <!-- Overdue Warning -->
+                                <div 
+                                    v-if="getOverdueText(data.estimated_deliverydate)"
+                                    class="mt-1"
+                                >
+                                    <small :class="getOverdueTextClass(data.estimated_deliverydate)">
+                                        <i class="pi pi-exclamation-triangle me-1" style="font-size: 0.7rem"></i>
+                                        {{ getOverdueText(data.estimated_deliverydate) }}
+                                    </small>
+                                </div>
+                            </div>
 
                         <!-- No Date -->
                         <span v-else class="text-muted small">N/A</span>

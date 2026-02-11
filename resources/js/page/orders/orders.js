@@ -187,9 +187,30 @@ export default {
             return `tracking${index}_delivered_date`;
         }, 
 
-         getTrackingStatusSeverity(status) {
+        getTrackingStatusSeverity(status, deliveredDate, estimatedDeliveryDate) {
+            // If delivered, always show success
+            if (status === 'Delivered') {
+                return 'success';
+            }
+
+            // Check if overdue based on estimated delivery date
+            if (estimatedDeliveryDate && !deliveredDate) {
+                const daysOverdue = this.calculateDaysOverdue(estimatedDeliveryDate);
+                
+                if (daysOverdue > 0) {
+                    // Overdue - return custom severity based on days
+                    if (daysOverdue >= 1 && daysOverdue <= 3) {
+                        return 'warning'; // Yellow
+                    } else if (daysOverdue >= 4 && daysOverdue <= 7) {
+                        return 'warn-orange'; // Orange (custom)
+                    } else if (daysOverdue > 7) {
+                        return 'danger'; // Red
+                    }
+                }
+            }
+
+            // Default status map for non-overdue items
             const statusMap = {
-                'Delivered': 'success',
                 'Out for Delivery': 'info',
                 'In Transit': 'info',
                 'Pickup': 'info',
@@ -204,6 +225,104 @@ export default {
             };
 
             return statusMap[status] || 'secondary';
+        },
+
+
+        calculateDaysOverdue(estimatedDeliveryDate) {
+            if (!estimatedDeliveryDate) return 0;
+
+            try {
+                let compareDate;
+
+                // Handle date range format (e.g., "2024-01-15 to 2024-01-20")
+                if (estimatedDeliveryDate.includes(' to ')) {
+                    // Use the END date of the range for overdue calculation
+                    const endDate = estimatedDeliveryDate.split(' to ')[1].trim();
+                    compareDate = new Date(endDate);
+                } else {
+                    compareDate = new Date(estimatedDeliveryDate);
+                }
+
+                if (isNaN(compareDate.getTime())) {
+                    return 0; // Invalid date
+                }
+
+                const today = new Date();
+                today.setHours(0, 0, 0, 0); // Normalize to start of day
+                compareDate.setHours(0, 0, 0, 0);
+
+                const diffTime = today - compareDate;
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+                return diffDays > 0 ? diffDays : 0;
+            } catch (error) {
+                console.error('Error calculating days overdue:', error);
+                return 0;
+            }
+        },
+
+        getOverdueText(estimatedDeliveryDate) {
+            const daysOverdue = this.calculateDaysOverdue(estimatedDeliveryDate);
+            
+            if (daysOverdue === 0) return null;
+            if (daysOverdue === 1) return '1 day overdue';
+            return `${daysOverdue} days overdue`;
+        },
+
+        /**
+         * Get CSS class for overdue badge styling
+         */
+        getOverdueBadgeClass(status, deliveredDate, estimatedDeliveryDate) {
+            if (status === 'Delivered' || deliveredDate) {
+                return '';
+            }
+
+            const daysOverdue = this.calculateDaysOverdue(estimatedDeliveryDate);
+            
+            if (daysOverdue >= 1 && daysOverdue <= 3) {
+                return 'badge-overdue-warning';
+            } else if (daysOverdue >= 4 && daysOverdue <= 7) {
+                return 'badge-overdue-orange';
+            } else if (daysOverdue > 7) {
+                return 'badge-overdue-danger';
+            }
+            
+            return '';
+        },
+
+        /**
+         * Get CSS class for overdue icon
+         */
+        getOverdueIconClass(estimatedDeliveryDate) {
+            const daysOverdue = this.calculateDaysOverdue(estimatedDeliveryDate);
+            
+            if (daysOverdue === 0) return 'text-info';
+            if (daysOverdue >= 1 && daysOverdue <= 3) return 'text-warning';
+            if (daysOverdue >= 4 && daysOverdue <= 7) return 'text-orange';
+            return 'text-danger';
+        },
+
+        /**
+         * Get CSS class for overdue date text
+         */
+        getOverdueDateClass(estimatedDeliveryDate) {
+            const daysOverdue = this.calculateDaysOverdue(estimatedDeliveryDate);
+            
+            if (daysOverdue === 0) return 'text-info';
+            if (daysOverdue >= 1 && daysOverdue <= 3) return 'text-warning fw-semibold';
+            if (daysOverdue >= 4 && daysOverdue <= 7) return 'text-orange fw-semibold';
+            return 'text-danger fw-bold';
+        },
+
+        /**
+         * Get CSS class for overdue warning text
+         */
+        getOverdueTextClass(estimatedDeliveryDate) {
+            const daysOverdue = this.calculateDaysOverdue(estimatedDeliveryDate);
+            
+            if (daysOverdue >= 1 && daysOverdue <= 3) return 'text-warning';
+            if (daysOverdue >= 4 && daysOverdue <= 7) return 'text-orange';
+            return 'text-danger';
         },
 
         /**
