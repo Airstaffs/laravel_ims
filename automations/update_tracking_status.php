@@ -214,7 +214,7 @@ function check17track($batch, $apiKey) {
  * Ship24 uses a simple POST to get tracking results instantly
  */
 function checkShip24Single($trackingNumber, $apiKey) {
-    if (empty($apiKey) || $apiKey === 'YOUR_SHIP24_API_KEY_HERE') {
+    if (empty($apiKey) || $apiKey === 'apik_0enxLOPgm7vJBt4rAt83XHrvFhwUds') {
         return null; // Ship24 not configured
     }
 
