@@ -289,16 +289,10 @@ foreach ($batches as $batchIdx => $batch) {
         }
         
         // Build track data array
-        $trackData = ['number' => strval($tn)]; // Ensure tracking number is string
-        
-        // Add carrier code if we found one - MUST be integer
-        if ($carrierCode !== null) {
-            $trackData['carrier'] = intval($carrierCode); // Force integer conversion
-            echo "→ {$tn}: Using carrier '{$carrierName}' (code: {$carrierCode}) - {$validation['message']}<br>";
-        } else {
-            echo "→ {$tn}: Auto-detect carrier (DB carrier: '{$carrierName}') - {$validation['message']}<br>";
-        }
-        
+      $trackData = ['number' => strval($tn)];
+
+        echo "→ {$tn}: Auto-detect (DB: '{$carrierName}') - {$validation['message']}<br>";
+
         $registerData[] = $trackData;
     }
     
