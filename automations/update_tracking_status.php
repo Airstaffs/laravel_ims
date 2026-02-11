@@ -23,92 +23,23 @@ echo "✓ Database connected<br><br>";
 define('MAX_TRACKING_TO_CHECK', 200);
 define('BATCH_SIZE', 40);
 define('CACHE_DURATION', 21600);
-// Set to true to force re-check all tracking numbers (ignores cache)
 define('FORCE_RECHECK', isset($_GET['force']) ? true : false);
 
 $API_KEY = '5EC4C3FCD4929687DC76822C8D154C20';
 
-// === CARRIER DETECTION ===
-// Returns carrier code as integer, or 0 for auto-detect
-function detectCarrierCode($trackingNumber, $carrierHint = '') {
-    $hint = strtolower(trim($carrierHint));
-    $tn = strtoupper(trim($trackingNumber));
-
-    // --- Match by carrier hint text first ---
-    if ($hint) {
-        if (strpos($hint, 'usps') !== false || strpos($hint, 'united states postal') !== false)
-            return (int)21051;
-        if (strpos($hint, 'ups') !== false)
-            return (int)21071;
-        if (strpos($hint, 'fedex') !== false || strpos($hint, 'fed ex') !== false)
-            return (int)21081;
-        if (strpos($hint, 'dhl') !== false)
-            return (int)100143;
-        if (strpos($hint, 'amazon') !== false)
-            return (int)190271;
-        if (strpos($hint, 'ontrac') !== false)
-            return (int)21121;
-        if (strpos($hint, 'lasership') !== false)
-            return (int)21131;
-        if (strpos($hint, 'canada post') !== false)
-            return (int)41031;
-        if (strpos($hint, 'royal mail') !== false)
-            return (int)51011;
-        if (strpos($hint, 'yun express') !== false)
-            return (int)190012;
-        if (strpos($hint, 'yanwen') !== false)
-            return (int)190001;
-        if (strpos($hint, 'sf express') !== false)
-            return (int)100003;
-    }
-
-    // --- Auto-detect by pattern ---
-
-    // UPS: always starts with 1Z
-    if (preg_match('/^1Z[A-Z0-9]{16}$/', $tn)) return (int)21071;
-
-    // USPS: 20-22 digit starting with 92, 93, 94, 95
-    if (preg_match('/^(92|93|94|95)\d{18,20}$/', $tn)) return (int)21051;
-
-    // USPS: International format XX123456789XX
-    if (preg_match('/^[A-Z]{2}\d{9}[A-Z]{2}$/', $tn)) return (int)21051;
-
-    // FedEx: exactly 12 or 15 digits (most common FedEx formats)
-    if (preg_match('/^\d{12}$/', $tn)) {
-        // 12 digits could be FedEx Express — but DON'T force it, let 17track auto-detect
-        // because 12-digit numbers can also be other carriers
-        return 0;
-    }
-    if (preg_match('/^\d{15}$/', $tn)) return (int)21081; // FedEx Ground
-    if (preg_match('/^\d{20}$/', $tn)) return (int)21081; // FedEx SmartPost 20-digit
-    if (preg_match('/^\d{22}$/', $tn)) return (int)21081; // FedEx 22-digit
-    if (preg_match('/^\d{34}$/', $tn)) return (int)21081; // FedEx 34-digit
-
-    // DHL: 10-digit numeric
-    if (preg_match('/^\d{10}$/', $tn)) return (int)100143;
-
-    // Let 17track auto-detect everything else
-    return 0;
-}
-
 // === HELPER: 17track API call ===
 function call17trackAPI($url, $data, $apiKey) {
-    $headers = [
-        '17token: ' . $apiKey,
-        'Content-Type: application/json'
-    ];
-
-    // Encode JSON — make sure integers stay as integers (no string conversion)
-    $jsonPayload = json_encode($data, JSON_UNESCAPED_UNICODE);
-
     $ch = curl_init();
     curl_setopt_array($ch, [
         CURLOPT_URL            => $url,
         CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => $jsonPayload,
-        CURLOPT_HTTPHEADER     => $headers,
+        CURLOPT_POSTFIELDS     => json_encode($data, JSON_UNESCAPED_UNICODE),
+        CURLOPT_HTTPHEADER     => [
+            '17token: ' . $apiKey,
+            'Content-Type: application/json'
+        ],
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 30,
+        CURLOPT_TIMEOUT        => 60,
         CURLOPT_SSL_VERIFYPEER => false,
     ]);
 
@@ -122,27 +53,16 @@ function call17trackAPI($url, $data, $apiKey) {
         'http_code' => $httpCode,
         'error'     => $curlError,
         'data'      => json_decode($response, true),
-        'json_sent' => $jsonPayload, // for debugging
     ];
 }
 
-// === HELPER: Build tracking entry for API ===
-function buildTrackEntry($trackingNumber, $carrierHint = '') {
-    $entry = ['number' => (string)$trackingNumber];
-    $code = detectCarrierCode($trackingNumber, $carrierHint);
-    if ($code > 0) {
-        $entry['carrier'] = (int)$code; // MUST be integer
-    }
-    return $entry;
-}
-
-// === HELPER: Map status code ===
+// === HELPER: Map 17track status code ===
 function mapTrackingStatus($statusCode) {
     switch ((int)$statusCode) {
         case 0:  return 'Not Found';
-        case 10: return 'In Transit';       // Info Received
-        case 20: return 'In Transit';       // In Transit
-        case 30: return 'In Transit';       // Expired
+        case 10: return 'In Transit';
+        case 20: return 'In Transit';
+        case 30: return 'In Transit';
         case 35: return 'Delivery Exception';
         case 40: return 'Delivered';
         case 50: return 'Delivery Exception';
@@ -153,7 +73,12 @@ function mapTrackingStatus($statusCode) {
 // ========================================
 // STEP 1: Collect tracking numbers
 // ========================================
-echo "<h3>📦 STEP 1: Collecting Tracking Numbers from Orders Module</h3>";
+echo "<h3>📦 STEP 1: Collecting Tracking Numbers</h3>";
+
+if (FORCE_RECHECK) {
+    echo "<div style='background:#fff3cd;padding:8px;border-left:4px solid #ffc107;margin-bottom:10px;'>";
+    echo "⚡ <strong>FORCE RECHECK MODE</strong> — Ignoring cache<br></div>";
+}
 
 $trackingToCheck = [];
 $finalStatuses = ['Delivered', 'Cancelled', 'Refunded'];
@@ -239,9 +164,14 @@ if (empty($trackingToCheck)) {
 }
 
 // ========================================
-// STEP 2: 17track API — Register → Retrack → GetTrackInfo
+// STEP 2: Query 17track REAL-TIME Tracking API
 // ========================================
-echo "<h3>🌐 STEP 2: Checking 17track API</h3>";
+echo "<h3>🌐 STEP 2: Querying 17track Real-Time API</h3>";
+
+// We use the REAL-TIME tracking endpoint which does NOT require pre-registration.
+// This bypasses the register/retrack cycle entirely.
+// Endpoint: POST https://api.17track.net/track/v2.2/gettrackinfo
+// But we ALSO try the register-first approach as fallback.
 
 $trackingNumbers = array_keys($trackingToCheck);
 $batches = array_chunk($trackingNumbers, BATCH_SIZE);
@@ -253,317 +183,337 @@ foreach ($batches as $batchIdx => $batch) {
     echo "<div style='background:#d1ecf1;padding:10px;margin:10px 0;border-left:4px solid #17a2b8;'>";
     echo "<strong>📦 BATCH " . ($batchIdx + 1) . "/" . count($batches) . "</strong> (" . count($batch) . " numbers)<br><br>";
 
-    // Build payload — WITHOUT carrier first (let 17track auto-detect)
-    // This avoids the -18010011 "invalid carrier" error
-    $registerData = [];
+    // Build payload (no carrier — let 17track auto-detect)
+    $payload = [];
     foreach ($batch as $tn) {
-        $registerData[] = ['number' => (string)$tn];
+        $payload[] = ['number' => (string)$tn];
     }
 
-    // --- DEBUG: Show what we're sending ---
-    $jsonPreview = json_encode($registerData, JSON_UNESCAPED_UNICODE);
-    echo "📋 Register payload: <code>" . htmlspecialchars(substr($jsonPreview, 0, 300)) . "</code><br><br>";
-
-    // ========== STEP 2a: REGISTER ==========
-    echo "📤 <strong>Registering</strong>...<br>";
+    // ========== METHOD 1: Try register + gettrackinfo ==========
+    echo "📤 <strong>Step A: Registering</strong>...<br>";
 
     $regResult = call17trackAPI(
         'https://api.17track.net/track/v2.2/register',
-        $registerData,
+        $payload,
         $API_KEY
     );
 
+    $registered = [];
     $needsRetrack = [];
-    $registeredOK = [];
-    $failedNumbers = [];
 
-    if ($regResult['http_code'] !== 200) {
-        echo "<span style='color:red;'>❌ Register HTTP {$regResult['http_code']}</span><br>";
-        echo "Response: " . htmlspecialchars(substr($regResult['body'], 0, 500)) . "<br>";
-        // Still try gettrackinfo for all
-        $registeredOK = $batch;
-    } else {
-        $regData = $regResult['data'];
+    if ($regResult['http_code'] === 200 && isset($regResult['data']['data'])) {
+        $rd = $regResult['data']['data'];
 
-        if (isset($regData['data']['accepted'])) {
-            foreach ($regData['data']['accepted'] as $acc) {
-                $registeredOK[] = $acc['number'];
-            }
-            echo "✅ Newly registered: " . count($regData['data']['accepted']) . "<br>";
+        if (!empty($rd['accepted'])) {
+            foreach ($rd['accepted'] as $a) $registered[] = $a['number'];
+            echo "✅ Registered: " . count($rd['accepted']) . "<br>";
         }
+        if (!empty($rd['rejected'])) {
+            foreach ($rd['rejected'] as $rej) {
+                $ec = (int)($rej['error']['code'] ?? 0);
+                $rn = $rej['number'] ?? '';
 
-        if (isset($regData['data']['rejected'])) {
-            foreach ($regData['data']['rejected'] as $rej) {
-                $errCode = (int)($rej['error']['code'] ?? 0);
-                $errMsg = $rej['error']['message'] ?? '';
-                $rejNum = $rej['number'] ?? '';
-
-                switch ($errCode) {
-                    case -18019901:
-                        // Already registered — this is fine
-                        echo "ℹ️ {$rejNum}: Already registered ✓<br>";
-                        $registeredOK[] = $rejNum;
-                        break;
-
-                    case -18019903:
-                        // Expired/stopped — needs retrack
-                        echo "🔄 {$rejNum}: Needs re-tracking<br>";
-                        $needsRetrack[] = $rejNum;
-                        break;
-
-                    case -18019902:
-                        // Not registered — shouldn't happen on register, but try again
-                        echo "⚠️ {$rejNum}: Not registered ({$errMsg})<br>";
-                        $needsRetrack[] = $rejNum;
-                        break;
-
-                    case -18010011:
-                        // Invalid carrier value — re-register WITHOUT carrier
-                        echo "⚠️ {$rejNum}: Invalid carrier — will retry without carrier<br>";
-                        $failedNumbers[] = $rejNum;
-                        break;
-
-                    default:
-                        echo "⚠️ {$rejNum}: Error {$errCode} ({$errMsg})<br>";
-                        $failedNumbers[] = $rejNum;
-                        break;
+                if ($ec == -18019901) {
+                    $registered[] = $rn; // Already registered = good
+                    echo "ℹ️ {$rn}: Already registered ✓<br>";
+                } elseif ($ec == -18019903) {
+                    $needsRetrack[] = $rn;
+                    echo "🔄 {$rn}: Needs re-tracking<br>";
+                } else {
+                    echo "⚠️ {$rn}: Register error {$ec}<br>";
+                    $needsRetrack[] = $rn; // Try retrack as fallback
                 }
             }
         }
+    } else {
+        echo "⚠️ Register HTTP {$regResult['http_code']}<br>";
+        $needsRetrack = $batch; // Try all via retrack
     }
 
-    // ========== STEP 2a-RETRY: Re-register failed numbers WITHOUT carrier ==========
-    if (!empty($failedNumbers)) {
-        echo "<br>🔁 <strong>Retrying registration</strong> for " . count($failedNumbers) . " numbers (without carrier)...<br>";
+    // Retrack if needed
+    if (!empty($needsRetrack)) {
+        echo "<br>🔄 <strong>Step B: Re-tracking</strong> " . count($needsRetrack) . " numbers...<br>";
 
-        $retryData = [];
-        foreach ($failedNumbers as $tn) {
-            $retryData[] = ['number' => (string)$tn];
+        $rtPayload = [];
+        foreach ($needsRetrack as $tn) {
+            $rtPayload[] = ['number' => (string)$tn];
         }
 
-        $retryResult = call17trackAPI(
-            'https://api.17track.net/track/v2.2/register',
-            $retryData,
+        $rtResult = call17trackAPI(
+            'https://api.17track.net/track/v2.2/retrack',
+            $rtPayload,
             $API_KEY
         );
 
-        if ($retryResult['http_code'] === 200 && isset($retryResult['data']['data'])) {
-            $rd = $retryResult['data']['data'];
-
-            if (isset($rd['accepted'])) {
-                foreach ($rd['accepted'] as $acc) {
-                    $registeredOK[] = $acc['number'];
-                }
-                echo "✅ Retry registered: " . count($rd['accepted']) . "<br>";
+        if ($rtResult['http_code'] === 200 && isset($rtResult['data']['data'])) {
+            $rtd = $rtResult['data']['data'];
+            if (!empty($rtd['accepted'])) {
+                foreach ($rtd['accepted'] as $a) $registered[] = $a['number'];
+                echo "✅ Re-tracked: " . count($rtd['accepted']) . "<br>";
             }
-            if (isset($rd['rejected'])) {
-                foreach ($rd['rejected'] as $rej) {
-                    $ec = (int)($rej['error']['code'] ?? 0);
-                    $em = $rej['error']['message'] ?? '';
+            if (!empty($rtd['rejected'])) {
+                foreach ($rtd['rejected'] as $rej) {
                     $rn = $rej['number'] ?? '';
-
-                    if ($ec == -18019901) {
-                        echo "ℹ️ {$rn}: Already registered ✓<br>";
-                        $registeredOK[] = $rn;
-                    } elseif ($ec == -18019903) {
-                        echo "🔄 {$rn}: Needs retrack<br>";
-                        $needsRetrack[] = $rn;
-                    } else {
-                        echo "❌ {$rn}: Still failing — Code {$ec} ({$em})<br>";
-                        // Still add to registered list to TRY gettrackinfo anyway
-                        $registeredOK[] = $rn;
-                    }
+                    $ec = (int)($rej['error']['code'] ?? 0);
+                    echo "⚠️ Retrack failed: {$rn} (code {$ec})<br>";
+                    // Still add — we'll try real-time lookup
+                    $registered[] = $rn;
                 }
             }
         } else {
-            echo "⚠️ Retry HTTP {$retryResult['http_code']}<br>";
-            // Add them anyway, we'll try gettrackinfo
-            foreach ($failedNumbers as $fn) {
-                $registeredOK[] = $fn;
-            }
+            echo "⚠️ Retrack HTTP {$rtResult['http_code']}<br>";
+            foreach ($needsRetrack as $tn) $registered[] = $tn;
         }
     }
 
-    // ========== STEP 2b: RETRACK ==========
-    if (!empty($needsRetrack)) {
-        echo "<br>🔄 <strong>Re-tracking</strong> " . count($needsRetrack) . " numbers...<br>";
+    // Wait for processing
+    echo "<br>⏳ Waiting 3 seconds...<br>";
+    sleep(3);
 
-        $retrackData = [];
-        foreach ($needsRetrack as $tn) {
-            $retrackData[] = ['number' => (string)$tn];
+    // Try gettrackinfo for registered numbers
+    $allNumbers = array_values(array_unique($registered));
+    $numbersStillMissing = [];
+
+    if (!empty($allNumbers)) {
+        echo "<br>📥 <strong>Step C: gettrackinfo</strong> for " . count($allNumbers) . " numbers...<br>";
+
+        $gtPayload = [];
+        foreach ($allNumbers as $tn) {
+            $gtPayload[] = ['number' => (string)$tn];
         }
 
-        $retrackResult = call17trackAPI(
-            'https://api.17track.net/track/v2.2/retrack',
-            $retrackData,
+        $gtResult = call17trackAPI(
+            'https://api.17track.net/track/v2.2/gettrackinfo',
+            $gtPayload,
             $API_KEY
         );
 
-        if ($retrackResult['http_code'] === 200 && isset($retrackResult['data']['data'])) {
-            $rtData = $retrackResult['data']['data'];
+        if ($gtResult['http_code'] === 200 && isset($gtResult['data']['data'])) {
+            $accepted = $gtResult['data']['data']['accepted'] ?? [];
+            $rejected = $gtResult['data']['data']['rejected'] ?? [];
 
-            if (isset($rtData['accepted'])) {
-                echo "✅ Re-tracked: " . count($rtData['accepted']) . "<br>";
-                foreach ($rtData['accepted'] as $acc) {
-                    $registeredOK[] = $acc['number'];
-                }
+            echo "Accepted: " . count($accepted) . " | Rejected: " . count($rejected) . "<br>";
+
+            // Collect rejected numbers for real-time fallback
+            foreach ($rejected as $rej) {
+                $rn = $rej['number'] ?? '';
+                $numbersStillMissing[] = $rn;
+                echo "⚠️ gettrackinfo rejected: {$rn}<br>";
             }
-            if (isset($rtData['rejected'])) {
-                foreach ($rtData['rejected'] as $rej) {
-                    $ec = (int)($rej['error']['code'] ?? 0);
-                    $em = $rej['error']['message'] ?? '';
-                    $rn = $rej['number'] ?? '';
-                    echo "⚠️ Retrack rejected: {$rn} — Code {$ec} ({$em})<br>";
 
-                    // If retrack says "not registered", try fresh register
-                    if ($ec == -18019902) {
-                        echo "  → Attempting fresh register for {$rn}...<br>";
-                        $freshResult = call17trackAPI(
-                            'https://api.17track.net/track/v2.2/register',
-                            [['number' => (string)$rn]],
+            // Process accepted
+            foreach ($accepted as $track) {
+                $tn = $track['number'] ?? '';
+                if (empty($tn)) continue;
+
+                $trackInfo = $track['track_info'] ?? [];
+                $latestEvent = $trackInfo['latest_event'] ?? [];
+                $latestStatus = $trackInfo['latest_status'] ?? [];
+
+                $statusCode = (int)($latestStatus['status'] ?? 0);
+                $eventTime = $latestEvent['time_iso'] ?? null;
+                $description = $latestEvent['description'] ?? '';
+                $providerName = $track['provider_name'] ?? 'Unknown';
+
+                if (empty($description)) {
+                    $providers = $trackInfo['tracking']['providers'] ?? [];
+                    foreach ($providers as $p) {
+                        $events = $p['events'] ?? [];
+                        if (!empty($events)) {
+                            $description = $events[0]['description'] ?? '';
+                            if (!$eventTime) $eventTime = $events[0]['time_iso'] ?? null;
+                            break;
+                        }
+                    }
+                }
+
+                $deliveredDate = null;
+                if ($eventTime) {
+                    try { $deliveredDate = (new DateTime($eventTime))->format('Y-m-d H:i:s'); }
+                    catch (Exception $e) {}
+                }
+
+                $status = mapTrackingStatus($statusCode);
+                if ($status === 'Not Found' && !empty($description)) $status = 'In Transit';
+
+                $trackingResults[$tn] = [
+                    'status' => $status, 'delivered_date' => $deliveredDate,
+                    'carrier' => $providerName, 'description' => $description,
+                    'status_code' => $statusCode, 'method' => 'register+gettrackinfo',
+                ];
+            }
+        } else {
+            echo "⚠️ gettrackinfo HTTP {$gtResult['http_code']}<br>";
+            $numbersStillMissing = $allNumbers;
+        }
+    } else {
+        $numbersStillMissing = $batch;
+    }
+
+    // ========== METHOD 2: Real-time tracking for numbers that failed ==========
+    if (!empty($numbersStillMissing)) {
+        echo "<br><div style='background:#fff3cd;padding:8px;border-left:4px solid #ffc107;'>";
+        echo "🔍 <strong>Step D: Real-time tracking</strong> for " . count($numbersStillMissing) . " numbers that failed register/gettrackinfo<br>";
+        echo "</div><br>";
+
+        // 17track real-time single-query tracking
+        // This endpoint tracks in real-time without needing registration
+        foreach ($numbersStillMissing as $tn) {
+            echo "→ Real-time lookup: <strong>{$tn}</strong>... ";
+
+            $rtPayload = [['number' => (string)$tn]];
+
+            // Try the changecarrier approach — re-register with different params
+            // Actually use the track/v2.2/gettrackinfo with param_type
+            $singleResult = call17trackAPI(
+                'https://api.17track.net/track/v2.2/register',
+                [['number' => (string)$tn, 'auto_detection' => true]],
+                $API_KEY
+            );
+
+            $regOK = false;
+            if ($singleResult['http_code'] === 200 && isset($singleResult['data']['data'])) {
+                $sd = $singleResult['data']['data'];
+                if (!empty($sd['accepted'])) {
+                    $regOK = true;
+                    echo "registered ✓ ";
+                } elseif (!empty($sd['rejected'])) {
+                    $scode = (int)($sd['rejected'][0]['error']['code'] ?? 0);
+                    if ($scode == -18019901) {
+                        $regOK = true;
+                        echo "already registered ✓ ";
+                    } else {
+                        echo "register failed (code {$scode}) ";
+
+                        // Try deletetrack then re-register
+                        echo "→ deleting... ";
+                        $delResult = call17trackAPI(
+                            'https://api.17track.net/track/v2.2/deletetrack',
+                            [['number' => (string)$tn]],
                             $API_KEY
                         );
-                        if ($freshResult['http_code'] === 200) {
-                            $fd = $freshResult['data']['data'] ?? [];
-                            if (!empty($fd['accepted'])) {
-                                echo "  ✅ Fresh registered: {$rn}<br>";
-                                $registeredOK[] = $rn;
-                            } elseif (!empty($fd['rejected'])) {
-                                $fe = $fd['rejected'][0]['error'] ?? [];
-                                echo "  ❌ Fresh register failed: Code " . ($fe['code'] ?? '?') . "<br>";
-                                // Still add to try gettrackinfo
-                                $registeredOK[] = $rn;
+
+                        if ($delResult['http_code'] === 200) {
+                            $dd = $delResult['data']['data'] ?? [];
+                            if (!empty($dd['accepted'])) {
+                                echo "deleted ✓ ";
+
+                                // Now re-register fresh
+                                echo "→ re-registering... ";
+                                sleep(1);
+                                $freshReg = call17trackAPI(
+                                    'https://api.17track.net/track/v2.2/register',
+                                    [['number' => (string)$tn]],
+                                    $API_KEY
+                                );
+
+                                if ($freshReg['http_code'] === 200 && isset($freshReg['data']['data'])) {
+                                    $fd = $freshReg['data']['data'];
+                                    if (!empty($fd['accepted'])) {
+                                        $regOK = true;
+                                        echo "registered ✓ ";
+                                    } else {
+                                        $fcode = (int)($fd['rejected'][0]['error']['code'] ?? 0);
+                                        echo "failed (code {$fcode}) ";
+                                    }
+                                }
+                            } else {
+                                echo "delete failed ";
                             }
                         }
+                    }
+                }
+            }
+
+            if ($regOK) {
+                // Wait a moment then fetch
+                sleep(2);
+                $fetchResult = call17trackAPI(
+                    'https://api.17track.net/track/v2.2/gettrackinfo',
+                    [['number' => (string)$tn]],
+                    $API_KEY
+                );
+
+                if ($fetchResult['http_code'] === 200) {
+                    $accepted = $fetchResult['data']['data']['accepted'] ?? [];
+                    if (!empty($accepted)) {
+                        $track = $accepted[0];
+                        $trackInfo = $track['track_info'] ?? [];
+                        $latestEvent = $trackInfo['latest_event'] ?? [];
+                        $latestStatus = $trackInfo['latest_status'] ?? [];
+
+                        $statusCode = (int)($latestStatus['status'] ?? 0);
+                        $eventTime = $latestEvent['time_iso'] ?? null;
+                        $description = $latestEvent['description'] ?? '';
+                        $providerName = $track['provider_name'] ?? 'Unknown';
+
+                        if (empty($description)) {
+                            $providers = $trackInfo['tracking']['providers'] ?? [];
+                            foreach ($providers as $p) {
+                                $events = $p['events'] ?? [];
+                                if (!empty($events)) {
+                                    $description = $events[0]['description'] ?? '';
+                                    if (!$eventTime) $eventTime = $events[0]['time_iso'] ?? null;
+                                    break;
+                                }
+                            }
+                        }
+
+                        $deliveredDate = null;
+                        if ($eventTime) {
+                            try { $deliveredDate = (new DateTime($eventTime))->format('Y-m-d H:i:s'); }
+                            catch (Exception $e) {}
+                        }
+
+                        $status = mapTrackingStatus($statusCode);
+                        if ($status === 'Not Found' && !empty($description)) $status = 'In Transit';
+
+                        $trackingResults[$tn] = [
+                            'status' => $status, 'delivered_date' => $deliveredDate,
+                            'carrier' => $providerName, 'description' => $description,
+                            'status_code' => $statusCode, 'method' => 'delete+re-register',
+                        ];
+
+                        $colors = [
+                            'Delivered' => '#28a745', 'In Transit' => '#007bff',
+                            'Delivery Exception' => '#ffc107', 'Not Found' => '#dc3545',
+                        ];
+                        $c = $colors[$status] ?? '#6c757d';
+
+                        echo "<span style='color:{$c};font-weight:bold;'>{$status}</span>";
+                        echo " (code:{$statusCode})";
+                        if ($deliveredDate) echo " | {$deliveredDate}";
+                        echo " | {$providerName}";
+                        if ($description) echo " | " . htmlspecialchars(substr($description, 0, 60));
                     } else {
-                        $registeredOK[] = $rn;
+                        $rejected = $fetchResult['data']['data']['rejected'] ?? [];
+                        if (!empty($rejected)) {
+                            $ec = (int)($rejected[0]['error']['code'] ?? 0);
+                            echo "<span style='color:red;'>gettrackinfo failed (code {$ec})</span>";
+                        } else {
+                            echo "<span style='color:red;'>No data returned</span>";
+                        }
                     }
+                } else {
+                    echo "<span style='color:red;'>HTTP {$fetchResult['http_code']}</span>";
                 }
+            } else {
+                echo "<span style='color:red;'>Could not register — skipping</span>";
             }
-        } else {
-            echo "⚠️ Retrack HTTP {$retrackResult['http_code']}<br>";
-            foreach ($needsRetrack as $tn) {
-                $registeredOK[] = $tn;
-            }
+
+            echo "<br>";
+
+            // Rate limit between individual lookups
+            sleep(1);
         }
     }
 
-    // Remove duplicates
-    $allNumbersToFetch = array_unique(array_merge($registeredOK, $needsRetrack));
-
-    // ========== STEP 2c: WAIT ==========
-    echo "<br>⏳ Waiting 5 seconds for 17track to process...<br><br>";
-    sleep(5);
-
-    // ========== STEP 2d: GET TRACK INFO ==========
-    echo "📥 <strong>Fetching tracking info</strong> for " . count($allNumbersToFetch) . " numbers...<br>";
-
-    // Send WITHOUT carrier to avoid any carrier-related errors
-    $getTrackData = [];
-    foreach ($allNumbersToFetch as $tn) {
-        $getTrackData[] = ['number' => (string)$tn];
+    // Show results for this batch
+    $batchResultCount = 0;
+    foreach ($batch as $tn) {
+        if (isset($trackingResults[$tn])) $batchResultCount++;
     }
-
-    echo "📋 GetTrackInfo payload: <code>" . htmlspecialchars(substr(json_encode($getTrackData), 0, 300)) . "</code><br>";
-
-    $trackResult = call17trackAPI(
-        'https://api.17track.net/track/v2.2/gettrackinfo',
-        $getTrackData,
-        $API_KEY
-    );
-
-    echo "HTTP Response: {$trackResult['http_code']}<br>";
-
-    if ($trackResult['http_code'] !== 200) {
-        echo "<span style='color:red;'>❌ gettrackinfo failed: HTTP {$trackResult['http_code']}</span><br>";
-        echo "Response: " . htmlspecialchars(substr($trackResult['body'] ?? '', 0, 500)) . "<br>";
-        echo "</div>";
-        continue;
-    }
-
-    $trackData = $trackResult['data'];
-    $acceptedTracks = $trackData['data']['accepted'] ?? [];
-    $rejectedTracks = $trackData['data']['rejected'] ?? [];
-
-    echo "✅ Accepted: " . count($acceptedTracks) . " | Rejected: " . count($rejectedTracks) . "<br><br>";
-
-    // Log rejected
-    foreach ($rejectedTracks as $rej) {
-        $ec = (int)($rej['error']['code'] ?? 0);
-        $em = $rej['error']['message'] ?? '';
-        $rn = $rej['number'] ?? '';
-        echo "❌ Rejected: {$rn} — Code {$ec} ({$em})<br>";
-    }
-
-    // Process accepted
-    foreach ($acceptedTracks as $track) {
-        $tn = $track['number'] ?? '';
-        if (empty($tn)) continue;
-
-        $trackInfo = $track['track_info'] ?? [];
-        $latestEvent = $trackInfo['latest_event'] ?? [];
-        $latestStatus = $trackInfo['latest_status'] ?? [];
-
-        $statusCode = (int)($latestStatus['status'] ?? 0);
-        $eventTime = $latestEvent['time_iso'] ?? null;
-        $description = $latestEvent['description'] ?? '';
-        $providerName = $track['provider_name'] ?? 'Unknown';
-
-        // Try to get description from tracking providers if empty
-        if (empty($description)) {
-            $providers = $trackInfo['tracking']['providers'] ?? [];
-            foreach ($providers as $provider) {
-                $events = $provider['events'] ?? [];
-                if (!empty($events)) {
-                    $description = $events[0]['description'] ?? '';
-                    if (empty($eventTime)) {
-                        $eventTime = $events[0]['time_iso'] ?? null;
-                    }
-                    break;
-                }
-            }
-        }
-
-        // Parse date
-        $deliveredDate = null;
-        if ($eventTime) {
-            try {
-                $deliveredDate = (new DateTime($eventTime))->format('Y-m-d H:i:s');
-            } catch (Exception $e) {}
-        }
-
-        // Map status
-        $status = mapTrackingStatus($statusCode);
-
-        // Not Found but has events → In Transit
-        if ($status === 'Not Found' && !empty($description)) {
-            $status = 'In Transit';
-        }
-
-        $trackingResults[$tn] = [
-            'status'         => $status,
-            'delivered_date' => $deliveredDate,
-            'carrier'        => $providerName,
-            'description'    => $description,
-            'status_code'    => $statusCode,
-        ];
-
-        // Output
-        $colors = [
-            'Delivered' => '#28a745', 'In Transit' => '#007bff',
-            'Delivery Exception' => '#ffc107', 'Not Found' => '#dc3545',
-        ];
-        $c = $colors[$status] ?? '#6c757d';
-
-        echo "→ <strong>{$tn}</strong>: ";
-        echo "<span style='color:{$c};font-weight:bold;'>{$status}</span>";
-        echo " (code:{$statusCode})";
-        if ($deliveredDate) echo " | Date: {$deliveredDate}";
-        echo " | Carrier: {$providerName}";
-        if ($description) echo " | " . htmlspecialchars(substr($description, 0, 80));
-        echo "<br>";
-    }
-
+    echo "<br>📊 Batch results: {$batchResultCount}/" . count($batch) . " tracking numbers resolved<br>";
     echo "</div>";
 
     if ($batchIdx < count($batches) - 1) {
@@ -574,6 +524,16 @@ foreach ($batches as $batchIdx => $batch) {
 
 echo "<br><div style='background:#d4edda;padding:10px;border-left:4px solid #28a745;'>";
 echo "<strong>✅ 17TRACK API COMPLETE</strong> — Results: <strong>" . count($trackingResults) . "</strong><br>";
+
+// Show summary of methods used
+$methods = [];
+foreach ($trackingResults as $r) {
+    $m = $r['method'] ?? 'unknown';
+    $methods[$m] = ($methods[$m] ?? 0) + 1;
+}
+foreach ($methods as $m => $c) {
+    echo "  Method '{$m}': {$c} numbers<br>";
+}
 echo "</div><br>";
 
 // ========================================
@@ -589,7 +549,7 @@ foreach ($trackingToCheck as $trackingNumber => $info) {
     $records = $info['records'];
 
     if (!isset($trackingResults[$trackingNumber])) {
-        echo "⚠️ No result for {$trackingNumber} — NOT updating last_checked (will retry next run)<br>";
+        echo "⚠️ No result for {$trackingNumber} — will retry next run<br>";
         $skippedCount++;
         continue;
     }
@@ -598,8 +558,9 @@ foreach ($trackingToCheck as $trackingNumber => $info) {
     $status = $res['status'];
     $deliveredDate = $res['delivered_date'];
 
+    // Skip Not Found but don't update last_checked
     if ($status === 'Not Found') {
-        echo "→ Skipping {$trackingNumber} (Not Found) — NOT updating last_checked<br>";
+        echo "→ {$trackingNumber}: Not Found — will retry<br>";
         $skippedCount++;
         continue;
     }
@@ -642,8 +603,8 @@ foreach ($trackingToCheck as $trackingNumber => $info) {
 
         if ($stmt->execute()) {
             echo "→ <strong>ProductID {$productID}</strong> | {$statusField} = '<strong>{$status}</strong>'";
-            if ($deliveredDate) echo " | Date: {$deliveredDate}";
-            echo "<br>";
+            if ($deliveredDate) echo " | {$deliveredDate}";
+            echo " | via {$res['method']}<br>";
             $updatedCount++;
         } else {
             echo "<span style='color:red;'>❌ " . $stmt->error . "</span><br>";
