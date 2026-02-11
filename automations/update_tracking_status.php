@@ -215,79 +215,135 @@ function check17track($batch, $apiKey) {
  */
 function checkShip24Single($trackingNumber, $apiKey) {
     if (empty($apiKey) || $apiKey === 'YOUR_SHIP24_API_KEY_HERE') {
-        return null; // Ship24 not configured
+        echo "<span style='color:orange;'>[Ship24 API key not set]</span> ";
+        return null;
     }
 
     $headers = [
         'Authorization: Bearer ' . $apiKey,
-        'Content-Type: application/json',
+        'Content-Type: application/json; charset=utf-8',
     ];
 
-    // Ship24 tracking/search endpoint — no registration needed
-    $payload = [
+    // Use the TRACKING SEARCH endpoint — instant lookup, no pre-registration
+    $payload = json_encode([
         'trackingNumber' => (string)$trackingNumber,
-    ];
+    ]);
 
     $resp = curlPost(
-        'https://api.ship24.com/public/v1/trackers/search',
+        'https://api.ship24.com/public/v1/tracking/search',
         $payload,
         $headers,
         30
     );
 
-    if ($resp['http'] !== 200 || !isset($resp['data']['data'])) {
+    // Debug output
+    echo "[HTTP:{$resp['http']}] ";
+    if ($resp['error']) {
+        echo "<span style='color:red;'>[cURL: {$resp['error']}]</span> ";
         return null;
     }
 
-    $data = $resp['data']['data'];
+    if ($resp['http'] === 401) {
+        echo "<span style='color:red;'>[Auth failed — check API key]</span> ";
+        return null;
+    }
+
+    if ($resp['http'] === 402) {
+        echo "<span style='color:red;'>[Payment required — quota exceeded]</span> ";
+        return null;
+    }
+
+    if ($resp['http'] !== 200) {
+        $errMsg = $resp['data']['errors'][0]['message'] ?? ($resp['data']['message'] ?? substr($resp['body'], 0, 200));
+        echo "<span style='color:red;'>[Error: {$errMsg}]</span> ";
+        return null;
+    }
+
+    $data = $resp['data']['data'] ?? $resp['data'] ?? null;
+
+    if (!$data) {
+        echo "<span style='color:red;'>[Empty response data]</span> ";
+        return null;
+    }
+
+    // Ship24 response structure: data.trackings[] and data.shipments[]
     $trackings = $data['trackings'] ?? [];
+    $shipments = $data['shipments'] ?? [];
 
-    if (empty($trackings)) {
-        return null;
+    if (empty($trackings) && empty($shipments)) {
+        echo "<span style='color:gray;'>[No tracking data found]</span> ";
+        return ['status' => 'Not Found', 'delivered_date' => null, 'carrier' => 'Unknown', 'description' => '', 'source' => 'Ship24'];
     }
 
-    // Get the first (most relevant) tracking result
-    $tracking = $trackings[0];
-    $shipment = $tracking['shipment'] ?? [];
-    $events = $tracking['events'] ?? [];
+    // Get events from trackings
+    $events = [];
+    $carrier = 'Unknown';
 
-    $ship24Status = $shipment['statusCode'] ?? '';
-    $statusMilestone = $shipment['statusMilestone'] ?? '';
-    $deliveryDate = $shipment['delivery']['estimatedDeliveryDate'] ?? null;
+    if (!empty($trackings)) {
+        foreach ($trackings as $t) {
+            $tEvents = $t['events'] ?? [];
+            foreach ($tEvents as $evt) {
+                $events[] = $evt;
+            }
+            if (empty($carrier) || $carrier === 'Unknown') {
+                $carrier = $t['tracker']['courierCode'] ?? ($t['courierCode'] ?? 'Unknown');
+            }
+        }
+    }
 
-    // Use the actual status milestone or statusCode
-    $status = mapShip24Status($statusMilestone ?: $ship24Status);
-
-    // Get delivery date from events
+    // Get status from shipments
+    $status = 'Not Found';
     $deliveredDate = null;
+
+    if (!empty($shipments)) {
+        $shipment = $shipments[0];
+        $statusCode = $shipment['statusCode'] ?? '';
+        $statusMilestone = $shipment['statusMilestone'] ?? '';
+        $status = mapShip24Status($statusMilestone ?: $statusCode);
+
+        if (isset($shipment['lastEvent']['courierCode'])) {
+            $carrier = $shipment['lastEvent']['courierCode'];
+        }
+    }
+
+    // If no shipment status, try to determine from events
+    if ($status === 'Not Found' && !empty($events)) {
+        $status = 'In Transit'; // Has events = at least in transit
+    }
+
+    // Get description and delivery date from events
     $description = '';
-    $carrier = $shipment['originCountryCode'] ?? 'Unknown';
-
-    // Check events for delivery confirmation and latest event
     if (!empty($events)) {
-        // Latest event
-        $latestEvent = $events[0]; // Events are newest first
-        $description = $latestEvent['status'] ?? '';
-        $carrier = $latestEvent['courierCode'] ?? $carrier;
+        // Sort by datetime descending (newest first)
+        usort($events, function($a, $b) {
+            return strcmp($b['datetime'] ?? '', $a['datetime'] ?? '');
+        });
 
-        // If delivered, find delivery event date
+        $latestEvent = $events[0];
+        $description = $latestEvent['status'] ?? ($latestEvent['statusMilestone'] ?? '');
+
+        if (isset($latestEvent['courierCode']) && $latestEvent['courierCode']) {
+            $carrier = $latestEvent['courierCode'];
+        }
+
+        // Find delivery date
         if ($status === 'Delivered') {
             foreach ($events as $evt) {
-                $evtStatus = strtolower($evt['statusMilestone'] ?? $evt['status'] ?? '');
-                if (strpos($evtStatus, 'deliver') !== false) {
+                $evtMilestone = strtolower($evt['statusMilestone'] ?? '');
+                $evtStatus = strtolower($evt['status'] ?? '');
+                if ($evtMilestone === 'delivered' || strpos($evtStatus, 'deliver') !== false) {
                     try {
                         $deliveredDate = (new DateTime($evt['datetime']))->format('Y-m-d H:i:s');
                     } catch (Exception $e) {}
                     break;
                 }
             }
-        }
-
-        // If not delivered but latest event has a date
-        if (!$deliveredDate && $status === 'Delivered' && isset($latestEvent['datetime'])) {
-            try {
-                $deliveredDate = (new DateTime($latestEvent['datetime']))->format('Y-m-d H:i:s');
-            } catch (Exception $e) {}
+            // Fallback: use latest event date
+            if (!$deliveredDate && isset($latestEvent['datetime'])) {
+                try {
+                    $deliveredDate = (new DateTime($latestEvent['datetime']))->format('Y-m-d H:i:s');
+                } catch (Exception $e) {}
+            }
         }
     }
 
