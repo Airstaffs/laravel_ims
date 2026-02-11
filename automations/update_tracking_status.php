@@ -307,24 +307,13 @@ foreach ($batches as $batchIdx => $batch) {
         continue;
     }
     
-    echo "<br>📤 Registering with 17track...<br>";
+    echo "<br>📤 Registering with 17track (AUTO-DETECT MODE)...<br>";
     
-    // ✅ FINAL FIX: Send carrier as STRING, not integer!
-    // 17track API appears to want carrier as string based on error message format
-    $registerDataFixed = [];
-    foreach ($registerData as $item) {
-        $fixed = ['number' => strval($item['number'])]; 
-        if (isset($item['carrier'])) {
-            $fixed['carrier'] = strval($item['carrier']); // STRING, not integer!
-        }
-        $registerDataFixed[] = $fixed;
-    }
+    // Simple JSON encoding - no carrier codes
+    $jsonPayload = json_encode($registerData, JSON_UNESCAPED_SLASHES);
     
-    $jsonPayload = json_encode($registerDataFixed, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    
-    // Debug output
-    echo "<strong>🔍 JSON Payload (Length: " . strlen($jsonPayload) . " bytes):</strong><br>";
-    echo "<pre style='background: #f5f5f5; padding: 10px; border: 1px solid #ddd;'>" . 
+    echo "<strong>🔍 JSON Payload:</strong><br>";
+    echo "<pre style='background: #d4edda; padding: 10px; border: 1px solid #28a745;'>" . 
          htmlspecialchars($jsonPayload) . "</pre><br>";
     
     $ch = curl_init();
@@ -333,21 +322,19 @@ foreach ($batches as $batchIdx => $batch) {
     curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         '17token: ' . $API_KEY,
-        'Content-Type: application/json; charset=utf-8',
+        'Content-Type: application/json',
         'Content-Length: ' . strlen($jsonPayload),
-        'Accept: application/json',
     ]);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-    curl_setopt($ch, CURLINFO_HEADER_OUT, true);
     
     $registerResponse = curl_exec($ch);
     $regData = json_decode($registerResponse, true);
     
-    echo "<strong>📥 API Response:</strong><br>";
-    echo "<pre style='background: #fff3cd; padding: 10px; border: 1px solid #ffc107; max-height: 300px; overflow-y: auto;'>" . 
+    echo "<strong>📥 Registration Response:</strong><br>";
+    echo "<pre style='background: #e7f3ff; padding: 10px; border: 1px solid #007bff; max-height: 300px; overflow-y: auto;'>" . 
          htmlspecialchars($registerResponse) . "</pre><br>";
     
     // Handle registration errors with better details
