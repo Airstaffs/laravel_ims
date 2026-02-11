@@ -309,12 +309,13 @@ foreach ($batches as $batchIdx => $batch) {
     
     echo "<br>📤 Registering with 17track...<br>";
     
-    // ✅ LAST RESORT: Build JSON as raw bytes to prevent ANY modification
+    // ✅ FINAL FIX: Send carrier as STRING, not integer!
+    // 17track API appears to want carrier as string based on error message format
     $registerDataFixed = [];
     foreach ($registerData as $item) {
         $fixed = ['number' => strval($item['number'])]; 
         if (isset($item['carrier'])) {
-            $fixed['carrier'] = intval($item['carrier']);
+            $fixed['carrier'] = strval($item['carrier']); // STRING, not integer!
         }
         $registerDataFixed[] = $fixed;
     }
@@ -326,17 +327,6 @@ foreach ($batches as $batchIdx => $batch) {
     echo "<pre style='background: #f5f5f5; padding: 10px; border: 1px solid #ddd;'>" . 
          htmlspecialchars($jsonPayload) . "</pre><br>";
     
-    // Show hex dump to verify no hidden characters
-    echo "<strong>🔬 Hex dump of carrier value in JSON:</strong><br>";
-    $carrierPos = strpos($jsonPayload, '"carrier":');
-    if ($carrierPos !== false) {
-        $snippet = substr($jsonPayload, $carrierPos, 30);
-        echo "<pre style='background: #fff3cd; padding: 10px; font-family: monospace; font-size: 11px;'>";
-        echo "Text: " . htmlspecialchars($snippet) . "\n";
-        echo "Hex:  " . bin2hex($snippet) . "\n";
-        echo "</pre><br>";
-    }
-    
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, 'https://api.17track.net/track/v2.2/register');
     curl_setopt($ch, CURLOPT_POST, true);
@@ -346,34 +336,16 @@ foreach ($batches as $batchIdx => $batch) {
         'Content-Type: application/json; charset=utf-8',
         'Content-Length: ' . strlen($jsonPayload),
         'Accept: application/json',
-        'User-Agent: PHP-CURL-17Track-Client/1.0'
     ]);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);  // Enable SSL verification
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-    curl_setopt($ch, CURLOPT_ENCODING, ''); // Disable compression
     curl_setopt($ch, CURLINFO_HEADER_OUT, true);
     
-    // Try to get verbose output
-    $verbose = fopen('php://temp', 'w+');
-    curl_setopt($ch, CURLOPT_VERBOSE, true);
-    curl_setopt($ch, CURLOPT_STDERR, $verbose);
-    
     $registerResponse = curl_exec($ch);
-    
-    // Get CURL verbose output
-    rewind($verbose);
-    $verboseLog = stream_get_contents($verbose);
-    fclose($verbose);
-    
-    echo "<strong>🔍 CURL Verbose Log:</strong><br>";
-    echo "<pre style='background: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; font-size: 10px; max-height: 400px; overflow-y: auto;'>" . 
-         htmlspecialchars($verboseLog) . "</pre><br>";
-    
     $regData = json_decode($registerResponse, true);
     
-    // Show response
     echo "<strong>📥 API Response:</strong><br>";
     echo "<pre style='background: #fff3cd; padding: 10px; border: 1px solid #ffc107; max-height: 300px; overflow-y: auto;'>" . 
          htmlspecialchars($registerResponse) . "</pre><br>";
