@@ -143,14 +143,14 @@
                                         <div class="time-value">
                                             {{
                                                 $formatTime(
-                                                    slotProps.data.timeIn
+                                                    slotProps.data.timeIn,
                                                 )
                                             }}
                                         </div>
                                         <div class="date-value">
                                             {{
                                                 $formatDate(
-                                                    slotProps.data.timeIn
+                                                    slotProps.data.timeIn,
                                                 )
                                             }}
                                         </div>
@@ -171,14 +171,14 @@
                                         <div class="time-value">
                                             {{
                                                 $formatTime(
-                                                    slotProps.data.timeOut
+                                                    slotProps.data.timeOut,
                                                 )
                                             }}
                                         </div>
                                         <div class="date-value">
                                             {{
                                                 $formatDate(
-                                                    slotProps.data.timeOut
+                                                    slotProps.data.timeOut,
                                                 )
                                             }}
                                         </div>
@@ -204,7 +204,7 @@
                                         {{
                                             $calculateHours(
                                                 slotProps.data.timeIn,
-                                                slotProps.data.timeOut
+                                                slotProps.data.timeOut,
                                             )
                                         }}
                                     </div>
@@ -752,7 +752,7 @@
                                                 <!-- ✅ Using universal formatter -->
                                                 <strong>{{
                                                     $formatDate(
-                                                        slotProps.data.time_in
+                                                        slotProps.data.time_in,
                                                     )
                                                 }}</strong>
                                             </div>
@@ -766,7 +766,7 @@
                                                 <!-- ✅ Using universal formatter -->
                                                 {{
                                                     $formatTime(
-                                                        slotProps.data.time_in
+                                                        slotProps.data.time_in,
                                                     )
                                                 }}
                                             </div>
@@ -783,7 +783,7 @@
                                                 <!-- ✅ Using universal formatter -->
                                                 {{
                                                     $formatTime(
-                                                        slotProps.data.time_out
+                                                        slotProps.data.time_out,
                                                     )
                                                 }}
                                             </div>
@@ -806,7 +806,7 @@
                                                 <strong>{{
                                                     $calculateHours(
                                                         slotProps.data.time_in,
-                                                        slotProps.data.time_out
+                                                        slotProps.data.time_out,
                                                     )
                                                 }}</strong>
                                             </div>
@@ -1507,12 +1507,10 @@ export default {
         },
     },
     mounted() {
-        this.$timeFormatter.init().then(() => {
-            if (this.visible) {
-                this.loadAttendanceData();
-                this.startClock();
-            }
-        });
+        if (this.visible) {
+            this.loadAttendanceData();
+            this.startClock();
+        }
     },
     beforeUnmount() {
         this.stopClock();
@@ -1521,7 +1519,7 @@ export default {
         currentMonthLabel() {
             return new Date(this.viewYear, this.viewMonth, 1).toLocaleString(
                 "en-US",
-                { month: "long", year: "numeric" }
+                { month: "long", year: "numeric" },
             );
         },
 
@@ -1747,7 +1745,7 @@ export default {
 
                 // Find friendly name for display
                 const timezone = this.timezones?.find(
-                    (tz) => tz.tz === detected
+                    (tz) => tz.tz === detected,
                 );
                 this.detectedTimezone = timezone?.label || detected;
 
@@ -1904,7 +1902,7 @@ export default {
 
                 const response = await axios.post(
                     "/update-timezone",
-                    timezoneData
+                    timezoneData,
                 );
 
                 if (response.data.success) {
@@ -1916,7 +1914,7 @@ export default {
                         this.$timeFormatter.setTimezone(timezoneToSave);
                         console.log(
                             "✅ TimeFormatter updated to:",
-                            timezoneToSave
+                            timezoneToSave,
                         );
                     }
 
@@ -2083,11 +2081,11 @@ export default {
 
                 if (lastClockIn < today) {
                     console.log(
-                        "Detected open clock-in from previous day, triggering auto clock-out..."
+                        "Detected open clock-in from previous day, triggering auto clock-out...",
                     );
 
                     const clockInDate = new Date(
-                        this.lastRecordTimeIn
+                        this.lastRecordTimeIn,
                     ).toLocaleDateString("en-US", {
                         weekday: "long",
                         year: "numeric",
@@ -2146,10 +2144,10 @@ export default {
                         <hr>
                         <p><strong>Date:</strong> ${response.data.date}</p>
                         <p><strong>Clock-in:</strong> ${this.formatTime(
-                            response.data.time_in
+                            response.data.time_in,
                         )}</p>
                         <p><strong>Auto Clock-out:</strong> ${this.formatTime(
-                            response.data.time_out
+                            response.data.time_out,
                         )}</p>
                         <hr>
                         <p style="color: #dc3545;"><strong>Hours Worked:</strong> 0h 0m</p>
@@ -2328,7 +2326,7 @@ export default {
 
                 const response = await axios.post(
                     "/account/update-details",
-                    formData
+                    formData,
                 );
 
                 if (response.data.ok) {
@@ -2389,7 +2387,7 @@ export default {
             try {
                 const response = await axios.post(
                     "/update-password",
-                    this.passwordForm
+                    this.passwordForm,
                 );
 
                 await Swal.fire({
@@ -2442,7 +2440,7 @@ export default {
 
                 const response = await axios.post(
                     "/attendance/filter",
-                    formData
+                    formData,
                 );
 
                 this.filteredRecords = response.data.employeeClocks || [];
@@ -2477,7 +2475,7 @@ export default {
                         : new Date();
 
                     const diffInMinutes = Math.round(
-                        (timeOut - timeIn) / 60000
+                        (timeOut - timeIn) / 60000,
                     );
                     totalMinutes += diffInMinutes;
                 }

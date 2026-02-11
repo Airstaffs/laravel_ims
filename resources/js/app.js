@@ -594,7 +594,7 @@ if (document.getElementById("login-app")) {
     });
 
     // Use time formatter plugin
-    await loginApp.use(timeFormatterPlugin);
+    loginApp.use(timeFormatterPlugin);
 
     // Mount the login app
     loginApp.mount("#login-app");
@@ -974,8 +974,11 @@ import Tooltip from "primevue/tooltip";
 import shipment from "./page/shipment/shipment";
 import InventoryStatistics from "./page/inventoryStatistics/inventoryStatistics.vue";
 
-// ⭐ REGISTER TIME FORMATTER PLUGIN
+// ⭐ REGISTER TIME FORMATTER PLUGIN (initializes automatically)
 await app.use(timeFormatterPlugin);
+
+// ⭐ EXPOSE GLOBALLY (plugin already initialized it)
+window.timeFormatter = timeFormatter;
 
 // Configure main app with PrimeVue
 app.use(PrimeVue, {
@@ -992,19 +995,10 @@ app.directive("tooltip", Tooltip);
 // Mount main app
 window.appInstance = app.mount("#app");
 
-// ⭐ INITIALIZE TIME FORMATTER GLOBALLY
-window.timeFormatter = timeFormatter;
-timeFormatter
-    .init()
-    .then(() => {
-        console.log(
-            "✅ TimeFormatter initialized with timezone:",
-            timeFormatter.getTimezone(),
-        );
-    })
-    .catch((error) => {
-        console.error("❌ TimeFormatter initialization failed:", error);
-    });
+console.log(
+    "✅ TimeFormatter ready with timezone:",
+    timeFormatter.getTimezone(),
+);
 
 // ============================================
 // EXPOSE GLOBALLY
@@ -1068,7 +1062,7 @@ searchApp.use(PrimeVue, {
 });
 searchApp.use(ToastService);
 // ⭐ REGISTER TIME FORMATTER FOR SEARCH APP
-await searchApp.use(timeFormatterPlugin);
+searchApp.use(timeFormatterPlugin);
 
 searchApp.mount("#appsearch");
 
@@ -1086,7 +1080,7 @@ if (document.getElementById("navbar-app")) {
         },
     });
     // ⭐ REGISTER TIME FORMATTER FOR NAVBAR APP
-    await navbarApp.use(timeFormatterPlugin);
+    navbarApp.use(timeFormatterPlugin);
 
     navbarApp.mount("#navbar-app");
 }
@@ -1168,7 +1162,7 @@ if (document.getElementById("ai-app")) {
     const aiApp = createApp({});
     aiApp.component("training", Training);
     // ⭐ REGISTER TIME FORMATTER FOR AI APP
-    await aiApp.use(timeFormatterPlugin);
+    aiApp.use(timeFormatterPlugin);
     aiApp.mount("#ai-app");
 }
 
