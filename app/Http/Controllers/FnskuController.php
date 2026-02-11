@@ -1026,13 +1026,12 @@ public function updateFnsku(Request $request)
             'error' => $e->getMessage(),
             'trace' => $e->getTraceAsString(),
             'asin' => $asin,
-            'grading' => $grading,
-            'storename' => $storename,
             'msku' => $msku,
         ]);
     }
+}
 
-    public function clearBlock(Request $request)
+public function clearBlock(Request $request)
 {
     $data = $request->validate([
         'msku' => ['required','string'],
@@ -1073,7 +1072,6 @@ public function updateFnsku(Request $request)
             : 'No rows updated (already unblocked or not found).',
         'affected' => $affected,
     ]);
-}
 }
 
 
