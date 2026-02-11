@@ -309,34 +309,57 @@ foreach ($batches as $batchIdx => $batch) {
     
     echo "<br>📤 Registering with 17track...<br>";
     
-    // ✅ FIX: Manually build JSON to ensure proper formatting
-    $jsonItems = [];
-    foreach ($registerData as $item) {
-        $jsonItem = '{"number":"' . $item['number'] . '"';
-        if (isset($item['carrier'])) {
-            $jsonItem .= ',"carrier":' . intval($item['carrier']); // No quotes around integer!
-        }
-        $jsonItem .= '}';
-        $jsonItems[] = $jsonItem;
-    }
-    $jsonPayload = '[' . implode(',', $jsonItems) . ']';
+    // ✅ NUCLEAR OPTION: Use json_encode with NO locale interference
+    // Temporarily switch to C locale JUST for this operation
+    $oldLocale = setlocale(LC_ALL, 0);
+    setlocale(LC_ALL, 'C');
+    
+    $jsonPayload = json_encode($registerData, JSON_UNESCAPED_SLASHES | JSON_NUMERIC_CHECK);
+    
+    // Restore locale
+    setlocale(LC_ALL, $oldLocale);
     
     // Debug: Show what we're sending
     echo "<strong>🔍 JSON Payload Being Sent:</strong><br>";
     echo "<pre style='background: #f5f5f5; padding: 10px; border: 1px solid #ddd;'>" . 
          htmlspecialchars($jsonPayload) . "</pre><br>";
     
+    // Verify the JSON is valid and contains proper integers
+    $decoded = json_decode($jsonPayload, true);
+    echo "<strong>🔍 Verification - First item after decode:</strong><br>";
+    echo "<pre style='background: #e7f3ff; padding: 10px; border: 1px solid #007bff;'>";
+    if (isset($decoded[0])) {
+        echo "Tracking: " . $decoded[0]['number'] . "\n";
+        if (isset($decoded[0]['carrier'])) {
+            echo "Carrier: " . $decoded[0]['carrier'] . " (type: " . gettype($decoded[0]['carrier']) . ")\n";
+        }
+    }
+    echo "</pre><br>";
+    
+    // ✅ CRITICAL: Add Content-Length header
+    $headers_with_length = array_merge($headers, [
+        'Content-Length: ' . strlen($jsonPayload)
+    ]);
+    
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, 'https://api.17track.net/track/v2.2/register');
     curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload); // Use manually built JSON
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers_with_length);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    curl_setopt($ch, CURLINFO_HEADER_OUT, true);
     
     $registerResponse = curl_exec($ch);
     $regData = json_decode($registerResponse, true);
+    
+    // ✅ DEBUG: Show what CURL actually sent
+    $sentHeaders = curl_getinfo($ch, CURLINFO_HEADER_OUT);
+    echo "<strong>📨 Headers Sent by CURL:</strong><br>";
+    echo "<pre style='background: #fff3cd; padding: 10px; border: 1px solid #ffc107; font-size: 11px;'>" . 
+         htmlspecialchars($sentHeaders) . "</pre><br>";
     
     // Handle registration errors with better details
     if (isset($regData['data']['rejected'])) {
