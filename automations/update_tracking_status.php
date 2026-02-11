@@ -23,6 +23,8 @@ echo "✓ Database connected<br><br>";
 define('MAX_TRACKING_TO_CHECK', 200);
 define('BATCH_SIZE', 40);
 define('CACHE_DURATION', 21600);
+// Set to true to force re-check all tracking numbers (ignores cache)
+define('FORCE_RECHECK', isset($_GET['force']) ? true : false);
 
 $API_KEY = '5EC4C3FCD4929687DC76822C8D154C20';
 
@@ -197,7 +199,7 @@ while ($row = $result->fetch_assoc()) {
 
         if (empty($trackingNumber)) continue;
         if (in_array($currentStatus, $finalStatuses)) continue;
-        if ($timeSinceCheck < CACHE_DURATION) continue;
+        if (!FORCE_RECHECK && $timeSinceCheck < CACHE_DURATION) continue;
 
         if (!isset($trackingToCheck[$trackingNumber])) {
             $trackingToCheck[$trackingNumber] = [
@@ -587,13 +589,7 @@ foreach ($trackingToCheck as $trackingNumber => $info) {
     $records = $info['records'];
 
     if (!isset($trackingResults[$trackingNumber])) {
-        echo "⚠️ No result for {$trackingNumber} — updating last_checked<br>";
-        foreach ($records as $rec) {
-            $stmt = $mysqli->prepare("UPDATE tblproduct SET tracking_last_checked = NOW() WHERE ProductID = ?");
-            $stmt->bind_param("i", $rec['product_id']);
-            $stmt->execute();
-            $stmt->close();
-        }
+        echo "⚠️ No result for {$trackingNumber} — NOT updating last_checked (will retry next run)<br>";
         $skippedCount++;
         continue;
     }
@@ -603,13 +599,7 @@ foreach ($trackingToCheck as $trackingNumber => $info) {
     $deliveredDate = $res['delivered_date'];
 
     if ($status === 'Not Found') {
-        echo "→ Skipping {$trackingNumber} (Not Found) — updating last_checked<br>";
-        foreach ($records as $rec) {
-            $stmt = $mysqli->prepare("UPDATE tblproduct SET tracking_last_checked = NOW() WHERE ProductID = ?");
-            $stmt->bind_param("i", $rec['product_id']);
-            $stmt->execute();
-            $stmt->close();
-        }
+        echo "→ Skipping {$trackingNumber} (Not Found) — NOT updating last_checked<br>";
         $skippedCount++;
         continue;
     }
