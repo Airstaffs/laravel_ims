@@ -137,18 +137,16 @@
                     <Button label="Back" @click="backToList" severity="secondary" size="small"
                         icon="pi pi-arrow-left" />
 
-                    <!-- Render action buttons if link_data.actions exists -->
+                    <!-- Actions from link_data -->
                     <template v-if="selectedNotification?.parsedLinkData?.actions?.length">
                         <Button v-for="a in selectedNotification.parsedLinkData.actions" :key="a.id"
-                            :label="a.label || 'Action'" size="small"
-                            :severity="a.id === 'resolve' ? 'danger' : 'primary'"
-                            :icon="a.type === 'redirect' ? 'pi pi-external-link' : 'pi pi-check'"
+                            :label="a.label || 'Action'" size="small" severity="danger" icon="pi pi-check"
                             @click="handleAction(a)" />
                     </template>
 
-                    <Button v-for="a in selectedNotification.parsedLinkData.actions" :key="a.id"
-                        :label="a.label || 'Action'" size="small" severity="danger" icon="pi pi-check"
-                        @click="handleAction(a)" />
+                    <!-- Optional fallback: show your old single link button only when no actions exist -->
+                    <Button v-else-if="selectedNotification?.parsedLinkData" :label="getLinkButtonLabel()"
+                        @click="handleLinkAction" severity="primary" size="small" icon="pi pi-external-link" />
                 </div>
             </div>
         </div>
@@ -541,53 +539,53 @@ export default defineComponent({
             this.isVisible = false;
         },
 
-handleAction(action) {
-  if (!action?.type) return;
+        handleAction(action) {
+            if (!action?.type) return;
 
-  if (action.type === "api") return this.handleApi(action);
-  if (action.type === "redirect") return this.handleRedirect(action);
-  if (action.type === "modal") return this.handleModal(action);
-  if (action.type === "custom") return this.handleCustom(action);
+            if (action.type === "api") return this.handleApi(action);
+            if (action.type === "redirect") return this.handleRedirect(action);
+            if (action.type === "modal") return this.handleModal(action);
+            if (action.type === "custom") return this.handleCustom(action);
 
-  console.warn("Unknown action type:", action.type);
-},
+            console.warn("Unknown action type:", action.type);
+        },
 
-async handleApi(action) {
-  const method = (action.method || "POST").toUpperCase();
-  const url = action.url;
-  const payload = action.payload || {};
+        async handleApi(action) {
+            const method = (action.method || "POST").toUpperCase();
+            const url = action.url;
+            const payload = action.payload || {};
 
-  try {
-    const resp = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-TOKEN": this.csrfToken,
-        Accept: "application/json",
-      },
-      credentials: "include",
-      body: method === "GET" ? null : JSON.stringify(payload),
-    });
+            try {
+                const resp = await fetch(url, {
+                    method,
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRF-TOKEN": this.csrfToken,
+                        Accept: "application/json",
+                    },
+                    credentials: "include",
+                    body: method === "GET" ? null : JSON.stringify(payload),
+                });
 
-    const data = await resp.json().catch(() => ({}));
+                const data = await resp.json().catch(() => ({}));
 
-    if (!resp.ok || data?.ok === false) {
-      alert(data?.message || `Request failed (${resp.status})`);
-      return;
-    }
+                if (!resp.ok || data?.ok === false) {
+                    alert(data?.message || `Request failed (${resp.status})`);
+                    return;
+                }
 
-    alert(data?.message || "Block cleared.");
+                alert(data?.message || "Block cleared.");
 
-    await this.updateBadge();
-    await this.fetchNotifications();
+                await this.updateBadge();
+                await this.fetchNotifications();
 
-    // Optional: go back to list
-    this.selectedNotification = null;
-  } catch (e) {
-    console.error(e);
-    alert("An error occurred.");
-  }
-},
+                // Optional: go back to list
+                this.selectedNotification = null;
+            } catch (e) {
+                console.error(e);
+                alert("An error occurred.");
+            }
+        },
     },
 });
 </script>

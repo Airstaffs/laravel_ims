@@ -15,7 +15,7 @@ error_reporting(E_ALL);
 set_time_limit(600);
 
 $system = "Live"; // "Live" or "Test" (controls endpoint host)
-$maxPerRun = 30;  // how many rows to process per run (auto mode)
+$maxPerRun = 100;  // how many rows to process per run (auto mode)
 
 // ---- Manual inputs (also supports query string) ----
 $manualMsku = isset($_GET['msku']) ? trim($_GET['msku']) : '';
@@ -116,11 +116,52 @@ foreach ($items as $row) {
         }
 
         // Call Listings Items API for this MSKU
-        $apiRaw = fetchListingsItem($credentials, $accessToken, $SID, $msku, $endpointHost);
-        $api = json_decode($apiRaw, true);
+        $resp = fetchListingsItem($credentials, $accessToken, $SID, $msku, $endpointHost);
 
+        if (!empty($resp['curl_err'])) {
+            throw new Exception("cURL error: " . $resp['curl_err']);
+        }
+
+        $th = isThrottleResponse($resp['httpcode'], $resp['body']);
+
+        if ($resp['httpcode'] === 401) {
+            // your existing refresh token retry path if you still want it
+            throw new Exception("401 Unauthorized (access token invalid/expired)");
+        }
+
+        if ($th['throttled']) {
+            // optional: read Retry-After header if present
+            $retryAfter = 0;
+            if (!empty($resp['headers']['retry-after'])) {
+                $retryAfter = (int) $resp['headers']['retry-after'];
+            }
+
+            // mark cache so you can see why it stopped
+            $cache['stopped_reason'] = 'THROTTLED';
+            $cache['throttle_code'] = $th['code']; // e.g. QuotaExceeded
+            $cache['throttle_retry_after_sec'] = $retryAfter;
+            $cache['throttled_at'] = date('Y-m-d H:i:s');
+            updateAutomationCache($Connect, $cronAutomation, $cache);
+
+            // add stats line
+            $stats['items'][] = [
+                'id' => $rowId,
+                'msku' => $msku,
+                'store' => $store,
+                'status' => 'stopped',
+                'reason' => 'Amazon throttled (quota exceeded)',
+                'httpcode' => $resp['httpcode'],
+                'error_code' => $th['code'],
+                'retry_after' => $retryAfter,
+            ];
+
+            // IMPORTANT: stop the whole run immediately
+            break;
+        }
+
+        $api = json_decode($resp['body'], true);
         if (!is_array($api)) {
-            throw new Exception("Invalid JSON from Amazon for msku={$msku}");
+            throw new Exception("Invalid JSON from Amazon for msku={$msku} (http={$resp['httpcode']})");
         }
 
         // Extract FNSKU + grading (best-effort)
@@ -453,7 +494,7 @@ function updateAutomationCache(mysqli $db, string $cronAutomation, array $cache)
     }
 }
 
-function fetchListingsItem(array $credentials, string $accessToken, string $SID, string $SKU, string $endpointHost): string
+function fetchListingsItem(array $credentials, string $accessToken, string $SID, string $SKU, string $endpointHost): array
 {
     $endpoint = "https://{$endpointHost}";
     $region = 'us-east-1';
@@ -463,41 +504,61 @@ function fetchListingsItem(array $credentials, string $accessToken, string $SID,
     $query = buildQueryString();
     $url = "{$endpoint}{$path}?{$query}";
 
-    $tries = 0;
-    $maxTries = 6;
-    $result = '';
+    $amzDate = gmdate('Ymd\THis\Z');
+    $headers = buildHeaders($credentials, $accessToken, $path, $query, $region, $service, $endpointHost, $amzDate);
 
-    do {
-        $tries++;
+    $respHeaders = [];
 
-        $amzDate = gmdate('Ymd\THis\Z');
-        $headers = buildHeaders($credentials, $accessToken, $path, $query, $region, $service, $endpointHost, $amzDate);
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
 
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
+    // capture headers
+    curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($curl, $headerLine) use (&$respHeaders) {
+        $len = strlen($headerLine);
+        $headerLine = trim($headerLine);
+        if ($headerLine === '' || strpos($headerLine, ':') === false)
+            return $len;
+        [$k, $v] = explode(':', $headerLine, 2);
+        $respHeaders[strtolower(trim($k))] = trim($v);
+        return $len;
+    });
 
-        $result = curl_exec($ch);
-        $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+    $body = curl_exec($ch);
+    $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlErr = curl_error($ch);
+    curl_close($ch);
 
-        if ($httpcode == 429) {
-            sleep(10);
-            continue;
-        }
+    return [
+        'httpcode' => (int) $httpcode,
+        'headers' => $respHeaders,
+        'body' => $body ?: '',
+        'curl_err' => $curlErr ?: '',
+    ];
+}
 
-        if ($httpcode == 401) {
-            $accessToken = fetchAccessToken($credentials, false);
-            if (!$accessToken)
-                break;
-            continue;
-        }
+function isThrottleResponse(int $httpcode, string $body): array
+{
+    if ($httpcode !== 429) {
+        return ['throttled' => false, 'code' => '', 'retry_after' => 0];
+    }
 
-        return $result ?: '';
-    } while ($tries < $maxTries);
+    $retryAfter = 0;
+    // Retry-After is not guaranteed in SP-API, but handle if present
+    // (we’ll set it from headers later if you want)
 
-    return $result ?: '';
+    $decoded = json_decode($body, true);
+    $errCode = '';
+
+    if (is_array($decoded) && isset($decoded['errors'][0]['code'])) {
+        $errCode = (string) $decoded['errors'][0]['code'];
+    }
+
+    // Typical: QuotaExceeded (and sometimes TooManyRequests* depending on API)
+    $is = in_array($errCode, ['QuotaExceeded', 'TooManyRequests', 'TooManyRequestsException'], true);
+
+    return ['throttled' => $is, 'code' => $errCode, 'retry_after' => $retryAfter];
 }
 
 function buildQueryString(): string
