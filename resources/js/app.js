@@ -137,7 +137,7 @@ async function refreshCsrf() {
             sessionStorage.setItem("csrf_token_backup", newToken);
             sessionStorage.setItem(
                 "csrf_token_timestamp",
-                Date.now().toString()
+                Date.now().toString(),
             );
 
             logCsrf("✅ CSRF token refreshed successfully");
@@ -157,7 +157,7 @@ async function refreshCsrf() {
 
 function validateCsrfToken() {
     const metaToken = document.querySelector(
-        'meta[name="csrf-token"]'
+        'meta[name="csrf-token"]',
     )?.content;
     const backupToken = sessionStorage.getItem("csrf_token_backup");
     const axiosToken = axios.defaults.headers.common["X-CSRF-TOKEN"];
@@ -178,7 +178,7 @@ function validateCsrfToken() {
 
 function showSessionExpiredNotification() {
     const lastShown = sessionStorage.getItem(
-        "last_session_expired_notification"
+        "last_session_expired_notification",
     );
     const now = Date.now();
 
@@ -226,23 +226,26 @@ function showSessionExpiredNotification() {
 }
 
 function startTokenHealthCheck(intervalMinutes = 10) {
-    setInterval(() => {
-        const validation = validateCsrfToken();
+    setInterval(
+        () => {
+            const validation = validateCsrfToken();
 
-        if (!validation.valid) {
-            console.error("❌ CSRF token validation failed");
-            refreshCsrf().catch(console.error);
-        } else if (!validation.synchronized) {
-            console.warn("⚠️ CSRF tokens out of sync, synchronizing...");
-            const metaToken = document.querySelector(
-                'meta[name="csrf-token"]'
-            )?.content;
-            if (metaToken) {
-                axios.defaults.headers.common["X-CSRF-TOKEN"] = metaToken;
-                sessionStorage.setItem("csrf_token_backup", metaToken);
+            if (!validation.valid) {
+                console.error("❌ CSRF token validation failed");
+                refreshCsrf().catch(console.error);
+            } else if (!validation.synchronized) {
+                console.warn("⚠️ CSRF tokens out of sync, synchronizing...");
+                const metaToken = document.querySelector(
+                    'meta[name="csrf-token"]',
+                )?.content;
+                if (metaToken) {
+                    axios.defaults.headers.common["X-CSRF-TOKEN"] = metaToken;
+                    sessionStorage.setItem("csrf_token_backup", metaToken);
+                }
             }
-        }
-    }, intervalMinutes * 60 * 1000);
+        },
+        intervalMinutes * 60 * 1000,
+    );
 }
 
 // ============================================
@@ -263,7 +266,7 @@ axios.interceptors.response.use(
             ) {
                 logCsrf(`❌ Max retries exceeded for request`);
                 console.error(
-                    "Session appears to be invalid. Consider reloading the page."
+                    "Session appears to be invalid. Consider reloading the page.",
                 );
 
                 if (
@@ -274,7 +277,7 @@ axios.interceptors.response.use(
                     setTimeout(() => {
                         if (
                             confirm(
-                                "Your session may have expired. Would you like to reload the page?"
+                                "Your session may have expired. Would you like to reload the page?",
                             )
                         ) {
                             window.location.reload();
@@ -287,7 +290,7 @@ axios.interceptors.response.use(
 
             originalRequest.__retryCount++;
             logCsrf(
-                `Retrying request (attempt ${originalRequest.__retryCount})`
+                `Retrying request (attempt ${originalRequest.__retryCount})`,
             );
 
             try {
@@ -303,14 +306,14 @@ axios.interceptors.response.use(
             } catch (refreshError) {
                 console.error(
                     "❌ Failed to refresh token and retry request:",
-                    refreshError
+                    refreshError,
                 );
                 return Promise.reject(error);
             }
         }
 
         return Promise.reject(error);
-    }
+    },
 );
 
 axios.interceptors.request.use(
@@ -321,7 +324,7 @@ axios.interceptors.request.use(
 
         if (!hasToken) {
             const metaToken = document.querySelector(
-                'meta[name="csrf-token"]'
+                'meta[name="csrf-token"]',
             )?.content;
             const backupToken = sessionStorage.getItem("csrf_token_backup");
             const token = metaToken || backupToken;
@@ -336,7 +339,7 @@ axios.interceptors.request.use(
 
         return config;
     },
-    (error) => Promise.reject(error)
+    (error) => Promise.reject(error),
 );
 
 // ============================================
@@ -408,7 +411,7 @@ async function refreshTokenAfterIdle() {
         const sessionAge =
             Date.now() -
             parseInt(
-                sessionStorage.getItem("session_start_time") || Date.now()
+                sessionStorage.getItem("session_start_time") || Date.now(),
             );
 
         if (sessionAge > IDLE_CONFIG.SESSION_LIFETIME * 0.95) {
@@ -471,8 +474,8 @@ document.addEventListener("visibilitychange", async () => {
         if (awayTime > IDLE_CONFIG.MAX_IDLE_TIME) {
             logSession(
                 `🔄 Was away for ${Math.round(
-                    awayTime / 60000
-                )} minutes, refreshing...`
+                    awayTime / 60000,
+                )} minutes, refreshing...`,
             );
             await refreshTokenAfterIdle();
         } else {
@@ -500,7 +503,7 @@ async function keepSessionAlive(forceRefresh = false) {
             },
             {
                 headers: { "Cache-Control": "no-cache" },
-            }
+            },
         );
 
         logSession("✅ Session kept alive successfully", response.data);
@@ -565,8 +568,6 @@ import Soldlist from "./page/soldlist/soldlist.vue";
 import Returnedlist from "./page/returnlist/returnlist.vue";
 import AuxiliaryLabel from "./page/auxiliary/auxiliary.vue";
 import inventoryStatistics from "./page/inventoryStatistics/inventoryStatistics.vue";
-
-
 
 import FbaInboundShipment from "./components/Stockroom/fba_inbound/fba_inbound_shipment.vue";
 import Navbar from "./components/Navbar/Navbar.vue";
@@ -697,7 +698,7 @@ const app = createApp({
 
         getNavigationName(componentName) {
             for (const [navName, compName] of Object.entries(
-                componentMapping
+                componentMapping,
             )) {
                 if (compName === componentName) {
                     return navName;
@@ -738,7 +739,7 @@ const app = createApp({
                             showPrinterModal();
                         } else {
                             alert(
-                                "Printer modal not available. Please check configuration."
+                                "Printer modal not available. Please check configuration.",
                             );
                         }
                     }, 100);
@@ -785,7 +786,7 @@ const app = createApp({
             if (hasAccess) {
                 const componentName = this.mapToComponentName(navName);
                 logSession(
-                    `Mapping from nav "${navName}" to component "${componentName}"`
+                    `Mapping from nav "${navName}" to component "${componentName}"`,
                 );
                 this.safeComponentUpdate(componentName, navName);
             } else {
@@ -806,7 +807,7 @@ const app = createApp({
                         asyncComponentMap[name]()
                             .then((module) => {
                                 logSession(
-                                    `Successfully loaded async component: ${name}`
+                                    `Successfully loaded async component: ${name}`,
                                 );
                                 this.$options.components[name] = module.default;
                                 this.safeComponentUpdate(name, originalNavName);
@@ -814,20 +815,20 @@ const app = createApp({
                             .catch((err) => {
                                 console.error(
                                     `Failed to load async component "${name}":`,
-                                    err
+                                    err,
                                 );
                                 alert(
-                                    `Failed to load ${name} component. Please try again.`
+                                    `Failed to load ${name} component. Please try again.`,
                                 );
                                 logSession(
-                                    `Staying on current component due to load failure`
+                                    `Staying on current component due to load failure`,
                                 );
                             });
                         return;
                     }
 
                     console.warn(
-                        `Component "${name}" not registered and no async loader found.`
+                        `Component "${name}" not registered and no async loader found.`,
                     );
                     return;
                 }
@@ -845,7 +846,7 @@ const app = createApp({
                         originalNavName || this.getNavigationName(name);
                     this.updateActiveState(navName);
                     logSession(
-                        `Component updated to: ${name}, Nav highlight: ${navName}`
+                        `Component updated to: ${name}, Nav highlight: ${navName}`,
                     );
                 });
             } catch (err) {
@@ -909,7 +910,7 @@ const app = createApp({
                 .then((data) => {
                     console.log(
                         data.mentionedCount || 0,
-                        "data.mentionedCount || 0;"
+                        "data.mentionedCount || 0;",
                     );
                     window.kanbanMentionedCount = data.mentionedCount || 0;
 
@@ -921,12 +922,12 @@ const app = createApp({
                                     el.style.display = "inline";
                                     el.textContent = data.mentionedCount;
                                 }
-                            }
+                            },
                         );
                     }
                 })
                 .catch((error) =>
-                    console.error("Error fetching notifications:", error)
+                    console.error("Error fetching notifications:", error),
                 );
         },
     },
@@ -973,8 +974,11 @@ import Tooltip from "primevue/tooltip";
 import shipment from "./page/shipment/shipment";
 import InventoryStatistics from "./page/inventoryStatistics/inventoryStatistics.vue";
 
-// ⭐ REGISTER TIME FORMATTER PLUGIN
-app.use(timeFormatterPlugin);
+// ⭐ REGISTER TIME FORMATTER PLUGIN (initializes automatically)
+await app.use(timeFormatterPlugin);
+
+// ⭐ EXPOSE GLOBALLY (plugin already initialized it)
+window.timeFormatter = timeFormatter;
 
 // Configure main app with PrimeVue
 app.use(PrimeVue, {
@@ -991,19 +995,10 @@ app.directive("tooltip", Tooltip);
 // Mount main app
 window.appInstance = app.mount("#app");
 
-// ⭐ INITIALIZE TIME FORMATTER GLOBALLY
-window.timeFormatter = timeFormatter;
-timeFormatter
-    .init()
-    .then(() => {
-        console.log(
-            "✅ TimeFormatter initialized with timezone:",
-            timeFormatter.getTimezone()
-        );
-    })
-    .catch((error) => {
-        console.error("❌ TimeFormatter initialization failed:", error);
-    });
+console.log(
+    "✅ TimeFormatter ready with timezone:",
+    timeFormatter.getTimezone(),
+);
 
 // ============================================
 // EXPOSE GLOBALLY
@@ -1154,7 +1149,7 @@ function createSessionIndicator() {
             indicator.classList.add("session-active");
             setTimeout(
                 () => indicator.classList.remove("session-active"),
-                1000
+                1000,
             );
         });
 

@@ -18,7 +18,7 @@ class LabelingController extends BasetablesController
     /**
      * Extract base FNSKU from prefixed FNSKU (same as StockroomController)
      */
-        private function extractBaseFnsku($fnsku)
+         private function extractBaseFnsku($fnsku)
         {
             if (empty($fnsku)) {
                 return $fnsku;
@@ -32,7 +32,7 @@ class LabelingController extends BasetablesController
 
             return $fnsku; // Return as-is if not prefixed
         }
-
+    
     public function index(Request $request)
     {
         try {

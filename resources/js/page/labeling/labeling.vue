@@ -22,9 +22,7 @@
                     >
                         <!-- Use custom image display for captured images -->
                         <div
-                            v-if="
-                                data.capturedImages
-                            "
+                            v-if="data.capturedImages"
                             class="gallery-thumbnail position-relative"
                             @click="openImageModal(data)"
                             style="cursor: pointer"
@@ -468,8 +466,8 @@
                                     </div>
                                 </div>
                             </div> -->
-                             <ProductImageGallery 
-                                 label="Serial Images"
+                            <ProductImageGallery
+                                label="Serial Images"
                                 :imageList="serialImageList"
                                 :imageType="'serial'"
                                 :maxImages="2"
@@ -477,8 +475,8 @@
                                 :company="item.company"
                                 @request-refresh="fetchInventory()"
                             />
-                            <ProductImageGallery 
-                                 label="Product Images"
+                            <ProductImageGallery
+                                label="Product Images"
                                 :imageList="imageList"
                                 :imageType="'captured'"
                                 :maxImages="12"
@@ -486,8 +484,8 @@
                                 :company="item.company"
                                 @request-refresh="fetchInventory()"
                             />
-                            <ProductImageGallery 
-                                 label="Tracking Images"
+                            <ProductImageGallery
+                                label="Tracking Images"
                                 :imageList="trackingImageList"
                                 :imageType="'tracking'"
                                 :maxImages="2"
@@ -1825,7 +1823,7 @@ export default {
         ViewImageGalleryModal,
         AnimateDiv,
         Tag,
-        ProductImageGallery
+        ProductImageGallery,
     },
     data() {
         return {
@@ -1860,22 +1858,22 @@ export default {
     },
     methods: {
         refreshProductData(updatedProduct) {
-            console.log('🔄 Images updated, refreshing parent data');
-            
+            console.log("🔄 Images updated, refreshing parent data");
+
             // Update the item
             Object.assign(this.item, updatedProduct);
-            
+
             // Update in inventory
             const index = this.inventory.findIndex(
-                p => p.ProductID === updatedProduct.ProductID
+                (p) => p.ProductID === updatedProduct.ProductID,
             );
             if (index !== -1) {
                 this.inventory[index] = updatedProduct;
             }
-            
+
             // Force recompute
             this.$forceUpdate();
-            this.fetchInventory()
+            this.fetchInventory();
         },
         toggle(event, item) {
             this.currentActionItem = item;

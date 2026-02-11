@@ -40,7 +40,7 @@
                     <ul v-if="dropdownOpen" class="list-unstyled">
                         <li
                             v-for="tab in newTabs.filter(
-                                (t) => t.label !== currentView
+                                (t) => t.label !== currentView,
                             )"
                             :key="tab.label"
                             @click.stop="
