@@ -309,14 +309,24 @@ foreach ($batches as $batchIdx => $batch) {
     
     echo "<br>📤 Registering with 17track...<br>";
     
-    // ✅ NUCLEAR OPTION: Use json_encode with NO locale interference
-    // Temporarily switch to C locale JUST for this operation
+    // ✅ CRITICAL FIX: Ensure tracking numbers stay as strings, carriers as integers
+    // We CANNOT use JSON_NUMERIC_CHECK because it converts tracking numbers to integers
+    // Instead, manually ensure carrier is integer in the array
+    $registerDataFixed = [];
+    foreach ($registerData as $item) {
+        $fixed = ['number' => strval($item['number'])]; // FORCE string
+        if (isset($item['carrier'])) {
+            $fixed['carrier'] = intval($item['carrier']); // FORCE integer
+        }
+        $registerDataFixed[] = $fixed;
+    }
+    
+    // Now encode WITHOUT JSON_NUMERIC_CHECK
     $oldLocale = setlocale(LC_ALL, 0);
     setlocale(LC_ALL, 'C');
     
-    $jsonPayload = json_encode($registerData, JSON_UNESCAPED_SLASHES | JSON_NUMERIC_CHECK);
+    $jsonPayload = json_encode($registerDataFixed, JSON_UNESCAPED_SLASHES);
     
-    // Restore locale
     setlocale(LC_ALL, $oldLocale);
     
     // Debug: Show what we're sending
@@ -324,12 +334,12 @@ foreach ($batches as $batchIdx => $batch) {
     echo "<pre style='background: #f5f5f5; padding: 10px; border: 1px solid #ddd;'>" . 
          htmlspecialchars($jsonPayload) . "</pre><br>";
     
-    // Verify the JSON is valid and contains proper integers
+    // Verify the JSON is valid and contains proper types
     $decoded = json_decode($jsonPayload, true);
     echo "<strong>🔍 Verification - First item after decode:</strong><br>";
     echo "<pre style='background: #e7f3ff; padding: 10px; border: 1px solid #007bff;'>";
     if (isset($decoded[0])) {
-        echo "Tracking: " . $decoded[0]['number'] . "\n";
+        echo "Tracking: " . $decoded[0]['number'] . " (type: " . gettype($decoded[0]['number']) . ")\n";
         if (isset($decoded[0]['carrier'])) {
             echo "Carrier: " . $decoded[0]['carrier'] . " (type: " . gettype($decoded[0]['carrier']) . ")\n";
         }
