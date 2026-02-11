@@ -309,17 +309,27 @@ foreach ($batches as $batchIdx => $batch) {
     
     echo "<br>📤 Registering with 17track...<br>";
     
-    // ✅ FIX: Encode with JSON_NUMERIC_CHECK to preserve integers
-    $jsonPayload = json_encode($registerData, JSON_NUMERIC_CHECK);
+    // ✅ FIX: Manually build JSON to ensure proper formatting
+    $jsonItems = [];
+    foreach ($registerData as $item) {
+        $jsonItem = '{"number":"' . $item['number'] . '"';
+        if (isset($item['carrier'])) {
+            $jsonItem .= ',"carrier":' . intval($item['carrier']); // No quotes around integer!
+        }
+        $jsonItem .= '}';
+        $jsonItems[] = $jsonItem;
+    }
+    $jsonPayload = '[' . implode(',', $jsonItems) . ']';
     
     // Debug: Show what we're sending
-    echo "<details><summary>🔍 Debug: Request payload</summary><pre>" . 
-         json_encode($registerData, JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK) . "</pre></details><br>";
+    echo "<strong>🔍 JSON Payload Being Sent:</strong><br>";
+    echo "<pre style='background: #f5f5f5; padding: 10px; border: 1px solid #ddd;'>" . 
+         htmlspecialchars($jsonPayload) . "</pre><br>";
     
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, 'https://api.17track.net/track/v2.2/register');
     curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload); // Use the properly encoded JSON
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload); // Use manually built JSON
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
