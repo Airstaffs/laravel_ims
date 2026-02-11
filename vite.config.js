@@ -8,12 +8,14 @@ export default defineConfig({
             input: ['resources/css/app.css', 'resources/js/app.js', 'resources/js/training.js'],
             refresh: true,
         }),
-        vue(), // Add this line
+        vue(),
     ],
     resolve: {
         alias: {
             vue: 'vue/dist/vue.esm-bundler.js',
         },
     },
-    
+    build: {
+        target: 'esnext', // Add this to support top-level await
+    },
 });
