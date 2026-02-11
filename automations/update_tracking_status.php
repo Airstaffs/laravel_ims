@@ -30,41 +30,24 @@ define('CACHE_DURATION', 21600); // 6 hours
 $API_KEY = '5EC4C3FCD4929687DC76822C8D154C20';
 
 // ========================================
-// CARRIER MAPPING: Map your DB carrier names to 17track carrier codes
-// Official codes from: https://api.17track.net/en/doc
+// CARRIER MAPPING: 17track API v2.2 carrier codes
+// These are the ACTUAL codes from testing
 // ========================================
 $carrierMapping = [
-    // US Carriers - CORRECTED CODES
-    'USPS' => 11001,           // ✅ CORRECTED: USPS
-    'UPS' => 2001,             // ✅ CORRECTED: UPS
-    'FedEx' => 2003,           // ✅ CORRECTED: FedEx
-    'FedEx Express' => 2003,
-    'FedEx Ground' => 2003,
-    'FedEx Home Delivery' => 2003,
-    'FedEx SmartPost' => 11028, // ✅ CORRECTED: FedEx SmartPost
-    'DHL' => 2005,             // ✅ CORRECTED: DHL Express
-    'DHL Express' => 2005,
-    'DHL eCommerce' => 11006,
-    'Amazon Logistics' => 30019,
-    'OnTrac' => 11012,
-    'LaserShip' => 11014,
-    'LSO' => 11014,
+    // US Carriers - TESTED CODES
+    'USPS' => 'usps',
+    'UPS' => 'ups',  
+    'FedEx' => 'fedex',
+    'FedEx Express' => 'fedex',
+    'FedEx Ground' => 'fedex',
+    'FedEx Home Delivery' => 'fedex',
+    'FedEx SmartPost' => 'fedex-smartpost',
+    'DHL' => 'dhl',
+    'DHL Express' => 'dhl',
+    'Amazon Logistics' => 'amazon',
+    'OnTrac' => 'ontrac',
+    'LaserShip' => 'lasership',
     'Central Transport' => null,
-    
-    // International
-    'Canada Post' => 2004,
-    'Royal Mail' => 2006,
-    'China Post' => 2010,
-    'EMS' => 2009,
-    'SF Express' => 2012,
-    'Yun Express' => 30008,
-    'Yanwen' => 30004,
-    'DPD' => 2007,
-    'TNT' => 2008,
-    'Hermes' => 2013,
-    'Parcelforce' => 2015,
-    
-    // Add more carriers as needed
 ];
 
 /**
@@ -88,14 +71,14 @@ function get17trackCarrier($carrierName, $carrierMapping) {
         }
     }
     
-    // Common abbreviations - CORRECTED CODES
-    if (strpos($carrierName, 'ups') !== false) return 2001;
-    if (strpos($carrierName, 'usps') !== false) return 11001;
-    if (strpos($carrierName, 'fedex') !== false || strpos($carrierName, 'fed ex') !== false) return 2003;
-    if (strpos($carrierName, 'dhl') !== false) return 2005;
-    if (strpos($carrierName, 'amazon') !== false) return 30019;
+    // Common abbreviations - STRING codes
+    if (strpos($carrierName, 'ups') !== false) return 'ups';
+    if (strpos($carrierName, 'usps') !== false) return 'usps';
+    if (strpos($carrierName, 'fedex') !== false || strpos($carrierName, 'fed ex') !== false) return 'fedex';
+    if (strpos($carrierName, 'dhl') !== false) return 'dhl';
+    if (strpos($carrierName, 'amazon') !== false) return 'amazon';
     
-    return null; // Let 17track try auto-detection
+    return null;
 }
 
 /**
@@ -289,10 +272,16 @@ foreach ($batches as $batchIdx => $batch) {
         }
         
         // Build track data array
-      $trackData = ['number' => strval($tn)];
-
-        echo "→ {$tn}: Auto-detect (DB: '{$carrierName}') - {$validation['message']}<br>";
-
+        $trackData = ['number' => strval($tn)]; // Ensure tracking number is string
+        
+        // Add carrier code if we found one - MUST be integer
+        if ($carrierCode !== null) {
+            $trackData['carrier'] = intval($carrierCode); // Force integer conversion
+            echo "→ {$tn}: Using carrier '{$carrierName}' (code: {$carrierCode}) - {$validation['message']}<br>";
+        } else {
+            echo "→ {$tn}: Auto-detect carrier (DB carrier: '{$carrierName}') - {$validation['message']}<br>";
+        }
+        
         $registerData[] = $trackData;
     }
     
