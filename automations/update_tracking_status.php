@@ -4,6 +4,9 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 date_default_timezone_set('America/Los_Angeles');
 
+// ✅ CRITICAL FIX: Set locale to prevent number formatting with commas
+setlocale(LC_NUMERIC, 'C');
+
 echo "<h2>🚚 TRACKING STATUS UPDATE CRON JOB</h2>";
 echo "Started: " . date('Y-m-d H:i:s') . "<br><br>";
 
@@ -285,11 +288,12 @@ foreach ($batches as $batchIdx => $batch) {
             continue; // Skip invalid tracking numbers
         }
         
-        $trackData = ['number' => $tn];
+        // Build track data array
+        $trackData = ['number' => strval($tn)]; // Ensure tracking number is string
         
-        // Add carrier code if we found one
-        if ($carrierCode) {
-            $trackData['carrier'] = (int)$carrierCode; // ✅ FORCE INTEGER TYPE
+        // Add carrier code if we found one - MUST be integer
+        if ($carrierCode !== null) {
+            $trackData['carrier'] = intval($carrierCode); // Force integer conversion
             echo "→ {$tn}: Using carrier '{$carrierName}' (code: {$carrierCode}) - {$validation['message']}<br>";
         } else {
             echo "→ {$tn}: Auto-detect carrier (DB carrier: '{$carrierName}') - {$validation['message']}<br>";
@@ -305,14 +309,17 @@ foreach ($batches as $batchIdx => $batch) {
     
     echo "<br>📤 Registering with 17track...<br>";
     
+    // ✅ FIX: Encode with JSON_NUMERIC_CHECK to preserve integers
+    $jsonPayload = json_encode($registerData, JSON_NUMERIC_CHECK);
+    
     // Debug: Show what we're sending
     echo "<details><summary>🔍 Debug: Request payload</summary><pre>" . 
-         json_encode($registerData, JSON_PRETTY_PRINT) . "</pre></details><br>";
+         json_encode($registerData, JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK) . "</pre></details><br>";
     
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, 'https://api.17track.net/track/v2.2/register');
     curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($registerData));
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload); // Use the properly encoded JSON
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
