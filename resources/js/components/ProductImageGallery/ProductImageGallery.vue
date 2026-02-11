@@ -132,10 +132,20 @@
                     v-if="localImageList.length < maxImages"
                     class="image-card add-card"
                 >
-                    <div class="add-card-content" @click="handleAddNewImageClick">
-                        <i class="pi pi-plus"></i>
-                        <p>Add Image</p>
-                        <span>{{ localImageList.length }} / {{ maxImages }}</span>
+                    <div 
+                        class="add-card-content" 
+                        :class="{ 'is-adding': isAddingNew }"
+                        @click="!isAddingNew && handleAddNewImageClick()"
+                    >
+                        <template v-if="isAddingNew">
+                            <div class="spinner"></div>
+                            <p>Uploading...</p>
+                        </template>
+                        <template v-else>
+                            <i class="pi pi-plus"></i>
+                            <p>Add Image</p>
+                            <span>{{ localImageList.length }} / {{ maxImages }}</span>
+                        </template>
                     </div>
 
                     <input
@@ -211,9 +221,10 @@ export default {
             localActiveIndex: 0,
             localRenderKey: 0,
             showDialog: false,
-            dialogKey: 0, // Add this
+            dialogKey: 0,
             uploadingIndex: null,
             deletingIndex: null,
+            isAddingNew: false,
             imgNumber: 0,
             fileInputRefs: {},
             defaultImage: DEFAULT_IMAGE,
@@ -263,446 +274,446 @@ export default {
         window.removeEventListener('resize', this.checkMobile);
     },
     methods: {
-    getImageUrl(img) {
-    if (!img) return this.defaultImage;
-    
-    let url;
-    
-    // If it already has the full path, use it
-    if (img.startsWith("/images/")) {
-        url = img;
-    } else {
-        // Otherwise, prepend basePath
-        url = this.basePath + img;
-    }
-    
-    // Use stable cache buster that only updates on data refresh
-    const cleanUrl = url.split('?')[0];
-    return `${cleanUrl}?t=${this.cacheBustTimestamp}`;
-},
-
-    checkMobile() {
-        const wasMobile = this.isMobile;
-        this.isMobile = window.innerWidth <= 768;
-        
-        if (this.isMobile) {
-            this.showThumbnails = true;
-        } else if (wasMobile && !this.isMobile) {
-            this.showThumbnails = false;
-        }
-    },
-
-    handleMouseEnter() {
-        if (!this.isMobile) {
-            this.showThumbnails = true;
-        }
-    },
-
-    handleMouseLeave() {
-        if (!this.isMobile) {
-            this.showThumbnails = false;
-        }
-    },
-
-    getThumbnailUrl(img) {
-        if (!img) return this.defaultImage;
-        return img.startsWith("/images/") ? img : this.basePath + img;
-    },
-
-    updateActiveIndex(index) {
-        this.localActiveIndex = index;
-        this.$emit("update:activeIndex", index);
-    },
-
-    openDialog() {
-        console.log(`🚪 Opening ${this.label} dialog`);
-        this.showDialog = true;
-    },
-
-    closeDialog() {
-        this.showDialog = false;
-    },
-
-    onImageError(event) {
-        console.warn('⚠️ Image load error:', event.target.src);
-        event.target.src = this.defaultImage;
-        event.target.onerror = null;
-    },
-
-    handleUploadClick(index, currentImage) {
-        const fileInput = this.fileInputRefs[index];
-        if (fileInput) {
-            fileInput.click();
-        }
-        this.imgNumber = currentImage.split("_").pop().match(/(\d+)/)?.[1] || (index + 1);
-    },
-
-    handleAddNewImageClick() {
-        this.$refs.addNewImageInput.click();
-    },
-
-    extractImageNumbers(imageList) {
-        if (!imageList || !Array.isArray(imageList)) {
-            return [];
-        }
-
-        const numbers = [];
-
-        imageList.forEach((imagePath) => {
-            if (!imagePath) return;
-
-            const imageNumber = imagePath
-                .split("_")
-                .pop()
-                .match(/(\d+)/)?.[1];
-
-            if (imageNumber) {
-                const num = parseInt(imageNumber, 10);
-                if (
-                    num >= 1 &&
-                    num <= this.maxImages &&
-                    !numbers.includes(num)
-                ) {
-                    numbers.push(num);
-                }
-            }
-        });
-
-        return numbers.sort((a, b) => a - b);
-    },
-
-    findNextAvailableImageNumber() {
-        const usedNumbers = this.extractImageNumbers(this.localImageList);
-
-        for (let i = 1; i <= this.maxImages; i++) {
-            if (!usedNumbers.includes(i)) {
-                return i;
-            }
-        }
-
-        return null;
-    },
-
-    confirmDeleteImage(index, currentImage) {
-        // Extract image number from the URL
-        const urlWithoutQuery = currentImage.split('?')[0];
-        this.imgNumber = urlWithoutQuery.split("_").pop().match(/(\d+)/)?.[1] || (index + 1);
-
-        Swal.fire({
-            title: "Delete Image?",
-            text: `Are you sure you want to delete image ${this.imgNumber}? This action cannot be undone.`,
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonColor: "#ef4444",
-            cancelButtonColor: "#6b7280",
-            confirmButtonText: "Yes, delete it!",
-            cancelButtonText: "Cancel",
-            reverseButtons: true,
-        }).then((result) => {
-            if (result.isConfirmed) {
-                this.handleDeleteImage(index);
-            }
-        });
-    },
-
-    addCacheBuster(url, timestamp = null) {
-        if (!url) return url;
-
-        const bust = timestamp || Date.now();
-        const separator = url.includes("?") ? "&" : "?";
-        const cleanUrl = url.replace(/[?&](t|v|_)=\d+/g, "");
-
-        return `${cleanUrl}${separator}t=${bust}`;
-    },
-
-    isValidImage(path) {
-        if (!path) return false;
-        if (typeof path !== 'string') return false;
-        if (path === 'NULL' || path === 'null') return false;
-        if (path.trim() === '') return false;
-        return true;
-    },
-
-   buildImageListFromProduct(product) {
-    const timestamp = Date.now();
-    const images = [];
-    const basePath = `/images/product_images/${product.company || this.company}/`;
-
-    console.log(`🔨 Building ${this.imageType} images from product:`, product.ProductID);
-    console.log(`📁 Base path:`, basePath);
-    console.log(`📦 Full product object:`, JSON.stringify(product, null, 2));
-    console.log(`🔍 Product.capturedImages:`, product.capturedImages);
-
-    switch (this.imageType) {
-        case "captured":
-            if (product.capturedImages) {
-                console.log(`✅ capturedImages exists, checking slots...`);
-                for (let i = 1; i <= this.maxImages; i++) {
-                    const imgKey = `capturedimg${i}`;
-                    const filename = product.capturedImages[imgKey];
-                    
-                    console.log(`  Slot ${i} (${imgKey}):`, filename);
-                    
-                    if (this.isValidImage(filename)) {
-                        const path = basePath + filename;
-                        const cachedPath = this.addCacheBuster(path, timestamp + i);
-                        images.push(cachedPath);
-                        console.log(`    ✅ Added:`, cachedPath);
-                    } else {
-                        console.log(`    ❌ Invalid or empty`);
-                    }
-                }
+        getImageUrl(img) {
+            if (!img) return this.defaultImage;
+            
+            let url;
+            
+            // If it already has the full path, use it
+            if (img.startsWith("/images/")) {
+                url = img;
             } else {
-                console.log(`⚠️ No capturedImages object, trying fallback...`);
-                // Fallback to regular images
-                for (let i = 1; i <= 15; i++) {
-                    const imgKey = `img${i}`;
-                    const filename = product[imgKey];
-                    console.log(`  Fallback slot ${i} (${imgKey}):`, filename);
-                    
-                    if (this.isValidImage(filename)) {
-                        const path = this.basePath + filename;
-                        images.push(this.addCacheBuster(path, timestamp + i));
-                        console.log(`    ✅ Added fallback`);
+                // Otherwise, prepend basePath
+                url = this.basePath + img;
+            }
+            
+            // Use stable cache buster that only updates on data refresh
+            const cleanUrl = url.split('?')[0];
+            return `${cleanUrl}?t=${this.cacheBustTimestamp}`;
+        },
+
+        checkMobile() {
+            const wasMobile = this.isMobile;
+            this.isMobile = window.innerWidth <= 768;
+            
+            if (this.isMobile) {
+                this.showThumbnails = true;
+            } else if (wasMobile && !this.isMobile) {
+                this.showThumbnails = false;
+            }
+        },
+
+        handleMouseEnter() {
+            if (!this.isMobile) {
+                this.showThumbnails = true;
+            }
+        },
+
+        handleMouseLeave() {
+            if (!this.isMobile) {
+                this.showThumbnails = false;
+            }
+        },
+
+        getThumbnailUrl(img) {
+            if (!img) return this.defaultImage;
+            return img.startsWith("/images/") ? img : this.basePath + img;
+        },
+
+        updateActiveIndex(index) {
+            this.localActiveIndex = index;
+            this.$emit("update:activeIndex", index);
+        },
+
+        openDialog() {
+            console.log(`🚪 Opening ${this.label} dialog`);
+            this.showDialog = true;
+        },
+
+        closeDialog() {
+            this.showDialog = false;
+        },
+
+        onImageError(event) {
+            console.warn('⚠️ Image load error:', event.target.src);
+            event.target.src = this.defaultImage;
+            event.target.onerror = null;
+        },
+
+        handleUploadClick(index, currentImage) {
+            const fileInput = this.fileInputRefs[index];
+            if (fileInput) {
+                fileInput.click();
+            }
+            this.imgNumber = currentImage.split("_").pop().match(/(\d+)/)?.[1] || (index + 1);
+        },
+
+        handleAddNewImageClick() {
+            this.$refs.addNewImageInput.click();
+        },
+
+        extractImageNumbers(imageList) {
+            if (!imageList || !Array.isArray(imageList)) {
+                return [];
+            }
+
+            const numbers = [];
+
+            imageList.forEach((imagePath) => {
+                if (!imagePath) return;
+
+                const imageNumber = imagePath
+                    .split("_")
+                    .pop()
+                    .match(/(\d+)/)?.[1];
+
+                if (imageNumber) {
+                    const num = parseInt(imageNumber, 10);
+                    if (
+                        num >= 1 &&
+                        num <= this.maxImages &&
+                        !numbers.includes(num)
+                    ) {
+                        numbers.push(num);
                     }
                 }
-            }
-            break;
+            });
 
-        case "serial":
-        case "tracking":
-            console.log(`🔍 Looking for ${this.imageType} images...`);
+            return numbers.sort((a, b) => a - b);
+        },
+
+        findNextAvailableImageNumber() {
+            const usedNumbers = this.extractImageNumbers(this.localImageList);
+
             for (let i = 1; i <= this.maxImages; i++) {
-                const imgKey = `${this.imageType}img${i}`;
-                let imageFilename = null;
-
-                if (product.capturedImages && product.capturedImages[imgKey]) {
-                    imageFilename = product.capturedImages[imgKey];
-                    console.log(`  Found in capturedImages: ${imgKey}:`, imageFilename);
-                } else if (product[imgKey]) {
-                    imageFilename = product[imgKey];
-                    console.log(`  Found in root: ${imgKey}:`, imageFilename);
-                }
-
-                if (this.isValidImage(imageFilename)) {
-                    const path = basePath + imageFilename;
-                    const cachedPath = this.addCacheBuster(path, timestamp + i);
-                    images.push(cachedPath);
-                    console.log(`    ✅ Added:`, cachedPath);
+                if (!usedNumbers.includes(i)) {
+                    return i;
                 }
             }
-            break;
-    }
 
-    console.log(`📊 Final result - Built ${images.length} images:`, images);
-    return images;
-},
+            return null;
+        },
 
-async handleFileChange(event, index) {
-    try {
-        const file = event.target.files[0];
-        if (!file) return;
+        confirmDeleteImage(index, currentImage) {
+            // Extract image number from the URL
+            const urlWithoutQuery = currentImage.split('?')[0];
+            this.imgNumber = urlWithoutQuery.split("_").pop().match(/(\d+)/)?.[1] || (index + 1);
 
-        this.uploadingIndex = index;
-
-        const formData = new FormData();
-        formData.append("image", file);
-        formData.append("productId", this.productId);
-        formData.append("capturedImgCount", this.imgNumber);
-        formData.append("imageType", this.imageType);
-
-        const response = await axios.post(
-            "/api/houseage/upload-image",
-            formData,
-            {
-                headers: { "Content-Type": "multipart/form-data" },
-                withCredentials: true,
-            }
-        );
-
-        console.log('✅ Response data:', response.data);
-
-        if (response.data.success) {
-            // ✅ Create a unique timestamp for this specific image
-            const uniqueTimestamp = Date.now();
-            const basePath = `/images/product_images/${this.company}/`;
-            const newImagePath = basePath + response.data.filename;
-            const cachedPath = `${newImagePath}?t=${uniqueTimestamp}`;
-            
-            // ✅ Update the array using splice to force reactivity
-            this.localImageList.splice(index, 1, cachedPath);
-            
-            // ✅ Update global cache buster and force re-render
-            this.cacheBustTimestamp = uniqueTimestamp;
-            this.localRenderKey++;
-            this.dialogKey++;
-            
-            console.log('✅ Updated image:', cachedPath);
-            
-            await Swal.fire({
-                title: "Upload Success",
-                text: response.data.message || "Image uploaded successfully",
-                icon: "success",
-                timer: 2000,
-                showConfirmButton: false,
-            });
-
-            try {
-                this.$emit("request-refresh");
-            } catch (refreshError) {
-                console.warn('⚠️ Refresh error (non-critical):', refreshError);
-            }
-        } else {
-            throw new Error(response.data.message || 'Upload failed');
-        }
-    } catch (error) {
-        console.error("❌ Upload error:", error);
-        console.error("❌ Error response:", error.response?.data);
-        await Swal.fire({
-            title: "Error",
-            text: error.response?.data?.message || error.message || "Failed to upload image",
-            icon: "error",
-            confirmButtonColor: "#ef4444",
-        });
-    } finally {
-        event.target.value = "";
-        this.uploadingIndex = null;
-    }
-},
-async handleAddImageChange(event) {
-    try {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const nextImageNumber = this.findNextAvailableImageNumber();
-
-        if (nextImageNumber === null) {
-            await Swal.fire({
-                title: "Limit Reached",
-                text: `Maximum ${this.maxImages} images allowed`,
+            Swal.fire({
+                title: "Delete Image?",
+                text: `Are you sure you want to delete image ${this.imgNumber}? This action cannot be undone.`,
                 icon: "warning",
-                confirmButtonColor: "#f59e0b",
+                showCancelButton: true,
+                confirmButtonColor: "#ef4444",
+                cancelButtonColor: "#6b7280",
+                confirmButtonText: "Yes, delete it!",
+                cancelButtonText: "Cancel",
+                reverseButtons: true,
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    this.handleDeleteImage(index);
+                }
             });
-            return;
-        }
+        },
 
-        this.uploadingIndex = this.localImageList.length;
+        addCacheBuster(url, timestamp = null) {
+            if (!url) return url;
 
-        const formData = new FormData();
-        formData.append("image", file);
-        formData.append("productId", this.productId);
-        formData.append("capturedImgCount", nextImageNumber);
-        formData.append("imageType", this.imageType);
+            const bust = timestamp || Date.now();
+            const separator = url.includes("?") ? "&" : "?";
+            const cleanUrl = url.replace(/[?&](t|v|_)=\d+/g, "");
 
-        const response = await axios.post(
-            "/api/houseage/upload-image",
-            formData,
-            {
-                headers: { "Content-Type": "multipart/form-data" },
-                withCredentials: true,
+            return `${cleanUrl}${separator}t=${bust}`;
+        },
+
+        isValidImage(path) {
+            if (!path) return false;
+            if (typeof path !== 'string') return false;
+            if (path === 'NULL' || path === 'null') return false;
+            if (path.trim() === '') return false;
+            return true;
+        },
+
+        buildImageListFromProduct(product) {
+            const timestamp = Date.now();
+            const images = [];
+            const basePath = `/images/product_images/${product.company || this.company}/`;
+
+            console.log(`🔨 Building ${this.imageType} images from product:`, product.ProductID);
+            console.log(`📁 Base path:`, basePath);
+            console.log(`📦 Full product object:`, JSON.stringify(product, null, 2));
+            console.log(`🔍 Product.capturedImages:`, product.capturedImages);
+
+            switch (this.imageType) {
+                case "captured":
+                    if (product.capturedImages) {
+                        console.log(`✅ capturedImages exists, checking slots...`);
+                        for (let i = 1; i <= this.maxImages; i++) {
+                            const imgKey = `capturedimg${i}`;
+                            const filename = product.capturedImages[imgKey];
+                            
+                            console.log(`  Slot ${i} (${imgKey}):`, filename);
+                            
+                            if (this.isValidImage(filename)) {
+                                const path = basePath + filename;
+                                const cachedPath = this.addCacheBuster(path, timestamp + i);
+                                images.push(cachedPath);
+                                console.log(`    ✅ Added:`, cachedPath);
+                            } else {
+                                console.log(`    ❌ Invalid or empty`);
+                            }
+                        }
+                    } else {
+                        console.log(`⚠️ No capturedImages object, trying fallback...`);
+                        // Fallback to regular images
+                        for (let i = 1; i <= 15; i++) {
+                            const imgKey = `img${i}`;
+                            const filename = product[imgKey];
+                            console.log(`  Fallback slot ${i} (${imgKey}):`, filename);
+                            
+                            if (this.isValidImage(filename)) {
+                                const path = this.basePath + filename;
+                                images.push(this.addCacheBuster(path, timestamp + i));
+                                console.log(`    ✅ Added fallback`);
+                            }
+                        }
+                    }
+                    break;
+
+                case "serial":
+                case "tracking":
+                    console.log(`🔍 Looking for ${this.imageType} images...`);
+                    for (let i = 1; i <= this.maxImages; i++) {
+                        const imgKey = `${this.imageType}img${i}`;
+                        let imageFilename = null;
+
+                        if (product.capturedImages && product.capturedImages[imgKey]) {
+                            imageFilename = product.capturedImages[imgKey];
+                            console.log(`  Found in capturedImages: ${imgKey}:`, imageFilename);
+                        } else if (product[imgKey]) {
+                            imageFilename = product[imgKey];
+                            console.log(`  Found in root: ${imgKey}:`, imageFilename);
+                        }
+
+                        if (this.isValidImage(imageFilename)) {
+                            const path = basePath + imageFilename;
+                            const cachedPath = this.addCacheBuster(path, timestamp + i);
+                            images.push(cachedPath);
+                            console.log(`    ✅ Added:`, cachedPath);
+                        }
+                    }
+                    break;
             }
-        );
 
-        if (response.data.success) {
-            const uniqueTimestamp = Date.now();
-            const basePath = `/images/product_images/Airstaffs/`;
-            const newImagePath = basePath + response.data.filename;
-            const cachedPath = `${newImagePath}?t=${uniqueTimestamp}`;
-            
-            this.localImageList.push(cachedPath);
-            this.cacheBustTimestamp = uniqueTimestamp;
-            this.localRenderKey++;
-            this.dialogKey++;
-            
-            await Swal.fire({
-                title: "Upload Success",
-                text: `Image added to slot ${nextImageNumber}`,
-                icon: "success",
-                timer: 2000,
-                showConfirmButton: false,
-            });
+            console.log(`📊 Final result - Built ${images.length} images:`, images);
+            return images;
+        },
 
+        async handleFileChange(event, index) {
             try {
-                this.$emit("request-refresh");
-            } catch (refreshError) {
-                console.warn('⚠️ Refresh error (non-critical):', refreshError);
+                const file = event.target.files[0];
+                if (!file) return;
+
+                this.uploadingIndex = index;
+
+                const formData = new FormData();
+                formData.append("image", file);
+                formData.append("productId", this.productId);
+                formData.append("capturedImgCount", this.imgNumber);
+                formData.append("imageType", this.imageType);
+
+                const response = await axios.post(
+                    "/api/houseage/upload-image",
+                    formData,
+                    {
+                        headers: { "Content-Type": "multipart/form-data" },
+                        withCredentials: true,
+                    }
+                );
+
+                console.log('✅ Response data:', response.data);
+
+                if (response.data.success) {
+                    // ✅ Create a unique timestamp for this specific image
+                    const uniqueTimestamp = Date.now();
+                    const basePath = `/images/product_images/${this.company}/`;
+                    const newImagePath = basePath + response.data.filename;
+                    const cachedPath = `${newImagePath}?t=${uniqueTimestamp}`;
+                    
+                    // ✅ Update the array using splice to force reactivity
+                    this.localImageList.splice(index, 1, cachedPath);
+                    
+                    // ✅ Update global cache buster and force re-render
+                    this.cacheBustTimestamp = uniqueTimestamp;
+                    this.localRenderKey++;
+                    this.dialogKey++;
+                    
+                    console.log('✅ Updated image:', cachedPath);
+                    
+                    await Swal.fire({
+                        title: "Upload Success",
+                        text: response.data.message || "Image uploaded successfully",
+                        icon: "success",
+                        timer: 2000,
+                        showConfirmButton: false,
+                    });
+
+                    try {
+                        this.$emit("request-refresh");
+                    } catch (refreshError) {
+                        console.warn('⚠️ Refresh error (non-critical):', refreshError);
+                    }
+                } else {
+                    throw new Error(response.data.message || 'Upload failed');
+                }
+            } catch (error) {
+                console.error("❌ Upload error:", error);
+                console.error("❌ Error response:", error.response?.data);
+                await Swal.fire({
+                    title: "Error",
+                    text: error.response?.data?.message || error.message || "Failed to upload image",
+                    icon: "error",
+                    confirmButtonColor: "#ef4444",
+                });
+            } finally {
+                event.target.value = "";
+                this.uploadingIndex = null;
             }
-        } else {
-            throw new Error(response.data.message || 'Upload failed');
-        }
-    } catch (error) {
-        console.error("❌ Add error:", error);
-        await Swal.fire({
-            title: "Error",
-            text: error.response?.data?.message || "Failed to add image",
-            icon: "error",
-            confirmButtonColor: "#ef4444",
-        });
-    } finally {
-        event.target.value = "";
-        this.uploadingIndex = null;
-    }
-},
-async handleDeleteImage(index) {
-    try {
-        this.deletingIndex = index;
+        },
 
-        const response = await axios.post(
-            "/api/houseage/delete-image",
-            {
-                productId: String(this.productId),
-                capturedImgCount: this.imgNumber,
-                imageType: this.imageType,
-            },
-            { withCredentials: true }
-        );
+        async handleAddImageChange(event) {
+            try {
+                const file = event.target.files[0];
+                if (!file) return;
 
-        console.log('✅ Delete response:', response.data);
+                const nextImageNumber = this.findNextAvailableImageNumber();
 
-        if (response.data.success) {
-            // Remove from localImageList so UI updates immediately
-            this.localImageList.splice(index, 1);
+                if (nextImageNumber === null) {
+                    await Swal.fire({
+                        title: "Limit Reached",
+                        text: `Maximum ${this.maxImages} images allowed`,
+                        icon: "warning",
+                        confirmButtonColor: "#f59e0b",
+                    });
+                    return;
+                }
 
-            // Optional: reset active index if needed
-            if (this.localActiveIndex >= this.localImageList.length) {
-                this.localActiveIndex = Math.max(0, this.localImageList.length - 1);
+                this.isAddingNew = true;
+
+                const formData = new FormData();
+                formData.append("image", file);
+                formData.append("productId", this.productId);
+                formData.append("capturedImgCount", nextImageNumber);
+                formData.append("imageType", this.imageType);
+
+                const response = await axios.post(
+                    "/api/houseage/upload-image",
+                    formData,
+                    {
+                        headers: { "Content-Type": "multipart/form-data" },
+                        withCredentials: true,
+                    }
+                );
+
+                if (response.data.success) {
+                    const uniqueTimestamp = Date.now();
+                    const basePath = `/images/product_images/Airstaffs/`;
+                    const newImagePath = basePath + response.data.filename;
+                    const cachedPath = `${newImagePath}?t=${uniqueTimestamp}`;
+                    
+                    this.localImageList.push(cachedPath);
+                    this.cacheBustTimestamp = uniqueTimestamp;
+                    this.localRenderKey++;
+                    this.dialogKey++;
+                    
+                    await Swal.fire({
+                        title: "Upload Success",
+                        text: `Image added to slot ${nextImageNumber}`,
+                        icon: "success",
+                        timer: 2000,
+                        showConfirmButton: false,
+                    });
+
+                    try {
+                        this.$emit("request-refresh");
+                    } catch (refreshError) {
+                        console.warn('⚠️ Refresh error (non-critical):', refreshError);
+                    }
+                } else {
+                    throw new Error(response.data.message || 'Upload failed');
+                }
+            } catch (error) {
+                console.error("❌ Add error:", error);
+                await Swal.fire({
+                    title: "Error",
+                    text: error.response?.data?.message || "Failed to add image",
+                    icon: "error",
+                    confirmButtonColor: "#ef4444",
+                });
+            } finally {
+                event.target.value = "";
+                this.isAddingNew = false;
             }
+        },
 
-            // Update cache buster
-            this.cacheBustTimestamp = Date.now();
+        async handleDeleteImage(index) {
+            try {
+                this.deletingIndex = index;
 
-            await Swal.fire({
-                title: "Deleted!",
-                text: `Image ${this.imgNumber} has been deleted.`,
-                icon: "success",
-                timer: 2000,
-                showConfirmButton: false,
-            });
+                const response = await axios.post(
+                    "/api/houseage/delete-image",
+                    {
+                        productId: String(this.productId),
+                        capturedImgCount: this.imgNumber,
+                        imageType: this.imageType,
+                    },
+                    { withCredentials: true }
+                );
 
-            // Notify parent (optional)
-            this.$emit("request-refresh", {
-                ProductID: this.productId,
-                imageList: this.localImageList,
-            });
+                console.log('✅ Delete response:', response.data);
 
-        } else {
-            throw new Error(response.data.message || 'Delete failed');
+                if (response.data.success) {
+                    // Remove from localImageList so UI updates immediately
+                    this.localImageList.splice(index, 1);
+
+                    // Optional: reset active index if needed
+                    if (this.localActiveIndex >= this.localImageList.length) {
+                        this.localActiveIndex = Math.max(0, this.localImageList.length - 1);
+                    }
+
+                    // Update cache buster
+                    this.cacheBustTimestamp = Date.now();
+
+                    await Swal.fire({
+                        title: "Deleted!",
+                        text: `Image ${this.imgNumber} has been deleted.`,
+                        icon: "success",
+                        timer: 2000,
+                        showConfirmButton: false,
+                    });
+
+                    // Notify parent (optional)
+                    this.$emit("request-refresh", {
+                        ProductID: this.productId,
+                        imageList: this.localImageList,
+                    });
+
+                } else {
+                    throw new Error(response.data.message || 'Delete failed');
+                }
+            } catch (error) {
+                console.error("❌ Delete error:", error);
+                await Swal.fire({
+                    title: "Error!",
+                    text: error.response?.data?.message || "Failed to delete image",
+                    icon: "error",
+                    confirmButtonColor: "#ef4444",
+                });
+            } finally {
+                this.deletingIndex = null;
+            }
         }
-    } catch (error) {
-        console.error("❌ Delete error:", error);
-        await Swal.fire({
-            title: "Error!",
-            text: error.response?.data?.message || "Failed to delete image",
-            icon: "error",
-            confirmButtonColor: "#ef4444",
-        });
-    } finally {
-        this.deletingIndex = null;
-    }
-}
-
-
-},
+    },
 };
 </script>
 
@@ -1055,9 +1066,15 @@ async handleDeleteImage(index) {
     transition: all 0.2s ease;
 }
 
-.add-card-content:hover {
+.add-card-content:hover:not(.is-adding) {
     border-color: #3b82f6;
     background: #eff6ff;
+}
+
+.add-card-content.is-adding {
+    cursor: not-allowed;
+    background: #ffffff;
+    border-color: #e5e7eb;
 }
 
 .add-card-content i {
@@ -1065,7 +1082,7 @@ async handleDeleteImage(index) {
     color: #9ca3af;
 }
 
-.add-card-content:hover i {
+.add-card-content:hover:not(.is-adding) i {
     color: #3b82f6;
 }
 
@@ -1074,6 +1091,10 @@ async handleDeleteImage(index) {
     font-weight: 600;
     color: #374151;
     font-size: 0.875rem;
+}
+
+.add-card-content.is-adding p {
+    color: #6b7280;
 }
 
 .add-card-content span {

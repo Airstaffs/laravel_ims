@@ -65,7 +65,7 @@ class ASINlistController extends BasetablesController
                 ])
                 ->leftJoin($this->fnskuTable . ' as fnsku', 'asin.ASIN', '=', 'fnsku.ASIN')
                 ->where('asin.ASIN', '!=', '')
-                ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted'])
+                ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted', 'Deleted'])
                 ->whereNotNull('asin.ASIN');
 
             // Apply search filters
