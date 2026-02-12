@@ -658,9 +658,20 @@ Route::prefix('api/houseage')->middleware('auth')->group(function () {
     Route::get('serial-image', [HouseageController::class, 'getSerialImage']);
 
     // upload product image
-    Route::post('upload-image', [HouseageController::class, 'uploadCapturedImage']);
+    // Route::post('upload-image', [HouseageController::class, 'uploadCapturedImage']);
 
-    Route::post('delete-image', [HouseageController::class, 'deleteCapturedImage']);
+    // Route::post('delete-image', [HouseageController::class, 'deleteCapturedImage']);
+    // Multiple image upload (NEW - Optimized)
+    Route::post('/upload-images', [HouseageController::class, 'uploadMultipleImages']);
+    
+    // Single image upload (Keep for backward compatibility)
+    Route::post('/upload-image', [HouseageController::class, 'uploadCapturedImage']);
+    
+    // Single image delete
+    Route::post('/delete-image', [HouseageController::class, 'deleteImage']);
+    
+    // Multiple image delete (Optional utility)
+    Route::post('/delete-images', [HouseageController::class, 'deleteMultipleImages']);
 });
 
 // Testing module routes
