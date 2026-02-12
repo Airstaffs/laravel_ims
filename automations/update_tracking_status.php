@@ -351,7 +351,7 @@ foreach ($batches as $batchIdx => $batch) {
     
     // Step 2: Get tracking info
     curl_setopt($ch, CURLOPT_URL, 'https://api.17track.net/track/v2.2/gettrackinfo');
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($trackingData, JSON_NUMERIC_CHECK)); // Force numeric values
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload); // Use same pre-encoded JSON
     
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
