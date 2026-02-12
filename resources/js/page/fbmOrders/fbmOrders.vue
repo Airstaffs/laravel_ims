@@ -2270,7 +2270,7 @@ export default {
                 default:
                     return '#F1FF00'  // Light yellow
             }
-        }
+        },
 
     },
     mounted() {

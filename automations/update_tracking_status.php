@@ -98,6 +98,26 @@ function isValidTrackingNumber($trackingNumber) {
 // ========================================
 echo "<h3>📦 STEP 1: Collecting Tracking Numbers</h3>";
 
+// First, let's see what carrier values we have
+echo "<strong>🔍 Checking carrier field values:</strong><br>";
+$carrierCheck = $mysqli->query("
+    SELECT DISTINCT carrier, COUNT(*) as cnt 
+    FROM tblproduct 
+    WHERE ProductModuleLoc = 'Orders' 
+    AND carrier IS NOT NULL AND carrier != ''
+    GROUP BY carrier
+    ORDER BY cnt DESC
+    LIMIT 20
+");
+if ($carrierCheck) {
+    echo "<table style='border-collapse: collapse; margin: 10px 0;'>";
+    echo "<tr style='background: #f5f5f5;'><th style='padding: 5px;'>Carrier Value</th><th style='padding: 5px;'>Count</th></tr>";
+    while ($cr = $carrierCheck->fetch_assoc()) {
+        echo "<tr><td style='padding: 5px;'>" . htmlspecialchars($cr['carrier']) . "</td><td style='padding: 5px;'>{$cr['cnt']}</td></tr>";
+    }
+    echo "</table><br>";
+}
+
 $trackingToCheck = [];
 $finalStatuses = ['Delivered', 'Cancelled', 'Refunded'];
 $now = time();
@@ -242,14 +262,57 @@ foreach ($batches as $batchIdx => $batch) {
     echo "<div style='background: #d1ecf1; padding: 10px; margin: 10px 0; border-left: 4px solid #17a2b8;'>";
     echo "<strong>📦 BATCH " . ($batchIdx + 1) . "/" . count($batches) . "</strong><br><br>";
     
-    // Build tracking request - DON'T specify carrier code
-    // Let 17track auto-detect to avoid errors
+    // Build tracking request with carrier hints
     $trackingData = [];
+    echo "<table style='width: 100%; border-collapse: collapse;'>";
+    echo "<tr style='background: #f5f5f5;'><th>Tracking Number</th><th>Length</th><th>Pattern</th><th>Carrier Hint</th></tr>";
+    
     foreach ($batch as $tn) {
-        // Simple request format - just the tracking number
-        $trackingData[] = ['number' => $tn];
-        echo "→ {$tn}<br>";
+        $len = strlen($tn);
+        $carrierInfo = $trackingToCheck[$tn];
+        $dbCarrier = $carrierInfo['carrier'];
+        
+        // Analyze pattern
+        $pattern = "Unknown";
+        $carrierHint = null;
+        
+        if (preg_match('/^\d{12}$/', $tn)) {
+            $pattern = "12 digits";
+            // 12-digit could be FedEx, try with carrier code
+            if (stripos($dbCarrier, 'fed') !== false || stripos($dbCarrier, 'fdx') !== false) {
+                $carrierHint = 10003; // FedEx
+            }
+        } elseif (preg_match('/^\d{9}$/', $tn)) {
+            $pattern = "9 digits";
+            // 9-digit is unusual - might be USPS or internal number
+        } elseif (preg_match('/^\d{15}$/', $tn)) {
+            $pattern = "15 digits (FedEx)";
+            $carrierHint = 10003;
+        } elseif (preg_match('/^1Z/', $tn)) {
+            $pattern = "UPS format";
+            $carrierHint = 10002;
+        } elseif (preg_match('/^94\d{20}$/', $tn)) {
+            $pattern = "USPS format";
+            $carrierHint = 10001;
+        }
+        
+        $trackItem = ['number' => $tn];
+        
+        // Add carrier hint if we have one
+        if ($carrierHint !== null) {
+            $trackItem['carrier'] = $carrierHint;
+        }
+        
+        $trackingData[] = $trackItem;
+        
+        echo "<tr>";
+        echo "<td><strong>{$tn}</strong></td>";
+        echo "<td>{$len}</td>";
+        echo "<td>{$pattern}</td>";
+        echo "<td>" . ($carrierHint ? "Code {$carrierHint}" : "Auto-detect") . "</td>";
+        echo "</tr>";
     }
+    echo "</table><br>";
     
     // Encode JSON once
     $requestPayload = json_encode($trackingData);
