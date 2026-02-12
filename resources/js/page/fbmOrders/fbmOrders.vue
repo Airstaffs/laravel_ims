@@ -2134,6 +2134,7 @@ export default {
                 { value: "", label: "All Status" },
                 { value: "Pending", label: "Pending" },
                 { value: "Shipped", label: "Shipped" },
+                { value: "Delivered", label: "Delivered" },
                 { value: "Canceled", label: "Canceled" },
                 { value: "Unshipped", label: "Unshipped" }
             ],

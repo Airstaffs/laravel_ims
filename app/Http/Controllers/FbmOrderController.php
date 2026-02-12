@@ -476,19 +476,34 @@ public function index(Request $request)
                 $orderData['items'] = $formattedItems;
                 
                 // Set order status based on items
-                if (!empty($formattedItems)) {
+               if (!empty($formattedItems)) {
                     $statuses = array_column($formattedItems, 'order_status');
                     
-                    if (in_array('Canceled', $statuses)) {
-                        $orderData['order_status'] = 'Canceled';
-                    } elseif (in_array('Pending', $statuses)) {
-                        $orderData['order_status'] = 'Pending';
-                    } elseif (count(array_filter($statuses, function($s) { return $s == 'Shipped'; })) == count($statuses)) {
+                    // Check for Delivered first (highest priority)
+                    if (count(array_filter($statuses, function($s) { return $s == 'Delivered'; })) == count($statuses)) {
+                        $orderData['order_status'] = 'Delivered';
+                    }
+                    // Check if all items are Shipped
+                    elseif (count(array_filter($statuses, function($s) { return $s == 'Shipped'; })) == count($statuses)) {
                         $orderData['order_status'] = 'Shipped';
-                    } else {
+                    }
+                    // Check if any item is Canceled
+                    elseif (in_array('Canceled', $statuses)) {
+                        $orderData['order_status'] = 'Canceled';
+                    }
+                    // Check if any item is Pending
+                    elseif (in_array('Pending', $statuses)) {
+                        $orderData['order_status'] = 'Pending';
+                    }
+                    // Check if any item is Delivered (partial delivery)
+                    elseif (in_array('Delivered', $statuses)) {
+                        $orderData['order_status'] = 'Delivered';
+                    }
+                    // Default to Unshipped
+                    else {
                         $orderData['order_status'] = 'Unshipped';
                     }
-                } else {
+                }  else {
                     $orderData['order_status'] = 'Pending';
                 }
                 
