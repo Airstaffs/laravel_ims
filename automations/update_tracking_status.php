@@ -312,21 +312,25 @@ foreach ($batches as $batchIdx => $batch) {
         echo "<td>" . ($carrierHint ? "Code {$carrierHint}" : "Auto-detect") . "</td>";
         echo "</tr>";
     }
-    echo "</table><br>";
-    
     // Manual JSON construction to avoid ANY PHP formatting issues
     $jsonItems = [];
     foreach ($trackingData as $item) {
         if (isset($item['carrier'])) {
             // Manually construct JSON to guarantee integer format
-            $jsonItems[] = '{"number":"' . $item['number'] . '","carrier":' . intval($item['carrier']) . '}';
+            $carrierInt = intval($item['carrier']);
+            $jsonItems[] = '{"number":"' . $item['number'] . '","carrier":' . $carrierInt . '}';
         } else {
             $jsonItems[] = '{"number":"' . $item['number'] . '"}';
         }
     }
     $requestPayload = '[' . implode(',', $jsonItems) . ']';
     
-    echo "<details><summary>📋 Request JSON (manual build)</summary><pre style='background: #f5f5f5; padding: 10px;'>";
+    echo "<details open><summary>📋 Request Payload DEBUG</summary>";
+    echo "<pre style='background: #f5f5f5; padding: 10px; font-family: monospace;'>";
+    echo "Raw string length: " . strlen($requestPayload) . "\n";
+    echo "First 500 chars:\n";
+    echo htmlspecialchars(substr($requestPayload, 0, 500)) . "\n\n";
+    echo "Full payload:\n";
     echo htmlspecialchars($requestPayload);
     echo "</pre></details><br>";
     
