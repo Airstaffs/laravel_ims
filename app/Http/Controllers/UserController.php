@@ -72,6 +72,7 @@ class UserController extends Controller
                 'username' => 'required|string|max:255|unique:tbluser,username',
                 'password' => 'required|min:6|confirmed',
                 'role' => 'required|in:SuperAdmin,SubAdmin,User',
+                'accounttype' => 'required|in:PH,US',
             ]);
 
             $user = Auth::user();
@@ -81,6 +82,7 @@ class UserController extends Controller
                 'username' => $validated['username'],
                 'password' => Hash::make($validated['password']),
                 'role' => $validated['role'],
+                'accounttype' => $validated['accounttype'],
                 'company' => $companyColumn,
             ]);
 
@@ -367,8 +369,8 @@ class UserController extends Controller
                 'ASIN List' => 'asinlist',
                 'Printer' => 'printer',
                 'Auxiliary Label' => 'auxiliary',
-                'Announcement' => 'announcement',       
-                'Inventory Statistics' => 'inventorystatistics',    
+                'Announcement' => 'announcement',
+                'Inventory Statistics' => 'inventorystatistics',
             ];
 
             // Convert main module from display name to database column name
@@ -418,7 +420,7 @@ class UserController extends Controller
                 'auxiliary',
                 'announcement',
                 'inventorystatistics',
-        
+
             ];
 
             // First reset all modules to 0
