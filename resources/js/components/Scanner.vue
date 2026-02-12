@@ -44,6 +44,12 @@
                 <i class="fas fa-camera"></i>
               </button>
             </div>
+              <!---Hide Camera Screen Button---->
+              <div v-if="enableCamera" class="header-actions">
+                <button class="camera-toggle-btn" @click="isCameraVisible = !isCameraVisible">
+                  <i :class="isCameraVisible ? 'fa-solid fa-expand' : 'fa-solid fa-compress'"></i>
+                </button>
+              </div>
           </div>
         </div>
         
@@ -77,7 +83,7 @@
           </div>
           
           <!-- Camera/Scanner View - only if camera is enabled -->
-          <div v-if="enableCamera" class="scanner-view" :class="{ 'compact-view': isCompactMode, 'active-camera': scannerCameraActive }">
+          <div v-if="enableCamera && isCameraVisible" class="scanner-view" :class="{ 'compact-view': isCompactMode, 'active-camera': scannerCameraActive }">
 
             <!-- When camera is disabled -->
             <div v-if="currentStep" class="scanner-disabled-overlay">
@@ -344,6 +350,10 @@ export default {
     module: {
       type: String,
       default: 'default'
+    },
+    showCameraScreen: {
+      type: Boolean,
+      default: true
     }
   },
   data() {
@@ -357,6 +367,8 @@ export default {
       showThumbnailsPanel: false,
       showProductImageModal: false,
       currentProductImageIndex: 0,
+
+      isCameraVisible: this.showCameraScreen
     };
   },
   computed: {
