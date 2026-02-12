@@ -306,12 +306,12 @@ foreach ($stores as $store) {
 
                                 // Otherwise update ONLY FNSKU + amazon_status (non-deleted)
                                 $updateQuery = "UPDATE tblfnsku
-                        SET FNSKU = ?,
+                        SET 
                             amazon_status = ?,
                             insert_date = ?
                         WHERE FNSKUID = ?";
                                 $stmtUpd = $Connect->prepare($updateQuery);
-                                $stmtUpd->bind_param("sssi", $incomingFnsku, $incomingStatus, $currentDateTime, $existingRow['FNSKUID']);
+                                $stmtUpd->bind_param("ssi", $incomingStatus, $currentDateTime, $existingRow['FNSKUID']);
                                 $stmtUpd->execute();
                                 $stmtUpd->close();
 

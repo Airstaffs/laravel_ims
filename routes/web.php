@@ -774,6 +774,7 @@ Route::get('api/fnsku/fnsku', [FnskuController::class, 'index']);
 Route::post('api/fnsku/insert-fnsku', [FnskuController::class, 'insertFnsku']);
 Route::get('api/labeling/product/{productId}', [LabelingController::class, 'getProduct']);
 Route::get('api/fnsku/availability', [FnskuController::class, 'getFnskuAvailability']);
+Route::post('/fnsku/clear-block', [FnskuController::class, 'clearBlock']);
 
 Route::get('/clone-table-form', [App\Http\Controllers\TableController::class, 'showCloneForm'])->name('clone.table.form');
 Route::post('/clone-table', [App\Http\Controllers\TableController::class, 'cloneTable'])->name('clone.table');
