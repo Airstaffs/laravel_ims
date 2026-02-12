@@ -307,13 +307,21 @@ export default {
         },
     },
     methods: {
+        handleChangeScanMode() {
+            this.scanMode = this.scanMode === 'serial' ? 'tracking' : 'serial'
+            this.$nextTick(() => {
+                    this.$refs.scanInputRef?.focus();
+                });
+        },
         handleHardwareScan(scannedCode) {
             this.scanInput = scannedCode;
             this.processMatchSerialNumber();
         },
         openMatchSerialScannerModal(order, index) {
              this.$refs.scanner.openScannerModal();
+
             const productInfo = order.dispensed_products[index]
+
             // Get serials as an array
             this.serialsAndTracking = Object.entries(productInfo)
                 .filter(([key]) => key.startsWith('serialNumber'))
@@ -323,7 +331,12 @@ export default {
                 if(order.tracking_number) {
                     this.serialsAndTracking.push({tracking: order.tracking_number})
                 }
+
             console.log( this.serialsAndTracking, "productInfo")
+            
+              this.$nextTick(() => {
+                    this.$refs.scanInputRef?.focus();
+                });
         },
 
         handleMatchSerialScannerOpened() {
@@ -334,6 +347,9 @@ export default {
         handleMatchSerialScannerClosed() {
             //clear data
             this.serialsAndTracking = []
+
+            //reset mode
+            this.scanMode = 'serial'
         },
         getTrackingNumber(order) {
             if (!order || !order.items || !Array.isArray(order.items)) {
@@ -378,7 +394,10 @@ export default {
             
             // Start loading animation
             this.$refs.scanner.startLoading("Matching serial number...");
-
+            
+            this.$nextTick(() => {
+                    this.$refs.scanInputRef?.focus();
+            });
             // Simulate slight delay of matching process
             setTimeout(() => {
                 const exists = this.serialsAndTracking.some(
@@ -407,6 +426,16 @@ export default {
         },
          handleModeChange(event) {
             this.showManualInput = event.manual;
+
+            this.$nextTick(() => {
+                this.$refs.scanInputRef?.focus();
+            });
+        },
+
+        handleScannerReset() {
+            setTimeout(() => {
+                this.$refs.scanInputRef?.focus();
+            }, 500)
         },
 
         /**

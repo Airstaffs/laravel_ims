@@ -63,6 +63,7 @@
             @scanner-closed="handleMatchSerialScannerClosed"
             @hardware-scan="handleHardwareScan"
             @mode-changed="handleModeChange"
+            @scanner-reset="handleScannerReset"
             ref="scanner"
         >
             <template #input-fields>
@@ -73,8 +74,10 @@
                         type="text" 
                         :placeholder="`Enter ${scanMode === 'serial' ? 'serial' : 'tracking'} number`"
                         @input="handleSerialInput"
+                         @keyup.enter="processMatchSerialNumber"
+                        ref="scanInputRef"
                     >
-                    <button class="switch-scan-mode" @click="scanMode = scanMode === 'serial' ? 'tracking' : 'serial'">
+                    <button class="switch-scan-mode" @click="handleChangeScanMode">
                         Switch to {{ scanMode === 'serial' ? 'Tracking' : 'Serial' }}
                     </button>
                 </div>
