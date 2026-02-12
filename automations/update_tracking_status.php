@@ -401,22 +401,23 @@ foreach ($batches as $batchIdx => $batch) {
             }
         }
         
-        // If delivered but no date, try to extract from track info
-        if ($statusText === 'Delivered' && !$deliveredDate && !empty($trackInfo)) {
-            foreach ($trackInfo as $event) {
+        // If delivered but no date from latest_event, try tracking.data array
+        if ($statusText === 'Delivered' && !$deliveredDate) {
+            $trackingEvents = $trackInfo['tracking']['data'] ?? [];
+            foreach ($trackingEvents as $event) {
                 if (isset($event['time_iso'])) {
                     try {
                         $deliveredDate = (new DateTime($event['time_iso']))->format('Y-m-d H:i:s');
                         break;
                     } catch (Exception $e) {
-                        // Continue
+                        continue;
                     }
                 }
             }
         }
         
-        $carrierName = $track['carrier']['name'] ?? 'Unknown';
-        $description = $latestEvent['description'] ?? '';
+        $carrierName = $trackInfo['carrier']['name'] ?? 'Unknown';
+        $description = $latestEvent['description'] ?? 'No description';
         
         $trackingResults[$tn] = [
             'status' => $statusText,
