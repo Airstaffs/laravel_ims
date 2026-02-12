@@ -319,24 +319,47 @@ foreach ($batches as $batchIdx => $batch) {
     
     $data = json_decode($response, true);
     
+    // Debug: Show raw response structure
+    echo "<details style='margin: 10px 0;'><summary>🔍 Debug: API Response</summary>";
+    echo "<pre style='background: #f5f5f5; padding: 10px; overflow: auto; max-height: 300px;'>";
+    echo htmlspecialchars(json_encode($data, JSON_PRETTY_PRINT));
+    echo "</pre></details>";
+    
     if (!isset($data['data'])) {
         echo "<span style='color: red;'>❌ Invalid response format</span><br>";
         echo "</div>";
         continue;
     }
     
-    // Process results
-    $tracks = $data['data'] ?? [];
-    echo "<br>✅ Received info for " . count($tracks) . " tracking numbers<br><br>";
+    // v4 API structure: data.accepted[] or data.rejected[]
+    $acceptedTracks = $data['data']['accepted'] ?? [];
+    $rejectedTracks = $data['data']['rejected'] ?? [];
     
-    foreach ($tracks as $track) {
+    if (!empty($rejectedTracks)) {
+        echo "<div style='background: #fff3cd; padding: 10px; margin: 10px 0;'>";
+        echo "⚠️ <strong>Rejected tracking numbers:</strong><br>";
+        foreach ($rejectedTracks as $rejected) {
+            $rejNum = $rejected['number'] ?? 'unknown';
+            $errCode = $rejected['error']['code'] ?? 'unknown';
+            $errMsg = $rejected['error']['message'] ?? 'No message';
+            echo "→ {$rejNum}: Error {$errCode} - {$errMsg}<br>";
+        }
+        echo "</div>";
+    }
+    
+    echo "<br>✅ Received info for " . count($acceptedTracks) . " tracking numbers<br><br>";
+    
+    foreach ($acceptedTracks as $track) {
         $tn = $track['number'] ?? '';
         if (empty($tn)) continue;
         
-        $status = $track['status'] ?? 0;
-        $substatus = $track['substatus'] ?? 0;
-        $trackInfo = $track['track'] ?? [];
-        $latestEvent = !empty($trackInfo) ? $trackInfo[0] : null;
+        // v4 uses 'track_info' object with 'latest_status' and 'latest_event'
+        $trackInfo = $track['track_info'] ?? [];
+        $latestStatus = $trackInfo['latest_status'] ?? [];
+        $latestEvent = $trackInfo['latest_event'] ?? [];
+        
+        $status = $latestStatus['status'] ?? 0;
+        $substatus = $latestStatus['substatus'] ?? 0;
         
         // Map v4 status codes
         $statusText = 'Unknown';
