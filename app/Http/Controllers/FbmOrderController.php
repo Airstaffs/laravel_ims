@@ -3107,19 +3107,19 @@ public function shippinglabelselecteditem(Request $request)
     }
 
     // ✅ Fetch the selected order items + tblasin white_* defaults
-    $items = DB::table('tbloutboundordersitem as i')
-        ->leftJoin('tblasin as a', 'a.ASIN', '=', 'i.platform_asin')
-        ->whereIn('i.outboundorderitemid', $itemIdArray)
-        ->get([
-            'i.*',
-
-            // from tblasin
-            'a.white_length',
-            'a.white_width',
-            'a.white_height',
-            'a.white_value',
-            'a.white_unit',
-        ]);
+$items = DB::table('tbloutboundordersitem as i')
+    ->leftJoin('tblasin as a', function ($join) {
+        $join->on(
+            DB::raw('a.ASIN COLLATE utf8mb4_unicode_ci'),
+            '=',
+            DB::raw('i.platform_asin COLLATE utf8mb4_unicode_ci')
+        );
+    })
+    ->whereIn('i.outboundorderitemid', $itemIdArray)
+    ->get([
+        'i.*',
+        'a.white_length','a.white_width','a.white_height','a.white_value','a.white_unit',
+    ]);
 
     $itemsGrouped = $items->groupBy('platform_order_id');
     $platformOrderIds = $itemsGrouped->keys()->values();
