@@ -53,6 +53,37 @@
             </div>
         </div> -->
 
+        <scanner-component 
+            scanner-title="Matching Serials Scanner"
+            storage-prefix="matchSerials"
+            :enable-camera="true"
+            :display-fields="['Message', 'Status']"
+            :hide-button="true"
+            @scanner-opened="handleMatchSerialScannerOpened"
+            @scanner-closed="handleMatchSerialScannerClosed"
+            @hardware-scan="handleHardwareScan"
+            @mode-changed="handleModeChange"
+            @scanner-reset="handleScannerReset"
+            ref="scanner"
+        >
+            <template #input-fields>
+                <div class="input-group">
+                    <label>Match {{ scanMode === 'serial' ? 'Serial' : 'Tracking' }} Number:</label>
+                    <input 
+                        v-model="scanInput" 
+                        type="text" 
+                        :placeholder="`Enter ${scanMode === 'serial' ? 'serial' : 'tracking'} number`"
+                        @input="handleSerialInput"
+                         @keyup.enter="processMatchSerialNumber"
+                        ref="scanInputRef"
+                    >
+                    <button class="switch-scan-mode" @click="handleChangeScanMode">
+                        Switch to {{ scanMode === 'serial' ? 'Tracking' : 'Serial' }}
+                    </button>
+                </div>
+            </template>
+        </scanner-component>
+
         <!-- Selection status bar - NEW COMPONENT -->
         <div class="selection-status-bar" v-if="persistentSelectedOrderIds.length > 0">
             <div class="selection-info">
@@ -273,6 +304,11 @@
                                                 title="Mark product as not found and auto-select replacement">
                                                 <i class="fas fa-exclamation-triangle"></i>
                                                 Not Found
+                                            </button>
+                                            <button class="btn-matching-serials" 
+                                                @click="openMatchSerialScannerModal(subdata, dpIndex)">
+                                                <i class="fas fa-copy"></i>
+                                                Matching Serials
                                             </button>
                                         </div>
 
@@ -525,7 +561,7 @@
                             </div>
 
                             <!-- Enhanced mobile dispensed products display -->
-                            <div v-if="isItemDispensed(item)" class="mobile-product-dispense">
+                            <!-- <div v-if="isItemDispensed(item)" class="mobile-product-dispense">
                                 <div class="mobile-dispensed-header">
                                     Dispensed Products ({{
                                         getDispensedProductCount(item)
@@ -570,10 +606,84 @@ dispensedProduct, dpIndex
                                             )
                                             " title="Mark as not found">
                                             <i class="fas fa-exclamation-triangle"></i>
+                                            Not Found
                                         </button>
+                                          <button class="btn-matching-serials-mobile" 
+                                                @click="openMatchSerialScannerModal(subdata, dpIndex)">
+                                                <i class="fas fa-copy"></i>
+                                                Match Serials
+                                            </button>
                                     </div>
                                 </div>
-                            </div>
+                            </div> -->
+                            <Panel v-if="isItemDispensed(item)" toggleable :collapsed="true" 
+                            class="dispensed-item-details dispensed-panel" :header="`Dispensed Products (${getDispensedProductCount(item)}/${item.quantity_ordered})`">
+                                <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)"
+                                        :key="'dp-' + dpIndex" class="dispensed-product-item">
+                                        <div class="dispensed-detail">
+                                            <strong>Title:</strong>
+                                            {{ dispensedProduct.title || 'N/A' }}
+                                        </div>
+
+                                        <div class="dispensed-detail">
+                                            <strong>ASIN:</strong>
+                                            {{ dispensedProduct.asin || 'N/A' }}
+                                        </div>
+
+                                        <div class="dispensed-detail">
+                                            <strong>Location:</strong>
+                                            {{ dispensedProduct.warehouseLocation || 'N/A' }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.serialNumber" class="dispensed-detail">
+                                            <strong>Serial #1:</strong>
+                                            {{ dispensedProduct.serialNumber }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.serialNumberb" class="dispensed-detail">
+                                            <strong>Serial #2:</strong>
+                                            {{ dispensedProduct.serialNumberb }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.serialNumberc" class="dispensed-detail">
+                                            <strong>Serial #3:</strong>
+                                            {{ dispensedProduct.serialNumberc }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.serialNumberd" class="dispensed-detail">
+                                            <strong>Serial #4:</strong>
+                                            {{ dispensedProduct.serialNumberd }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.rtCounter" class="dispensed-detail">
+                                            <strong>RT Counter:</strong>
+                                            {{ dispensedProduct.rtCounter }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.FNSKU" class="dispensed-detail">
+                                            <strong>FNSKU:</strong>
+                                            {{ dispensedProduct.FNSKU }}
+                                        </div>
+
+                                        <div class="dispensed-actions">
+                                            <button class="btn-not-found"
+                                                @click="markProductNotFound(dispensedProduct.product_id, item)"
+                                                title="Mark product as not found and auto-select replacement">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                                Not Found
+                                            </button>
+                                            <button class="btn-matching-serials" 
+                                                @click="openMatchSerialScannerModal(item, dpIndex)">
+                                                <i class="fas fa-copy"></i>
+                                                Matching Serials
+                                            </button>
+                                        </div>
+
+                                        <hr v-if="dpIndex < getDispensedProductsDisplay(item).length - 1"
+                                            class="dispensed-separator" />
+                                    </div>
+                            </Panel>
+                        
                         </div>
                     </div>
 

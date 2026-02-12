@@ -10,7 +10,9 @@ export const SoundService = {
         'scanrejected': window.location.origin + '/sounds/scanrejected.mp3',
         'alreadyScanned': window.location.origin + '/sounds/itemalreadyscanned.mp3',
         'PCNalreadyUsed': window.location.origin + '/sounds/pcnalreadyused.mp3',
-        'ItemNotValidated': window.location.origin + '/sounds/item_not_validated.mp3'
+        'ItemNotValidated': window.location.origin + '/sounds/item_not_validated.mp3',
+         'Matched': window.location.origin + '/sounds/Matched.mp3',
+         'NotMatched': window.location.origin + '/sounds/NotMatched.mp3'
       };
   
       const sound = new Audio(soundMap[soundName]);
@@ -55,6 +57,13 @@ export const SoundService = {
     
      ItemNotValidated(vibrate = true) {
       this.playSound('ItemNotValidated', vibrate);
+    },
+
+     NotMatched(vibrate = true) {
+      this.playSound('NotMatched', vibrate);
+    },
+     Matched(vibrate = false) {  
+      this.playSound('Matched', vibrate);
     }
 
 

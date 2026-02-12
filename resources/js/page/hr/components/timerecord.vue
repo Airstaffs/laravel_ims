@@ -139,13 +139,47 @@
                     <div class="col-6">
                         <div class="label text-secondary small">Time In</div>
                         <div class="value-history-text fw-semibold">
-                            {{ $parent.formatDate(record?.TimeIn) }}
+                            <p>
+                                PH:
+                                {{
+                                    formatTimeWithTimezone(
+                                        record?.TimeIn,
+                                        record?.Employee,
+                                    ).local
+                                }}
+                            </p>
+                            <p>
+                                US:
+                                {{
+                                    formatTimeWithTimezone(
+                                        record?.TimeIn,
+                                        record?.Employee,
+                                    ).us
+                                }}
+                            </p>
                         </div>
                     </div>
                     <div class="col-6">
                         <div class="label text-secondary small">Time Out</div>
                         <div class="value-history-text fw-semibold">
-                            {{ $parent.formatDate(record?.TimeOut) }}
+                            <p>
+                                PH:
+                                {{
+                                    formatTimeWithTimezone(
+                                        record?.TimeOut,
+                                        record?.Employee,
+                                    ).local
+                                }}
+                            </p>
+                            <p>
+                                US:
+                                {{
+                                    formatTimeWithTimezone(
+                                        record?.TimeOut,
+                                        record?.Employee,
+                                    ).us
+                                }}
+                            </p>
                         </div>
                     </div>
                     <div class="col-6">
@@ -153,13 +187,47 @@
                             Break Start
                         </div>
                         <div class="value-history-text fw-semibold">
-                            {{ $parent.formatDate(record?.shortbreak_start) }}
+                            <p>
+                                PH:
+                                {{
+                                    formatTimeWithTimezone(
+                                        record?.shortbreak_start,
+                                        record?.Employee,
+                                    ).local
+                                }}
+                            </p>
+                            <p>
+                                US:
+                                {{
+                                    formatTimeWithTimezone(
+                                        record?.shortbreak_start,
+                                        record?.Employee,
+                                    ).us
+                                }}
+                            </p>
                         </div>
                     </div>
                     <div class="col-6">
                         <div class="label text-secondary small">Break End</div>
                         <div class="value-history-text fw-semibold">
-                            {{ $parent.formatDate(record?.shortbreak_end) }}
+                            <p>
+                                PH:
+                                {{
+                                    formatTimeWithTimezone(
+                                        record?.shortbreak_end,
+                                        record?.Employee,
+                                    ).local
+                                }}
+                            </p>
+                            <p>
+                                US:
+                                {{
+                                    formatTimeWithTimezone(
+                                        record?.shortbreak_end,
+                                        record?.Employee,
+                                    ).us
+                                }}
+                            </p>
                         </div>
                     </div>
                     <div class="col-12">
@@ -180,6 +248,7 @@
                         size="small"
                         text
                         severity="info"
+                        label="View Note"
                         icon="pi pi-eye"
                         @click="openNotesModal(record)"
                         class="p-0"
@@ -188,16 +257,14 @@
                 </div>
 
                 <!-- Actions -->
-                <div class="d-flex mt-3 gap-2">
+                <div class="d-grid mt-3 gap-2">
                     <Button
-                        class="w-50"
                         size="small"
                         severity="info"
                         @click="$parent.openEdit(record)"
                         label="Edit"
                     />
                     <Button
-                        class="w-50"
                         size="small"
                         severity="success"
                         @click="$parent.toggleHistory(record?.ID || record?.id)"
@@ -328,16 +395,68 @@
             :actionsFrozen="true"
         >
             <template #TimeIn="{ data }">
-                <p>{{ $parent.formatDate(data.TimeIn) }}</p>
+                <p>
+                    PH:
+                    {{
+                        formatTimeWithTimezone(data.TimeIn, data.Employee).local
+                    }}
+                </p>
+                <p>
+                    US:
+                    {{ formatTimeWithTimezone(data.TimeIn, data.Employee).us }}
+                </p>
             </template>
             <template #TimeOut="{ data }">
-                <p>{{ $parent.formatDate(data.TimeOut) }}</p>
+                <p>
+                    PH:
+                    {{
+                        formatTimeWithTimezone(data.TimeIn, data.Employee).local
+                    }}
+                </p>
+                <p>
+                    US:
+                    {{ formatTimeWithTimezone(data.TimeIn, data.Employee).us }}
+                </p>
             </template>
             <template #shortbreakStart="{ data }">
-                <p>{{ $parent.formatDate(data.shortbreak_start) }}</p>
+                <p>
+                    PH:
+                    {{
+                        formatTimeWithTimezone(
+                            data.shortbreak_start,
+                            data.Employee,
+                        ).local
+                    }}
+                </p>
+                <p>
+                    US:
+                    {{
+                        formatTimeWithTimezone(
+                            data.shortbreak_start,
+                            data.Employee,
+                        ).us
+                    }}
+                </p>
             </template>
             <template #shortbreakEnd="{ data }">
-                <p>{{ $parent.formatDate(data.shortbreak_end) }}</p>
+                <p>
+                    PH:
+                    {{
+                        formatTimeWithTimezone(
+                            data.shortbreak_end,
+                            data.Employee,
+                        ).local
+                    }}
+                </p>
+                <p>
+                    US:
+                    {{
+                        formatTimeWithTimezone(
+                            data.shortbreak_end,
+                            data.Employee,
+                        ).us
+                    }}
+                </p>
             </template>
             <template #shortbreakTotaltime="{ data }">
                 <p>{{ data.shortbreak_totaltime || 0 }} mins</p>
@@ -346,10 +465,10 @@
                 <div>
                     <Button
                         v-if="data.Notes"
+                        style="width: 50px; height: 50px"
                         size="small"
                         text
                         severity="info"
-                        style="width: 40px; height: 40px"
                         icon="pi pi-eye"
                         @click="openNotesModal(data)"
                     />
@@ -814,6 +933,53 @@ export default {
             this.showNotesModal = false;
             this.selectedRecord = null;
         },
+
+        // ADD THIS NEW METHOD HERE:
+        formatTimeWithTimezone(isoDateTime, employeeName) {
+            if (
+                !isoDateTime ||
+                isoDateTime === "--:--" ||
+                isoDateTime === "-"
+            ) {
+                return { local: "--:--:--", us: "--:--:--" };
+            }
+
+            try {
+                // DIRECT STRING EXTRACTION - No date formatting at all
+                let timeString = String(isoDateTime);
+
+                // If format is "2025-09-09 14:19:19", extract "14:19:19"
+                if (timeString.includes(" ") && timeString.length > 10) {
+                    const parts = timeString.split(" ");
+                    if (parts.length >= 2) {
+                        timeString = parts[1]; // Get just the time part
+                    }
+                }
+
+                // Parse HH:MM:SS
+                const [hours, minutes, seconds] = timeString
+                    .split(":")
+                    .map((s) => parseInt(s) || 0);
+
+                // Convert to 12-hour format
+                const period = hours >= 12 ? "PM" : "AM";
+                const hour12 = hours % 12 || 12;
+                const localTime = `${hour12}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")} ${period}`;
+
+                // Calculate US time (subtract 13 hours for Manila to EST)
+                let usHours = hours - 13;
+                if (usHours < 0) usHours += 24;
+                const usPeriod = usHours >= 12 ? "PM" : "AM";
+                const usHour12 = usHours % 12 || 12;
+                const usTime = `${usHour12}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")} ${usPeriod}`;
+
+                return { local: localTime, us: usTime };
+            } catch (error) {
+                console.error("Error formatting time:", error, isoDateTime);
+                return { local: "--:--:--", us: "--:--:--" };
+            }
+        },
+
         async loadEmployeesData() {
             // You'll need to fetch or access employee data
             // This assumes you have access to employees via parent or need to fetch

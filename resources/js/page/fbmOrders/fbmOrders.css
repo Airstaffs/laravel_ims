@@ -271,7 +271,7 @@
 
 .fbm-order-module .mobile-product-dispense {
     background-color: #f8f9fa;
-    border-left: 3px solid #17a2b8;
+    /* border-left: 3px solid #17a2b8; */
     padding: 8px;
     margin-top: 8px;
     border-radius: 4px;
@@ -1424,8 +1424,8 @@
 
 .fbm-order-module .mobile-product-item:has(.mobile-item-dispense-checkbox:not(:disabled)) {
     background-color: rgba(232, 244, 248, 0.15);
-    border-left: 3px solid #28a745;
-    padding-left: 5px;
+    /* border-left: 3px solid #28a745;
+    padding-left: 5px; */
 }
 
 .fbm-order-module .order-item:has(.item-dispense-checkbox:not(:disabled)) {
@@ -1622,6 +1622,27 @@
     text-align: right;
 }
 
+.switch-scan-mode {
+    background-color: #4CAF50;
+    border: none;
+    color: #ffffff;
+    padding: 4px 0;
+}
+
+.btn-matching-serials {
+    background-color: #007BFF;
+    border: 1px solid #007BFF;
+    color: #ffffff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 1rem;
+}
 .fbm-order-module .btn-not-found {
     background-color: #ffc107;
     color: #212529;
@@ -1651,7 +1672,20 @@
     margin-top: 5px;
     text-align: right;
 }
-
+.btn-matching-serials-mobile {
+    background-color: #007BFF;
+    color: #ffffff;
+    border: 1px solid #007BFF;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 1rem;
+}
 .fbm-order-module .btn-not-found-mobile {
     background-color: #ffc107;
     color: #212529;
