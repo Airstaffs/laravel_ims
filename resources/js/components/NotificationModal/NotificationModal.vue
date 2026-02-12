@@ -1,25 +1,14 @@
 <template>
-    <Dialog
-        v-model:visible="isVisible"
-        modal
-        :closable="true"
-        :draggable="false"
-        class="notification-modal"
-        :style="{
-            width: isMobile ? '100vw' : '900px',
-            height: isMobile ? '100vh' : 'auto',
-        }"
-        :contentStyle="{
-            padding: 0,
-            height: isMobile ? '100vh' : 'auto',
-            maxHeight: isMobile ? '100vh' : '80vh',
-            borderRadius: isMobile ? '0' : '12px',
-            overflow: 'hidden',
-        }"
-        :position="isMobile ? 'center' : 'center'"
-        @show="onModalShow"
-        @hide="onModalHide"
-    >
+    <Dialog v-model:visible="isVisible" modal :closable="true" :draggable="false" class="notification-modal" :style="{
+        width: isMobile ? '100vw' : '900px',
+        height: isMobile ? '100vh' : 'auto',
+    }" :contentStyle="{
+        padding: 0,
+        height: isMobile ? '100vh' : 'auto',
+        maxHeight: isMobile ? '100vh' : '80vh',
+        borderRadius: isMobile ? '0' : '12px',
+        overflow: 'hidden',
+    }" :position="isMobile ? 'center' : 'center'" @show="onModalShow" @hide="onModalHide">
         <template #header>
             <div class="notification-header">
                 <h3>
@@ -35,32 +24,19 @@
                 <!-- Filter Section -->
                 <div class="filter-section">
                     <label for="moduleFilter">Filter by Module:</label>
-                    <Select
-                        v-model="selectedModule"
-                        :options="moduleOptions"
-                        optionLabel="label"
-                        optionValue="value"
-                        placeholder="All"
-                        class="module-filter"
-                        @change="filterNotifications"
-                    />
+                    <Select v-model="selectedModule" :options="moduleOptions" optionLabel="label" optionValue="value"
+                        placeholder="All" class="module-filter" @change="filterNotifications" />
                 </div>
 
                 <!-- Empty State -->
-                <div
-                    v-if="filteredNotifications.length === 0"
-                    class="empty-state"
-                >
+                <div v-if="filteredNotifications.length === 0" class="empty-state">
                     <i class="pi pi-bell-slash"></i>
                     <h4>No notifications</h4>
                     <p v-if="notifications.length === 0">
                         You're all caught up!
                     </p>
                     <p v-else>No notifications match the selected filter.</p>
-                    <small
-                        v-if="notifications.length > 0"
-                        style="color: #6c757d; margin-top: 0.5rem"
-                    >
+                    <small v-if="notifications.length > 0" style="color: #6c757d; margin-top: 0.5rem">
                         Total: {{ notifications.length }} | Showing:
                         {{ filteredNotifications.length }} | Module:
                         {{ selectedModule || "All" }}
@@ -69,79 +45,36 @@
 
                 <!-- Desktop Table View -->
                 <div v-else class="notification-table">
-                    <DataTable
-                        :value="filteredNotifications"
-                        :rowClass="getRowClass"
-                        @row-click="onNotificationClick"
-                        stripedRows
-                        size="small"
-                        responsiveLayout="stack"
-                        breakpoint="768px"
-                    >
-                        <Column
-                            field="module"
-                            header="Module"
-                            style="min-width: 120px"
-                        ></Column>
-                        <Column
-                            field="title"
-                            header="Title"
-                            style="min-width: 200px"
-                        >
+                    <DataTable :value="filteredNotifications" :rowClass="getRowClass" @row-click="onNotificationClick"
+                        stripedRows size="small" responsiveLayout="stack" breakpoint="768px">
+                        <Column field="module" header="Module" style="min-width: 120px"></Column>
+                        <Column field="title" header="Title" style="min-width: 200px">
                             <template #body="{ data }">
-                                <div
-                                    class="text-truncate"
-                                    style="max-width: 260px"
-                                >
+                                <div class="text-truncate" style="max-width: 260px">
                                     {{ data.title }}
                                 </div>
                             </template>
                         </Column>
-                        <Column
-                            field="subtitle"
-                            header="Subtitle"
-                            style="min-width: 180px"
-                        >
+                        <Column field="subtitle" header="Subtitle" style="min-width: 180px">
                             <template #body="{ data }">
-                                <div
-                                    class="text-truncate"
-                                    style="max-width: 220px"
-                                >
+                                <div class="text-truncate" style="max-width: 220px">
                                     {{ data.subtitle || "" }}
                                 </div>
                             </template>
                         </Column>
-                        <Column
-                            field="content"
-                            header="Content"
-                            style="min-width: 280px"
-                        >
+                        <Column field="content" header="Content" style="min-width: 280px">
                             <template #body="{ data }">
-                                <div
-                                    class="text-truncate"
-                                    style="max-width: 360px"
-                                >
+                                <div class="text-truncate" style="max-width: 360px">
                                     {{ data.content || "" }}
                                 </div>
                             </template>
                         </Column>
-                        <Column
-                            field="severity"
-                            header="Severity"
-                            style="min-width: 100px"
-                        >
+                        <Column field="severity" header="Severity" style="min-width: 100px">
                             <template #body="{ data }">
-                                <Tag
-                                    :severity="getSeverity(data.severity)"
-                                    :value="data.severity || '—'"
-                                />
+                                <Tag :severity="getSeverity(data.severity)" :value="data.severity || '—'" />
                             </template>
                         </Column>
-                        <Column
-                            field="notif_created_at"
-                            header="Date"
-                            style="min-width: 180px"
-                        >
+                        <Column field="notif_created_at" header="Date" style="min-width: 180px">
                             <template #body="{ data }">
                                 {{ formatDate(data.notif_created_at) }}
                             </template>
@@ -180,14 +113,10 @@
                             <tr>
                                 <th>Severity</th>
                                 <td>
-                                    <Tag
-                                        :severity="
-                                            getSeverity(
-                                                selectedNotification.severity
-                                            )
-                                        "
-                                        :value="selectedNotification.severity"
-                                    />
+                                    <Tag :severity="getSeverity(
+                                        selectedNotification.severity
+                                    )
+                                        " :value="selectedNotification.severity" />
                                 </td>
                             </tr>
                             <tr>
@@ -205,22 +134,19 @@
                 </div>
 
                 <div class="detail-actions">
-                    <Button
-                        label="Back"
-                        @click="backToList"
-                        severity="secondary"
-                        size="small"
-                        icon="pi pi-arrow-left"
-                    />
+                    <Button label="Back" @click="backToList" severity="secondary" size="small"
+                        icon="pi pi-arrow-left" />
 
-                    <Button
-                        v-if="selectedNotification.link_data"
-                        :label="getLinkButtonLabel()"
-                        @click="handleLinkAction"
-                        severity="primary"
-                        size="small"
-                        icon="pi pi-external-link"
-                    />
+                    <!-- Actions from link_data -->
+                    <template v-if="selectedNotification?.parsedLinkData?.actions?.length">
+                        <Button v-for="a in selectedNotification.parsedLinkData.actions" :key="a.id"
+                            :label="a.label || 'Action'" size="small" severity="danger" icon="pi pi-check"
+                            @click="handleAction(a)" />
+                    </template>
+
+                    <!-- Optional fallback: show your old single link button only when no actions exist -->
+                    <Button v-else-if="selectedNotification?.parsedLinkData" :label="getLinkButtonLabel()"
+                        @click="handleLinkAction" severity="primary" size="small" icon="pi pi-external-link" />
                 </div>
             </div>
         </div>
@@ -580,6 +506,84 @@ export default defineComponent({
         stopBadgePolling() {
             if (this.updateInterval) {
                 clearInterval(this.updateInterval);
+            }
+        },
+
+        shouldShowFnskuOverride() {
+            if (!this.selectedNotification) return false;
+
+            // Option A (recommended): drive it from link_data.type === "custom"
+            const d = this.selectedNotification.parsedLinkData;
+            if (d?.type === "custom" && d?.action === "fnsku_update_conflict") return true;
+
+            // Option B fallback: detect by module/title keywords
+            const mod = String(this.selectedNotification.module || "").toLowerCase();
+            const title = String(this.selectedNotification.title || "").toLowerCase();
+            return mod.includes("stock") && title.includes("fnsku") && title.includes("conflict");
+        },
+
+        emitFnskuOverride() {
+            const notif = this.selectedNotification;
+            const d = notif?.parsedLinkData || null;
+
+            // Emit to parent. Parent will do the override flow (open modal, run API, etc.)
+            this.$emit("custom-action", {
+                action: "fnsku_update_conflict_override",
+                notif_id: notif?.notif_id,
+                // pass whatever you stored in link_data.data/payload
+                data: d?.data || d?.payload || null,
+                notification: notif, // optional, handy for UI
+            });
+
+            // Optional: close notifications modal after click
+            this.isVisible = false;
+        },
+
+        handleAction(action) {
+            if (!action?.type) return;
+
+            if (action.type === "api") return this.handleApi(action);
+            if (action.type === "redirect") return this.handleRedirect(action);
+            if (action.type === "modal") return this.handleModal(action);
+            if (action.type === "custom") return this.handleCustom(action);
+
+            console.warn("Unknown action type:", action.type);
+        },
+
+        async handleApi(action) {
+            const method = (action.method || "POST").toUpperCase();
+            const url = action.url;
+            const payload = action.payload || {};
+
+            try {
+                const resp = await fetch(url, {
+                    method,
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRF-TOKEN": this.csrfToken,
+                        Accept: "application/json",
+                    },
+                    credentials: "include",
+                    body: method === "GET" ? null : JSON.stringify(payload),
+                });
+
+                const data = await resp.json().catch(() => ({}));
+
+                if (!resp.ok || data?.ok === false) {
+                    alert(data?.message || `Request failed (${resp.status})`);
+                    return;
+                }
+
+                alert(data?.message || "Block cleared.");
+
+                await this.updateBadge();
+                await this.fetchNotifications();
+
+                // Optional: go back to list
+                this.selectedNotification = null;
+            } catch (e) {
+                console.error(e);
+                alert("An error occurred.");
             }
         },
     },

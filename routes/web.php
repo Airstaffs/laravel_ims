@@ -778,6 +778,7 @@ Route::get('api/fnsku/fnsku', [FnskuController::class, 'index']);
 Route::post('api/fnsku/insert-fnsku', [FnskuController::class, 'insertFnsku']);
 Route::get('api/labeling/product/{productId}', [LabelingController::class, 'getProduct']);
 Route::get('api/fnsku/availability', [FnskuController::class, 'getFnskuAvailability']);
+Route::post('/fnsku/clear-block', [FnskuController::class, 'clearBlock']);
 
 Route::get('/clone-table-form', [App\Http\Controllers\TableController::class, 'showCloneForm'])->name('clone.table.form');
 Route::post('/clone-table', [App\Http\Controllers\TableController::class, 'cloneTable'])->name('clone.table');
@@ -923,6 +924,9 @@ Route::get('/joined-fnsku-data', [LabelingController::class, 'getFnskuData']);
 // HR Controller
 Route::prefix('hr')->group(function () {
     Route::get('/employees', [HrController::class, 'getEmployees']);
+
+    Route::post('/employees', [HrController::class, 'addEmployee']);
+
     Route::get('/employee-rate-history', [HrController::class, 'getEmployeeRateHistory']);
     Route::get('/employees/{employee}/rates', [HrController::class, 'indexRate']);
     Route::get('/employees/{employee}/rates/current', [HrController::class, 'currentRate']);
