@@ -23,6 +23,7 @@ echo "✓ Database connected<br><br>";
 define('MAX_TRACKING_TO_CHECK', 200); // Process 200 tracking numbers per run
 define('BATCH_SIZE', 40);             // 17track allows 40 per batch
 define('CACHE_DURATION', 21600);      // Cache for 6 hours (21600 seconds)
+define('OVERDUE_THRESHOLD_DAYS', 14); // Skip tracking if 14+ days past estimated delivery
 
 $API_KEY = '5EC4C3FCD4929687DC76822C8D154C20';
 
@@ -34,6 +35,14 @@ echo "<h3>📦 STEP 1: Collecting Tracking Numbers from Orders Module</h3>";
 $trackingToCheck = []; // Format: trackingNumber => [array of records using it]
 $finalStatuses = ['Delivered', 'Cancelled', 'Refunded'];
 $now = time();
+
+// Counters for skip reasons
+$skipReasons = [
+    'empty' => 0,
+    'final_status' => 0,
+    'cache' => 0,
+    'overdue' => 0
+];
 
 // Query to get all orders with tracking numbers
 $query = "
@@ -50,7 +59,8 @@ $query = "
         tracking2_status,
         tracking3_status,
         tracking4_status,
-        tracking_last_checked
+        tracking_last_checked,
+        estimated_deliverydate
     FROM tblproduct
     WHERE ProductModuleLoc = 'Orders'
     AND (
@@ -70,7 +80,7 @@ if (!$result) {
 }
 
 echo "Found " . $result->num_rows . " orders with tracking numbers<br>";
-echo "Filtering: Only checking non-empty tracking, skipping final statuses, respecting cache<br><br>";
+echo "Filtering: Skipping empty, final statuses, recent checks, AND overdue packages (>14 days past estimate)<br><br>";
 
 $processedCount = 0;
 
@@ -78,6 +88,25 @@ while ($row = $result->fetch_assoc()) {
     $productID = $row['ProductID'];
     $lastChecked = $row['tracking_last_checked'] ? strtotime($row['tracking_last_checked']) : 0;
     $timeSinceCheck = $now - $lastChecked;
+    
+    // Parse estimated delivery date
+    $estimatedDelivery = null;
+    $isOverdue = false;
+    
+    if (!empty($row['estimated_deliverydate']) && $row['estimated_deliverydate'] !== '0000-00-00' && $row['estimated_deliverydate'] !== '0000-00-00 00:00:00') {
+        try {
+            $estimatedDelivery = strtotime($row['estimated_deliverydate']);
+            if ($estimatedDelivery && $estimatedDelivery > 0) {
+                $daysPastEstimate = ($now - $estimatedDelivery) / 86400;
+                // If more than OVERDUE_THRESHOLD_DAYS days past estimated delivery
+                if ($daysPastEstimate > OVERDUE_THRESHOLD_DAYS) {
+                    $isOverdue = true;
+                }
+            }
+        } catch (Exception $e) {
+            // Ignore date parse errors
+        }
+    }
     
     // Check each tracking field (1-4)
     for ($i = 1; $i <= 4; $i++) {
@@ -87,18 +116,29 @@ while ($row = $result->fetch_assoc()) {
         $trackingNumber = trim($row[$trackingField] ?? '');
         $currentStatus = trim($row[$statusField] ?? '');
         
-        // SKIP if tracking number is NULL or empty
+        // === SKIP CONDITIONS (Save API Quota) ===
+        
+        // 1. SKIP if tracking number is NULL or empty
         if (empty($trackingNumber)) {
+            $skipReasons['empty']++;
             continue;
         }
         
-        // SKIP if already in final status
+        // 2. SKIP if already in final status
         if (in_array($currentStatus, $finalStatuses)) {
+            $skipReasons['final_status']++;
             continue;
         }
         
-        // SKIP if checked recently (within cache duration)
+        // 3. SKIP if checked recently (within cache duration)
         if ($timeSinceCheck < CACHE_DURATION) {
+            $skipReasons['cache']++;
+            continue;
+        }
+        
+        // 4. *** SKIP if overdue (more than 14 days past estimated delivery) ***
+        if ($isOverdue) {
+            $skipReasons['overdue']++;
             continue;
         }
         
@@ -127,8 +167,18 @@ while ($row = $result->fetch_assoc()) {
 
 echo "<br><div style='background: #e7f3ff; padding: 10px; border-left: 4px solid #007bff;'>";
 echo "<strong>📊 COLLECTION SUMMARY</strong><br>";
-echo "Total tracking fields checked: {$processedCount}<br>";
+echo "Total tracking fields processed: {$processedCount}<br>";
 echo "Unique tracking numbers to check: <strong>" . count($trackingToCheck) . "</strong><br>";
+echo "</div><br>";
+
+// Display skip reasons summary
+echo "<div style='background: #fff3cd; padding: 10px; border-left: 4px solid #ffc107;'>";
+echo "<strong>🚫 SKIPPED TRACKING (API Quota Protection)</strong><br>";
+echo "Empty/NULL tracking: <strong>{$skipReasons['empty']}</strong><br>";
+echo "Final status (Delivered/Cancelled/Refunded): <strong>{$skipReasons['final_status']}</strong><br>";
+echo "Recently checked (within 6 hours): <strong>{$skipReasons['cache']}</strong><br>";
+echo "⏰ <strong style='color: #dc3545;'>OVERDUE (>" . OVERDUE_THRESHOLD_DAYS . " days past estimate): {$skipReasons['overdue']}</strong><br>";
+echo "<small style='color: #856404;'>💡 Overdue packages are not checked to save API quota - likely lost/stuck</small><br>";
 echo "</div><br>";
 
 if (empty($trackingToCheck)) {
@@ -138,6 +188,7 @@ if (empty($trackingToCheck)) {
     echo "- Already in final status (Delivered/Cancelled/Refunded)<br>";
     echo "- Recently checked (within 6 hours)<br>";
     echo "- Empty/NULL<br>";
+    echo "- ⏰ <strong>Overdue (>" . OVERDUE_THRESHOLD_DAYS . " days past estimated delivery)</strong><br>";
     echo "</div>";
     echo "<br>Finished: " . date('Y-m-d H:i:s') . "<br>";
     $mysqli->close();
@@ -585,6 +636,11 @@ echo "Individual tracking statuses updated: <strong>{$updatedCount}</strong><br>
 echo "Main delivery statuses updated: <strong>{$mainStatusUpdated}</strong><br>";
 echo "Skipped (Unknown/Not Found): <strong>{$skippedCount}</strong><br>";
 echo "Errors: <strong>{$errorCount}</strong><br>";
+echo "<hr style='border-color: rgba(255,255,255,0.3); margin: 15px 0;'>";
+echo "<strong>🚫 API QUOTA SAVED BY SKIPPING:</strong><br>";
+echo "Final status packages: <strong>{$skipReasons['final_status']}</strong><br>";
+echo "Cached (recent checks): <strong>{$skipReasons['cache']}</strong><br>";
+echo "⏰ Overdue (>" . OVERDUE_THRESHOLD_DAYS . " days): <strong style='color: #ffc107;'>{$skipReasons['overdue']}</strong><br>";
 echo "<hr style='border-color: rgba(255,255,255,0.3); margin: 15px 0;'>";
 echo "Finished: <strong>" . date('Y-m-d H:i:s') . "</strong><br>";
 echo "</div>";
