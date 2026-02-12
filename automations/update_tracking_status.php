@@ -58,10 +58,18 @@ function detectCarrier($trackingNumber) {
         return 10002;
     }
     
-    // FedEx patterns
-    if (preg_match('/^\d{12}$/', $trackingNumber) || // FedEx 12-digit
-        preg_match('/^\d{15}$/', $trackingNumber) || // FedEx 15-digit
-        preg_match('/^\d{20}$/', $trackingNumber)) { // FedEx 20-digit
+    // FedEx patterns - MORE SPECIFIC
+    if (preg_match('/^\d{12}$/', $trackingNumber)) { // FedEx 12-digit (most common)
+        // 12-digit can also be other carriers, so let auto-detect handle it
+        return 0;
+    }
+    if (preg_match('/^\d{15}$/', $trackingNumber)) { // FedEx 15-digit
+        return 10003;
+    }
+    if (preg_match('/^\d{20}$/', $trackingNumber)) { // FedEx 20-digit
+        return 10003;
+    }
+    if (preg_match('/^96\d{20}$/', $trackingNumber)) { // FedEx SmartPost
         return 10003;
     }
     
@@ -69,6 +77,11 @@ function detectCarrier($trackingNumber) {
     if (preg_match('/^\d{10,11}$/', $trackingNumber) ||
         preg_match('/^[A-Z]{3}\d{7}$/', $trackingNumber)) {
         return 10004;
+    }
+    
+    // If 9 digits, likely not FedEx - let API auto-detect
+    if (preg_match('/^\d{9}$/', $trackingNumber)) {
+        return 0;
     }
     
     // Auto-detect (carrier code 0)
@@ -272,6 +285,7 @@ foreach ($batches as $batchIdx => $batch) {
     
     // Build tracking request with carrier detection
     $trackingData = [];
+    echo "<strong>Building request:</strong><br>";
     foreach ($batch as $tn) {
         $carrierInfo = $trackingToCheck[$tn];
         $carrierName = $carrierInfo['carrier'];
@@ -284,19 +298,29 @@ foreach ($batches as $batchIdx => $batch) {
             $carrierCode = detectCarrier($tn);
         }
         
-        $trackingData[] = [
-            'number' => $tn,
-            'carrier' => $carrierCode
-        ];
+        $trackItem = ['number' => $tn];
         
-        echo "→ {$tn} (carrier: " . ($carrierCode == 0 ? 'auto-detect' : $carrierCode) . ")<br>";
+        // Only add carrier if we detected one (not auto-detect)
+        if ($carrierCode > 0) {
+            $trackItem['carrier'] = $carrierCode;
+        }
+        
+        $trackingData[] = $trackItem;
+        
+        $carrierDisplay = $carrierCode == 0 ? 'auto-detect' : $carrierCode;
+        echo "→ {$tn} (length: " . strlen($tn) . ", carrier: {$carrierDisplay})<br>";
     }
+    
+    echo "<br><details><summary>📋 Request JSON</summary><pre style='background: #f5f5f5; padding: 10px;'>";
+    echo htmlspecialchars(json_encode($trackingData, JSON_PRETTY_PRINT));
+    echo "</pre></details><br>";
     
     echo "<br>📤 Calling 17track API v4...<br>";
     
-    // API v4 uses single endpoint with auto-registration
+    // API v4: First register, then get track info (still 2-step process in v4)
+    // Step 1: Register tracking numbers
     $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, 'https://api.17track.net/track/v2/gettracklist');
+    curl_setopt($ch, CURLOPT_URL, 'https://api.17track.net/track/v2.2/register');
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($trackingData));
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
@@ -304,11 +328,35 @@ foreach ($batches as $batchIdx => $batch) {
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     
+    $registerResponse = curl_exec($ch);
+    $registerData = json_decode($registerResponse, true);
+    
+    echo "📋 Registration response:<br>";
+    if (isset($registerData['data']['accepted'])) {
+        echo "✅ Accepted: " . count($registerData['data']['accepted']) . "<br>";
+    }
+    if (isset($registerData['data']['rejected'])) {
+        echo "⚠️ Rejected: " . count($registerData['data']['rejected']) . "<br>";
+        foreach ($registerData['data']['rejected'] as $rej) {
+            $rejNum = $rej['number'] ?? 'unknown';
+            $errCode = $rej['error']['code'] ?? 'unknown';
+            $errMsg = $rej['error']['message'] ?? '';
+            echo "  → {$rejNum}: Error {$errCode} - {$errMsg}<br>";
+        }
+    }
+    
+    echo "<br>⏳ Waiting 2 seconds...<br><br>";
+    sleep(2);
+    
+    // Step 2: Get tracking info
+    curl_setopt($ch, CURLOPT_URL, 'https://api.17track.net/track/v2.2/gettrackinfo');
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($trackingData));
+    
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     
-    echo "HTTP Response: {$httpCode}<br>";
+    echo "📥 Tracking info response - HTTP: {$httpCode}<br>";
     
     if ($httpCode !== 200) {
         echo "<span style='color: red;'>❌ API Error</span><br>";
