@@ -28,7 +28,7 @@ define('OVERDUE_THRESHOLD_DAYS', 14);
 $API_KEY = '5EC4C3FCD4929687DC76822C8D154C20';
 
 // === CARRIER CODE MAPPING ===
-// Map your internal carrier names to 17track carrier codes
+// Map your internal carrier names to 17track carrier codes (as integers)
 $carrierMapping = [
     'USPS' => 10001,
     'UPS' => 10002,
@@ -301,8 +301,9 @@ foreach ($batches as $batchIdx => $batch) {
         $trackItem = ['number' => $tn];
         
         // Only add carrier if we detected one (not auto-detect)
+        // IMPORTANT: Cast to integer to prevent JSON encoding as string
         if ($carrierCode > 0) {
-            $trackItem['carrier'] = $carrierCode;
+            $trackItem['carrier'] = (int)$carrierCode;
         }
         
         $trackingData[] = $trackItem;
@@ -350,7 +351,7 @@ foreach ($batches as $batchIdx => $batch) {
     
     // Step 2: Get tracking info
     curl_setopt($ch, CURLOPT_URL, 'https://api.17track.net/track/v2.2/gettrackinfo');
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($trackingData));
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($trackingData, JSON_NUMERIC_CHECK)); // Force numeric values
     
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
