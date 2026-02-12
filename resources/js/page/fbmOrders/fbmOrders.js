@@ -11,7 +11,8 @@ import CarrierModal from "./modals/selectcarrier.vue";
 import Swal from "sweetalert2";
 import PrintDocumentsModal from "./modals/PrintCenterModal.vue";
 import ShipmentLabelHistory from "./modals/shipmentlabelhistory.vue";
-
+import ScannerComponent from "../../components/Scanner.vue";
+import { SoundService } from "../../components/Sound_service";
 
 export default {
     name: "FbmOrderModule",
@@ -24,6 +25,8 @@ export default {
         CarrierModal,
         PrintDocumentsModal,
         ShipmentLabelHistory,
+        ScannerComponent,
+        SoundService
     },
     data() {
         return {
@@ -163,6 +166,24 @@ export default {
 
             // shipmentlabelhistory modal
             showShipmentLabelHistory: false,
+
+            //list of serials and tracking to be matched
+            serialsAndTracking: [],
+
+            //match serial scanner
+            showManualInput: false,
+
+            //scanner input
+            scanInput: "",
+
+            autoVerifyTimeout: null,
+
+            // For validation
+            scanInputValid: true,
+
+            //scan serial or tracking
+            scanMode: 'serial'
+
         };
     },
     computed: {
@@ -286,13 +307,136 @@ export default {
         },
     },
     methods: {
-       getTrackingNumber(order) {
-    if (!order || !order.items || !Array.isArray(order.items)) {
-        return 'N/A';
-    }
-    const itemWithTracking = order.items.find(item => item.tracking_number);
-    return itemWithTracking ? itemWithTracking.tracking_number : 'N/A';
-},
+        handleChangeScanMode() {
+            this.scanMode = this.scanMode === 'serial' ? 'tracking' : 'serial'
+            this.$nextTick(() => {
+                    this.$refs.scanInputRef?.focus();
+                });
+        },
+        handleHardwareScan(scannedCode) {
+            this.scanInput = scannedCode;
+            this.processMatchSerialNumber();
+        },
+        openMatchSerialScannerModal(order, index) {
+             this.$refs.scanner.openScannerModal();
+
+            const productInfo = order.dispensed_products[index]
+
+            // Get serials as an array
+            this.serialsAndTracking = Object.entries(productInfo)
+                .filter(([key]) => key.startsWith('serialNumber'))
+                .map(([, value]) => ({ serial: value }))
+                .filter(item => item.serial);
+
+                if(order.tracking_number) {
+                    this.serialsAndTracking.push({tracking: order.tracking_number})
+                }
+
+            console.log( this.serialsAndTracking, "productInfo")
+            
+              this.$nextTick(() => {
+                    this.$refs.scanInputRef?.focus();
+                });
+        },
+
+        handleMatchSerialScannerOpened() {
+             console.log("Scanner openedss");
+             this.showManualInput = this.$refs.scanner.showManualInput;
+            // this.resetScannerState();
+        },
+        handleMatchSerialScannerClosed() {
+            //clear data
+            this.serialsAndTracking = []
+
+            //reset mode
+            this.scanMode = 'serial'
+        },
+        getTrackingNumber(order) {
+            if (!order || !order.items || !Array.isArray(order.items)) {
+                return 'N/A';
+            }
+            const itemWithTracking = order.items.find(item => item.tracking_number);
+            return itemWithTracking ? itemWithTracking.tracking_number : 'N/A';
+        },
+        handleSerialInput() {
+             this.validateSerialOrTracking();
+
+            // Auto verify after short delay when typing
+            if (this.scanInputValid && this.scanInput.length >= 5) {
+                if (this.autoVerifyTimeout) {
+                    clearTimeout(this.autoVerifyTimeout);
+                }
+
+                this.autoVerifyTimeout = setTimeout(() => {
+                    this.processMatchSerialNumber();
+                }, 500);
+            }
+        },
+        validateSerialOrTracking() {
+            this.scanInputValid = this.scanInput.trim() !== "";
+            if (!this.scanInputValid) {
+                SoundService.error();
+            }
+            return this.scanInput;
+        },
+        processMatchSerialNumber() {
+            this.validateSerialOrTracking();
+            if (!this.scanInputValid) {
+                this.$refs.scanner.showScanError("Please enter a valid serial number");
+                SoundService.error();
+                return;
+            }
+
+            // Mode-specific text
+            const isSerial = this.scanMode === 'serial';
+            const modeLabel = isSerial ? 'Serial' : 'Tracking';
+            const property = isSerial ? 'serial' : 'tracking';
+            
+            // Start loading animation
+            this.$refs.scanner.startLoading("Matching serial number...");
+            
+            this.$nextTick(() => {
+                    this.$refs.scanInputRef?.focus();
+            });
+            // Simulate slight delay of matching process
+            setTimeout(() => {
+                const exists = this.serialsAndTracking.some(
+                    item => item[property] === this.scanInput
+                );
+
+                if (exists) {
+                    this.$refs.scanner.showScanSuccess(`${modeLabel} number matched!`);
+                    this.$refs.scanner.addSuccessScan({
+                        Message: `${modeLabel} Number: ${this.scanInput}`,
+                        Status: `${modeLabel} Number Matched`
+                    });
+                    SoundService.Matched();
+                } else {
+                    this.$refs.scanner.showScanError(`${modeLabel} number not found in this order`);
+                    this.$refs.scanner.addErrorScan({
+                        Message: `${modeLabel}: ${this.scanInput}`,
+                        Status: `${modeLabel} Number Not Matched`
+                    });
+                    SoundService.NotMatched();
+                }
+
+                this.scanInput = ""
+                this.$refs.scanner.stopLoading();
+            }, 500);
+        },
+         handleModeChange(event) {
+            this.showManualInput = event.manual;
+
+            this.$nextTick(() => {
+                this.$refs.scanInputRef?.focus();
+            });
+        },
+
+        handleScannerReset() {
+            setTimeout(() => {
+                this.$refs.scanInputRef?.focus();
+            }, 500)
+        },
 
         /**
          * Get tracking status from order items
