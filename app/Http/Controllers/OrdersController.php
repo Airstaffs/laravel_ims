@@ -208,6 +208,71 @@ class OrdersController extends BasetablesController
     }
 
 
+    
+/**
+ * Update material type for a product
+ */
+public function updateMaterialType(Request $request, $id)
+{
+    try {
+        $validated = $request->validate([
+            'materialtype' => 'required|string|max:255'
+        ]);
+
+        $product = tblproduct::findOrFail($id);
+        $oldMaterialType = $product->materialtype ?? '';
+        $newMaterialType = $validated['materialtype'];
+
+        // Only update if material type changed
+        if ($oldMaterialType != $newMaterialType) {
+            $product->materialtype = $newMaterialType;
+            $product->save();
+
+            // Track material type change
+            $employeeName = auth()->user()->username ?? 'System';
+            $identifier = "RT#{$product->ProductID}";
+            if (!empty($product->ProductTitle)) {
+                $identifier .= " - {$product->ProductTitle}";
+            }
+
+            $this->trackUpdate(
+                'Orders',
+                $identifier,
+                "Material Type: " . ($oldMaterialType ?: '(empty)'),
+                "Material Type: {$newMaterialType}",
+                $employeeName
+            );
+
+            Log::info("Material type updated for ProductID: {$product->ProductID}", [
+                'old' => $oldMaterialType,
+                'new' => $newMaterialType
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Material type updated successfully',
+                'product' => $product
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'No changes made to material type',
+            'product' => $product
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Error updating material type: ' . $e->getMessage());
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'An error occurred while updating material type',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
 public function getAsinList(Request $request)
     {
         try {

@@ -692,6 +692,92 @@ export default {
             }
         },
 
+
+         startMaterialTypeEdit(item) {
+            this.editingMaterialType = item.ProductID;
+            this.tempMaterialType = item.materialtype || '';
+
+            // Focus the dropdown after Vue updates the DOM
+            this.$nextTick(() => {
+                const refName = `materialTypeSelect-${item.ProductID}`;
+                const select = this.$refs[refName];
+
+                if (select) {
+                    const selectElement = Array.isArray(select) ? select[0] : select;
+                    
+                    // For PrimeVue Select component, focus the input
+                    if (selectElement?.$el) {
+                        const input = selectElement.$el.querySelector('input') || 
+                                    selectElement.$el.querySelector('.p-select-label');
+                        if (input) {
+                            input.focus();
+                        }
+                    }
+                }
+            });
+        },
+
+        cancelMaterialTypeEdit() {
+            this.editingMaterialType = null;
+            this.tempMaterialType = null;
+        },
+
+ async saveMaterialType(item) {
+    // Don't save if nothing changed
+    if (this.tempMaterialType === item.materialtype) {
+        this.cancelMaterialTypeEdit();
+        return;
+    }
+
+    try {
+        const response = await axios.put(
+            `/api/orders/products/${item.ProductID}/materialtype`,
+            {
+                materialtype: this.tempMaterialType,
+                _token: document
+                    .querySelector('meta[name="csrf-token"]')
+                    .getAttribute("content"),
+            },
+        );
+
+        if (response.data.success) {
+            // ✅ UPDATE: Refresh the entire inventory from server
+            await this.fetchInventory(); // This will get fresh data including the updated materialtype
+            
+            // Show success message (compact toast)
+            const Toast = Swal.mixin({
+                toast: true,
+                position: "top-end",
+                showConfirmButton: false,
+                timer: 1500,
+                timerProgressBar: true,
+                width: "300px",
+                padding: "0.75rem",
+                customClass: {
+                    popup: "compact-toast",
+                },
+            });
+
+            Toast.fire({
+                icon: "success",
+                title: "Material type updated",
+                text: "",
+            });
+        }
+    } catch (error) {
+        console.error("Error updating material type:", error);
+        Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: "Failed to update material type. Please try again.",
+            confirmButtonText: "OK",
+        });
+    } finally {
+        this.cancelMaterialTypeEdit();
+    }
+},
+  
+
         handleImageError(event) {
             // If image fails to load, use an inline SVG placeholder
             event.target.src = this.defaultImage;

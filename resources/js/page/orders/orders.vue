@@ -229,6 +229,43 @@
                     </div>
                 </template>
 
+
+                    <!-- Material Type Column with Inline Editing -->
+                    <template #materialtype="{ data }">
+                    <div class="materialtype-cell">
+                        <div
+                            v-if="editingMaterialType === data.ProductID"
+                            class="materialtype-edit"
+                        >
+                            <Select
+                                v-model="tempMaterialType"
+                                :options="materialOptions"
+                                optionLabel="label"
+                                optionValue="value"
+                                placeholder="Select Material"
+                                size="small"
+                                style="min-width: 140px"
+                                @change="saveMaterialType(data)"
+                                @blur="cancelMaterialTypeEdit"
+                                :ref="`materialTypeSelect-${data.ProductID}`"
+                            />
+                        </div>
+                        <div
+                            v-else
+                            class="materialtype-display"
+                            @click="startMaterialTypeEdit(data)"
+                        >
+                            <span class="materialtype-value">{{
+                                data.materialtype || 'Not Set'
+                            }}</span>
+                            <i
+                                class="pi pi-pencil text-muted ms-1"
+                                style="font-size: 0.7rem"
+                            ></i>
+                        </div>
+                    </div>
+                </template>
+
                 <!-- Quantity Column with Inline Editing -->
                 <template #quantity="{ data }">
                     <div class="quantity-cell">
@@ -1283,6 +1320,16 @@ const TABLE_COLUMNS = [
         headerStyle: "font-size: 16px;",
         style: { textAlign: "center" },
     },
+   
+    {
+    field: "materialtype",
+    header: "Material Type",
+    sortable: true,
+    headerStyle: "font-size: 16px;",
+    slot: "materialtype",
+    style: { fontSize: "14px", minWidth: "150px", textAlign: "center" },
+    },
+
     {
         field: "quantity",
         header: "Qty",
@@ -1365,8 +1412,8 @@ export default {
                 { label: "Check", value: "Check" },
             ],
 
-
-
+            editingMaterialType: null,
+            tempMaterialType: null,
             rowsPerPageOptions: ROWS_PER_PAGE,
 
             currentTimezone: "UTC",

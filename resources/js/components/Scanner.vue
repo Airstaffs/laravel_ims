@@ -46,7 +46,7 @@
             </div>
               <!---Hide Camera Screen Button---->
               <div v-if="enableCamera" class="header-actions">
-                <button class="camera-toggle-btn" @click="isCameraVisible = !isCameraVisible">
+                <button class="camera-toggle-btn" @click="toggleVisibleCamera">
                   <i :class="isCameraVisible ? 'fa-solid fa-expand' : 'fa-solid fa-compress'"></i>
                 </button>
               </div>
@@ -453,6 +453,15 @@ export default {
 
     stopLoading() {
       this.hideLoadingState();
+    },
+
+    toggleVisibleCamera() {
+      this.isCameraVisible = !this.isCameraVisible
+
+      //restart camera after hiding
+      if(this.isCameraVisible ) {
+          this.restartCamera()
+      }
     },
 
     deleteCurrentImage() {
