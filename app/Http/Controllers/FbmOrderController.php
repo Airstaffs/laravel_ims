@@ -339,6 +339,16 @@ public function index(Request $request)
                                 ->where('oi.order_status', 'Pending');
                     });
                     break;
+
+                  case 'Delivered':
+                    // Orders with at least one delivered item
+                    $query->whereExists(function($subQuery) {
+                        $subQuery->select(DB::raw(1))
+                                ->from('tbloutboundordersitem as oi')
+                                ->whereRaw('oi.platform_order_id = tbloutboundorders.platform_order_id')
+                                ->where('oi.order_status', 'Delivered');
+                    });
+                    break;    
                     
                 case 'Unshipped':
                 // ✅ FIXED: Orders where ALL items have status "Unshipped"
