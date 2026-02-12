@@ -919,6 +919,9 @@ Route::get('/joined-fnsku-data', [LabelingController::class, 'getFnskuData']);
 // HR Controller
 Route::prefix('hr')->group(function () {
     Route::get('/employees', [HrController::class, 'getEmployees']);
+
+    Route::post('/employees', [HrController::class, 'addEmployee']);
+
     Route::get('/employee-rate-history', [HrController::class, 'getEmployeeRateHistory']);
     Route::get('/employees/{employee}/rates', [HrController::class, 'indexRate']);
     Route::get('/employees/{employee}/rates/current', [HrController::class, 'currentRate']);

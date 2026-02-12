@@ -26,7 +26,7 @@ class HrController extends Controller
                 \DB::raw('u.username as name'),
                 \DB::raw('u.office_role as position'),
                 'u.accounttype',
-                'u.active',  // ✅ Add this line
+                'u.active',
                 \DB::raw("(SELECT er.monthly_rate
                    FROM tblemployeerate er
                    WHERE er.employee_id = u.id
@@ -53,6 +53,72 @@ class HrController extends Controller
             ->get();
 
         return response()->json($employees);
+    }
+
+    public function addEmployee(Request $request)
+    {
+        try {
+            // Validate the request
+            $validated = $request->validate([
+                'username' => 'required|string|max:255',
+                'office_role' => 'required|string|max:255',
+                'accounttype' => 'required|in:PH,US',
+            ]);
+
+            // Insert the employee
+            $employeeId = \DB::table('tbluser')->insertGetId([
+                'username' => $validated['username'],
+                'office_role' => $validated['office_role'],
+                'accounttype' => $validated['accounttype'],
+                'password' => bcrypt('password123'),
+                'active' => 1, // Set as active by default
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // Get the newly created employee with the same structure as getEmployees
+            $today = date('Y-m-d');
+
+            $newEmployee = \DB::table('tbluser as u')
+                ->select(
+                    'u.id',
+                    'u.username',
+                    \DB::raw('u.username as name'),
+                    \DB::raw('u.office_role as position'),
+                    'u.accounttype',
+                    'u.active',
+                    \DB::raw("(SELECT er.monthly_rate
+                   FROM tblemployeerate er
+                   WHERE er.employee_id = u.id
+                     AND er.effective_start <= '{$today}'
+                     AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
+                   ORDER BY er.effective_start DESC
+                   LIMIT 1) as current_monthly_rate"),
+                    \DB::raw("(SELECT er.hourly_rate
+                   FROM tblemployeerate er
+                   WHERE er.employee_id = u.id
+                     AND er.effective_start <= '{$today}'
+                     AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
+                   ORDER BY er.effective_start DESC
+                   LIMIT 1) as current_hourly_rate"),
+                    \DB::raw("(SELECT er.currency
+                   FROM tblemployeerate er
+                   WHERE er.employee_id = u.id
+                     AND er.effective_start <= '{$today}'
+                     AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
+                   ORDER BY er.effective_start DESC
+                   LIMIT 1) as current_currency")
+                )
+                ->where('u.id', $employeeId)
+                ->first();
+
+            return response()->json($newEmployee, 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to add employee',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function showemployeedetails($userId)
