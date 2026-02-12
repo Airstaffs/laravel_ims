@@ -314,11 +314,20 @@ foreach ($batches as $batchIdx => $batch) {
     }
     echo "</table><br>";
     
-    // Encode JSON once
-    $requestPayload = json_encode($trackingData);
+    // Manual JSON construction to avoid ANY PHP formatting issues
+    $jsonItems = [];
+    foreach ($trackingData as $item) {
+        if (isset($item['carrier'])) {
+            // Manually construct JSON to guarantee integer format
+            $jsonItems[] = '{"number":"' . $item['number'] . '","carrier":' . intval($item['carrier']) . '}';
+        } else {
+            $jsonItems[] = '{"number":"' . $item['number'] . '"}';
+        }
+    }
+    $requestPayload = '[' . implode(',', $jsonItems) . ']';
     
-    echo "<br><details><summary>📋 Request JSON</summary><pre style='background: #f5f5f5; padding: 10px;'>";
-    echo htmlspecialchars(json_encode($trackingData, JSON_PRETTY_PRINT));
+    echo "<details><summary>📋 Request JSON (manual build)</summary><pre style='background: #f5f5f5; padding: 10px;'>";
+    echo htmlspecialchars($requestPayload);
     echo "</pre></details><br>";
     
     echo "📤 Step 1: Register with 17track...<br>";
