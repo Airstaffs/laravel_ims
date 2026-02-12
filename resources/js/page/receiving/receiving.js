@@ -4,14 +4,18 @@ import { SoundService } from "../../components/Sound_service";
 import DetectSerialModal from "./modal-detect/modal-detect.vue";
 import "../../../css/modules.css";
 import { DEFAULT_IMAGE } from "../../constant";
+import reconciliationMixin from './reconciliation';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
+    mixins: [reconciliationMixin],
     name: "ReceivedModule",
     components: {
         ScannerComponent,
         DetectSerialModal,
     },
+
     data() {
         return {
             inventory: [],
@@ -37,6 +41,8 @@ export default {
             productId: "",
             rtcounter: "",
             status: "",
+
+            existingTrackingImgs: { trackingimg1: null, trackingimg2: null },
             
             // ✅ NEW: Track quantity info for splitting
             originalQuantity: 1,
@@ -46,6 +52,11 @@ export default {
             trackingNumberValid: true,
             basketNumberValid: true,
             pcnNumberValid: true,
+
+            // 🔥 NEW — rescan support
+            trackingSource: null,      // 'Received' | 'Labeling' | 'Validation' | 'Reconciliation'
+            isRescan: false,
+            requireTrackingImage: false,
 
             // For auto verification
             autoVerifyTimeout: null,
@@ -63,6 +74,8 @@ export default {
                 step3: { serials: [] },
                 step4: { serials: [] },
             },
+
+            showSecondSerialInput: false,
 
             showEditModal: false,
             item: {
@@ -239,6 +252,15 @@ export default {
                 this.defaultSerialImage
             );
         },
+        hasTrackingImages() {
+            // if user captured tracking images OR existing ones from DB
+            const capturedTracking = this.capturedImages?.some(i => i.step === 1);
+            const reused = !!(this.existingTrackingImgs.trackingimg1 || this.existingTrackingImgs.trackingimg2);
+            return capturedTracking || reused;
+        },
+        hasTrackingImage() {
+            return this.$refs.scanner?.capturedImages?.length > 0;
+        },
     },
     methods: {
 
@@ -403,6 +425,10 @@ export default {
             return this.trackingNumberValid;
         },
 
+        setExistingTrackingImages(imgs) {
+            this.existingTrackingImgs = imgs || { trackingimg1: null, trackingimg2: null };
+        },
+
         validateBasketNumber() {
             const basketRegex = /^(BKT|SI|ENV)\d+$/i;
             this.basketNumberValid = basketRegex.test(this.basketNumber.trim());
@@ -430,9 +456,7 @@ export default {
             this.validateTrackingNumber();
 
             if (!this.trackingNumberValid) {
-                this.$refs.scanner.showScanError(
-                    "Please enter a valid tracking number"
-                );
+                this.$refs.scanner.showScanError("Please enter a valid tracking number");
                 SoundService.error();
                 return;
             }
@@ -440,82 +464,220 @@ export default {
             try {
                 const response = await axios.get(
                     `${API_BASE_URL}/api/received/verify-tracking`,
-                    {
-                        params: { tracking: this.trackingNumber },
-                    }
+                    { params: { tracking: this.trackingNumber } }
                 );
 
-                if (response.data.found) {
-                    this.trackingFound = true;
-
-                    if (response.data.alreadyScanned) {
-                        SoundService.alreadyScanned();
-                        this.$refs.scanner.showScanWarning(
-                            `Item already scanned`
-                        );
-                        this.$refs.trackingInput.select();
-                        return;
-                    }
-
-                    // ✅ Store quantity info
-                    this.productId = response.data.productId;
-                    this.rtcounter = response.data.rtcounter;
-                    this.originalQuantity = response.data.quantity || 1;
-                    this.remainingQuantity = this.originalQuantity;
-
-                    this.$refs.scanner.loadProductThumbnails(
-                        response.data.productDetails
-                    );
-
-                    const basePath = "/images/thumbnails/";
-                    const thumbnails = [];
-                    const product = response.data.productDetails;
-
-                    for (let i = 1; i <= 15; i++) {
-                        const key = `img${i}`;
-                        if (
-                            product[key] &&
-                            product[key] !== "NULL" &&
-                            product[key].trim() !== ""
-                        ) {
-                            thumbnails.push({
-                                src: basePath + product[key],
-                                label: `Image ${i}`,
-                            });
-                        }
-                    }
-
-                    this.productImages = thumbnails;
-
-                    // ✅ Show quantity info
-                    if (this.originalQuantity > 1) {
-                        this.$refs.scanner.showScanSuccess(
-                            `Tracking found! Quantity: ${this.originalQuantity} (will process 1 by 1)`
-                        );
-                    } else {
-                        this.$refs.scanner.showScanSuccess(
-                            `Tracking found! Quantity: 1`
-                        );
-                    }
-
-                    this.currentStep = 2;
-                    SoundService.success();
-                } else {
-                    this.$refs.scanner.showScanError(
-                        "Tracking number not found"
-                    );
+                if (!response.data.found) {
+                    this.$refs.scanner.showScanError("Tracking number not found");
                     this.trackingFound = false;
                     SoundService.notFound();
                     this.$refs.trackingInput.select();
+                    return;
                 }
+
+                // 🚫 BLOCK if already processed in another module
+                if (response.data.alreadyScanned) {
+                    this.$refs.scanner.showScanWarning(
+                        "⚠️ Tracking already processed in another module."
+                    );
+
+                    SoundService.successScan(true);
+
+                    // 🔥 Reset critical states
+                    this.trackingFound = false;
+                    this.productId = null;
+                    this.rtcounter = null;
+                    this.currentStep = 1;
+
+                    // optional: re-focus input
+                    this.$nextTick(() => {
+                        this.$refs.trackingInput?.select();
+                    });
+
+                    return; // 🛑 HARD STOP
+                }
+
+
+                // ✅ always set critical state FIRST
+                this.trackingFound = true;
+                this.productId = response.data.productId;
+                this.rtcounter = response.data.rtcounter;
+                this.originalQuantity = response.data.quantity || 1;
+                this.remainingQuantity = this.originalQuantity;
+
+                this.applyTrackingResponse(response.data, response.data.moduleLocation);
+
+                // 🔴 MUST CAPTURE TRACKING IMAGE FIRST
+                if (response.data.requireTrackingImage) {
+                    this.$refs.scanner.showScanSuccess(
+                        "Please capture tracking number image to continue."
+                    );
+                    this.currentStep = 1;
+                    SoundService.success();
+                    return;
+                }
+
+                // 🔴 FULLY processed → try rescan flow
+                // if (response.data.alreadyScanned) {
+                //     await this.verifyTrackingRescan();
+                //     return;
+                // }
+
+
+                // 🟢 Normal / partial flow
+                // this.applyTrackingResponse(response.data, response.data.moduleLocation);
+
+
+                // 🟢 NORMAL Received flow
+                this.originalQuantity = response.data.quantity || 1;
+                this.remainingQuantity = this.originalQuantity;
+
+                this.$refs.scanner.loadProductThumbnails(response.data.productDetails);
+
+                const basePath = "/images/thumbnails/";
+                this.productImages = [];
+
+                const product = response.data.productDetails || {};
+                for (let i = 1; i <= 15; i++) {
+                    const key = `img${i}`;
+                    if (product[key] && product[key] !== "NULL") {
+                        this.productImages.push({
+                            src: basePath + product[key],
+                            label: `Image ${i}`,
+                        });
+                    }
+                }
+
+                this.$refs.scanner.showScanSuccess(
+                    this.originalQuantity > 1
+                        ? `Tracking found! Quantity: ${this.originalQuantity} (will process 1 by 1)`
+                        : "Tracking found! Quantity: 1"
+                );
+
+                // ✅ REQUIRED
+                this.currentStep = 2;
+                SoundService.success();
+
             } catch (error) {
                 console.error("Error verifying tracking:", error);
-                this.$refs.scanner.showScanError(
-                    "Error checking tracking number"
-                );
+                this.$refs.scanner.showScanError("Error checking tracking number");
                 SoundService.error();
                 this.$refs.trackingInput.select();
             }
+        },
+
+        // async verifyTrackingRescan() {
+        //     try {
+        //         const response = await axios.get(
+        //             `${API_BASE_URL}/api/received/verify-tracking-rescan`,
+        //             { params: { tracking: this.trackingNumber } }
+        //         );
+
+        //         if (!response.data.found) {
+        //             this.$refs.scanner.showScanError("Tracking number not found");
+        //             SoundService.notFound();
+        //             return;
+        //         }
+
+        //         // 🔥 Apply shared handler
+        //         this.applyTrackingResponse(response.data, response.data.source);
+
+        //         this.trackingSource = response.data.source;
+        //         this.isRescan = true;
+
+        //     } catch (error) {
+        //         console.error(error);
+        //         this.$refs.scanner.showScanError("Rescan verification failed");
+        //         SoundService.error();
+        //     }
+        // },
+
+        applyTrackingResponse(data, source) {
+            this.trackingSource = source;
+
+            if (source === 'Reconciliation') {
+                this.isRescan = true;
+            }
+
+            this.productId = data.productId || null;
+            this.rtcounter = data.rtcounter || null;
+            this.originalQuantity = data.quantity || 1;
+            this.remainingQuantity = this.originalQuantity;
+
+            // 🔥 Tracking image handling
+            if (data.reuseTrackingImages && data.trackingImages) {
+
+                const basePath = "/images/thumbnails/";
+                const images = [];
+
+                if (data.trackingImages.trackingimg1) {
+                    images.push({
+                        src: basePath + data.trackingImages.trackingimg1,
+                        reused: true,
+                        step: 1
+                    });
+                }
+
+                if (data.trackingImages.trackingimg2) {
+                    images.push({
+                        src: basePath + data.trackingImages.trackingimg2,
+                        reused: true,
+                        step: 1
+                    });
+                }
+
+                if (images.length > 0) {
+                    this.$refs.scanner.setExistingTrackingImages(images);
+                }
+            }
+
+            // if (data.reuseTrackingImages && data.trackingImages) {
+            //     const basePath = "/images/thumbnails/";
+            //     const images = [];
+
+            //     if (data.trackingImages.trackingimg1) {
+            //         images.push({ src: basePath + data.trackingImages.trackingimg1 });
+            //     }
+            //     if (data.trackingImages.trackingimg2) {
+            //         images.push({ src: basePath + data.trackingImages.trackingimg2 });
+            //     }
+
+            //     if (images.length > 0) {
+            //         this.$refs.scanner.loadTrackingImages(images);
+            //     }
+            // }
+
+            // 🔴 Require capture if missing
+            this.requireTrackingImage = !!data.requireTrackingImage;
+            this.hasTrackingImage = !!data.hasTrackingImage;
+
+            // 🚫 HARD BLOCK — no product images until tracking image exists
+            if (this.requireTrackingImage) {
+                this.$refs.scanner.showScanWarning(
+                    "📸 Please capture tracking image to continue"
+                );
+            }
+
+            // ✅ Move to Step 2 (Product Images)
+            if (this.requireTrackingImage && !this.hasTrackingImage) {
+                this.currentStep = 1; // stay on tracking step
+                return;
+            }
+
+            this.currentStep = 2;
+
+            SoundService.success();
+        },
+
+        proceedToPassFail() {
+            if (!this.hasTrackingImages) {
+            this.$refs.scanner?.showScanWarning(
+                'Please capture at least one tracking image.'
+            );
+            return;
+            }
+
+            this.currentStep = 2;
         },
 
         passItem() {
@@ -593,6 +755,7 @@ export default {
 
             SoundService.success();
 
+            this.showSecondSerialInput = false;
             this.currentStep = 4;
 
             this.$nextTick(() => {
@@ -649,6 +812,11 @@ export default {
                     this.$refs.pcnInput.focus();
                 }
             });
+        },
+
+        goBackToSecondSerialChoice() {
+            this.secondSerialNumber = '';
+            this.showSecondSerialInput = false;
         },
 
         handlePcnInput() {
@@ -876,6 +1044,10 @@ export default {
                     basketNumber: this.basketNumber,
                     productId: this.productId,
                     rtcounter: this.rtcounter,
+
+                    // 🔥 NEW
+                    isRescan: this.isRescan,
+                    trackingSource: this.trackingSource,
                 };
 
                 console.log("Submitting scan data (without images):", scanData);
@@ -894,11 +1066,15 @@ export default {
                 );
 
                 if (response.data.success) {
+                    if (response.data.newProductId) {
+                        this.productId = response.data.newProductId; // 🔥 CRITICAL FIX
+                    }
                     // ✅ Handle split response
                     const wasSplit = response.data.wasSplit || false;
                     const remainingQty = response.data.remainingQuantity || 0;
                     // ✅ IMPORTANT: For split items, ALWAYS use newProductId. For non-split, use original
-                    const targetProductId = wasSplit ? response.data.newProductId : this.productId;
+                    // const targetProductId = wasSplit ? response.data.newProductId : this.productId;
+                    const targetProductId = response.data.newProductId || this.productId;
                     
                     console.log('🎯 Target Product ID for images:', {
                         wasSplit,
@@ -917,69 +1093,78 @@ export default {
                     });
 
                     // Upload images to the new/split product
-                    const images = this.$refs.scanner.capturedImages.map(
-                        (img) => img.data
-                    );
-                    
-                    console.log(`📸 Found ${images.length} captured images to upload`);
-                    
-                    if (images.length > 0) {
-                        for (let i = 0; i < images.length; i++) {
+                    // const capturedImages = this.$refs.scanner.capturedImages;
+                    const capturedImages = this.getUploadableImages();
+
+                    // ✅ Per-step counters
+                    const stepCounters = {
+                    1: 0, // tracking
+                    2: 0, // product
+                    3: 0, // serial 1
+                    4: 0, // serial 2
+                    };
+
+                    if (capturedImages.length > 0) {
+                        for (let i = 0; i < capturedImages.length; i++) {
                             try {
-                                const imgStep =
-                                    this.$refs.scanner.capturedImages[i]
-                                        ?.step || 0;
+                            const img = capturedImages[i];
+                            const imgStep = img.step;
 
-                                let isSerial = false;
-                                let serialIndex = 0;
+                            // ✅ step-based index
+                            const stepIndex = stepCounters[imgStep] ?? 0;
+                            stepCounters[imgStep] = stepIndex + 1;
 
-                                if (imgStep === 3) {
-                                    isSerial = true;
-                                    serialIndex = 1;
-                                } else if (imgStep === 4) {
-                                    isSerial = true;
-                                    serialIndex = 2;
+                            let isSerial = false;
+                            let serialIndex = 0;
+
+                            if (imgStep === 3) {
+                                isSerial = true;
+                                serialIndex = 1;
+                            } else if (imgStep === 4) {
+                                isSerial = true;
+                                serialIndex = 2;
+                            }
+
+                            console.log('📤 Uploading image', {
+                                productId: targetProductId,
+                                step: imgStep,
+                                stepIndex,
+                            });
+
+                            const imageResponse = await axios.post(
+                                `${API_BASE_URL}/api/images/upload`,
+                                {
+                                _token: csrfToken,
+                                productId: targetProductId,
+                                imageIndex: stepIndex,   // ✅ FIX
+                                imageData: img.data,
+                                step: imgStep,
+                                isSerial,
+                                serialIndex,
+                                },
+                                {
+                                withCredentials: true,
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    Accept: "application/json",
+                                    "X-CSRF-TOKEN": csrfToken,
+                                },
                                 }
+                            );
 
-                                console.log(`📤 Uploading image ${i} to ProductID ${targetProductId}:`, {
-                                    productId: targetProductId,
-                                    isSerial,
-                                    serialIndex,
-                                    step: imgStep
-                                });
-
-                                const imageResponse = await axios.post(
-                                    `${API_BASE_URL}/api/images/upload`,
-                                    {
-                                        _token: csrfToken,
-                                        productId: targetProductId, // ✅ Use target product ID
-                                        imageIndex: i,
-                                        imageData: images[i],
-                                        isSerial: isSerial,
-                                        serialIndex: serialIndex,
-                                    },
-                                    {
-                                        withCredentials: true,
-                                        headers: {
-                                            "Content-Type": "application/json",
-                                            Accept: "application/json",
-                                            "X-CSRF-TOKEN": csrfToken,
-                                        },
-                                    }
-                                );
-
-                                console.log(
-                                    `✅ Image ${i} uploaded successfully to ProductID ${targetProductId}:`,
-                                    imageResponse.data
-                                );
+                            console.log(
+                                `✅ Image uploaded (step ${imgStep}, index ${stepIndex})`,
+                                imageResponse.data
+                            );
                             } catch (imageError) {
-                                console.error(
-                                    `❌ Error uploading image ${i}:`,
-                                    imageError.response?.data || imageError.message
-                                );
+                            console.error(
+                                `❌ Error uploading image`,
+                                imageError.response?.data || imageError.message
+                            );
                             }
                         }
-                    } else {
+                    }
+                    else {
                         console.log('⚠️ No images captured to upload');
                     }
 
@@ -1066,6 +1251,24 @@ export default {
             }
         },
 
+        getUploadableImages() {
+            if (!this.$refs.scanner?.capturedImages) {
+                return [];
+            }
+
+            return this.$refs.scanner.capturedImages.filter(img => {
+                // ❌ skip reused images
+                if (img.reused) return false;
+
+                // ❌ skip non-base64 images
+                if (typeof img.data !== 'string') return false;
+                if (!img.data.startsWith('data:image')) return false;
+
+                // ✅ safe to upload
+                return true;
+            });
+        },
+
         resetScannerState() {
             this.currentStep = 1;
             this.trackingNumber = "";
@@ -1078,10 +1281,15 @@ export default {
             this.productId = "";
             this.rtcounter = "";
             this.status = "";
+            this.showSecondSerialInput = false;
             
             // ✅ Reset quantity tracking
             this.originalQuantity = 1;
             this.remainingQuantity = 1;
+
+            this.trackingSource = null;
+            this.isRescan = false;
+            this.requireTrackingImage = false;
 
             this.resetUploader();
 
@@ -1435,6 +1643,13 @@ export default {
         searchQuery() {
             this.currentPage = 1;
             this.fetchInventory();
+        },
+        showSecondSerialInput(val) {
+            if (val) {
+            this.$nextTick(() => {
+                this.$refs.secondSerialInput?.focus();
+            });
+            }
         },
     },
     mounted() {

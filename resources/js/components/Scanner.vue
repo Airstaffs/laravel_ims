@@ -61,13 +61,18 @@
           <!-- Captured Images Preview - only if camera is enabled -->
           <div v-if="enableCamera && capturedImages.length > 0" class="captured-images-container">
             <div class="images-header" @click="toggleImagePreview">
-              <h3>Images ({{ capturedImages.length }}/{{ maxImages }})</h3>
+              <!-- <h3>Images ({{ capturedImages.length }}/{{ maxImages }})</h3> -->
+              <h3>
+                Images ({{ imagesForCurrentStep.length }}/{{ maxImagesForCurrentStep }})
+              </h3>
               <span class="toggle-preview">{{ previewImages ? 'Hide' : 'Show' }}</span>
             </div>
             <div v-if="previewImages" class="image-thumbnails">
-              <div v-for="(image, index) in capturedImages" :key="index" class="image-thumbnail">
+              <!-- <div v-for="(image, index) in capturedImages" :key="index" class="image-thumbnail"> -->
+              <div v-for="(image, index) in imagesForCurrentStep" :key="index" class="image-thumbnail">
                 <img :src="image.data" alt="Captured image" @click="openImagePreview(index)" />
-                <button @click="deleteImage(index)" class="delete-image-btn">
+                <!-- <button @click="deleteImage(index)" class="delete-image-btn"> -->
+                  <button @click="deleteImageByRef(image)" class="delete-image-btn">
                   <i class="fas fa-trash"></i>
                 </button>
                 <span class="image-timestamp">{{ image.timestamp }}</span>
@@ -81,7 +86,7 @@
 
             <!-- When camera is disabled -->
             <div v-if="currentStep" class="scanner-disabled-overlay">
-              <p>Camera disabled until serial number tracking step</p>
+              <!-- <p>Camera disabled until serial number tracking step</p> -->
             </div>
 
             <!-- Product Thumbnails Panel -->
@@ -396,6 +401,26 @@ export default {
 
     hasCapturedImage() {
       return this.capturedImages && this.capturedImages.length > 0
+    },
+    currentStep() {
+      return this.$parent?.currentStep ?? 0;
+    },
+
+    imagesForCurrentStep() {
+      return this.capturedImages.filter(
+        img => img.step === this.currentStep
+      );
+    },
+
+    maxImagesForCurrentStep() {
+      // Step 1: Tracking images
+      if (this.currentStep === 1) return 2;
+
+      // Step 2: Product images
+      if (this.currentStep === 2) return this.maxImages;
+
+      // Default (serials etc.)
+      return 1;
     }
     
   },
@@ -455,6 +480,17 @@ export default {
           this.closeImagePreview();
         }
       }
+    },
+
+    setExistingTrackingImages(images = []) {
+        images.forEach(img => {
+            this.capturedImages.push({
+                data: img.src,
+                step: 1,
+                reused: true,
+                timestamp: "reused"
+            });
+        });
     },
 
     // =========================
@@ -563,7 +599,7 @@ export default {
 
       if (this.module === 'returnscanner') {
          return this.captureReturnScanner();
-  }
+    }
       return this.captureFree();
     },
 
@@ -637,16 +673,51 @@ export default {
 
       const currentStep = this.$parent?.currentStep ?? 0;
 
-      // 🚫 Step 1: Not allowed
-      if (currentStep < 2) {
-        this.showScanWarning('Capture is only allowed from the product review step onward.');
-        return;
-      }
-
       // 🚫 Step 5+: Not allowed anymore
       if (currentStep >= 5) {
         this.showScanWarning('Capture is not allowed beyond Serial number detection.');
         return;
+      }
+
+      // 🚫 Step 1: Not allowed
+      // 🚫 Step 0 or invalid
+      // if (currentStep < 1) {
+      //   this.showScanWarning('Please start with tracking verification.');
+      //   return;
+      // }
+      // 🚫 Standard capture permission gate
+      // if (!this.canCaptureImage()) {
+      //   this.showScanWarning(
+      //     'Please verify tracking and follow the capture limits.'
+      //   );
+      //   return;
+      // }
+
+      // 🚫 STEP 1 — Tracking capture rules
+      if (currentStep === 1) {
+
+        // Must verify tracking first
+        if (!this.$parent?.trackingFound) {
+          this.showScanWarning('Please verify tracking number first.');
+          return;
+        }
+
+        // If tracking image already exists (reused from DB)
+        const hasReusedTracking = this.capturedImages.some(
+          img => img.step === 1 && img.reused === true
+        );
+
+        if (hasReusedTracking) {
+          this.showScanWarning('Tracking image already exists. Reuse is enabled.');
+          return;
+        }
+
+        // Allow only ONE tracking image
+        const trackingImages = this.capturedImages.filter(img => img.step === 1);
+        if (trackingImages.length >= 2) {
+          this.showScanWarning('Only one tracking image is allowed.');
+          return;
+        }
       }
 
       // ✅ Step 2 limit
@@ -690,9 +761,56 @@ export default {
         this.showSuccessNotification = false;
       }, 2000);
     },
+
+    deleteImageByRef(image) {
+      const index = this.capturedImages.indexOf(image);
+      if (index !== -1) {
+        this.capturedImages.splice(index, 1);
+      }
+    },
+
+    canCaptureImage() {
+      const parent = this.$parent;
+      if (!parent) return false;
+
+      const currentStep = parent.currentStep;
+      const trackingFound = parent.trackingFound === true;
+
+      // 🚫 Must have verified tracking
+      if (!trackingFound) {
+        return false;
+      }
+
+      // 🚫 Do not allow capture beyond serial steps
+      if (currentStep >= 5) {
+        return false;
+      }
+
+      // ✅ Step 1: Tracking images (max 2)
+      // if (currentStep === 1) {
+      //   const trackingImages = this.capturedImages.filter(
+      //     img => img.step === 1
+      //   );
+      //   return trackingImages.length < 2;
+      // }
+
+      // Step 1 handled directly in captureReceived()
+      if (currentStep === 1) {
+        return true;
+      }
+
+
+      // ✅ Step 2: Product images (respect maxImages)
+      if (currentStep === 2) {
+        return this.capturedImages.length < this.maxImages;
+      }
+
+      // ✅ Step 3 & 4 handled elsewhere (serial rules)
+      return true;
+    },
     
    //return scanner condition 
-async captureReturnScanner() {
+  async captureReturnScanner() {
     const video = document.getElementById('scanner-camera-preview');
     if (!video || !this.scannerCameraActive) return;
 

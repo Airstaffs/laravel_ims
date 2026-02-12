@@ -27,7 +27,7 @@ class ReceivedController extends BasetablesController
                         ->orWhere('rtid', 'like', "%{$search}%")
                         ->orWhere('itemnumber', 'like', "%{$search}%")
                         ->orWhere('rtcounter', 'like', "%{$search}%")
-                        // ✅ FIXED: Search tracking by last 12 digits
+                        // âœ… FIXED: Search tracking by last 12 digits
                         ->orWhere('trackingnumber', 'like', '%'.substr($search, -12).'%');
                 });
             })
@@ -39,35 +39,135 @@ class ReceivedController extends BasetablesController
     public function verifyTracking(Request $request)
     {
         $tracking = $request->input('tracking');
-
-        // Extract the last 12 digits
         $last12Digits = substr($tracking, -12);
 
-        // ✅ FIRST: Check if it exists in Received (valid for processing)
+        // -------------------------------------------------
+        // 1️⃣ Check tblreconciliation (ALWAYS ALLOW)
+        // -------------------------------------------------
+        $recon = DB::table('tblreconciliation')
+            ->where('trackingnumber', 'like', "%{$last12Digits}%")
+            ->orderBy('lastDateUpdate')
+            ->first();
+
+        if ($recon) {
+            $trackingImageData = $this->getTrackingImagesByTrackingNumber(
+                $recon->trackingnumber
+            );
+
+            // 🔥 Build productDetails same as Received
+            $imageFields = [
+                'img1','img2','img3','img4','img5',
+                'img6','img7','img8','img9','img10',
+                'img11','img12','img13','img14','img15',
+            ];
+
+            $productDetails = new \stdClass;
+
+            foreach ($imageFields as $field) {
+                if (property_exists($recon, $field) && !empty($recon->$field)) {
+                    $productDetails->$field = $recon->$field;
+                }
+            }
+
+            $last12Digits = substr($recon->trackingnumber, -12);
+
+            // Count reconciliation items
+            $reconCount = DB::table('tblreconciliation')
+                ->where('trackingnumber', 'like', "%{$last12Digits}%")
+                ->count();
+
+            // Check if still exists in Received
+            $receivedQty = DB::table($this->productTable)
+                ->where('trackingnumber', 'like', "%{$last12Digits}%")
+                ->where('ProductModuleLoc', 'Received')
+                ->sum('quantity');
+
+            // 🔥 Total batch quantity
+            $totalQuantity = $reconCount + $receivedQty;
+
+
+            return response()->json([
+                'found' => true,
+                'productId' => null, // important
+                'rtcounter' => $recon->rtcounter,
+                'trackingnumber' => $recon->trackingnumber,
+                'quantity' => $totalQuantity,
+                'alreadyScanned' => false,
+                'source' => 'Reconciliation',
+                'moduleLocation' => 'Reconciliation',
+                'productDetails' => $productDetails,
+                'hasTrackingImage' => $trackingImageData['hasTrackingImage'],
+                'requireTrackingImage' => $trackingImageData['requireTrackingImage'],
+                'trackingImages' => $trackingImageData['trackingImages'],
+                'reuseTrackingImages' => $trackingImageData['hasTrackingImage'],
+            ]);
+        }
+
+        // -------------------------------------------------
+        // 2️⃣ Check Received
+        // -------------------------------------------------
         $receivedProduct = DB::table($this->productTable)
             ->where('trackingnumber', 'like', '%'.$last12Digits.'%')
             ->where('ProductModuleLoc', 'Received')
             ->first();
 
+        // 3️⃣ Check processed modules
+        $processedProduct = DB::table($this->productTable)
+            ->where('trackingnumber', 'like', '%' . $last12Digits . '%')
+            ->whereIn('ProductModuleLoc', ['Labeling', 'Validation'])
+            ->orderByDesc('lastDateUpdate')
+            ->first();
+
+        /**
+         * 🟡 CASE: Partially processed
+         */
+        if ($processedProduct && $receivedProduct) {
+            $trackingImages = $this->getTrackingImagesByTrackingNumber($processedProduct->trackingnumber);
+
+            return response()->json([
+                'found' => true,
+                'productId' => $receivedProduct->ProductID,
+                'rtcounter' => $receivedProduct->rtcounter,
+                'trackingnumber' => $receivedProduct->trackingnumber,
+                'quantity' => $receivedProduct->quantity ?? 1,
+                'reuseTrackingImages' => true,
+                'trackingImages' => $trackingImages,
+                'alreadyScanned' => false,
+                'moduleLocation' => 'Received',
+            ]);
+        }
+
+        // -------------------------------------------------
+        // 4️⃣ Normal Received Flow
+        // -------------------------------------------------
         if ($receivedProduct) {
-            // Get image fields for the product
+
+            // $hasTrackingImages = DB::table($this->capturedImagesTable)
+            //     ->where('ProductID', $receivedProduct->ProductID)
+            //     ->where(function ($q) {
+            //         $q->whereNotNull('trackingimg1')
+            //         ->orWhereNotNull('trackingimg2');
+            //     })
+            //     ->exists();
+
+            $trackingImageData = $this->getTrackingImagesByTrackingNumber(
+                $receivedProduct->trackingnumber
+            );
+
             $imageFields = [
-                'img1', 'img2', 'img3', 'img4', 'img5',
-                'img6', 'img7', 'img8', 'img9', 'img10',
-                'img11', 'img12', 'img13', 'img14', 'img15',
+                'img1','img2','img3','img4','img5',
+                'img6','img7','img8','img9','img10',
+                'img11','img12','img13','img14','img15',
             ];
 
-            // Create a productDetails object with just the necessary fields
             $productDetails = new \stdClass;
 
-            // Add image fields if they exist
             foreach ($imageFields as $field) {
-                if (property_exists($receivedProduct, $field) && ! empty($receivedProduct->$field)) {
+                if (property_exists($receivedProduct, $field) && !empty($receivedProduct->$field)) {
                     $productDetails->$field = $receivedProduct->$field;
                 }
             }
 
-            // ✅ Return with quantity info - even if some units are already in Labeling
             return response()->json([
                 'found' => true,
                 'productId' => $receivedProduct->ProductID,
@@ -75,29 +175,134 @@ class ReceivedController extends BasetablesController
                 'trackingnumber' => $receivedProduct->trackingnumber,
                 'quantity' => $receivedProduct->quantity ?? 1,
                 'productDetails' => $productDetails,
-                'alreadyScanned' => false, // Still valid to process
+
+                'hasTrackingImage' => $trackingImageData['hasTrackingImage'],
+                'requireTrackingImage' => $trackingImageData['requireTrackingImage'],
+                'trackingImages' => $trackingImageData['trackingImages'],
+                'reuseTrackingImages' => $trackingImageData['hasTrackingImage'],
+
+                'alreadyScanned' => false,
+                'moduleLocation' => 'Received',
             ]);
         }
 
-        // ✅ SECOND: Check if tracking exists in Labeling/Validation (fully processed)
-        $labelingProduct = DB::table($this->productTable)
-            ->where('trackingnumber', 'like', '%'.$last12Digits.'%')
-            ->whereIn('ProductModuleLoc', ['Labeling', 'Validation'])
-            ->first();
-
-        if ($labelingProduct) {
-            // Product exists but has been completely processed (no remaining in Received)
+        // -------------------------------------------------
+        // 5️⃣ Fully Processed → BLOCK
+        // -------------------------------------------------
+        if ($processedProduct) {
             return response()->json([
                 'found' => true,
-                'productId' => $labelingProduct->ProductID,
-                'rtcounter' => $labelingProduct->rtcounter,
-                'trackingnumber' => $labelingProduct->trackingnumber,
-                'alreadyScanned' => true, // All units processed
+                'productId' => $processedProduct->ProductID,
+                'rtcounter' => $processedProduct->rtcounter,
+                'trackingnumber' => $processedProduct->trackingnumber,
+                'alreadyScanned' => true,
+                'moduleLocation' => $processedProduct->ProductModuleLoc,
             ]);
         }
 
-        // Product not found anywhere
-        return response()->json(['found' => false]);
+        // -------------------------------------------------
+        // 6️⃣ Not Found
+        // -------------------------------------------------
+        return response()->json([
+            'found' => false
+        ]);
+    }
+
+    private function getTrackingImagesByTrackingNumber(string $trackingNumber)
+    {
+        $last12Digits = substr($trackingNumber, -12);
+
+        $record = DB::table($this->capturedImagesTable)
+            ->join(
+                $this->productTable,
+                "{$this->productTable}.ProductID",
+                '=',
+                "{$this->capturedImagesTable}.ProductID"
+            )
+            ->where("{$this->productTable}.trackingnumber", 'like', "%{$last12Digits}%")
+            ->where(function ($q) {
+                $q->whereNotNull('trackingimg1')
+                ->orWhereNotNull('trackingimg2');
+            })
+            ->orderByDesc("{$this->capturedImagesTable}.UpdatedAt")
+            ->first();
+
+        if (!$record) {
+            return [
+                'hasTrackingImage' => false,
+                'requireTrackingImage' => true,
+                'trackingImages' => []
+            ];
+        }
+
+        return [
+            'hasTrackingImage' => true,
+            'requireTrackingImage' => false,
+            'trackingImages' => [
+                'trackingimg1' => $record->trackingimg1,
+                'trackingimg2' => $record->trackingimg2,
+            ]
+        ];
+    }
+
+
+    private function copyTrackingImagesToProduct(string $trackingNumber, int $targetProductId)
+    {
+        $last12Digits = substr($trackingNumber, -12);
+
+        // 🔍 Find the most complete tracking images for this tracking number
+        $source = DB::table($this->capturedImagesTable)
+            ->join(
+                $this->productTable,
+                "{$this->productTable}.ProductID",
+                '=',
+                "{$this->capturedImagesTable}.ProductID"
+            )
+            ->where("{$this->productTable}.trackingnumber", 'like', '%' . $last12Digits . '%')
+            ->whereNotNull("{$this->capturedImagesTable}.trackingimg1")
+            ->orderByDesc("{$this->capturedImagesTable}.UpdatedAt")
+            ->first();
+
+        if (!$source) {
+            Log::warning('No tracking images found to copy', [
+                'tracking' => $trackingNumber,
+                'targetProductId' => $targetProductId
+            ]);
+            return;
+        }
+
+        // 🧠 Copy ONLY tracking images (no product images)
+        DB::table($this->capturedImagesTable)->updateOrInsert(
+            ['ProductID' => $targetProductId],
+            [
+                'trackingimg1' => $source->trackingimg1,
+                'trackingimg2' => $source->trackingimg2,
+                'UpdatedAt'    => now(),
+                'CreatedAt'    => now(),
+            ]
+        );
+
+        Log::info('Tracking images copied to new product', [
+            'targetProductId' => $targetProductId,
+            'trackingimg1' => $source->trackingimg1,
+            'trackingimg2' => $source->trackingimg2,
+        ]);
+    }
+
+    private function getTrackingImagesByProductId(int $productId)
+    {
+        $record = DB::table($this->capturedImagesTable)
+            ->where('ProductID', $productId)
+            ->first();
+
+        if (!$record) {
+            return [];
+        }
+
+        return [
+            'trackingimg1' => $record->trackingimg1 ?? null,
+            'trackingimg2' => $record->trackingimg2 ?? null,
+        ];
     }
 
     public function validatePcn(Request $request)
@@ -146,16 +351,26 @@ class ReceivedController extends BasetablesController
         Log::info('Received data:', $request->all());
 
         try {
+
+            $fullTrackingNumber = $request->trackingNumber;
+            $last12Digits = substr($request->trackingNumber, -12);
+            $isReconciliation = $request->trackingSource === 'Reconciliation';
+            $user = $this->getCurrentUserName();
+            $employeeName = auth()->user()->username ?? $user ?? 'System';
+
             if ($request->status === 'fail') {
+
                 $request->validate([
                     'trackingNumber' => 'required',
                     'status' => 'required|in:fail',
                     'basketNumber' => ['required', 'regex:/^(BKT|SI|ENV)\d+$/i'],
                     'pcnNumber' => ['required', 'regex:/^PCN\d+$/i'],
-                    'productId' => 'required',
+                    'productId' => $isReconciliation ? 'nullable' : 'required',
                     'rtcounter' => 'required',
                 ]);
+
             } else {
+
                 $request->validate([
                     'trackingNumber' => 'required',
                     'status' => 'required|in:pass',
@@ -163,21 +378,84 @@ class ReceivedController extends BasetablesController
                     'secondSerialNumber' => ['required', 'regex:/^(N\/A|[A-Z0-9]+)$/i'],
                     'pcnNumber' => ['required', 'regex:/^PCN\d+$/i'],
                     'basketNumber' => ['required', 'regex:/^(BKT|SI|ENV)\d+$/i'],
-                    'productId' => 'required',
+                    'productId' => $isReconciliation ? 'nullable' : 'required',
                     'rtcounter' => 'required',
                 ]);
             }
 
-            DB::beginTransaction();
 
-            // 🔥 ADD: Store full tracking number
+            DB::beginTransaction();
+            // -----------------------------------------------------
+            // 🔥 HANDLE RECONCILIATION DIRECT TO LABELING
+            // -----------------------------------------------------
+            if (!$request->productId) {
+
+                $reconItem = DB::table('tblreconciliation')
+                    ->where('trackingnumber', 'like', "%{$last12Digits}%")
+                    ->orderBy('lastDateUpdate')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$reconItem) {
+                    throw new \Exception('Reconciliation item not found');
+                }
+
+                $reconId = $reconItem->ProductID;
+
+                $data = (array) $reconItem;
+                unset($data['id']); // remove reconciliation PK
+                unset($data['ProductID']);   // 🔥 CRITICAL FIX
+
+                // 🔒 Generate NEW RT for this insertion
+                $maxRtResult = DB::table($this->productTable)
+                    ->lockForUpdate()
+                    ->selectRaw('MAX(CAST(rtcounter AS UNSIGNED)) as maxrt')
+                    ->first();
+
+                $newRt = (int) ($maxRtResult->maxrt ?? 0) + 1;
+
+                // Override rtcounter
+                $data['rtcounter'] = $newRt;
+
+                // Directly process into Labeling
+                $data['serialnumber']   = $request->firstSerialNumber;
+                $data['serialnumberb']  = $request->secondSerialNumber;
+                $data['PCN']            = $request->pcnNumber;
+                $data['basketnumber']   = $request->basketNumber;
+                $data['ProductModuleLoc'] = 'Labeling';
+                $data['Username']       = $user;
+                $data['lastDateUpdate'] = now();
+
+                $newProductId = DB::table($this->productTable)
+                    ->insertGetId($data);
+
+                // ✅ Copy tracking images to this new product
+                $this->copyTrackingImagesToProduct($reconItem->trackingnumber, $newProductId);
+
+                // Delete reconciliation row
+                DB::table('tblreconciliation')
+                    ->where('ProductID', $reconItem->ProductID)
+                    ->delete();
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'newProductId' => $newProductId,
+                    'wasSplit' => false,
+                    'source' => 'Reconciliation',
+                ]);
+            }
+
+
+            // ðŸ”¥ ADD: Store full tracking number
             $fullTrackingNumber = $request->trackingNumber;
             $last12Digits = substr($request->trackingNumber, -12);
 
             // Get current user ID from session
             $user = $this->getCurrentUserName();
 
-            // 🔥 ADD: Get employee name for history
+            // ðŸ”¥ ADD: Get employee name for history
             $employeeName = auth()->user()->username ?? $user ?? 'System';
 
             // Get the original product
@@ -196,7 +474,7 @@ class ReceivedController extends BasetablesController
             $currentQuantity = (int) ($originalProduct->quantity ?? 1);
             $needsSplitting = $currentQuantity > 1;
 
-            // ✅ Handle splitting logic for PASS items
+            // âœ… Handle splitting logic for PASS items
             if ($needsSplitting && $request->status === 'pass') {
                 // Calculate unit prices
                 $originalPrice = (float) ($originalProduct->price ?? 0);
@@ -209,8 +487,10 @@ class ReceivedController extends BasetablesController
 
                 // Get current max rtcounter
                 $maxRtResult = DB::table($this->productTable)
-                    ->selectRaw('MAX(rtcounter) as maxrt')
+                    ->lockForUpdate()
+                    ->selectRaw('MAX(CAST(rtcounter AS UNSIGNED)) as maxrt')
                     ->first();
+
                 $newRt = (int) ($maxRtResult->maxrt ?? 0) + 1;
 
                 // Create new item with quantity 1
@@ -255,8 +535,14 @@ class ReceivedController extends BasetablesController
                     throw new \Exception("Failed to create new item with RT: $newRt");
                 }
 
-                // ✅ Get the actual inserted ProductID
+                // âœ… Get the actual inserted ProductID
                 $newProductId = DB::getPdo()->lastInsertId();
+
+                // ✅ COPY tracking images to the new split product
+                // $this->copyTrackingImagesToProduct(
+                //     $originalProduct->trackingnumber,
+                //     $newProductId
+                // );
 
                 Log::info('Split item created', [
                     'newProductId' => $newProductId,
@@ -264,33 +550,36 @@ class ReceivedController extends BasetablesController
                     'originalProductId' => $request->productId,
                 ]);
 
-                // ✅ Update original item: decrement quantity AND update prices
+                // âœ… Update original item: decrement quantity AND update prices
                 $remainingQty = $currentQuantity - 1;
                 $newOriginalPrice = $unitPrice * $remainingQty;
                 $newOriginalPriceShipping = $unitPriceShipping * $remainingQty;
                 $newOriginalTax = $unitTax * $remainingQty;
 
-                $updateResult = DB::table($this->productTable)
-                    ->where('ProductID', $request->productId)
-                    ->update([
-                        'quantity' => $remainingQty,
-                        'price' => $newOriginalPrice,
-                        'priceshipping' => $newOriginalPriceShipping,
-                        'tax' => $newOriginalTax,
-                        'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
-                    ]);
+                // 🟢 Move remaining units to reconciliation
+                $this->moveRemainingToReconciliation(
+                    $originalProduct,
+                    $remainingQty,
+                    $unitPrice,
+                    $unitPriceShipping,
+                    $unitTax,
+                    $user,
+                    $request->rtcounter
+                );
 
-                if ($updateResult === 0) {
-                    throw new \Exception('Failed to update original product quantity');
-                }
+                DB::table($this->productTable)
+                ->where('ProductID', $request->productId)
+                ->delete();
 
-                // 🔥 UPDATED: Track history for split with full tracking and employee
+
+                // ðŸ”¥ UPDATED: Track history for split with full tracking and employee
                 $totalUnitPrice = $unitPrice + $unitPriceShipping + $unitTax;
+    
                 $this->trackHistory(
                     'Received',
-                    'Split & Process',
-                    "RT#{$request->rtcounter} | Tracking: {$fullTrackingNumber} | Qty: {$currentQuantity} | Total: $".number_format($originalPrice + $originalPriceShipping + $originalTax, 2),
-                    "Created RT#{$newRt} (Qty: 1, Price: $".number_format($totalUnitPrice, 2).") | Remaining RT#{$request->rtcounter}: {$remainingQty} @ $".number_format($newOriginalPrice + $newOriginalPriceShipping + $newOriginalTax, 2),
+                    'Split to Reconciliation',
+                    "RT#{$request->rtcounter} | Tracking: {$fullTrackingNumber} | Qty: {$currentQuantity}",
+                    "1 → Labeling (RT#{$newRt}) | {$remainingQty} → Reconciliation",
                     $employeeName
                 );
 
@@ -316,7 +605,7 @@ class ReceivedController extends BasetablesController
                 ]);
 
             } else {
-                // ✅ ORIGINAL LOGIC: Process without splitting (quantity = 1 or failed item)
+                // âœ… ORIGINAL LOGIC: Process without splitting (quantity = 1 or failed item)
                 if ($request->status === 'fail') {
                     // Prepare update data
                     $updateData = [
@@ -331,7 +620,7 @@ class ReceivedController extends BasetablesController
                         ->where('ProductID', $request->productId)
                         ->update($updateData);
 
-                    // 🔥 UPDATED: Track history with full tracking number
+                    // ðŸ”¥ UPDATED: Track history with full tracking number
                     $this->trackLocationChange(
                         'Received',
                         "RT#{$request->rtcounter} | Tracking: {$fullTrackingNumber}",
@@ -387,7 +676,7 @@ class ReceivedController extends BasetablesController
                         ]);
                     }
 
-                    // 🔥 UPDATED: Track history with full tracking number
+                    // ðŸ”¥ UPDATED: Track history with full tracking number
                     $this->trackLocationChange(
                         'Received',
                         "RT#{$request->rtcounter} | Tracking: {$fullTrackingNumber}",
@@ -395,6 +684,10 @@ class ReceivedController extends BasetablesController
                         'Labeling',
                         $employeeName
                     );
+
+                    // DB::table($this->productTable)
+                    //     ->where('ProductID', $request->productId)
+                    //     ->delete();
 
                     DB::commit();
                     Log::info('Transaction committed successfully');
@@ -404,6 +697,7 @@ class ReceivedController extends BasetablesController
                         'item' => $request->trackingNumber.' processed successfully',
                         'playsound' => 1,
                         'wasSplit' => false,
+                        'newProductId' => $request->productId,
                     ]);
                 }
             }
@@ -430,4 +724,47 @@ class ReceivedController extends BasetablesController
             ], 500);
         }
     }
+
+    private function moveRemainingToReconciliation(
+            object $originalProduct,
+            int $remainingQty,
+            float $unitPrice,
+            float $unitShipping,
+            float $unitTax,
+            string $username,
+            int $splitFromRt
+        ) : int {
+
+            if ($remainingQty <= 0) {
+                return 0;
+            }
+
+            // 🔥 Copy FULL product row
+            $baseData = (array) $originalProduct;
+
+            // ❌ Remove primary key
+            unset($baseData['ProductID']);
+
+            // ✅ Override ONLY what must change
+            $baseData['quantity'] = 1;
+            $baseData['price'] = $unitPrice;
+            $baseData['priceshipping'] = $unitShipping;
+            $baseData['tax'] = $unitTax;
+            $baseData['ProductModuleLoc'] = 'Reconciliation';
+            $baseData['Username'] = $username;
+            $baseData['lastDateUpdate'] = now();
+
+            // (Optional but logical)
+            $baseData['splitfromRT'] = $splitFromRt;
+
+            $inserted = 0;
+
+            for ($i = 0; $i < $remainingQty; $i++) {
+                DB::table('tblreconciliation')->insert($baseData);
+                $inserted++;
+            }
+
+            return $inserted;
+        }
+
 }

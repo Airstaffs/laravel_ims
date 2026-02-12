@@ -1,4 +1,9 @@
 <template>
+  <UploadLoadingModal
+    :visible="uploading"
+    :progress="uploadProgress"
+  />
+
   <div class="p-6 space-y-8 bg-gray-900 text-white rounded-lg shadow-lg">
     <h1 class="text-2xl font-bold">🧪 Model Training</h1>
 
@@ -24,6 +29,7 @@
 </template>
 
 <script setup>
+import UploadLoadingModal from '../components/UploadLoadingModal.vue'
 import UploadDataset from '../components/UploadDataset.vue'
 import DatasetBrowser from '../components/DatasetBrowser.vue'
 import ModelConfig from '../components/ModelConfig.vue'
@@ -36,7 +42,7 @@ import TestModel from '../components/TestModel.vue'
 import useTraining from '../scripts/training-script.js'
 
 // Only need dataset upload handler from global composable now
-const { handleDatasetFiles } = useTraining()
+const { handleDatasetFiles, uploading, uploadProgress } = useTraining()
 </script>
 
 <style scoped>
