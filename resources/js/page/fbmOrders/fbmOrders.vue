@@ -59,6 +59,7 @@
             :enable-camera="true"
             :display-fields="['Message', 'Status']"
             :hide-button="true"
+            :show-camera-screen="false"
             @scanner-opened="handleMatchSerialScannerOpened"
             @scanner-closed="handleMatchSerialScannerClosed"
             @hardware-scan="handleHardwareScan"
@@ -67,7 +68,27 @@
             ref="scanner"
         >
             <template #input-fields>
-                <div class="input-group">
+                <div>
+                   <div class="location-scanner-container">
+                        <h4>Location: {{ productLocationScanner }}</h4>
+
+                        <div class="scanner-details">
+                            <div class="info-group">
+                                <h6>Looking for serial number:</h6>
+                                <div v-for="(item, index) in serialsAndTracking" :key="'serial-' + index">
+                                    {{ item.serial }}
+                                </div>
+                            </div>
+
+                            <div class="info-group">
+                                <h6>Looking for tracking number:</h6>
+                                <div v-for="(item, index) in serialsAndTracking" :key="'track-' + index">
+                                    {{ item.tracking}}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="input-group">
                     <label>Match {{ scanMode === 'serial' ? 'Serial' : 'Tracking' }} Number:</label>
                     <input 
                         v-model="scanInput" 
@@ -80,6 +101,7 @@
                     <button class="switch-scan-mode" @click="handleChangeScanMode">
                         Switch to {{ scanMode === 'serial' ? 'Tracking' : 'Serial' }}
                     </button>
+                </div>
                 </div>
             </template>
         </scanner-component>
@@ -2699,6 +2721,27 @@ export default {
 
 .process-modal-body::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
+}
+
+.location-scanner-container {
+    width: 100%;
+    color: #ffffff;
+    background: #16506b;
+    background: linear-gradient(90deg, rgba(22, 80, 107, 1) 0%, rgba(30, 176, 91, 1) 50%, rgba(145, 130, 76, 1) 99%);
+    padding: 1rem;
+    border-radius: 1rem;
+    margin-bottom: 2rem;
+}
+
+.scanner-details {
+    display: flex;
+    gap: 20px; 
+}
+
+.info-group h6 {
+    margin-top: 1rem;
+    color: #ffffff;
+    font-weight: bold;
 }
 
 /* Responsive */

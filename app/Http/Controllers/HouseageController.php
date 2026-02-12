@@ -1082,133 +1082,237 @@ private function attachImages($products)
         return response()->json(['exists' => false]);
     }
 
-    public function uploadCapturedImage(Request $request)
+ public function uploadMultipleImages(Request $request)
     {
         try {
-            $validated = $request->validate([
-                'image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // 5MB max
+            // Validate request
+            $validator = Validator::make($request->all(), [
+                'images' => 'required|array|min:1|max:12',
+                'images.*' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // 5MB max per image
                 'productId' => 'required|string|max:255',
-                'capturedImgCount' => 'required|integer|min:1|max:12',
+                'imageNumbers' => 'required|array',
+                'imageNumbers.*' => 'required|integer|min:1|max:12',
                 'imageType' => 'required|string|in:tracking,captured,serial',
             ]);
 
-            $image = $request->file('image');
-            $productId = $validated['productId'];
-            $capturedImgCount = $validated['capturedImgCount'];
-            $imageType = $validated['imageType'];
-
-            // Validate image count based on type
-            if ($imageType === 'tracking' && $capturedImgCount > 2) {
+            if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Tracking images only support img1 and img2',
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
-            if ($imageType === 'serial' && $capturedImgCount > 2) {
+            $images = $request->file('images');
+            $productId = $request->input('productId');
+            $imageNumbers = $request->input('imageNumbers');
+            $imageType = $request->input('imageType');
+
+            // Validate array lengths match
+            if (count($images) !== count($imageNumbers)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Serial images only support img1 and img2',
+                    'message' => 'Images and imageNumbers arrays must have the same length',
                 ], 422);
+            }
+
+            // Validate image count based on type
+            $maxAllowed = $this->getMaxImagesForType($imageType);
+            foreach ($imageNumbers as $num) {
+                if ($num > $maxAllowed) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "{$imageType} images only support up to {$maxAllowed} images",
+                    ], 422);
+                }
             }
 
             // Create directory if it doesn't exist
             $uploadPath = public_path('images/product_images/Airstaffs');
-            if (! file_exists($uploadPath)) {
-                mkdir($uploadPath, 0775, true);
+            if (!File::exists($uploadPath)) {
+                File::makeDirectory($uploadPath, 0775, true);
             }
-
-            // Get extension
-            $extension = $image->getClientOriginalExtension();
 
             // Sanitize productId for filename
             $safeProductId = preg_replace('/[^a-zA-Z0-9_-]/', '', $productId);
 
-            // Generate filename based on type:
-            // captured: 36_img1.jpg
-            // tracking: 36_trackingimg1.jpg
-            // serial: 36_serialimg1.jpg
-            if ($imageType === 'captured') {
-                $filename = $safeProductId.'_img'.$capturedImgCount.'.'.$extension;
-                $searchPattern = $uploadPath.'/'.$safeProductId.'_img'.$capturedImgCount.'.*';
-            } else {
-                // tracking: 36_tracking1.jpg
-                // serial: 36_serial1.jpg
-                $filename = $safeProductId.'_'.$imageType.$capturedImgCount.'.'.$extension;
-                $searchPattern = $uploadPath.'/'.$safeProductId.'_'.$imageType.$capturedImgCount.'.*'; // Removed 'img'
-            }
-            // Remove old product images with different extensions
-            $oldFiles = glob($searchPattern);
-            if ($oldFiles !== false) {
-                foreach ($oldFiles as $oldFile) {
-                    if (file_exists($oldFile) && is_file($oldFile)) {
-                        @unlink($oldFile);
+            // Process uploads
+            $results = [];
+            $dbUpdates = [];
+
+            DB::beginTransaction();
+
+            try {
+                foreach ($images as $index => $image) {
+                    $imageNumber = $imageNumbers[$index];
+                    
+                    try {
+                        // Process single image
+                        $result = $this->processSingleImage(
+                            $image,
+                            $safeProductId,
+                            $imageNumber,
+                            $imageType,
+                            $uploadPath
+                        );
+
+                        if ($result['success']) {
+                            $dbUpdates[$result['columnName']] = $result['filename'];
+                            $results[] = [
+                                'success' => true,
+                                'filename' => $result['filename'],
+                                'imageNumber' => $imageNumber,
+                                'message' => "Image {$imageNumber} uploaded successfully",
+                            ];
+                        } else {
+                            $results[] = [
+                                'success' => false,
+                                'imageNumber' => $imageNumber,
+                                'message' => $result['message'],
+                            ];
+                        }
+                    } catch (\Exception $e) {
+                        Log::error("Individual image upload error", [
+                            'productId' => $productId,
+                            'imageNumber' => $imageNumber,
+                            'error' => $e->getMessage(),
+                        ]);
+
+                        $results[] = [
+                            'success' => false,
+                            'imageNumber' => $imageNumber,
+                            'message' => 'Failed to process image',
+                        ];
                     }
                 }
+
+                // Batch update database if any images were successful
+                if (!empty($dbUpdates)) {
+                    $dbUpdates['UpdatedAt'] = now();
+                    
+                    DB::table('tblcapturedimages')->updateOrInsert(
+                        ['ProductID' => $productId],
+                        $dbUpdates
+                    );
+                }
+
+                DB::commit();
+
+                // Count successes
+                $successCount = collect($results)->where('success', true)->count();
+                $failCount = count($results) - $successCount;
+
+                Log::info('Multiple images uploaded', [
+                    'ProductID' => $productId,
+                    'imageType' => $imageType,
+                    'totalProcessed' => count($results),
+                    'successful' => $successCount,
+                    'failed' => $failCount,
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => "{$successCount} image(s) uploaded successfully" . 
+                                ($failCount > 0 ? ", {$failCount} failed" : ""),
+                    'results' => $results,
+                    'summary' => [
+                        'total' => count($results),
+                        'successful' => $successCount,
+                        'failed' => $failCount,
+                    ],
+                ]);
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
             }
 
-            // Move file to destination
-            $moved = $image->move($uploadPath, $filename);
-
-            if (! $moved) {
-                throw new \Exception('Failed to move uploaded file');
-            }
-
-            $relativePath = 'images/product_images/Airstaffs/'.$filename;
-            $fileUrl = url($relativePath);
-
-            // Build column name: trackingimg1, capturedimg1, serialimg1, etc.
-            $columnName = $imageType.'img'.$capturedImgCount;
-
-            // Update or insert database record
-            DB::table('tblcapturedimages')->updateOrInsert(
-                ['ProductID' => $productId],
-                [
-                    $columnName => $filename,
-                    'UpdatedAt' => now(),
-                ]
-            );
-
-            Log::info('Product image uploaded', [
-                'ProductID' => $productId,
-                'imageType' => $imageType,
-                'imageNumber' => $capturedImgCount,
-                'filename' => $filename,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Image uploaded successfully',
-                'file_url' => $fileUrl,
-                'filename' => $filename,
-                'relative_path' => $relativePath,
-                'image_type' => $imageType,
-                'image_number' => $capturedImgCount,
-            ]);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation error',
-                'errors' => $e->errors(),
-            ], 422);
         } catch (\Throwable $th) {
-            Log::error('Product image upload error: '.$th->getMessage(), [
+            Log::error('Multiple image upload error: ' . $th->getMessage(), [
                 'productId' => $request->input('productId'),
                 'imageType' => $request->input('imageType'),
-                'capturedImgCount' => $request->input('capturedImgCount'),
                 'trace' => $th->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to upload image',
+                'message' => 'Failed to upload images',
                 'error' => config('app.debug') ? $th->getMessage() : 'Server error',
             ], 500);
         }
     }
 
-    public function deleteCapturedImage(Request $request)
+    /**
+     * Process a single image upload
+     */
+    private function processSingleImage($image, $safeProductId, $imageNumber, $imageType, $uploadPath)
+    {
+        // Get extension
+        $extension = $image->getClientOriginalExtension();
+
+        // Generate filename based on type
+        if ($imageType === 'captured') {
+            $filename = "{$safeProductId}_img{$imageNumber}.{$extension}";
+            $searchPattern = "{$uploadPath}/{$safeProductId}_img{$imageNumber}.*";
+            $columnName = "capturedimg{$imageNumber}";
+        } else {
+            $filename = "{$safeProductId}_{$imageType}{$imageNumber}.{$extension}";
+            $searchPattern = "{$uploadPath}/{$safeProductId}_{$imageType}{$imageNumber}.*";
+            $columnName = "{$imageType}img{$imageNumber}";
+        }
+
+        // Remove old files with different extensions
+        $this->removeOldFiles($searchPattern);
+
+        // Move file to destination
+        $moved = $image->move($uploadPath, $filename);
+
+        if (!$moved) {
+            return [
+                'success' => false,
+                'message' => 'Failed to move uploaded file',
+            ];
+        }
+
+        return [
+            'success' => true,
+            'filename' => $filename,
+            'columnName' => $columnName,
+        ];
+    }
+
+    /**
+     * Remove old files matching pattern
+     */
+    private function removeOldFiles($searchPattern)
+    {
+        $oldFiles = glob($searchPattern);
+        if ($oldFiles !== false) {
+            foreach ($oldFiles as $oldFile) {
+                if (file_exists($oldFile) && is_file($oldFile)) {
+                    @unlink($oldFile);
+                }
+            }
+        }
+    }
+
+    /**
+     * Get max images allowed for type
+     */
+    private function getMaxImagesForType($imageType)
+    {
+        return match ($imageType) {
+            'tracking' => 2,
+            'serial' => 2,
+            'captured' => 12,
+            default => 12,
+        };
+    }
+
+    /**
+     * Delete a single product image
+     */
+    public function deleteImage(Request $request)
     {
         try {
             $validated = $request->validate([
@@ -1218,50 +1322,36 @@ private function attachImages($products)
             ]);
 
             $productId = $validated['productId'];
-            $capturedImgCount = $validated['capturedImgCount'];
+            $imageNumber = $validated['capturedImgCount'];
             $imageType = $validated['imageType'];
 
-            // Validate count based on type
-            if (in_array($imageType, ['tracking', 'serial']) && $capturedImgCount > 2) {
-                return response()->json([
-                    'success' => false,
-                    'message' => ucfirst($imageType).' images only support img1 and img2',
-                ], 422);
+            // Sanitize productId
+            $safeProductId = preg_replace('/[^a-zA-Z0-9_-]/', '', $productId);
+
+            // Build search pattern
+            $uploadPath = public_path('images/product_images/Airstaffs');
+            
+            if ($imageType === 'captured') {
+                $searchPattern = "{$uploadPath}/{$safeProductId}_img{$imageNumber}.*";
+                $columnName = "capturedimg{$imageNumber}";
+            } else {
+                $searchPattern = "{$uploadPath}/{$safeProductId}_{$imageType}{$imageNumber}.*";
+                $columnName = "{$imageType}img{$imageNumber}";
             }
 
-            // Build column name: trackingimg1, capturedimg1, serialimg1
-            $columnName = $imageType.'img'.$capturedImgCount;
-
-            // Get current filename from database
-            $record = DB::table('tblcapturedimages')
-                ->where('ProductID', $productId)
-                ->first();
-
-            if (! $record) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Product not found',
-                ], 404);
-            }
-
-            $filename = $record->{$columnName};
-
-            if (! $filename) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Image not found',
-                ], 404);
-            }
-
-            // Delete file from filesystem
-            $filePath = public_path('images/product_images/Airstaffs/'.$filename);
-            if (file_exists($filePath) && is_file($filePath)) {
-                if (! @unlink($filePath)) {
-                    Log::warning("Failed to delete file: {$filePath}");
+            // Delete files
+            $filesDeleted = false;
+            $oldFiles = glob($searchPattern);
+            if ($oldFiles !== false && count($oldFiles) > 0) {
+                foreach ($oldFiles as $oldFile) {
+                    if (file_exists($oldFile) && is_file($oldFile)) {
+                        @unlink($oldFile);
+                        $filesDeleted = true;
+                    }
                 }
             }
 
-            // Update database - set column to NULL
+            // Update database - set to NULL
             DB::table('tblcapturedimages')
                 ->where('ProductID', $productId)
                 ->update([
@@ -1272,13 +1362,14 @@ private function attachImages($products)
             Log::info('Product image deleted', [
                 'ProductID' => $productId,
                 'imageType' => $imageType,
-                'imageNumber' => $capturedImgCount,
-                'filename' => $filename,
+                'imageNumber' => $imageNumber,
+                'filesDeleted' => $filesDeleted,
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Image deleted successfully',
+                'filesDeleted' => $filesDeleted,
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -1288,16 +1379,123 @@ private function attachImages($products)
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Throwable $th) {
-            Log::error('Product image delete error: '.$th->getMessage(), [
+            Log::error('Image deletion error: ' . $th->getMessage(), [
                 'productId' => $request->input('productId'),
                 'imageType' => $request->input('imageType'),
-                'capturedImgCount' => $request->input('capturedImgCount'),
                 'trace' => $th->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete image',
+                'error' => config('app.debug') ? $th->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Batch delete multiple images (optional utility method)
+     */
+    public function deleteMultipleImages(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'productId' => 'required|string|max:255',
+                'imageNumbers' => 'required|array|min:1',
+                'imageNumbers.*' => 'required|integer|min:1|max:12',
+                'imageType' => 'required|string|in:tracking,captured,serial',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $productId = $request->input('productId');
+            $imageNumbers = $request->input('imageNumbers');
+            $imageType = $request->input('imageType');
+
+            $safeProductId = preg_replace('/[^a-zA-Z0-9_-]/', '', $productId);
+            $uploadPath = public_path('images/product_images/Airstaffs');
+
+            $results = [];
+            $dbUpdates = [];
+
+            DB::beginTransaction();
+
+            try {
+                foreach ($imageNumbers as $imageNumber) {
+                    // Build search pattern
+                    if ($imageType === 'captured') {
+                        $searchPattern = "{$uploadPath}/{$safeProductId}_img{$imageNumber}.*";
+                        $columnName = "capturedimg{$imageNumber}";
+                    } else {
+                        $searchPattern = "{$uploadPath}/{$safeProductId}_{$imageType}{$imageNumber}.*";
+                        $columnName = "{$imageType}img{$imageNumber}";
+                    }
+
+                    // Delete files
+                    $oldFiles = glob($searchPattern);
+                    $filesDeleted = false;
+                    
+                    if ($oldFiles !== false) {
+                        foreach ($oldFiles as $oldFile) {
+                            if (file_exists($oldFile) && is_file($oldFile)) {
+                                @unlink($oldFile);
+                                $filesDeleted = true;
+                            }
+                        }
+                    }
+
+                    $dbUpdates[$columnName] = null;
+
+                    $results[] = [
+                        'success' => true,
+                        'imageNumber' => $imageNumber,
+                        'filesDeleted' => $filesDeleted,
+                    ];
+                }
+
+                // Batch update database
+                if (!empty($dbUpdates)) {
+                    $dbUpdates['UpdatedAt'] = now();
+                    
+                    DB::table('tblcapturedimages')
+                        ->where('ProductID', $productId)
+                        ->update($dbUpdates);
+                }
+
+                DB::commit();
+
+                Log::info('Multiple images deleted', [
+                    'ProductID' => $productId,
+                    'imageType' => $imageType,
+                    'count' => count($imageNumbers),
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => count($imageNumbers) . ' image(s) deleted successfully',
+                    'results' => $results,
+                ]);
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+
+        } catch (\Throwable $th) {
+            Log::error('Multiple image deletion error: ' . $th->getMessage(), [
+                'productId' => $request->input('productId'),
+                'trace' => $th->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete images',
                 'error' => config('app.debug') ? $th->getMessage() : 'Server error',
             ], 500);
         }

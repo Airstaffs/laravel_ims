@@ -487,7 +487,9 @@ Route::prefix('api/orders')->middleware(['auth'])->group(function () {
 
     // ✅ ADD THIS NEW ROUTE FOR QUANTITY EDITING
     Route::put('products/{id}/quantity', [OrdersController::class, 'updateQuantity']);
-
+      
+    Route::put('products/{id}/materialtype', [OrdersController::class, 'updateMaterialType']);
+     
     Route::patch('{id}/status', [OrdersController::class, 'updateStatus']);
     Route::patch('{id}/tracking', [OrdersController::class, 'updateTracking']);
     Route::delete('{id}', [OrdersController::class, 'destroy']);
@@ -500,6 +502,8 @@ Route::prefix('api/orders')->middleware(['auth'])->group(function () {
         ->name('orders.incoming.count');
     Route::get('incoming-count-details', [OrdersController::class, 'getIncomingCountDetails'])
         ->name('orders.incoming.details');
+
+
 });
 
 // Routes Production Area
@@ -654,9 +658,20 @@ Route::prefix('api/houseage')->middleware('auth')->group(function () {
     Route::get('serial-image', [HouseageController::class, 'getSerialImage']);
 
     // upload product image
-    Route::post('upload-image', [HouseageController::class, 'uploadCapturedImage']);
+    // Route::post('upload-image', [HouseageController::class, 'uploadCapturedImage']);
 
-    Route::post('delete-image', [HouseageController::class, 'deleteCapturedImage']);
+    // Route::post('delete-image', [HouseageController::class, 'deleteCapturedImage']);
+    // Multiple image upload (NEW - Optimized)
+    Route::post('/upload-images', [HouseageController::class, 'uploadMultipleImages']);
+    
+    // Single image upload (Keep for backward compatibility)
+    Route::post('/upload-image', [HouseageController::class, 'uploadCapturedImage']);
+    
+    // Single image delete
+    Route::post('/delete-image', [HouseageController::class, 'deleteImage']);
+    
+    // Multiple image delete (Optional utility)
+    Route::post('/delete-images', [HouseageController::class, 'deleteMultipleImages']);
 });
 
 // Testing module routes
@@ -920,6 +935,9 @@ Route::get('/joined-fnsku-data', [LabelingController::class, 'getFnskuData']);
 // HR Controller
 Route::prefix('hr')->group(function () {
     Route::get('/employees', [HrController::class, 'getEmployees']);
+
+    Route::post('/employees', [HrController::class, 'addEmployee']);
+
     Route::get('/employee-rate-history', [HrController::class, 'getEmployeeRateHistory']);
     Route::get('/employees/{employee}/rates', [HrController::class, 'indexRate']);
     Route::get('/employees/{employee}/rates/current', [HrController::class, 'currentRate']);

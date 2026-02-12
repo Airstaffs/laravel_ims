@@ -177,6 +177,7 @@ export default {
             scanInput: "",
 
             autoVerifyTimeout: null,
+            productLocationScanner: "",
 
             // For validation
             scanInputValid: true,
@@ -319,10 +320,10 @@ export default {
         },
         openMatchSerialScannerModal(order, index) {
              this.$refs.scanner.openScannerModal();
-
             const productInfo = order.dispensed_products[index]
-
-            // Get serials as an array
+            
+            this.productLocationScanner = productInfo.warehouseLocation  || "N/A"
+                // Get serials as an array
             this.serialsAndTracking = Object.entries(productInfo)
                 .filter(([key]) => key.startsWith('serialNumber'))
                 .map(([, value]) => ({ serial: value }))
@@ -347,7 +348,7 @@ export default {
         handleMatchSerialScannerClosed() {
             //clear data
             this.serialsAndTracking = []
-
+            this.productLocationScanner = ""
             //reset mode
             this.scanMode = 'serial'
         },

@@ -238,6 +238,16 @@
                             fluid
                             size="small"
                         />
+                        <Select
+                            v-model="$parent.newEmployee.accounttype"
+                            :options="accountTypeOptions"
+                            optionLabel="label"
+                            optionValue="value"
+                            placeholder="Account type"
+                            fluid
+                            size="small"
+                            class="mb-2"
+                        />
                     </fieldset>
                 </form>
             </div>
@@ -615,8 +625,8 @@ export default {
     },
     data() {
         return {
-            statusFilter: "all", // Start with "All" since we don't have status data yet
-            locationFilter: "PH",
+            statusFilter: "all",
+            locationFilter: "all",
             statusOptions: [
                 { label: "All Status", value: "all" },
                 { label: "Active", value: "active" },
@@ -626,6 +636,10 @@ export default {
                 { label: "All Locations", value: "all" },
                 { label: "Philippines", value: "PH" },
                 { label: "United States", value: "US" },
+            ],
+            accountTypeOptions: [
+                { label: "Philippines (PH)", value: "PH" },
+                { label: "United States (US)", value: "US" },
             ],
         };
     },

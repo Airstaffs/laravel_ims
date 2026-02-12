@@ -49,34 +49,61 @@
         </div>
 
         <!-- No Images State -->
-        <div v-else class="empty-state"  @click="openDialog">
+        <div v-else class="empty-state" @click="openDialog">
             <i class="pi pi-image"></i>
             <p>No images available</p>
         </div>
 
         <!-- Image Management Dialog -->
-
         <Dialog
             v-model:visible="showDialog"
             modal
-            :key="dialogKey"
+            :key="`dialog-${dialogKey}`"
             :header="`Manage ${label}`"
             :style="{ width: '90vw', maxWidth: '1200px' }"
             :pt="{
                 root: { class: 'mobile-fullscreen-dialog' },
             }"
+            @show="onDialogShow"
         >
-            <div class="image-grid">
+            <!-- Upload Progress Bar -->
+            <div v-if="uploadQueue.length > 0" class="upload-progress-container">
+                <div class="upload-progress-header">
+                    <span>Uploading {{ uploadQueue.filter(u => !u.completed).length }} of {{ uploadQueue.length }} images</span>
+                    <span>{{ overallProgress }}%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" :style="{ width: overallProgress + '%' }"></div>
+                </div>
+                <div class="upload-items">
+                    <div 
+                        v-for="(upload, idx) in uploadQueue" 
+                        :key="idx"
+                        class="upload-item"
+                        :class="{ 
+                            'completed': upload.completed,
+                            'error': upload.error 
+                        }"
+                    >
+                        <i :class="upload.completed ? 'pi pi-check-circle' : upload.error ? 'pi pi-times-circle' : 'pi pi-spin pi-spinner'"></i>
+                        <span>{{ upload.filename }}</span>
+                        <span v-if="upload.error" class="error-text">{{ upload.error }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Force re-render with v-if -->
+            <div v-if="dialogContentKey" :key="dialogContentKey" class="image-grid">
                 <!-- Existing Images -->
                 <div
-                    v-for="(image, index) in localImageList"
-                    :key="`dialog-img-${index}-${localRenderKey}`"
+                    v-for="(image, index) in displayImageList"
+                    :key="`img-card-${index}-${image}-${dialogContentKey}`"
                     class="image-card"
                 >
                     <div class="image-card-content">
                         <!-- Delete Button -->
                         <button
-                            v-if="uploadingIndex !== index && deletingIndex !== index"
+                            v-if="!isImageProcessing(index)"
                             class="delete-btn"
                             @click.stop="confirmDeleteImage(index, image)"
                             type="button"
@@ -85,24 +112,24 @@
                             <i class="pi pi-trash"></i>
                         </button>
 
-                        <!-- Image - FIXED: Don't prepend basePath -->
+                        <!-- Image -->
                         <img
                             :src="getImageUrl(image)"
+                            :key="`img-src-${index}-${dialogContentKey}`"
                             :alt="`Image ${index + 1}`"
                             class="card-image"
-                            :class="{
-                                processing: uploadingIndex === index || deletingIndex === index,
-                            }"
+                            :class="{ processing: isImageProcessing(index) }"
                             @error="onImageError"
+                            @load="onImageLoad(index, image)"
                         />
 
                         <!-- Processing Overlay -->
                         <div
-                            v-if="uploadingIndex === index || deletingIndex === index"
+                            v-if="isImageProcessing(index)"
                             class="processing-overlay"
                         >
                             <div class="spinner"></div>
-                            <p>{{ uploadingIndex === index ? 'Uploading...' : 'Deleting...' }}</p>
+                            <p>{{ processingStates[index] || 'Processing...' }}</p>
                         </div>
                     </div>
 
@@ -117,11 +144,11 @@
 
                     <!-- Update Button -->
                     <Button
-                        :label="uploadingIndex === index ? 'Uploading...' : 'Update'"
+                        :label="isImageProcessing(index) ? 'Uploading...' : 'Update'"
                         size="small"
                         icon="pi pi-upload"
-                        :loading="uploadingIndex === index"
-                        :disabled="uploadingIndex === index || deletingIndex === index"
+                        :loading="isImageProcessing(index)"
+                        :disabled="isImageProcessing(index) || isAnyUploading"
                         @click="handleUploadClick(index, image)"
                         class="w-full"
                     />
@@ -129,13 +156,13 @@
 
                 <!-- Add New Image Card -->
                 <div
-                    v-if="localImageList.length < maxImages"
+                    v-if="displayImageList.length < maxImages"
                     class="image-card add-card"
                 >
                     <div 
                         class="add-card-content" 
                         :class="{ 'is-adding': isAddingNew }"
-                        @click="!isAddingNew && handleAddNewImageClick()"
+                        @click="!isAddingNew && !isAnyUploading && handleAddNewImageClick()"
                     >
                         <template v-if="isAddingNew">
                             <div class="spinner"></div>
@@ -143,15 +170,17 @@
                         </template>
                         <template v-else>
                             <i class="pi pi-plus"></i>
-                            <p>Add Image</p>
-                            <span>{{ localImageList.length }} / {{ maxImages }}</span>
+                            <p>Add Images</p>
+                            <span>{{ displayImageList.length }} / {{ maxImages }}</span>
                         </template>
                     </div>
 
+                    <!-- Multiple file input -->
                     <input
                         type="file"
                         ref="addNewImageInput"
                         accept="image/*"
+                        multiple
                         style="display: none"
                         @change="handleAddImageChange"
                     />
@@ -166,8 +195,6 @@ import { Dialog, Button } from "primevue";
 import axios from "axios";
 import Swal from "sweetalert2";
 import { DEFAULT_IMAGE } from "../../constant";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export default {
     name: "ProductImageGallery",
@@ -222,35 +249,86 @@ export default {
             localRenderKey: 0,
             showDialog: false,
             dialogKey: 0,
-            uploadingIndex: null,
-            deletingIndex: null,
+            imageGridKey: 0, // Separate key for forcing image grid re-render
+            dialogContentKey: 1, // Key for v-if/v-show toggling
+            processingStates: {}, // Track processing state per index
             isAddingNew: false,
-            imgNumber: 0,
             fileInputRefs: {},
             defaultImage: DEFAULT_IMAGE,
             showThumbnails: false,
             isMobile: false,
             cacheBustTimestamp: Date.now(),
+            uploadQueue: [], // Track multiple uploads
         };
     },
     computed: {
+        displayImageList() {
+            // Return a fresh copy to ensure reactivity
+            const list = [...this.localImageList];
+            console.log('🎨 displayImageList computed:', {
+                length: list.length,
+                images: list
+            });
+            return list;
+        },
         activeImageUrl() {
-            const currentImage = this.localImageList[this.localActiveIndex];
-            if (!currentImage) return this.defaultImage;
-
-            if (currentImage.startsWith("/images/")) {
-                return currentImage;
+            // Guard against invalid index
+            if (!this.localImageList || this.localImageList.length === 0) {
+                console.log('⚠️ No images in list, returning default');
+                return this.defaultImage;
             }
 
-            return this.basePath + currentImage;
+            // Ensure index is within bounds
+            const safeIndex = Math.min(
+                Math.max(0, this.localActiveIndex), 
+                this.localImageList.length - 1
+            );
+
+            const currentImage = this.localImageList[safeIndex];
+            
+            if (!currentImage) {
+                console.log('⚠️ No image at index', safeIndex, 'returning default');
+                return this.defaultImage;
+            }
+
+            let imageUrl;
+            if (currentImage.startsWith("/images/")) {
+                imageUrl = currentImage;
+            } else {
+                imageUrl = this.basePath + currentImage;
+            }
+
+            console.log('🎯 Active image URL computed:', imageUrl);
+            return imageUrl;
         },
+        isAnyUploading() {
+            return Object.keys(this.processingStates).length > 0 || this.isAddingNew;
+        },
+        overallProgress() {
+            if (this.uploadQueue.length === 0) return 0;
+            const completed = this.uploadQueue.filter(u => u.completed || u.error).length;
+            return Math.round((completed / this.uploadQueue.length) * 100);
+        }
     },
     watch: {
         imageList: {
             immediate: true,
             handler(newVal) {
-                console.log(`📥 ${this.label} - imageList changed:`, newVal);
+                console.log(`📥 ${this.label} - imageList prop changed:`, newVal.length, 'images');
                 this.localImageList = [...newVal];
+                
+                // Ensure active index is valid
+                if (this.localActiveIndex >= this.localImageList.length) {
+                    this.localActiveIndex = Math.max(0, this.localImageList.length - 1);
+                }
+                
+                // If dialog is open, refresh it
+                if (this.showDialog) {
+                    this.$nextTick(() => {
+                        console.log('🔄 imageList changed while dialog open, refreshing');
+                        this.refreshDialogContent();
+                    });
+                }
             },
             deep: true,
         },
@@ -260,12 +338,25 @@ export default {
                 this.localActiveIndex = newVal;
             },
         },
+        localImageList: {
+            handler(newVal, oldVal) {
+                console.log(`🖼️ ${this.label} - localImageList watcher:`, {
+                    newLength: newVal.length,
+                    oldLength: oldVal?.length,
+                    activeIndex: this.localActiveIndex,
+                    dialogOpen: this.showDialog
+                });
+                
+                // Don't auto-refresh from watcher - let manual refresh handle it
+                // This prevents double refreshes
+            },
+            deep: true,
+        },
     },
     mounted() {
         this.checkMobile();
         window.addEventListener('resize', this.checkMobile);
         
-        // Show thumbnails by default on mobile
         if (this.isMobile) {
             this.showThumbnails = true;
         }
@@ -274,22 +365,48 @@ export default {
         window.removeEventListener('resize', this.checkMobile);
     },
     methods: {
+        isImageProcessing(index) {
+            return this.processingStates[index] !== undefined;
+        },
+
+        setImageProcessing(index, state) {
+            if (state) {
+                this.processingStates[index] = state;
+            } else {
+                delete this.processingStates[index];
+            }
+            this.$forceUpdate();
+        },
+
         getImageUrl(img) {
-            if (!img) return this.defaultImage;
+            if (!img) {
+                console.warn('⚠️ getImageUrl: No image provided');
+                return this.defaultImage;
+            }
             
             let url;
             
-            // If it already has the full path, use it
+            // Image already has full path with /images/
             if (img.startsWith("/images/")) {
                 url = img;
             } else {
-                // Otherwise, prepend basePath
+                // Need to prepend basePath
                 url = this.basePath + img;
             }
             
-            // Use stable cache buster that only updates on data refresh
+            // Clean any existing query parameters
             const cleanUrl = url.split('?')[0];
-            return `${cleanUrl}?t=${this.cacheBustTimestamp}`;
+            
+            // Add fresh cache buster
+            const finalUrl = `${cleanUrl}?t=${this.cacheBustTimestamp}`;
+            
+            console.log('🖼️ getImageUrl:', {
+                input: img,
+                clean: cleanUrl,
+                output: finalUrl
+            });
+            
+            return finalUrl;
         },
 
         checkMobile() {
@@ -328,10 +445,38 @@ export default {
         openDialog() {
             console.log(`🚪 Opening ${this.label} dialog`);
             this.showDialog = true;
+            this.refreshDialogContent();
         },
 
         closeDialog() {
             this.showDialog = false;
+        },
+
+        onDialogShow() {
+            console.log('📖 Dialog shown event triggered');
+            this.refreshDialogContent();
+        },
+
+        refreshDialogContent() {
+            // Force complete re-render of dialog content
+            console.log('🔄 Starting dialog content refresh');
+            console.log('📊 Current state before refresh:', {
+                localImageListLength: this.localImageList.length,
+                displayImageListLength: this.displayImageList.length,
+                dialogContentKey: this.dialogContentKey,
+                images: this.localImageList
+            });
+            
+            this.dialogContentKey = 0; // Destroy
+            
+            this.$nextTick(() => {
+                this.dialogContentKey = Date.now(); // Recreate with timestamp
+                console.log('✨ Dialog content key updated:', this.dialogContentKey);
+                console.log('📊 State after refresh:', {
+                    localImageListLength: this.localImageList.length,
+                    displayImageListLength: this.displayImageList.length
+                });
+            });
         },
 
         onImageError(event) {
@@ -340,12 +485,19 @@ export default {
             event.target.onerror = null;
         },
 
+        onImageLoad(index, image) {
+            console.log(`✅ Image loaded successfully:`, {
+                index,
+                src: image,
+                actualSrc: event?.target?.src
+            });
+        },
+
         handleUploadClick(index, currentImage) {
             const fileInput = this.fileInputRefs[index];
             if (fileInput) {
                 fileInput.click();
             }
-            this.imgNumber = currentImage.split("_").pop().match(/(\d+)/)?.[1] || (index + 1);
         },
 
         handleAddNewImageClick() {
@@ -382,26 +534,26 @@ export default {
             return numbers.sort((a, b) => a - b);
         },
 
-        findNextAvailableImageNumber() {
+        findNextAvailableImageNumbers(count) {
             const usedNumbers = this.extractImageNumbers(this.localImageList);
+            const available = [];
 
-            for (let i = 1; i <= this.maxImages; i++) {
+            for (let i = 1; i <= this.maxImages && available.length < count; i++) {
                 if (!usedNumbers.includes(i)) {
-                    return i;
+                    available.push(i);
                 }
             }
 
-            return null;
+            return available;
         },
 
         confirmDeleteImage(index, currentImage) {
-            // Extract image number from the URL
             const urlWithoutQuery = currentImage.split('?')[0];
-            this.imgNumber = urlWithoutQuery.split("_").pop().match(/(\d+)/)?.[1] || (index + 1);
+            const imgNumber = urlWithoutQuery.split("_").pop().match(/(\d+)/)?.[1] || (index + 1);
 
             Swal.fire({
                 title: "Delete Image?",
-                text: `Are you sure you want to delete image ${this.imgNumber}? This action cannot be undone.`,
+                text: `Are you sure you want to delete image ${imgNumber}? This action cannot be undone.`,
                 icon: "warning",
                 showCancelButton: true,
                 confirmButtonColor: "#ef4444",
@@ -411,102 +563,9 @@ export default {
                 reverseButtons: true,
             }).then((result) => {
                 if (result.isConfirmed) {
-                    this.handleDeleteImage(index);
+                    this.handleDeleteImage(index, imgNumber);
                 }
             });
-        },
-
-        addCacheBuster(url, timestamp = null) {
-            if (!url) return url;
-
-            const bust = timestamp || Date.now();
-            const separator = url.includes("?") ? "&" : "?";
-            const cleanUrl = url.replace(/[?&](t|v|_)=\d+/g, "");
-
-            return `${cleanUrl}${separator}t=${bust}`;
-        },
-
-        isValidImage(path) {
-            if (!path) return false;
-            if (typeof path !== 'string') return false;
-            if (path === 'NULL' || path === 'null') return false;
-            if (path.trim() === '') return false;
-            return true;
-        },
-
-        buildImageListFromProduct(product) {
-            const timestamp = Date.now();
-            const images = [];
-            const basePath = `/images/product_images/${product.company || this.company}/`;
-
-            console.log(`🔨 Building ${this.imageType} images from product:`, product.ProductID);
-            console.log(`📁 Base path:`, basePath);
-            console.log(`📦 Full product object:`, JSON.stringify(product, null, 2));
-            console.log(`🔍 Product.capturedImages:`, product.capturedImages);
-
-            switch (this.imageType) {
-                case "captured":
-                    if (product.capturedImages) {
-                        console.log(`✅ capturedImages exists, checking slots...`);
-                        for (let i = 1; i <= this.maxImages; i++) {
-                            const imgKey = `capturedimg${i}`;
-                            const filename = product.capturedImages[imgKey];
-                            
-                            console.log(`  Slot ${i} (${imgKey}):`, filename);
-                            
-                            if (this.isValidImage(filename)) {
-                                const path = basePath + filename;
-                                const cachedPath = this.addCacheBuster(path, timestamp + i);
-                                images.push(cachedPath);
-                                console.log(`    ✅ Added:`, cachedPath);
-                            } else {
-                                console.log(`    ❌ Invalid or empty`);
-                            }
-                        }
-                    } else {
-                        console.log(`⚠️ No capturedImages object, trying fallback...`);
-                        // Fallback to regular images
-                        for (let i = 1; i <= 15; i++) {
-                            const imgKey = `img${i}`;
-                            const filename = product[imgKey];
-                            console.log(`  Fallback slot ${i} (${imgKey}):`, filename);
-                            
-                            if (this.isValidImage(filename)) {
-                                const path = this.basePath + filename;
-                                images.push(this.addCacheBuster(path, timestamp + i));
-                                console.log(`    ✅ Added fallback`);
-                            }
-                        }
-                    }
-                    break;
-
-                case "serial":
-                case "tracking":
-                    console.log(`🔍 Looking for ${this.imageType} images...`);
-                    for (let i = 1; i <= this.maxImages; i++) {
-                        const imgKey = `${this.imageType}img${i}`;
-                        let imageFilename = null;
-
-                        if (product.capturedImages && product.capturedImages[imgKey]) {
-                            imageFilename = product.capturedImages[imgKey];
-                            console.log(`  Found in capturedImages: ${imgKey}:`, imageFilename);
-                        } else if (product[imgKey]) {
-                            imageFilename = product[imgKey];
-                            console.log(`  Found in root: ${imgKey}:`, imageFilename);
-                        }
-
-                        if (this.isValidImage(imageFilename)) {
-                            const path = basePath + imageFilename;
-                            const cachedPath = this.addCacheBuster(path, timestamp + i);
-                            images.push(cachedPath);
-                            console.log(`    ✅ Added:`, cachedPath);
-                        }
-                    }
-                    break;
-            }
-
-            console.log(`📊 Final result - Built ${images.length} images:`, images);
-            return images;
         },
 
         async handleFileChange(event, index) {
@@ -514,16 +573,28 @@ export default {
                 const file = event.target.files[0];
                 if (!file) return;
 
-                this.uploadingIndex = index;
+                // Extract image number from current image URL
+                const currentImage = this.localImageList[index];
+                const urlWithoutQuery = currentImage.split('?')[0];
+                const imgNumber = urlWithoutQuery.split("_").pop().match(/(\d+)/)?.[1] || (index + 1);
+
+                console.log('📤 Updating image:', {
+                    index,
+                    currentImage,
+                    imgNumber,
+                    fileName: file.name
+                });
+
+                this.setImageProcessing(index, 'Uploading...');
 
                 const formData = new FormData();
-                formData.append("image", file);
+                formData.append("images[]", file);
                 formData.append("productId", this.productId);
-                formData.append("capturedImgCount", this.imgNumber);
+                formData.append("imageNumbers[]", imgNumber);
                 formData.append("imageType", this.imageType);
 
                 const response = await axios.post(
-                    "/api/houseage/upload-image",
+                    "/api/houseage/upload-images",
                     formData,
                     {
                         headers: { "Content-Type": "multipart/form-data" },
@@ -531,44 +602,65 @@ export default {
                     }
                 );
 
-                console.log('✅ Response data:', response.data);
+                console.log('📬 Upload response:', response.data);
 
-                if (response.data.success) {
-                    // ✅ Create a unique timestamp for this specific image
-                    const uniqueTimestamp = Date.now();
-                    const basePath = `/images/product_images/${this.company}/`;
-                    const newImagePath = basePath + response.data.filename;
-                    const cachedPath = `${newImagePath}?t=${uniqueTimestamp}`;
+                if (response.data.success && response.data.results.length > 0) {
+                    const result = response.data.results[0];
                     
-                    // ✅ Update the array using splice to force reactivity
-                    this.localImageList.splice(index, 1, cachedPath);
-                    
-                    // ✅ Update global cache buster and force re-render
-                    this.cacheBustTimestamp = uniqueTimestamp;
-                    this.localRenderKey++;
-                    this.dialogKey++;
-                    
-                    console.log('✅ Updated image:', cachedPath);
-                    
-                    await Swal.fire({
-                        title: "Upload Success",
-                        text: response.data.message || "Image uploaded successfully",
-                        icon: "success",
-                        timer: 2000,
-                        showConfirmButton: false,
-                    });
+                    if (result.success) {
+                        const uniqueTimestamp = Date.now();
+                        const basePath = `/images/product_images/Airstaffs/`;
+                        const newImagePath = basePath + result.filename;
+                        const cachedPath = `${newImagePath}?t=${uniqueTimestamp}`;
+                        
+                        console.log('✅ Update success:', {
+                            filename: result.filename,
+                            newPath: cachedPath,
+                            index
+                        });
+                        
+                        // Update using Vue's reactivity - create new array
+                        const updatedList = [...this.localImageList];
+                        updatedList[index] = cachedPath;
+                        this.localImageList = updatedList;
+                        
+                        console.log('📋 LocalImageList after update:', this.localImageList.length);
+                        
+                        // Force re-render
+                        this.cacheBustTimestamp = uniqueTimestamp;
+                        this.localRenderKey++;
+                        this.dialogKey++;
+                        this.imageGridKey++;
 
-                    try {
+                        // Ensure DOM updates
+                        await this.$nextTick();
+                        console.log('✨ After nextTick');
+                        
+                        // Small delay
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        console.log('⏱️ After delay');
+                        
+                        // Force dialog content refresh
+                        this.refreshDialogContent();
+                        console.log('🔄 Dialog refreshed');
+                        
+                        await Swal.fire({
+                            title: "Upload Success",
+                            text: result.message || "Image uploaded successfully",
+                            icon: "success",
+                            timer: 2000,
+                            showConfirmButton: false,
+                        });
+
                         this.$emit("request-refresh");
-                    } catch (refreshError) {
-                        console.warn('⚠️ Refresh error (non-critical):', refreshError);
+                    } else {
+                        throw new Error(result.message || 'Upload failed');
                     }
                 } else {
                     throw new Error(response.data.message || 'Upload failed');
                 }
             } catch (error) {
                 console.error("❌ Upload error:", error);
-                console.error("❌ Error response:", error.response?.data);
                 await Swal.fire({
                     title: "Error",
                     text: error.response?.data?.message || error.message || "Failed to upload image",
@@ -577,37 +669,63 @@ export default {
                 });
             } finally {
                 event.target.value = "";
-                this.uploadingIndex = null;
+                this.setImageProcessing(index, null);
             }
         },
 
         async handleAddImageChange(event) {
             try {
-                const file = event.target.files[0];
-                if (!file) return;
+                const files = Array.from(event.target.files);
+                if (files.length === 0) return;
 
-                const nextImageNumber = this.findNextAvailableImageNumber();
+                // Calculate how many images we can add
+                const availableSlots = this.maxImages - this.localImageList.length;
+                const filesToUpload = files.slice(0, availableSlots);
 
-                if (nextImageNumber === null) {
+                if (files.length > availableSlots) {
                     await Swal.fire({
-                        title: "Limit Reached",
-                        text: `Maximum ${this.maxImages} images allowed`,
+                        title: "Limit Exceeded",
+                        text: `Can only add ${availableSlots} more image(s). Maximum ${this.maxImages} images allowed.`,
                         icon: "warning",
                         confirmButtonColor: "#f59e0b",
+                    });
+                }
+
+                // Get available image numbers
+                const imageNumbers = this.findNextAvailableImageNumbers(filesToUpload.length);
+
+                if (imageNumbers.length < filesToUpload.length) {
+                    await Swal.fire({
+                        title: "No Space",
+                        text: `Not enough available slots`,
+                        icon: "error",
+                        confirmButtonColor: "#ef4444",
                     });
                     return;
                 }
 
                 this.isAddingNew = true;
+                
+                // Initialize upload queue
+                this.uploadQueue = filesToUpload.map((file, idx) => ({
+                    filename: file.name,
+                    imageNumber: imageNumbers[idx],
+                    completed: false,
+                    error: null
+                }));
 
                 const formData = new FormData();
-                formData.append("image", file);
+                filesToUpload.forEach((file) => {
+                    formData.append("images[]", file);
+                });
                 formData.append("productId", this.productId);
-                formData.append("capturedImgCount", nextImageNumber);
+                imageNumbers.forEach(num => {
+                    formData.append("imageNumbers[]", num);
+                });
                 formData.append("imageType", this.imageType);
 
                 const response = await axios.post(
-                    "/api/houseage/upload-image",
+                    "/api/houseage/upload-images",
                     formData,
                     {
                         headers: { "Content-Type": "multipart/form-data" },
@@ -618,86 +736,161 @@ export default {
                 if (response.data.success) {
                     const uniqueTimestamp = Date.now();
                     const basePath = `/images/product_images/Airstaffs/`;
-                    const newImagePath = basePath + response.data.filename;
-                    const cachedPath = `${newImagePath}?t=${uniqueTimestamp}`;
+                    const wasEmpty = this.localImageList.length === 0;
+                    const newImages = [];
                     
-                    this.localImageList.push(cachedPath);
+                    console.log('📦 Processing upload results:', response.data.results);
+                    console.log('🏢 Using company:', this.company);
+                    console.log('📁 Base path:', basePath);
+                    
+                    // Update upload queue with results
+                    response.data.results.forEach((result, idx) => {
+                        if (this.uploadQueue[idx]) {
+                            this.uploadQueue[idx].completed = result.success;
+                            this.uploadQueue[idx].error = result.success ? null : result.message;
+                        }
+
+                        if (result.success) {
+                            const newImagePath = basePath + result.filename;
+                            const cachedPath = `${newImagePath}?t=${uniqueTimestamp + idx}`;
+                            newImages.push(cachedPath);
+                            console.log(`✅ Image ${idx + 1}:`, {
+                                filename: result.filename,
+                                fullPath: newImagePath,
+                                cached: cachedPath
+                            });
+                        }
+                    });
+
+                    console.log('📊 Total new images to add:', newImages.length);
+                    console.log('📋 Current localImageList length:', this.localImageList.length);
+                    
+                    // IMPORTANT: Update the array FIRST
+                    this.localImageList = [...this.localImageList, ...newImages];
+                    
+                    console.log('📋 Updated localImageList length:', this.localImageList.length);
+                    console.log('🗂️ Full image list:', JSON.stringify(this.localImageList, null, 2));
+                    
+                    // If gallery was empty, set active index to first image
+                    if (wasEmpty && this.localImageList.length > 0) {
+                        this.localActiveIndex = 0;
+                        this.$emit("update:activeIndex", 0);
+                        console.log('🎯 Set active index to 0');
+                    }
+
+                    // Update cache buster
                     this.cacheBustTimestamp = uniqueTimestamp;
                     this.localRenderKey++;
                     this.dialogKey++;
+                    this.imageGridKey++;
                     
-                    await Swal.fire({
-                        title: "Upload Success",
-                        text: `Image added to slot ${nextImageNumber}`,
-                        icon: "success",
-                        timer: 2000,
-                        showConfirmButton: false,
+                    console.log('🔄 Keys updated:', {
+                        cacheBustTimestamp: this.cacheBustTimestamp,
+                        localRenderKey: this.localRenderKey,
+                        dialogKey: this.dialogKey,
+                        imageGridKey: this.imageGridKey
                     });
 
-                    try {
-                        this.$emit("request-refresh");
-                    } catch (refreshError) {
-                        console.warn('⚠️ Refresh error (non-critical):', refreshError);
+                    // Wait for Vue to process the data changes
+                    await this.$nextTick();
+                    console.log('✨ After nextTick - localImageList:', this.localImageList.length);
+                    
+                    // Small delay to ensure state is fully updated
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    console.log('⏱️ After 100ms delay - localImageList:', this.localImageList.length);
+                    
+                    // NOW refresh the dialog content
+                    this.refreshDialogContent();
+                    console.log('🔄 Dialog content refreshed');
+                    
+                    // Force update the entire component
+                    this.$forceUpdate();
+                    console.log('💪 Component force updated');
+
+                    const successCount = response.data.results.filter(r => r.success).length;
+                    const failCount = response.data.results.length - successCount;
+
+                    // Clear upload queue after a delay
+                    setTimeout(() => {
+                        this.uploadQueue = [];
+                    }, 3000);
+
+                    if (failCount === 0) {
+                        await Swal.fire({
+                            title: "Upload Success",
+                            text: `Successfully uploaded ${successCount} image(s)`,
+                            icon: "success",
+                            timer: 2000,
+                            showConfirmButton: false,
+                        });
+                    } else {
+                        await Swal.fire({
+                            title: "Partial Success",
+                            text: `${successCount} succeeded, ${failCount} failed`,
+                            icon: "warning",
+                            confirmButtonColor: "#f59e0b",
+                        });
                     }
+
+                    this.$emit("request-refresh");
                 } else {
                     throw new Error(response.data.message || 'Upload failed');
                 }
             } catch (error) {
                 console.error("❌ Add error:", error);
+                this.uploadQueue.forEach(item => {
+                    if (!item.completed) {
+                        item.error = error.message || "Upload failed";
+                    }
+                });
+                
                 await Swal.fire({
                     title: "Error",
-                    text: error.response?.data?.message || "Failed to add image",
+                    text: error.response?.data?.message || "Failed to add images",
                     icon: "error",
                     confirmButtonColor: "#ef4444",
                 });
             } finally {
                 event.target.value = "";
-                this.isAddingNew = false;
+                setTimeout(() => {
+                    this.isAddingNew = false;
+                    this.uploadQueue = [];
+                }, 3000);
             }
         },
 
-        async handleDeleteImage(index) {
+        async handleDeleteImage(index, imgNumber) {
             try {
-                this.deletingIndex = index;
+                this.setImageProcessing(index, 'Deleting...');
 
                 const response = await axios.post(
                     "/api/houseage/delete-image",
                     {
                         productId: String(this.productId),
-                        capturedImgCount: this.imgNumber,
+                        capturedImgCount: imgNumber,
                         imageType: this.imageType,
                     },
                     { withCredentials: true }
                 );
 
-                console.log('✅ Delete response:', response.data);
-
                 if (response.data.success) {
-                    // Remove from localImageList so UI updates immediately
                     this.localImageList.splice(index, 1);
 
-                    // Optional: reset active index if needed
                     if (this.localActiveIndex >= this.localImageList.length) {
                         this.localActiveIndex = Math.max(0, this.localImageList.length - 1);
                     }
 
-                    // Update cache buster
                     this.cacheBustTimestamp = Date.now();
 
                     await Swal.fire({
                         title: "Deleted!",
-                        text: `Image ${this.imgNumber} has been deleted.`,
+                        text: `Image ${imgNumber} has been deleted.`,
                         icon: "success",
                         timer: 2000,
                         showConfirmButton: false,
                     });
 
-                    // Notify parent (optional)
-                    this.$emit("request-refresh", {
-                        ProductID: this.productId,
-                        imageList: this.localImageList,
-                    });
-
+                    this.$emit("request-refresh");
                 } else {
                     throw new Error(response.data.message || 'Delete failed');
                 }
@@ -710,7 +903,7 @@ export default {
                     confirmButtonColor: "#ef4444",
                 });
             } finally {
-                this.deletingIndex = null;
+                this.setImageProcessing(index, null);
             }
         }
     },
@@ -718,12 +911,12 @@ export default {
 </script>
 
 <style scoped>
+/* Previous styles remain the same... */
 /* Main Container */
 .product-image-gallery {
     margin-bottom: .5rem;
 }
 
-/* Label */
 .gallery-label {
     display: block;
     font-size: 0.875rem;
@@ -732,14 +925,12 @@ export default {
     margin-bottom: 0.5rem;
 }
 
-/* Gallery Container */
 .gallery-container {
     position: relative;
     border-radius: 8px;
     overflow: visible;
 }
 
-/* Main Image Display */
 .main-image-display {
     position: relative;
     width: 100%;
@@ -764,13 +955,32 @@ export default {
     transform: scale(1.05);
 }
 
-.empty-state:hover {
-    transform: scale(1.05);
-      transition: transform 0.3s ease;
-      cursor: pointer;
+.empty-state {
+    background: #f9fafb;
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    padding: 3rem 1rem;
+    text-align: center;
+    color: #9ca3af;
+    cursor: pointer;
 }
 
-/* Image Counter Badge */
+.empty-state:hover {
+    transform: scale(1.05);
+    transition: transform 0.3s ease;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 0.875rem;
+}
+
 .image-counter {
     position: absolute;
     top: 12px;
@@ -785,7 +995,83 @@ export default {
     z-index: 5;
 }
 
-/* Thumbnail Strip - Desktop: Absolute overlay */
+/* Upload Progress Container */
+.upload-progress-container {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.upload-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #2563eb);
+    transition: width 0.3s ease;
+}
+
+.upload-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.upload-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: white;
+    border-radius: 4px;
+    font-size: 0.875rem;
+}
+
+.upload-item i {
+    flex-shrink: 0;
+}
+
+.upload-item.completed {
+    color: #059669;
+}
+
+.upload-item.error {
+    color: #dc2626;
+}
+
+.upload-item span:first-of-type {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.error-text {
+    font-size: 0.75rem;
+    color: #dc2626;
+}
+
+/* Thumbnail Strip */
 .thumbnail-strip {
     position: absolute;
     bottom: 0;
@@ -800,80 +1086,21 @@ export default {
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
     z-index: 10;
-    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
 }
 
-/* Mobile thumbnails - Below image, always visible */
 .thumbnail-strip.mobile-thumbnails {
     position: relative;
     background: transparent;
     padding: 0.75rem 0;
-    /* margin-top: 0.2rem; */
-    overflow-x: auto;
-    overflow-y: hidden;
     margin: 0.5rem auto 0 auto;
     width: 95%;
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
-    /* Show scrollbar on mobile */
     scrollbar-width: auto;
     scrollbar-color: rgba(0, 0, 0, 0.3) #f3f4f6;
 }
 
-/* Desktop scrollbar */
-.thumbnail-strip::-webkit-scrollbar {
-    height: 6px;
-}
-
-.thumbnail-strip::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.thumbnail-strip::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 3px;
-}
-
-.thumbnail-strip::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.5);
-}
-
-/* Mobile: Visible scrollbar for thumbnails */
-.thumbnail-strip.mobile-thumbnails::-webkit-scrollbar {
-    height: 8px;
-}
-
-.thumbnail-strip.mobile-thumbnails::-webkit-scrollbar-track {
-    background: #f3f4f6;
-    border-radius: 4px;
-}
-
-.thumbnail-strip.mobile-thumbnails::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 4px;
-}
-
-.thumbnail-strip.mobile-thumbnails::-webkit-scrollbar-thumb:active {
-    background: rgba(0, 0, 0, 0.5);
-}
-
-/* Slide Up Animation - Only for desktop */
-.slide-up-enter-active,
-.slide-up-leave-active {
-    transition: all 0.3s ease;
-}
-
-.slide-up-enter-from {
-    transform: translateY(100%);
-    opacity: 0;
-}
-
-.slide-up-leave-to {
-    transform: translateY(100%);
-    opacity: 0;
-}
-
-/* Thumbnail Item */
 .thumbnail-item {
     flex-shrink: 0;
     width: 80px;
@@ -903,45 +1130,22 @@ export default {
     object-fit: cover;
 }
 
-/* Mobile thumbnail styling */
-.mobile-thumbnails .thumbnail-item {
-    border-color: #e5e7eb;
-    width: 70px;
-    height: 52px;
+.slide-up-enter-active,
+.slide-up-leave-active {
+    transition: all 0.3s ease;
 }
 
-.mobile-thumbnails .thumbnail-item:hover {
-    transform: none;
-    border-color: rgba(0, 0, 0, 0.3);
+.slide-up-enter-from {
+    transform: translateY(100%);
+    opacity: 0;
 }
 
-.mobile-thumbnails .thumbnail-item.selected {
-    border-color: #f59e0b;
-    box-shadow: 0 0 0 2px #f59e0b;
+.slide-up-leave-to {
+    transform: translateY(100%);
+    opacity: 0;
 }
 
-/* Empty State */
-.empty-state {
-    background: #f9fafb;
-    border: 2px dashed #d1d5db;
-    border-radius: 8px;
-    padding: 3rem 1rem;
-    text-align: center;
-    color: #9ca3af;
-}
-
-.empty-state i {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-    display: block;
-}
-
-.empty-state p {
-    margin: 0;
-    font-size: 0.875rem;
-}
-
-/* Image Management Dialog */
+/* Image Grid */
 .image-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -951,7 +1155,6 @@ export default {
     overflow-y: auto;
 }
 
-/* Image Card */
 .image-card {
     display: flex;
     flex-direction: column;
@@ -983,7 +1186,6 @@ export default {
     opacity: 0.5;
 }
 
-/* Delete Button */
 .delete-btn {
     position: absolute;
     top: 8px;
@@ -1008,11 +1210,6 @@ export default {
     transform: scale(1.1);
 }
 
-.delete-btn i {
-    font-size: 1rem;
-}
-
-/* Processing Overlay */
 .processing-overlay {
     position: absolute;
     inset: 0;
@@ -1044,7 +1241,6 @@ export default {
     color: #6b7280;
 }
 
-/* Add Card */
 .add-card {
     display: flex;
     align-items: center;
@@ -1093,66 +1289,40 @@ export default {
     font-size: 0.875rem;
 }
 
-.add-card-content.is-adding p {
-    color: #6b7280;
-}
-
 .add-card-content span {
     font-size: 0.75rem;
     color: #9ca3af;
 }
 
-/* Responsive - Mobile */
+/* Responsive */
 @media (max-width: 768px) {
-    .gallery-container {
-        overflow: visible;
-    }
-
     .main-image-display {
         height: 250px;
-    }
-
-    .thumbnail-strip {
-        padding: 0.75rem 0;
     }
 
     .thumbnail-item {
         width: 70px;
         height: 52px;
-        min-width: 70px; /* Prevent shrinking */
-    }
-
-    /* Disable slide animation on mobile */
-    .slide-up-enter-active,
-    .slide-up-leave-active {
-        transition: none;
-    }
-
-    .slide-up-enter-from,
-    .slide-up-leave-to {
-        transform: none;
-        opacity: 1;
+        min-width: 70px;
     }
 
     .image-grid {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
         gap: 1rem;
     }
+
+    .slide-up-enter-active,
+    .slide-up-leave-active {
+        transition: none;
+    }
 }
 
 @media (max-width: 480px) {
     .main-image-display {
         height: 200px;
-        width: 100%;
     }
 
     .thumbnail-item {
-        width: 60px;
-        height: 45px;
-        min-width: 60px; /* Prevent shrinking */
-    }
-    
-    .mobile-thumbnails .thumbnail-item {
         width: 60px;
         height: 45px;
         min-width: 60px;

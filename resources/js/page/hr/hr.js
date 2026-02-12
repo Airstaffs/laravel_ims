@@ -112,8 +112,8 @@ function adaptClockEditRow(r, i = 0) {
         r.changes && r.changes !== ""
             ? r.changes
             : Array.isArray(this?.prettyDiff)
-            ? []
-            : null; // placeholder when no helper
+              ? []
+              : null; // placeholder when no helper
     // if you have prettyDiff on hrContext (you do), use it:
     const computedChanges =
         !changes && this.prettyDiff
@@ -152,11 +152,11 @@ const historyAdapters = {
             r.changes && r.changes !== ""
                 ? r.changes
                 : ctx.prettyDiff
-                ? ctx.prettyDiff(
-                      r.before || r.old || {},
-                      r.after || r.new || {}
-                  )
-                : [];
+                  ? ctx.prettyDiff(
+                        r.before || r.old || {},
+                        r.after || r.new || {},
+                    )
+                  : [];
 
         return {
             id:
@@ -208,7 +208,7 @@ const historyFetchers = {
         };
         const { data } = await axios.post(
             `${API_BASE_URL}/hr/time-records/edit-history`,
-            payload
+            payload,
         );
         const raw = Array.isArray(data)
             ? data
@@ -362,7 +362,7 @@ export default {
 
             // Employees
             employees: [],
-            newEmployee: { name: "", position: "" },
+            newEmployee: { name: "", position: "", accounttype: "" },
             employeeModal: {
                 show: false,
                 tab: "details", // 'details' | 'rate'
@@ -585,7 +585,7 @@ export default {
             const viewLabel = (
                 typeof view === "string"
                     ? view
-                    : view?.label ?? view?.name ?? view?.text ?? ""
+                    : (view?.label ?? view?.name ?? view?.text ?? "")
             )
                 .toString()
                 .trim();
@@ -624,7 +624,7 @@ export default {
                 run();
             } else {
                 console.warn(
-                    `${fnName}() not found on this component or parent.`
+                    `${fnName}() not found on this component or parent.`,
                 );
             }
         },
@@ -701,19 +701,81 @@ export default {
             this.showAddEmployeeModal = false;
         },
 
-        // Employees
-        addEmployee() {
-            if (!this.newEmployee.name || !this.newEmployee.position) {
-                alert("Please fill in all fields.");
+        async addEmployee() {
+            if (
+                !this.newEmployee.name ||
+                !this.newEmployee.position ||
+                !this.newEmployee.accounttype
+            ) {
+                Swal.fire({
+                    icon: "warning",
+                    title: "Missing Information",
+                    text: "Please fill in all fields.",
+                    confirmButtonColor: "#3085d6",
+                });
                 return;
             }
-            this.employees.push({
-                id: Date.now(),
-                name: this.newEmployee.name,
-                position: this.newEmployee.position,
-            });
-            this.newEmployee = { name: "", position: "" };
-            this.showAddEmployeeModal = false;
+
+            try {
+                // Get CSRF token
+                const csrfToken = document
+                    .querySelector('meta[name="csrf-token"]')
+                    ?.getAttribute("content");
+
+                // API call to save to database
+                const response = await fetch("/hr/employees", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRF-TOKEN": csrfToken,
+                    },
+                    body: JSON.stringify({
+                        username: this.newEmployee.name,
+                        office_role: this.newEmployee.position,
+                        accounttype: this.newEmployee.accounttype,
+                    }),
+                });
+
+                if (response.ok) {
+                    const newEmp = await response.json();
+
+                    // Close modal and reset form
+                    this.newEmployee = {
+                        name: "",
+                        position: "",
+                        accounttype: "",
+                    };
+                    this.showAddEmployeeModal = false;
+
+                    // Success message
+                    Swal.fire({
+                        icon: "success",
+                        title: "Success!",
+                        text: "Employee added successfully!",
+                        confirmButtonColor: "#28a745",
+                    });
+
+                    this.loaded.employees = false;
+                    this.fetchEmployeesOnce();
+                } else {
+                    // Failed message
+                    Swal.fire({
+                        icon: "error",
+                        title: "Failed",
+                        text: "Failed to add employee. Please try again.",
+                        confirmButtonColor: "#dc3545",
+                    });
+                }
+            } catch (error) {
+                console.error("Error adding employee:", error);
+                // Error message
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: "An error occurred while adding the employee.",
+                    confirmButtonColor: "#dc3545",
+                });
+            }
         },
 
         async fetchEmployeesOnce() {
@@ -724,7 +786,7 @@ export default {
                 const data = await res.json().catch(() => ({}));
                 this.employees = Array.isArray(data)
                     ? data
-                    : data?.employees ?? [];
+                    : (data?.employees ?? []);
             } catch (e) {
                 console.error("Failed to load employees", e);
                 this.employees = [];
@@ -755,7 +817,7 @@ export default {
             this.permissionsLoading = true;
             try {
                 const { data } = await axios.get(
-                    `${API_BASE_URL}/hr/employees/${emp.id}/permissions`
+                    `${API_BASE_URL}/hr/employees/${emp.id}/permissions`,
                 );
                 // expected backend shape:
                 // { user_id, modules:{...}, main_module: "order"|null, module_keys:[...] }
@@ -820,7 +882,7 @@ export default {
                 return Swal.fire(
                     "Invalid main module",
                     "Main module must be one of the enabled modules.",
-                    "warning"
+                    "warning",
                 );
             }
 
@@ -834,7 +896,7 @@ export default {
 
                 await axios.post(
                     `${API_BASE_URL}/hr/employees/${this.permissions.user_id}/permissions`,
-                    payload
+                    payload,
                 );
 
                 Swal.fire("Saved", "Permissions updated.", "success");
@@ -914,21 +976,21 @@ export default {
                 return Swal.fire(
                     "Missing Employee",
                     "Please select an employee.",
-                    "warning"
+                    "warning",
                 );
             }
             if (!this.rateForm.effective_start) {
                 return Swal.fire(
                     "Effective Start Required",
                     "Please provide an effective start date.",
-                    "warning"
+                    "warning",
                 );
             }
             if (!this.rateForm.monthly_rate && !this.rateForm.hourly_rate) {
                 return Swal.fire(
                     "Rate Required",
                     "Please provide at least a monthly or hourly rate.",
-                    "warning"
+                    "warning",
                 );
             }
 
@@ -962,7 +1024,7 @@ export default {
                 Swal.fire(
                     "Success",
                     "Employee rate has been saved successfully.",
-                    "success"
+                    "success",
                 ).then(() => {
                     this.fetchEmployeesOnce();
                 });
@@ -971,7 +1033,7 @@ export default {
                 Swal.fire(
                     "Error",
                     "Failed to save rate. Please try again.",
-                    "error"
+                    "error",
                 );
             } finally {
                 this.savingRate = false;
@@ -1036,7 +1098,7 @@ export default {
                 if (Array.isArray(this.employees) && this.employees.length) {
                     this.employeeNames = [
                         ...new Set(
-                            this.employees.map((e) => e.name).filter(Boolean)
+                            this.employees.map((e) => e.name).filter(Boolean),
                         ),
                     ].sort((a, b) => a.localeCompare(b));
                 } else {
@@ -1044,7 +1106,7 @@ export default {
                         ...new Set(
                             (result.data || [])
                                 .map((r) => r.Employee)
-                                .filter(Boolean)
+                                .filter(Boolean),
                         ),
                     ].sort((a, b) => a.localeCompare(b));
                 }
@@ -1130,12 +1192,12 @@ export default {
                 new Set([
                     ...Object.keys(before || {}),
                     ...Object.keys(after || {}),
-                ])
+                ]),
             );
             return keys
                 .filter(
                     (k) =>
-                        String(before?.[k] ?? "") !== String(after?.[k] ?? "")
+                        String(before?.[k] ?? "") !== String(after?.[k] ?? ""),
                 )
                 .map((k) => ({
                     key: k,
@@ -1151,7 +1213,7 @@ export default {
             try {
                 const { data } = await axios.post(
                     `${API_BASE_URL}/hr/time-records/edit-history`,
-                    { ...this.histFilters, ...params }
+                    { ...this.histFilters, ...params },
                 );
 
                 // accept several backend shapes
@@ -1177,7 +1239,7 @@ export default {
             try {
                 const { data } = await axios.post(
                     `${API_BASE_URL}/hr/time-records/${clockId}/edit-history`,
-                    {}
+                    {},
                 );
                 this.clockEditHistory = Array.isArray(data)
                     ? data
@@ -1249,7 +1311,7 @@ export default {
                 this.submittingEdit = true;
                 await axios.post(
                     `${API_BASE_URL}/hr/time-records/${id}/edit`,
-                    this.data_sent
+                    this.data_sent,
                 );
 
                 await this.fetchRecords();
@@ -1307,7 +1369,7 @@ export default {
 
                 const { data } = await axios.post(
                     `${API_BASE_URL}/hr/holidays/list`,
-                    { year }
+                    { year },
                 );
 
                 if (data?.success) {
@@ -1416,7 +1478,7 @@ export default {
             try {
                 const { data } = await axios.post(
                     `${API_BASE_URL}/hr/holidays/delete`,
-                    { holidayID }
+                    { holidayID },
                 );
 
                 if (data?.success) {
@@ -1562,7 +1624,7 @@ export default {
 
                 if (!csrf) {
                     console.warn(
-                        'CSRF token not found. Add window.csrfToken or a <meta name="csrf-token"> tag.'
+                        'CSRF token not found. Add window.csrfToken or a <meta name="csrf-token"> tag.',
                     );
                 }
 
@@ -1592,7 +1654,7 @@ export default {
                 alert(
                     saveMode === "active"
                         ? "Saved & Activated"
-                        : "Saved as Draft"
+                        : "Saved as Draft",
                 );
 
                 if (!this.announcementForm.id) {
@@ -1652,7 +1714,7 @@ export default {
                     this.employees.map((e) => [
                         String(e.username),
                         Number(e.id),
-                    ])
+                    ]),
                 );
                 return arr
                     .map((u) => usernameToId.get(String(u)))
@@ -1700,7 +1762,7 @@ export default {
                         id: row.id,
                         make_active: !row.is_active,
                     },
-                    { withCredentials: true }
+                    { withCredentials: true },
                 );
 
                 if (!data?.success)
@@ -1718,7 +1780,7 @@ export default {
                 Swal.fire(
                     "Error",
                     e?.message || "Failed to update status.",
-                    "error"
+                    "error",
                 );
             }
         },
@@ -1818,7 +1880,7 @@ export default {
                         parts.push(
                             start === prev
                                 ? NAMES[start]
-                                : `${NAMES[start]}–${NAMES[prev]}`
+                                : `${NAMES[start]}–${NAMES[prev]}`,
                         );
                         start = cur;
                     }
@@ -1859,7 +1921,7 @@ export default {
                     return Swal.fire(
                         "Days required",
                         "Pick at least one day.",
-                        "warning"
+                        "warning",
                     );
                 }
 
@@ -1886,7 +1948,7 @@ export default {
                 if (this.sched_editTId) {
                     await axios.put(
                         `${SCHED_EP.timesched}/${this.sched_editTId}`,
-                        payload
+                        payload,
                     );
                     Swal.fire("Updated", "Template updated.", "success");
                 } else {
@@ -1977,14 +2039,14 @@ export default {
                 Number(
                     userId ??
                         this.sched_selectedUserId ??
-                        this.sched_uForm.userId
+                        this.sched_uForm.userId,
                 ) || null;
             if (!uid) {
                 return Swal.fire("Oops", "Select a user", "info");
             }
             try {
                 const { data } = await axios.get(
-                    `${SCHED_EP.usersched}?userId=${encodeURIComponent(uid)}`
+                    `${SCHED_EP.usersched}?userId=${encodeURIComponent(uid)}`,
                 );
                 this.sched_userlinks = Array.isArray(data?.data)
                     ? data.data
@@ -2005,7 +2067,7 @@ export default {
                     Swal.fire(
                         "Error",
                         "User and Template are required.",
-                        "warning"
+                        "warning",
                     );
                     return;
                 }
@@ -2026,7 +2088,7 @@ export default {
                             effective_from: payload.effective_from,
                             effective_to: payload.effective_to,
                             is_active: payload.is_active,
-                        }
+                        },
                     );
                     Swal.fire("Updated", "Link updated.", "success");
                 } else {
@@ -2065,7 +2127,7 @@ export default {
                 if (this.sched_editUId === row.userschedId)
                     this.schedResetUForm();
                 await this.schedLoadUserLinks(
-                    this.sched_selectedUserId || row.userId
+                    this.sched_selectedUserId || row.userId,
                 );
                 Swal.fire("Deleted", "Link removed.", "success");
             } catch (e) {
@@ -2151,7 +2213,7 @@ export default {
                 const fetcher = historyFetchers[this.history.type];
                 if (!fetcher)
                     throw new Error(
-                        `No fetcher for type: ${this.history.type}`
+                        `No fetcher for type: ${this.history.type}`,
                     );
                 const { rows, nextPage } = await fetcher(this, page);
                 this.history.rows =
@@ -2179,7 +2241,7 @@ export default {
             } else if (t === "rate") {
                 if (!this.loaded.rateHistory && !this.loading.rateHistory) {
                     this.fetchEmployeeRateHistoryOnce(
-                        this.rateHistoryFilterEmployeeId || null
+                        this.rateHistoryFilterEmployeeId || null,
                     );
                 }
             } else if (t === "violation") {
@@ -2387,14 +2449,14 @@ export default {
 
             if (empId) {
                 list = list.filter(
-                    (r) => String(r.employee_id) === String(empId)
+                    (r) => String(r.employee_id) === String(empId),
                 );
             }
             if (onlyActive) {
                 list = list.filter(
                     (r) =>
                         r.effective_start <= today &&
-                        (!r.effective_end || r.effective_end >= today)
+                        (!r.effective_end || r.effective_end >= today),
                 );
             }
             return list;
