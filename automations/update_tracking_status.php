@@ -28,6 +28,29 @@ define('OVERDUE_THRESHOLD_DAYS', 14); // Skip tracking if 14+ days past estimate
 $API_KEY = '5EC4C3FCD4929687DC76822C8D154C20';
 
 // ========================================
+// HELPER FUNCTION: Detect carrier from tracking number
+// ========================================
+function detectCarrier($trackingNumber) {
+    // USPS: 20-22 digits or 13 chars starting with EA/EC/CP/RA/etc
+    if (preg_match('/^(94|92|93|95)\d{20}$/', $trackingNumber) || 
+        preg_match('/^(EA|EC|CP|RA|LK|LN)\d{9}US$/', $trackingNumber)) {
+        return 100; // USPS
+    }
+    
+    // UPS: 1Z followed by 16 chars
+    if (preg_match('/^1Z[A-Z0-9]{16}$/', $trackingNumber)) {
+        return 101; // UPS
+    }
+    
+    // FedEx: 12-14 digits
+    if (preg_match('/^\d{12,14}$/', $trackingNumber)) {
+        return 102; // FedEx
+    }
+    
+    return null; // Auto-detect
+}
+
+// ========================================
 // STEP 1: Collect tracking numbers that need checking
 // ========================================
 echo "<h3>📦 STEP 1: Collecting Tracking Numbers from Orders Module</h3>";
@@ -215,13 +238,19 @@ foreach ($batches as $batchIdx => $batch) {
     echo "<div style='background: #d1ecf1; padding: 10px; margin: 10px 0; border-left: 4px solid #17a2b8;'>";
     echo "<strong>📦 BATCH " . ($batchIdx + 1) . "/" . count($batches) . "</strong> (" . count($batch) . " tracking numbers)<br><br>";
     
-    // Step 1: Register with 17track
+    // Step 1: Register with 17track (with carrier detection)
     $registerData = [];
     foreach ($batch as $tn) {
-        $registerData[] = ['number' => $tn];
+        $carrier = detectCarrier($tn);
+        $item = ['number' => $tn];
+        if ($carrier) {
+            $item['carrier'] = $carrier;
+            echo "🔍 Detected carrier for {$tn}: " . ($carrier == 100 ? 'USPS' : ($carrier == 101 ? 'UPS' : 'FedEx')) . "<br>";
+        }
+        $registerData[] = $item;
     }
     
-    echo "📤 Registering with 17track...<br>";
+    echo "<br>📤 Registering with 17track...<br>";
     
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, 'https://api.17track.net/track/v2.2/register');
@@ -235,18 +264,62 @@ foreach ($batches as $batchIdx => $batch) {
     $registerResponse = curl_exec($ch);
     $regData = json_decode($registerResponse, true);
     
-    // Handle registration errors (except "already registered")
+    // Track invalid tracking numbers
+    $invalidTrackingNumbers = [];
+    
+    // Handle registration errors
     if (isset($regData['data']['rejected'])) {
         foreach ($regData['data']['rejected'] as $rej) {
             $errCode = $rej['error']['code'] ?? 0;
-            if ($errCode != -18019901) { // -18019901 = already registered (OK)
-                echo "⚠️ Registration issue: {$rej['number']} - Code {$errCode}<br>";
+            $trackingNum = $rej['number'] ?? '';
+            
+            if ($errCode == -18019903) {
+                // Invalid tracking number
+                $invalidTrackingNumbers[] = $trackingNum;
+                echo "❌ <strong>Invalid tracking number:</strong> {$trackingNum} (not recognized by any carrier)<br>";
+            } elseif ($errCode != -18019901) { // -18019901 = already registered (OK)
+                echo "⚠️ Registration issue: {$trackingNum} - Code {$errCode}<br>";
             }
         }
     }
     
     if (isset($regData['data']['accepted'])) {
         echo "✅ Registered: " . count($regData['data']['accepted']) . " tracking numbers<br>";
+    }
+    
+    // Update database for invalid tracking numbers
+    if (!empty($invalidTrackingNumbers)) {
+        echo "<br>🚫 Updating database for invalid tracking numbers...<br>";
+        
+        foreach ($invalidTrackingNumbers as $invalidTN) {
+            if (!isset($trackingToCheck[$invalidTN])) continue;
+            
+            foreach ($trackingToCheck[$invalidTN] as $record) {
+                $productID = $record['product_id'];
+                $trackingIndex = $record['tracking_field_index'];
+                $statusField = "tracking{$trackingIndex}_status";
+                
+                $stmt = $mysqli->prepare("UPDATE tblproduct SET {$statusField} = 'Invalid Tracking', tracking_last_checked = NOW() WHERE ProductID = ?");
+                $stmt->bind_param("i", $productID);
+                
+                if ($stmt->execute()) {
+                    echo "→ ProductID {$productID}: {$statusField} = '<strong style=\"color: #dc3545;\">Invalid Tracking</strong>'<br>";
+                }
+                
+                $stmt->close();
+            }
+            
+            // Remove from batch so we don't try to fetch info for it
+            $batch = array_diff($batch, [$invalidTN]);
+        }
+        echo "<br>";
+    }
+    
+    // Only proceed if we have valid tracking numbers to fetch
+    if (empty($batch)) {
+        echo "⚠️ No valid tracking numbers in this batch<br>";
+        echo "</div>";
+        continue;
     }
     
     // Wait before getting track info
