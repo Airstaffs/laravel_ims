@@ -61,6 +61,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
+use App\Http\Controllers\ReconciliationController;
 
 // ASIN Mappings Routes
 // ✅ Public API routes
@@ -1013,3 +1014,12 @@ Route::prefix('api/history')->middleware(['auth'])->group(function () {
 Route::get('/history', function () {
     return view('dashboard');
 })->middleware(['auth'])->name('history.page');
+
+Route::get('/debug/reconciliation', [ReconciliationController::class, 'index'])
+    ->middleware('auth'); 
+
+Route::get('/received/verify-tracking-rescan', [
+    ReceivedController::class,
+    'verifyTrackingForReceivingRescan'
+]);
+

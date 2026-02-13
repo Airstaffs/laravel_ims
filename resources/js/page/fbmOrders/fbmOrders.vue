@@ -2134,6 +2134,7 @@ export default {
                 { value: "", label: "All Status" },
                 { value: "Pending", label: "Pending" },
                 { value: "Shipped", label: "Shipped" },
+                { value: "Delivered", label: "Delivered" },
                 { value: "Canceled", label: "Canceled" },
                 { value: "Unshipped", label: "Unshipped" }
             ],
@@ -2255,19 +2256,21 @@ export default {
 
 
         getStatusColor(status) {
-            switch (status) {
+           switch (status) {
                 case 'Pending':
-                    return "#037CA6"
+                    return "#037CA6"  // Blue
                 case 'Unshipped':
-                    return "#FFCC00"
+                    return "#FFCC00"  // Yellow
                 case 'Shipped':
-                    return '#47FF69'
+                    return '#47FF69'  // Green
+                case 'Delivered':
+                    return '#28A745'  // Darker green (Bootstrap success green)
                 case 'Canceled':
-                    return '#E30000'
+                    return '#E30000'  // Red
                 default:
-                    return '#F1FF00'
+                    return '#F1FF00'  // Light yellow
             }
-        }
+        },
 
     },
     mounted() {

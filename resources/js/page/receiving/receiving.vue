@@ -36,6 +36,14 @@
                     target="_blank"
                     rel="noopener"
                 />
+                <Button
+                    label="🧪 Reconciliation Debug"
+                    size="small"
+                    severity="warning"
+                    outlined
+                    @click="toggleReconciliationDebug"
+                />
+
             </div>
         </div>
 
@@ -91,6 +99,13 @@
         >
             <!-- Define custom input fields for Received module -->
             <template #input-fields>
+                <div
+                    class="fw-bold text-dark quantity-info"
+                    :class="{ 'text-warning': remainingQuantity > 1, 'text-success': remainingQuantity === 1 }"
+                    v-if="trackingFound"
+                    >
+                    Quantity: {{ remainingQuantity }}
+                </div>
                 <!-- Step 1: Tracking Number Input -->
                 <div class="input-group" v-if="currentStep === 1">
                     <label>Tracking Number:</label>
@@ -110,6 +125,20 @@
                     >
                         Verify Tracking
                     </button>
+
+                    <div v-if="currentStep === 1 && trackingFound" class="mt-4">
+                        <p class="text-sm text-gray-500">
+                            📸 Capture 1–2 images of the tracking number to continue.
+                        </p>
+
+                        <button
+                            class="continue-button step-btn text-center"
+                            :disabled="!hasTrackingImages"
+                            @click="proceedToPassFail"
+                        >
+                            Continue
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Step 2: Pass/Fail Buttons (shown after tracking verification) -->
@@ -229,7 +258,7 @@
                     <button
                         v-if="showManualInput"
                         @click="processFirstSerial"
-                        class="scan-button"
+                        class="first-serial scan-button"
                     >
                         Scan
                     </button>
@@ -300,27 +329,57 @@
                             </div>
                         </div>
                     </div>
-                    <label>Second Serial Number:</label>
-                    <input
-                        type="text"
-                        v-model="secondSerialNumber"
-                        placeholder="Scan Second Serial Number (or Skip)..."
-                        @input="handleSecondSerialInput"
-                        @keyup.enter="processSecondSerial"
-                        ref="secondSerialInput"
-                    />
-                    <div class="button-group">
+                    <!-- Step 4: Choose Second Serial or Skip -->
+                    <div v-if="!showSecondSerialInput" class="button-group mt-4">
                         <button
-                            v-if="showManualInput"
-                            @click="processSecondSerial"
                             class="scan-button"
+                            @click="showSecondSerialInput = true"
                         >
-                            Scan
+                            Second Serial
                         </button>
-                        <button @click="skipSecondSerial" class="skip-button">
+
+                        <button
+                            class="skip-button"
+                            @click="skipSecondSerial"
+                        >
                             Skip
                         </button>
                     </div>
+
+                    <!-- Step 4: Second Serial Input -->
+                    <div v-if="showSecondSerialInput" class="second-serial-input mt-4">
+                        <div class="input-container">
+                            <label>Second Serial Number:</label>
+                            <input
+                            type="text"
+                            v-model="secondSerialNumber"
+                            placeholder="Scan Second Serial Number..."
+                            @input="handleSecondSerialInput"
+                            @keyup.enter="processSecondSerial"
+                            ref="secondSerialInput"
+                            />
+                        </div>
+
+                        <div class="button-group mt-2">
+                            <button
+                            v-if="showManualInput"
+                            @click="processSecondSerial"
+                            class="second-serial scan-button"
+                            >
+                            Scan
+                            </button>
+
+                            <!-- ✅ BACK BUTTON -->
+                            <button
+                            @click="goBackToSecondSerialChoice"
+                            class="back-button"
+                            type="button"
+                            >
+                            Back
+                            </button>
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- Step 5: PCN Input  -->
@@ -1062,6 +1121,52 @@
             </div>
         </div>
         <ScrollTop />
+        <!-- 🧪 RECONCILIATION DEBUG TABLE -->
+                    <div v-if="showReconciliationDebug" class="mt-6 border-t pt-4">
+
+                        <h3 class="text-lg font-semibold mb-3">
+                            🧪 Reconciliation Debug (Images)
+                        </h3>
+
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full text-xs border border-gray-300">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th>Tracking Number</th>
+                                        <th>Product ID</th>
+                                        <th>Tracking Image</th>
+                                        <th>Created</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    <tr v-for="row in reconciliationRows" :key="row.product_id">
+                                        <td class="border px-2 py-1 font-mono">
+                                            {{ row.tracking_number }}
+                                        </td>
+
+                                        <td class="border px-2 py-1 text-center">
+                                            {{ row.product_id }}
+                                        </td>
+
+                                        <td class="border px-2 py-1">
+                                            <img
+                                                v-if="row.image_path"
+                                                :src="resolveReconciliationImage(row.image_path)"
+                                                class="w-20 h-20 object-contain border rounded"
+                                            />
+                                            <span v-else class="text-gray-400">No Tracking Image</span>
+                                        </td>
+
+                                        <td class="border px-2 py-1 text-gray-500">
+                                            {{ row.created_at }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+
+                            </table>
+                        </div>
+                    </div>
     </div>
 </template>
 
@@ -1077,6 +1182,7 @@ import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 import { showPricingForPH } from "../../utils/helpers.js";
+import Reconciliation from "./reconciliation.js";
 
 const TABLE_COLUMNS = [
     {
@@ -1127,7 +1233,7 @@ const TABLE_COLUMNS = [
 ];
 
 export default {
-    mixins: [Received],
+    mixins: [Received, Reconciliation],
     components: {
         Button,
         Dialog,
@@ -1315,8 +1421,14 @@ export default {
         },
 
         scannerHasCapturedImage() {
-            return this.$refs.scanner?.capturedImages?.length > 2;
+            const images = this.$refs.scanner?.capturedImages || [];
+
+            // ✅ Only count PRODUCT images (Step 2)
+            const productImages = images.filter(img => img.step === 2);
+
+            return productImages.length >= 3;
         },
+
 
         // ✅ ADD THESE COMPUTED PROPERTIES FOR DATE CONVERSION
         localOrderDate: {
@@ -1334,6 +1446,21 @@ export default {
             set(value) {
                 this.item.datedelivered = this.convertFromLocalDate(value);
             },
+        },
+        canProceedFromTracking() {
+            const images = this.$refs.scanner?.capturedImages || [];
+            return (
+            this.trackingFound &&
+            images.filter(img => img.step === 1).length >= 1
+            );
+        },
+        hasTrackingImages() {
+            const images = this.$refs.scanner?.capturedImages || [];
+
+            return (
+            this.trackingFound === true &&
+            images.filter(img => img.step === 1).length >= 1
+            );
         },
 
     },
@@ -1410,5 +1537,59 @@ export default {
 .uploaded-preview {
     display: flex !important;
     justify-content: center;
+}
+.continue-button {
+    width: 100%;
+    color: #fff;
+    padding: 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    background-color: #0d6efd;
+}
+button.skip-button {
+    flex: 1;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    background-color: #f44336;
+}
+button.scan-button {
+    flex: 1;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    background-color: #0d6efd;
+}
+.input-container {
+    display: flex;
+    flex-direction: column;
+}
+.button-group.mt-4 {
+    display: flex;
+    gap: 10px;
+}
+.second-serial.scan-button, .first-serial.scan-button {
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    width: 100%;
+    padding: 10px;
+}
+button.back-button {
+    width:100%;
+    padding:10px;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    background-color: #f44336;
 }
 </style>

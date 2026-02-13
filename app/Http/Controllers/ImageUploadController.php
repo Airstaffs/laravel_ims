@@ -13,7 +13,10 @@ class ImageUploadController extends BasetablesController
 
     public function upload(Request $request)
     {
+        $step = (int) $request->input('step', 0);
+
         Log::info('=== IMAGE UPLOAD REQUEST RECEIVED ===', [
+            'step' => $step,
             'productId' => $request->input('productId'),
             'imageIndex' => $request->input('imageIndex'),
             'isSerial' => $request->input('isSerial', false),
@@ -79,7 +82,7 @@ class ImageUploadController extends BasetablesController
                 // Simplified filename calculation
                 $imageNumber = $imageIndex + 1;
 
-                // 🧠 Detect if this upload is for serial images
+                // ­ЪДа Detect if this upload is for serial images
                 $isSerial = $request->input('isSerial', false);
                 $serialIndex = (int) $request->input('serialIndex', 0);
 
@@ -89,18 +92,32 @@ class ImageUploadController extends BasetablesController
                     'imageNumber' => $imageNumber
                 ]);
 
-                if ($isSerial && $serialIndex === 1) {
+                if ($step === 1) {
+                    // ✅ Tracking images (max 2)
+                    $trackingIndex = min($imageIndex + 1, 2);
+                    $capturedImgColumn = 'trackingimg' . $trackingIndex;
+                    $filename = "{$productId}_tracking{$trackingIndex}.jpg";
+
+                } elseif ($step === 2) {
+                    // ✅ Product images (max 12)
+                    $productIndex = min($imageIndex + 1, 12);
+                    $capturedImgColumn = 'capturedimg' . $productIndex;
+                    $filename = "{$productId}_img{$productIndex}.jpg";
+
+                } elseif ($step === 3) {
+                    // ✅ First serial
                     $capturedImgColumn = 'serialimg1';
-                    $filename = $productId . '_serial1.jpg';
-                } elseif ($isSerial && $serialIndex === 2) {
+                    $filename = "{$productId}_serial1.jpg";
+
+                } elseif ($step === 4) {
+                    // ✅ Second serial
                     $capturedImgColumn = 'serialimg2';
-                    $filename = $productId . '_serial2.jpg';
+                    $filename = "{$productId}_serial2.jpg";
+
                 } else {
-                    // Normal product images (max 12)
-                    $capturedImgColumn = 'capturedimg' . min($imageNumber, 12);
-                    $filename = $productId . '_img' . $imageNumber . '.jpg';
+                    throw new \Exception('Invalid capture step: ' . $step);
                 }
-                
+
                 $path = $directory . '/' . $filename;
                 
                 Log::info('Saving image to disk', [
