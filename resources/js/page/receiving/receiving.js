@@ -94,6 +94,7 @@ export default {
             imageUrl: null,
             croppedImage: null,
             isDragging: false,
+
         };
     },
     computed: {
@@ -430,9 +431,9 @@ export default {
         validateBasketNumber() {
             const basketRegex = /^(BKT|SI|ENV)\d+$/i;
             this.basketNumberValid = basketRegex.test(this.basketNumber.trim());
-            if (!this.basketNumberValid) {
-                SoundService.error();
-            }
+        //    if (!this.basketNumberValid) {
+         //       SoundService.error();
+        //    }
             return this.basketNumberValid;
         },
 
