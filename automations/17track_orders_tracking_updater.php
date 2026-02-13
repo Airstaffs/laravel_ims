@@ -32,7 +32,7 @@ $DEBUG = !empty($_GET['debug']);
 $RUN_ONCE = !empty($_GET['run_once']);
 
 // Default web testing is LIMIT 1
-$LIMIT = isset($_GET['limit']) ? max(1, (int) $_GET['limit']) : 1;
+$LIMIT = isset($_GET['limit']) ? max(1, (int) $_GET['limit']) : 50;
 
 if ($RUN_ONCE)
     $LIMIT = 1;
