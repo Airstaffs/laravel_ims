@@ -105,6 +105,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import InventoryStatistics from "../page/inventoryStatistics/inventoryStatistics.vue";
 import soldlist from "../page/soldlist/soldlist";
+import reconciliation from "../page/reconciliation/reconciliation";
 
 const router = useRouter();
 
@@ -158,6 +159,7 @@ const modules = ref({
     shipment: "Shipment",
     notfound: "Not Found",
     houseage: "Houseage",
+    reconciliation: "Reconciliation",
     printer: "Printer",
     auxiliary: "Auxiliary Label",
     inventorystatistics: "Inventory Statistics",
@@ -194,6 +196,7 @@ const moduleIcons = {
     printer: "pi-print",
     auxiliary: "pi-print",
     inventorystatistics: "pi-chart-bar",
+    reconciliation:"pi-clipboard-check"
 };
 
 // Get array of ASIN sub-item IDs

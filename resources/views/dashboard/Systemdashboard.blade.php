@@ -142,7 +142,6 @@
                 'asinoption' => 'Asin Option',
                 'unreceived' => 'Unreceived',
                 'receiving' => 'Received',
-                'reconciliation' => 'Reconciliation',
                 'labeling' => 'Labeling',
                 'validation' => 'Validation',
                 'testing' => 'Testing',
@@ -160,6 +159,7 @@
                 'printer' => 'Printer',
                 'auxiliary' => 'Auxiliary Label',
                 'inventorystatistics' => 'Inventory Statistics',
+                'reconciliation' => 'Reconciliation',
             ];
 
             function hasAccess($module, $mainModule, $subModules): bool
