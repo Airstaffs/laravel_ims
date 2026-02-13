@@ -124,12 +124,27 @@ class ReceivedController extends BasetablesController
         if ($processedProduct && $receivedProduct) {
             $trackingImages = $this->getTrackingImagesByTrackingNumber($processedProduct->trackingnumber);
 
+            $imageFields = [
+                'img1','img2','img3','img4','img5',
+                'img6','img7','img8','img9','img10',
+                'img11','img12','img13','img14','img15',
+            ];
+
+            $productDetails = new \stdClass;
+
+            foreach ($imageFields as $field) {
+                if (property_exists($receivedProduct, $field) && !empty($receivedProduct->$field)) {
+                    $productDetails->$field = $receivedProduct->$field;
+                }
+            }
+
             return response()->json([
                 'found' => true,
                 'productId' => $receivedProduct->ProductID,
                 'rtcounter' => $receivedProduct->rtcounter,
                 'trackingnumber' => $receivedProduct->trackingnumber,
                 'quantity' => $receivedProduct->quantity ?? 1,
+                'productDetails' => $productDetails,
                 'reuseTrackingImages' => true,
                 'trackingImages' => $trackingImages,
                 'alreadyScanned' => false,
@@ -494,49 +509,42 @@ class ReceivedController extends BasetablesController
                 $newRt = (int) ($maxRtResult->maxrt ?? 0) + 1;
 
                 // Create new item with quantity 1
-                $newItemData = [
-                    'ProductTitle' => $originalProduct->ProductTitle ?? null,
-                    'itemnumber' => $originalProduct->itemnumber ?? null,
-                    'RPN' => $originalProduct->RPN ?? null,
-                    'PRD' => $originalProduct->PRD ?? null,
-                    'quantity' => 1,
-                    'price' => $unitPrice,
-                    'priceshipping' => $unitPriceShipping,
-                    'tax' => $unitTax,
-                    'orderdate' => $originalProduct->orderdate ?? null,
-                    'paymentdate' => $originalProduct->paymentdate ?? null,
-                    'shipdate' => $originalProduct->shipdate ?? null,
-                    'datedelivered' => $originalProduct->datedelivered ?? null,
-                    'description' => $originalProduct->description ?? null,
-                    'supplierNotes' => $originalProduct->supplierNotes ?? null,
-                    'employeeNotes' => $originalProduct->employeeNotes ?? null,
-                    'stickerNotes' => $originalProduct->stickerNotes ?? null,
-                    'trackingnumber' => $originalProduct->trackingnumber ?? null,
-                    'serialnumber' => $request->firstSerialNumber,
-                    'serialnumberb' => $request->secondSerialNumber,
-                    'PCN' => $request->pcnNumber,
-                    'basketnumber' => $request->basketNumber,
-                    'ProductModuleLoc' => 'Labeling',
-                    'rtcounter' => $newRt,
-                    'splitfromRT' => $request->rtcounter,
-                    'Username' => $user,
-                    'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
-                ];
+                // 🔥 Clone FULL original product row
+                $newItemData = (array) $originalProduct;
+
+                // ❌ Remove primary key so new row can be created
+                unset($newItemData['ProductID']);
+
+                // 🔒 Override ONLY what must change
+                $newItemData['quantity'] = 1;
+                $newItemData['price'] = $unitPrice;
+                $newItemData['priceshipping'] = $unitPriceShipping;
+                $newItemData['tax'] = $unitTax;
+
+                $newItemData['ProductModuleLoc'] = 'Labeling';
+
+                $newItemData['serialnumber'] = $request->firstSerialNumber;
+                $newItemData['serialnumberb'] = $request->secondSerialNumber;
+                $newItemData['PCN'] = $request->pcnNumber;
+                $newItemData['basketnumber'] = $request->basketNumber;
+
+                $newItemData['rtcounter'] = $newRt;
+                $newItemData['splitfromRT'] = $request->rtcounter;
+                $newItemData['Username'] = $user;
+                $newItemData['lastDateUpdate'] = now();
+
 
                 // Filter out null values
-                $newItemData = array_filter($newItemData, function ($value) {
-                    return $value !== null && $value !== '';
-                });
+                $newProductId = DB::table($this->productTable)
+                ->insertGetId($newItemData);
 
-                // Insert new item
-                $insertResult = DB::table($this->productTable)->insert($newItemData);
 
-                if (! $insertResult) {
+                if (! $newProductId) {
                     throw new \Exception("Failed to create new item with RT: $newRt");
                 }
 
                 // âœ… Get the actual inserted ProductID
-                $newProductId = DB::getPdo()->lastInsertId();
+                // $newProductId = DB::getPdo()->lastInsertId();
 
                 // ✅ COPY tracking images to the new split product
                 // $this->copyTrackingImagesToProduct(

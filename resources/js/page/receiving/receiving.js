@@ -504,6 +504,7 @@ export default {
                 this.rtcounter = response.data.rtcounter;
                 this.originalQuantity = response.data.quantity || 1;
                 this.remainingQuantity = this.originalQuantity;
+                this.$refs.scanner.loadProductThumbnails(response.data.productDetails);
 
                 this.applyTrackingResponse(response.data, response.data.moduleLocation);
 
@@ -531,8 +532,6 @@ export default {
                 // 🟢 NORMAL Received flow
                 this.originalQuantity = response.data.quantity || 1;
                 this.remainingQuantity = this.originalQuantity;
-
-                this.$refs.scanner.loadProductThumbnails(response.data.productDetails);
 
                 const basePath = "/images/thumbnails/";
                 this.productImages = [];
@@ -565,32 +564,6 @@ export default {
                 this.$refs.trackingInput.select();
             }
         },
-
-        // async verifyTrackingRescan() {
-        //     try {
-        //         const response = await axios.get(
-        //             `${API_BASE_URL}/api/received/verify-tracking-rescan`,
-        //             { params: { tracking: this.trackingNumber } }
-        //         );
-
-        //         if (!response.data.found) {
-        //             this.$refs.scanner.showScanError("Tracking number not found");
-        //             SoundService.notFound();
-        //             return;
-        //         }
-
-        //         // 🔥 Apply shared handler
-        //         this.applyTrackingResponse(response.data, response.data.source);
-
-        //         this.trackingSource = response.data.source;
-        //         this.isRescan = true;
-
-        //     } catch (error) {
-        //         console.error(error);
-        //         this.$refs.scanner.showScanError("Rescan verification failed");
-        //         SoundService.error();
-        //     }
-        // },
 
         applyTrackingResponse(data, source) {
             this.trackingSource = source;
@@ -630,22 +603,6 @@ export default {
                     this.$refs.scanner.setExistingTrackingImages(images);
                 }
             }
-
-            // if (data.reuseTrackingImages && data.trackingImages) {
-            //     const basePath = "/images/thumbnails/";
-            //     const images = [];
-
-            //     if (data.trackingImages.trackingimg1) {
-            //         images.push({ src: basePath + data.trackingImages.trackingimg1 });
-            //     }
-            //     if (data.trackingImages.trackingimg2) {
-            //         images.push({ src: basePath + data.trackingImages.trackingimg2 });
-            //     }
-
-            //     if (images.length > 0) {
-            //         this.$refs.scanner.loadTrackingImages(images);
-            //     }
-            // }
 
             // 🔴 Require capture if missing
             this.requireTrackingImage = !!data.requireTrackingImage;

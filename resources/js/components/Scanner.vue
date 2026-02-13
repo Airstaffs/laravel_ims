@@ -919,6 +919,17 @@ export default {
 </script>
 
 <style>
+.quantity-info {
+    font-size: 1.75rem;
+    font-weight: 700;
+    padding: 10px 18px;
+    border-radius: 10px;
+    display: inline-block;
+    color: white !important;
+    text-align: center;
+    background: linear-gradient(90deg, #0d6efd, #198754);
+}
+
 /* newly added */
 .pass-fail-buttons {
     display: flex;
