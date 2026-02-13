@@ -36,13 +36,13 @@
                     target="_blank"
                     rel="noopener"
                 />
-                <Button
+                <!-- <Button
                     label="🧪 Reconciliation Debug"
                     size="small"
                     severity="warning"
                     outlined
                     @click="toggleReconciliationDebug"
-                />
+                /> -->
 
             </div>
         </div>
@@ -1122,7 +1122,7 @@
         </div>
         <ScrollTop />
         <!-- 🧪 RECONCILIATION DEBUG TABLE -->
-                    <div v-if="showReconciliationDebug" class="mt-6 border-t pt-4">
+                    <!-- <div v-if="showReconciliationDebug" class="mt-6 border-t pt-4">
 
                         <h3 class="text-lg font-semibold mb-3">
                             🧪 Reconciliation Debug (Images)
@@ -1166,7 +1166,7 @@
 
                             </table>
                         </div>
-                    </div>
+                    </div> -->
     </div>
 </template>
 
