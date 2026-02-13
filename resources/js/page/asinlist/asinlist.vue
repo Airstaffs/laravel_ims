@@ -5,7 +5,7 @@
         <div class="d-flex align-items-center justify-content-between flex-wrap pe-4 ">
             <TitlePage title="ASIN List Manager" />
             <Button severity="success" size="small" @click="openBulkInstructionCardModal"
-                title="Bulk upload instruction cards for multiple ASINs" label="Construction Card Bulk "
+                title="Bulk upload instruction cards for multiple ASINs" label="Instruction Card Bulk "
                 icon="pi pi-upload" class="ms-4" />
         </div>
         <div class="px-4">

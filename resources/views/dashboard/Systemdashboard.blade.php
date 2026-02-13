@@ -93,7 +93,6 @@
                     'order',
                     'unreceived',
                     'receiving',
-                    'reconciliation',
                     'labeling',
                     'testing',
                     'cleaning',
@@ -111,10 +110,12 @@
                     'notfound',
                     'asinoption',
                     'houseage',
+                    'reconciliation',
                     'asinlist',
                     'printer',
                     'auxiliary',
                     'inventorystatistics',
+
                 ];
 
                 foreach ($moduleColumns as $column) {

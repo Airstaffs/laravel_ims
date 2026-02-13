@@ -1015,6 +1015,7 @@ Route::get('/history', function () {
     return view('dashboard');
 })->middleware(['auth'])->name('history.page');
 
-Route::get('/reconciliation/products', [ReconciliationController::class, 'index']);
-
-
+//routes for reconciliation
+Route::prefix('api/reconciliation')->middleware(['auth'])->group(function () {
+    Route::get('products', [ReconciliationController::class, 'index']);
+});

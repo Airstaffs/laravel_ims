@@ -103,9 +103,6 @@
 import { Drawer, Divider, Avatar } from "primevue";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import InventoryStatistics from "../page/inventoryStatistics/inventoryStatistics.vue";
-import soldlist from "../page/soldlist/soldlist";
-import reconciliation from "../page/reconciliation/reconciliation";
 
 const router = useRouter();
 
@@ -196,7 +193,7 @@ const moduleIcons = {
     printer: "pi-print",
     auxiliary: "pi-print",
     inventorystatistics: "pi-chart-bar",
-    reconciliation:"pi-clipboard-check"
+    reconciliation:"pi-check",
 };
 
 // Get array of ASIN sub-item IDs
