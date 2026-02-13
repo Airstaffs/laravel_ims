@@ -1055,159 +1055,105 @@ export default {
         }, 
         */
 
-        async handlePrintDocuments(payload, done) {
-            const {
-                labelOrders,
-                invoiceOrders,
-                labelAction,
-                invoiceAction,
-                invoiceSettings,
-            } = payload || {};
+async handlePrintDocuments(payload, done) {
+  const {
+    labelOrders,
+    invoiceOrders,
+    labelAction,
+    invoiceAction,
+    invoiceSettings,
+  } = payload || {};
 
-            const labels = Array.isArray(labelOrders) ? labelOrders : [];
-            const invoices = Array.isArray(invoiceOrders) ? invoiceOrders : [];
+  const labels = Array.isArray(labelOrders) ? labelOrders : [];
+  const invoices = Array.isArray(invoiceOrders) ? invoiceOrders : [];
 
-            const result = { label: {}, invoice: {} };
+  // Union of all order ids we need to process
+  const allIds = Array.from(
+    new Set([...labels, ...invoices].map((x) => String(x)))
+  );
 
-            try {
-                // 1) Shipping Labels
-                if (labels.length) {
-                    const res = await axios.post("/fbm-orders-shippinglabel", {
-                        platform_order_ids: labels,
-                        action: labelAction,
-                        note: "",
-                    });
+  const labelSet = new Set(labels.map((x) => String(x)));
+  const invoiceSet = new Set(invoices.map((x) => String(x)));
 
-                    const rows = res?.data?.results || [];
+  const result = { label: {}, invoice: {} };
 
-                    // map by order id
-                    const byId = new Map(
-                        rows.map((r) => [
-                            String(r.order_id || r.platform_order_id || ""),
-                            r,
-                        ]),
-                    );
+  const normalizeRowKey = (r) => String(r?.order_id || r?.platform_order_id || "");
 
-                    labels.forEach((oid) => {
-                        const row = byId.get(String(oid));
-                        const pdfUrl = row?.pdf_url || "";
+  try {
+    for (const oid of allIds) {
+      // 1) Shipping label for this order (if requested)
+      if (labelSet.has(oid)) {
+        try {
+          const res = await axios.post("/fbm-orders-shippinglabel", {
+            platform_order_ids: [oid],
+            action: labelAction,
+            note: "",
+          });
 
-                        if (!row) {
-                            result.label[oid] = {
-                                ok: false,
-                                status: "Failed",
-                                pdfUrl: "",
-                            };
-                            return;
-                        }
+          const rows = res?.data?.results || [];
+          const row = rows.find((r) => normalizeRowKey(r) === oid);
+          const pdfUrl = row?.pdf_url || "";
 
-                        // If action is view and we have a URL => Ready to view + clickable
-                        if (labelAction === "ViewShipmentLabel" && pdfUrl) {
-                            result.label[oid] = {
-                                ok: true,
-                                status: "Ready to view",
-                                pdfUrl,
-                            };
-                        } else if (labelAction === "PrintShipmentLabel") {
-                            // print mode: we usually don't need url, but store it if provided
-                            result.label[oid] = {
-                                ok: true,
-                                status: "Printed",
-                                pdfUrl,
-                            };
-                        } else {
-                            result.label[oid] = {
-                                ok: false,
-                                status: "Failed",
-                                pdfUrl: "",
-                            };
-                        }
-                    });
-                }
+          if (!row) {
+            result.label[oid] = { ok: false, status: "Failed", pdfUrl: "" };
+          } else if (labelAction === "ViewShipmentLabel" && pdfUrl) {
+            result.label[oid] = { ok: true, status: "Ready to view", pdfUrl };
+          } else if (labelAction === "PrintShipmentLabel") {
+            result.label[oid] = { ok: true, status: "Printed", pdfUrl };
+          } else {
+            result.label[oid] = { ok: false, status: "Failed", pdfUrl: "" };
+          }
+        } catch (err) {
+          result.label[oid] = { ok: false, status: "Failed", pdfUrl: "" };
+        }
+      }
 
-                // 2) Invoices
-                if (invoices.length) {
-                    const res = await axios.post("/fbm-orders-invoice", {
-                        platform_order_ids: invoices,
-                        action: invoiceAction,
-                        settings: {
-                            displayPrice: invoiceSettings?.displayPrice
-                                ? "TRUE"
-                                : "FALSE",
-                            signatureRequired:
-                                invoiceSettings?.signatureRequired
-                                    ? "TRUE"
-                                    : "FALSE",
-                            testPrint: !!invoiceSettings?.testPrint,
-                            width: 350,
-                        },
-                    });
+      // 2) Invoice for this order (if requested)
+      if (invoiceSet.has(oid)) {
+        try {
+          const res = await axios.post("/fbm-orders-invoice", {
+            platform_order_ids: [oid],
+            action: invoiceAction,
+            settings: {
+              displayPrice: invoiceSettings?.displayPrice ? "TRUE" : "FALSE",
+              signatureRequired: invoiceSettings?.signatureRequired ? "TRUE" : "FALSE",
+              testPrint: !!invoiceSettings?.testPrint,
+              width: 350,
+            },
+          });
 
-                    const rows = res?.data?.results || [];
-                    const byId = new Map(
-                        rows.map((r) => [
-                            String(r.order_id || r.platform_order_id || ""),
-                            r,
-                        ]),
-                    );
+          const rows = res?.data?.results || [];
+          const row = rows.find((r) => normalizeRowKey(r) === oid);
+          const pdfUrl = row?.pdf_url || "";
 
-                    invoices.forEach((oid) => {
-                        const row = byId.get(String(oid));
-                        const pdfUrl = row?.pdf_url || "";
-
-                        if (!row) {
-                            result.invoice[oid] = {
-                                ok: false,
-                                status: "Failed",
-                                pdfUrl: "",
-                            };
-                            return;
-                        }
-
-                        if (invoiceAction === "ViewInvoice" && pdfUrl) {
-                            result.invoice[oid] = {
-                                ok: true,
-                                status: "Ready to view",
-                                pdfUrl,
-                            };
-                        } else if (invoiceAction === "PrintInvoice") {
-                            result.invoice[oid] = {
-                                ok: true,
-                                status: "Printed",
-                                pdfUrl,
-                            };
-                        } else {
-                            result.invoice[oid] = {
-                                ok: false,
-                                status: "Failed",
-                                pdfUrl: "",
-                            };
-                        }
-                    });
-                }
-            } catch (e) {
-                // if the whole request fails, mark all requested as Failed
-                labels.forEach(
-                    (oid) =>
-                        (result.label[oid] = {
-                            ok: false,
-                            status: "Failed",
-                            pdfUrl: "",
-                        }),
-                );
-                invoices.forEach(
-                    (oid) =>
-                        (result.invoice[oid] = {
-                            ok: false,
-                            status: "Failed",
-                            pdfUrl: "",
-                        }),
-                );
-            } finally {
-                // ✅ tell modal we’re done so it can enable button + show statuses
-                if (typeof done === "function") done(result);
-            }
-        },
+          if (!row) {
+            result.invoice[oid] = { ok: false, status: "Failed", pdfUrl: "" };
+          } else if (invoiceAction === "ViewInvoice" && pdfUrl) {
+            result.invoice[oid] = { ok: true, status: "Ready to view", pdfUrl };
+          } else if (invoiceAction === "PrintInvoice") {
+            result.invoice[oid] = { ok: true, status: "Printed", pdfUrl };
+          } else {
+            result.invoice[oid] = { ok: false, status: "Failed", pdfUrl: "" };
+          }
+        } catch (err) {
+          result.invoice[oid] = { ok: false, status: "Failed", pdfUrl: "" };
+        }
+      }
+    }
+  } catch (e) {
+    // fallback: mark whatever was requested but not set yet as failed
+    labels.forEach((oid) => {
+      oid = String(oid);
+      if (!result.label[oid]) result.label[oid] = { ok: false, status: "Failed", pdfUrl: "" };
+    });
+    invoices.forEach((oid) => {
+      oid = String(oid);
+      if (!result.invoice[oid]) result.invoice[oid] = { ok: false, status: "Failed", pdfUrl: "" };
+    });
+  } finally {
+    if (typeof done === "function") done(result);
+  }
+},
 
         getSelectedPlatformOrderIds() {
             const selectedOutboundIds = this.persistentSelectedOrderIds || [];
