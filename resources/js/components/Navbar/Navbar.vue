@@ -26,6 +26,17 @@
 
                 <!-- Mobile Icons -->
                 <div class="navbar-mobile">
+
+                     <Button
+                        icon="pi pi-clock"
+                        @click="openSystemClockInOut"
+                        severity="secondary"
+                        text
+                        rounded
+                        size="small"
+                        aria-label="Clock"
+                        v-tooltip.bottom="'System Clock In and Out'"
+                    />
                     <!-- ADD HISTORY BUTTON FOR MOBILE -->
                     <Button
                         icon="pi pi-history"
@@ -134,6 +145,16 @@
 
                 <!-- Right Section -->
                 <div class="navbar-right">
+                    <!---SYSTEM CLOCK IN--->
+                    <Button
+                        icon="pi pi-clock"
+                        label="Clock In Out"
+                        @click="openSystemClockInOut"
+                        severity="secondary"
+                        text
+                        class="nav-button with-label"
+                    />
+
                     <!-- ADD HISTORY BUTTON FOR DESKTOP -->
                     <Button
                         icon="pi pi-history"
@@ -200,35 +221,25 @@
                         />
                     </div>
 
-                    <!-- Profile -->
-                    <Button
-                        icon="pi pi-user"
-                        label="Profile"
-                        @click="profileVisible = true"
-                        severity="secondary"
-                        text
-                        class="nav-button with-label"
-                    />
-
-                    <!-- Settings -->
-                    <Button
-                        icon="pi pi-cog"
-                        label="Settings"
-                        @click="settingsVisible = true"
-                        severity="secondary"
-                        text
-                        class="nav-button with-label"
-                    />
-
-                    <!-- Logout -->
-                    <Button
-                        icon="pi pi-sign-out"
-                        label="Logout"
-                        @click="showLogoutModal"
-                        severity="danger"
-                        text
-                        class="nav-button with-label"
-                    />
+                    <!-- User Dropdown Menu -->
+                    <div class="user-menu-wrapper">
+                        <Button
+                            icon="pi pi-user"
+                            label="Account"
+                            @click="toggleUserMenu"
+                            severity="secondary"
+                            text
+                            class="nav-button with-label"
+                            aria-haspopup="true"
+                            aria-controls="user_menu"
+                        />
+                        <Menu
+                            ref="userMenu"
+                            id="user_menu"
+                            :model="userMenuItems"
+                            :popup="true"
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -239,6 +250,7 @@
         </div>
     </nav>
     <Sidebar v-model:visible="visible" />
+    <SystemInOutModal v-model:visible="systemInOutVisible" />
     <ProfileModal v-model:visible="profileVisible" />
     <SettingsModal v-model:visible="settingsVisible" />
     <NotificationModal
@@ -255,6 +267,7 @@
 <script>
 import Button from "primevue/button";
 import Badge from "primevue/badge";
+import Menu from "primevue/menu";
 import Searching from "../../page/searching/searching.vue";
 import Sidebar from "../Sidebar.vue";
 
@@ -265,18 +278,21 @@ import ProfileModal from "../ProfileModal/ProfileModal.vue";
 import SettingsModal from "../SettingsModal/SettingsModal.vue";
 
 import { OverlayBadge } from "primevue";
+import SystemInOutModal from "../SystemInOutModal/SystemInOutModal.vue";
 
 export default {
     name: "Navbar",
     components: {
         Button,
         Badge,
+        Menu,
         Searching,
         Sidebar,
         NotificationModal,
         ProfileModal,
         SettingsModal,
         AnnouncementModal,
+        SystemInOutModal,
         BreakModal,
         OverlayBadge,
     },
@@ -289,10 +305,38 @@ export default {
             notificationCount: 0,
             profileVisible: false,
             settingsVisible: false,
+            systemInOutVisible: false,
             announcementVisible: false,
             breakVisible: false,
             kanbanCount: 0,
             userId: null,
+            userMenuItems: [
+                {
+                    label: 'Profile',
+                    icon: 'pi pi-user',
+                    command: () => {
+                        this.openProfileModal();
+                    }
+                },
+                {
+                    label: 'Settings',
+                    icon: 'pi pi-cog',
+                    command: () => {
+                        this.openSettingModal();
+                    }
+                },
+                {
+                    separator: true
+                },
+                {
+                    label: 'Logout',
+                    icon: 'pi pi-sign-out',
+                    class: 'menu-item-logout',
+                    command: () => {
+                        this.showLogoutModal();
+                    }
+                }
+            ]
         };
     },
     mounted() {
@@ -306,7 +350,6 @@ export default {
     },
     methods: {
         getUserId() {
-            // Try multiple sources
             return (
                 document.querySelector('meta[name="user-id"]')?.content ||
                 window.userId ||
@@ -328,6 +371,10 @@ export default {
             if (badge) {
                 this.notificationCount = parseInt(badge.textContent) || 0;
             }
+        },
+
+        toggleUserMenu(event) {
+            this.$refs.userMenu.toggle(event);
         },
 
         toggleSidebar() {
@@ -378,6 +425,10 @@ export default {
             this.settingsVisible = true;
         },
 
+        openSystemClockInOut() {
+            this.systemInOutVisible = true;
+        },
+
         showLogoutModal() {
             if (typeof showLogoutModal === "function") {
                 showLogoutModal();
@@ -388,7 +439,6 @@ export default {
             window.loadContent("kanban");
         },
 
-        // ADD THIS NEW METHOD
         goToHistory() {
             window.loadContent("history");
         },
@@ -397,3 +447,58 @@ export default {
 </script>
 
 <style scoped src="./Navbar.css"></style>
+
+<style scoped>
+/* User Menu Wrapper */
+.user-menu-wrapper {
+    position: relative;
+}
+
+/* Dropdown Menu Styling */
+:deep(.p-menu) {
+    min-width: 200px;
+    margin-top: 0.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+:deep(.p-menu .p-menuitem-link) {
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transition: all 0.2s ease;
+    color: #334155;
+    font-weight: 500;
+}
+
+:deep(.p-menu .p-menuitem-link:hover) {
+    background: #f1f5f9;
+}
+
+:deep(.p-menu .p-menuitem-icon) {
+    font-size: 1rem;
+    color: #64748b;
+}
+
+/* Logout Item Special Styling */
+:deep(.p-menu .menu-item-logout .p-menuitem-link) {
+    color: #ef4444;
+    border-top: 1px solid #e2e8f0;
+    margin-top: 0.25rem;
+}
+
+:deep(.p-menu .menu-item-logout .p-menuitem-link:hover) {
+    background: #fee2e2;
+}
+
+:deep(.p-menu .menu-item-logout .p-menuitem-icon) {
+    color: #ef4444;
+}
+
+/* Separator */
+:deep(.p-menu .p-menuitem-separator) {
+    margin: 0.5rem 0;
+    border-color: #e2e8f0;
+}
+</style>
