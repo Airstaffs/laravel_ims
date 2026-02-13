@@ -28,14 +28,6 @@ $RUN_ONCE = false;  // web-only convenience
 // CHANGE THIS TO A LONG RANDOM STRING
 define('WEB_RUN_KEY', 'Rawr');
 
-
-// Gate the endpoint
-$key = (string) ($_GET['key'] ?? '');
-if ($key !== WEB_RUN_KEY) {
-    http_response_code(403);
-    exit('Forbidden');
-}
-
 $DEBUG = !empty($_GET['debug']);
 $RUN_ONCE = !empty($_GET['run_once']);
 
