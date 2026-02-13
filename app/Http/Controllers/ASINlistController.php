@@ -65,6 +65,7 @@ class ASINlistController extends BasetablesController
                 ])
                 ->leftJoin($this->fnskuTable . ' as fnsku', 'asin.ASIN', '=', 'fnsku.ASIN')
                 ->where('asin.ASIN', '!=', '')
+                ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted', 'Deleted'])
                 ->whereNotNull('asin.ASIN');
 
             // Apply search filters
@@ -147,6 +148,7 @@ class ASINlistController extends BasetablesController
                     'Units'
                 ])
                 ->whereIn('ASIN', $asinList)
+                ->whereIn('amazon_status', ['Active', 'Inactive', 'Notposted'])
                 ->orderBy('FNSKU', 'asc')
                 ->get()
                 ->groupBy('ASIN');
@@ -1111,7 +1113,7 @@ class ASINlistController extends BasetablesController
     {
         try {
             $validated = $request->validate([
-                'asin_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max
+                'asin_image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // 5MB max
                 'asin' => 'required|string'
             ]);
 

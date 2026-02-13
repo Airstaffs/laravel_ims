@@ -27,6 +27,7 @@
                         />
                     </div>
                 </template>
+
                 <template #ProductTitle="{ data }">
                     <div class="d-flex align-items-start gap-4">
                         <div
@@ -38,10 +39,14 @@
                             "
                         >
                             <p style="font-size: 0.8rem">
-                                ID# {{ data.rtcounter }}
+                                RT# {{ data.rtcounter }}
                             </p>
-                            <p class="fw-semibold">
-                                {{ data.ProductTitle }}
+
+                            <p>
+                                <span class="fw-semibold">
+                                    Internal Title:
+                                </span>
+                                <span>{{ getDisplayTitle(data) }}</span>
                             </p>
                         </div>
                     </div>
@@ -563,7 +568,7 @@ const TABLE_COLUMNS = [
         style: { width: "4rem", minWidth: "4rem" },
     },
     {
-        field: "ProductTitle",
+        field: "AStitle",
         header: "Product Name",
         sortable: true,
         headerStyle: "font-size: 16px;",
@@ -630,11 +635,13 @@ export default {
             showPricingSection: showPricingForPH(),
         };
     },
+
     async mounted() {
         await this.loadUserTimezone();
 
         window.addEventListener("resize", this.updatePricingView);
     },
+
     methods: {
         updatePricingView() {
             this.showPricingSection = showPricingForPH();
@@ -741,9 +748,11 @@ export default {
             }
         },
     },
+
     beforeUnmount() {
         window.removeEventListener("resize", this.updatePricingView);
     },
+
     computed: {
         // ✅ ADD THESE COMPUTED PROPERTIES FOR DATE CONVERSION
         localOrderDate: {

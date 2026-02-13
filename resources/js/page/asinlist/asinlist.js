@@ -187,8 +187,9 @@ export default {
             }
 
             // Default fallback to the old pattern
-            return `/images/asinimg/${asin}_0.png${cacheParam}`;
+            return `/images/asinimg/${asin}_0.webp${cacheParam}`;
         },
+
 
         // Updated to handle card 3 with cache busting
         getInstructionCardPath(asin, cardSlot = 1) {
@@ -966,88 +967,111 @@ export default {
         },
 
         // UPDATED: ASIN Image Upload - with dynamic refresh
-        async handleAsinImageUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+      async handleAsinImageUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
 
-            if (!file.type.startsWith("image/")) {
-                alert("Please select an image file");
-                return;
-            }
+        if (!file.type.startsWith("image/")) {
+            alert("Please select an image file");
+            return;
+        }
 
-            if (file.size > 5 * 1024 * 1024) {
-                alert("File size must be less than 5MB");
-                return;
-            }
+        if (file.size > 5 * 1024 * 1024) {
+            alert("File size must be less than 5MB");
+            return;
+        }
 
-            this.asinImageUploading = true;
+        this.asinImageUploading = true;
 
+        try {
+            let uploadFile = file;
+            
+            // Try to convert to WebP, but fallback to original if it fails
             try {
-                const formData = new FormData();
-                formData.append("asin_image", file);
-                formData.append("asin", this.selectedAsin.ASIN);
-
-                const response = await axios.post(
-                    `${API_BASE_URL}/api/asinlist/upload-asin-image`,
-                    formData,
-                    {
-                        headers: {
-                            "Content-Type": "multipart/form-data",
-                        },
-                        withCredentials: true,
-                    }
-                );
-
-                if (response.data.success) {
-                    alert("ASIN image uploaded successfully");
-
-                    // Store the uploaded file URL for this ASIN
-                    this.asinImageUrls[this.selectedAsin.ASIN] =
-                        response.data.file_url;
-
-                    // Update the selected ASIN data
-                    this.selectedAsin.asinimg = response.data.filename;
-                    this.selectedAsin.asin_image_url = response.data.file_url;
-
-                    // Update the main data array
-                    const asinIndex = this.asinData.findIndex(
-                        (item) => item.ASIN === this.selectedAsin.ASIN
-                    );
-                    if (asinIndex !== -1) {
-                        this.asinData[asinIndex].asinimg =
-                            this.selectedAsin.asinimg;
-                        this.asinData[asinIndex].asin_image_url =
-                            this.selectedAsin.asin_image_url;
-                    }
-
-                    // CRITICAL: Force immediate image refresh
-                    this.forceImageRefresh(this.selectedAsin.ASIN, 'main');
-
-                    // Add visual feedback
-                    this.$nextTick(() => {
-                        const images = document.querySelectorAll(`img[alt*="ASIN image"], img[alt*="${this.selectedAsin.ASIN}"]`);
-                        images.forEach(img => {
-                            img.classList.add('image-uploaded');
-                            setTimeout(() => img.classList.remove('image-uploaded'), 600);
-                        });
+                // Check browser support for WebP
+                if (this.isWebPSupported()) {
+                    const webpBlob = await this.convertToWebP(file, {
+                        quality: 0.85,
+                        maxWidth: 1920
                     });
 
+                    const webpFileName = file.name.replace(/\.(png|jpe?g|gif|bmp)$/i, '.webp');
+                    uploadFile = new File([webpBlob], webpFileName, {
+                        type: 'image/webp'
+                    });
+
+                    console.log('Original:', file.name, (file.size / 1024).toFixed(2), 'KB');
+                    console.log('WebP:', webpFileName, (uploadFile.size / 1024).toFixed(2), 'KB');
+                    console.log('Savings:', (((file.size - uploadFile.size) / file.size) * 100).toFixed(1), '%');
                 } else {
-                    throw new Error(
-                        response.data.message || "Failed to upload ASIN image"
-                    );
+                    console.warn('WebP not supported, uploading original format');
                 }
-            } catch (error) {
-                console.error("Error uploading ASIN image:", error);
-                alert(
-                    "Failed to upload ASIN image: " +
-                        (error.response?.data?.message || error.message)
-                );
-            } finally {
-                this.asinImageUploading = false;
-                event.target.value = "";
+            } catch (conversionError) {
+                console.warn('WebP conversion failed, uploading original format:', conversionError);
+                // uploadFile remains as original file
             }
-        },
+
+            const formData = new FormData();
+            formData.append("asin_image", uploadFile);
+            formData.append("asin", this.selectedAsin.ASIN);
+
+            const response = await axios.post(
+                `${API_BASE_URL}/api/asinlist/upload-asin-image`,
+                formData,
+                {
+                    headers: {
+                        "Content-Type": "multipart/form-data",
+                    },
+                    withCredentials: true,
+                }
+            );
+
+            if (response.data.success) {
+                const format = uploadFile.type === 'image/webp' ? ' (WebP format)' : '';
+                alert(`ASIN image uploaded successfully${format}`);
+
+                // Store the uploaded file URL for this ASIN
+                this.asinImageUrls[this.selectedAsin.ASIN] = response.data.file_url;
+
+                // Update the selected ASIN data
+                this.selectedAsin.asinimg = response.data.filename;
+                this.selectedAsin.asin_image_url = response.data.file_url;
+
+                // Update the main data array
+                const asinIndex = this.asinData.findIndex(
+                    (item) => item.ASIN === this.selectedAsin.ASIN
+                );
+                if (asinIndex !== -1) {
+                    this.asinData[asinIndex].asinimg = this.selectedAsin.asinimg;
+                    this.asinData[asinIndex].asin_image_url = this.selectedAsin.asin_image_url;
+                }
+
+                // Force immediate image refresh
+                this.forceImageRefresh(this.selectedAsin.ASIN, 'main');
+
+                // Add visual feedback
+                this.$nextTick(() => {
+                    const images = document.querySelectorAll(`img[alt*="ASIN image"], img[alt*="${this.selectedAsin.ASIN}"]`);
+                    images.forEach(img => {
+                        img.classList.add('image-uploaded');
+                        setTimeout(() => img.classList.remove('image-uploaded'), 600);
+                    });
+                });
+
+            } else {
+                throw new Error(response.data.message || "Failed to upload ASIN image");
+            }
+        } catch (error) {
+            console.error("Error uploading ASIN image:", error);
+            alert(
+                "Failed to upload ASIN image: " +
+                (error.response?.data?.message || error.message)
+            );
+        } finally {
+            this.asinImageUploading = false;
+            event.target.value = "";
+        }
+    },
 
         // UPDATED: Vector Image Upload - with dynamic refresh
         async handleVectorImageUpload(event) {
@@ -1439,6 +1463,106 @@ export default {
                 this.savingQuantityFor = null; // Hide loading
             }
         },
+
+        // Check if browser supports WebP
+    isWebPSupported() {
+        const canvas = document.createElement('canvas');
+        if (!canvas.getContext || !canvas.getContext('2d')) {
+            return false;
+        }
+        // Check if toBlob exists and supports webp
+        return canvas.toBlob && 
+               canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+    },
+
+    // Improved WebP conversion with better error handling
+    convertToWebP(file, options = {}) {
+        const { quality = 0.85, maxWidth = null, maxHeight = null } = options;
+        
+        return new Promise((resolve, reject) => {
+            // Validate file
+            if (!file || !file.type.startsWith('image/')) {
+                reject(new Error('Invalid image file'));
+                return;
+            }
+
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                const img = new Image();
+                
+                img.onload = () => {
+                    try {
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        // Validate dimensions
+                        if (width === 0 || height === 0) {
+                            reject(new Error('Invalid image dimensions'));
+                            return;
+                        }
+                        
+                        // Resize if needed
+                        if (maxWidth && width > maxWidth) {
+                            height = Math.round((height * maxWidth) / width);
+                            width = maxWidth;
+                        }
+                        if (maxHeight && height > maxHeight) {
+                            width = Math.round((width * maxHeight) / height);
+                            height = maxHeight;
+                        }
+                        
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) {
+                            reject(new Error('Failed to get canvas context'));
+                            return;
+                        }
+                        
+                        // Enable image smoothing for better quality
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Try to convert to blob
+                        canvas.toBlob(
+                            (blob) => {
+                                if (blob && blob.size > 0) {
+                                    resolve(blob);
+                                } else {
+                                    reject(new Error('Canvas toBlob returned null or empty blob'));
+                                }
+                            },
+                            'image/webp',
+                            quality
+                        );
+                    } catch (error) {
+                        reject(new Error(`Canvas processing error: ${error.message}`));
+                    }
+                };
+                
+                img.onerror = (error) => {
+                    reject(new Error('Failed to load image for conversion'));
+                };
+                
+                img.src = e.target.result;
+            };
+            
+            reader.onerror = () => {
+                reject(new Error('Failed to read file'));
+            };
+            
+            try {
+                reader.readAsDataURL(file);
+            } catch (error) {
+                reject(new Error(`FileReader error: ${error.message}`));
+            }
+        });
+    },
 
     },
     watch: {

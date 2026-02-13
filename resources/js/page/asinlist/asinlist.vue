@@ -849,8 +849,8 @@
                                     }}</p>
                             </template>
                                <template #timesused="{ data }">
-                               <p :class="selectedAsin.asin_limit > 0 && (10 - data.Units) >= selectedAsin.asin_limit ? 'text-danger' : 'text-primary'">
-                                    {{ `${10 - data.Units} / ${selectedAsin.asin_limit || 0}` }}
+                               <p :class="selectedAsin.asin_limit > 0 && (30 - data.Units) >= selectedAsin.asin_limit ? 'text-danger' : 'text-primary'">
+                                    {{ `${30 - data.Units} / ${selectedAsin.asin_limit || 0}` }}
                                 </p>
                             </template>
                         </XDataTable>

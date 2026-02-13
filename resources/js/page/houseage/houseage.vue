@@ -397,73 +397,34 @@
                     <div class="form-grid-wrapper">
                         <!-- LEFT: IMAGE + GENERAL INFO -->
                         <div class="form-col-left">
-                            <div class="image-section" v-if="imageList.length">
-                                <!-- Main Image -->
-                                <div class="main-image">
-                                    <img
-                                        :src="activeImageUrl"
-                                        alt="Main Product Image"
-                                        loading="lazy"
-                                        @error="onImageErrorMain"
-                                    />
-                                </div>
+                          <ProductImageGallery 
+                                 label="Serial Images"
+                                :imageList="serialImgList"
+                                :imageType="'serial'"
+                                :maxImages="2"
+                                :productId="item.ProductID"
+                                :company="item.company"
+                                @request-refresh="fetchInventory()"
+                            />
+                            <ProductImageGallery 
+                                 label="Product Images"
+                                :imageList="imageList"
+                                :imageType="'captured'"
+                                :maxImages="12"
+                                :productId="item.ProductID"
+                                :company="item.company"
+                                @request-refresh="fetchInventory()"
+                            />
 
-                                <!-- Thumbnails -->
-                                <div class="thumbnail-carousel">
-                                    <div
-                                        v-for="(img, index) in imageList"
-                                        :key="index"
-                                        :class="[
-                                            'thumbnail',
-                                            {
-                                                active: index === activeIndex,
-                                            },
-                                        ]"
-                                        @click="activeIndex = index"
-                                        @mouseenter="activeIndex = index"
-                                    >
-                                        <img
-                                            :src="
-                                                img.startsWith('/images/')
-                                                    ? img
-                                                    : basePath + img
-                                            "
-                                            alt="Thumbnail"
-                                            loading="lazy"
-                                            @error="onThumbnailError($event)"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="">
-                                <fieldset>
-                                    <label>Serial Number Photo</label>
-
-                                    <div class="serial-upload">
-                                        <!-- hidden file input triggered by button -->
-                                        <input
-                                            ref="serialInput"
-                                            type="file"
-                                            accept="image/*"
-                                            capture="environment"
-                                            class="form-control hidden"
-                                            @change="onSerialImageSelected"
-                                        />
-
-                                        <!-- Live preview -->
-                                        <div class="serial-preview">
-                                            <img
-                                                :src="displaySerialImage"
-                                                alt="Serial number preview"
-                                                loading="lazy"
-                                                width="100%"
-                                                @error="onSerialImgError"
-                                            />
-                                        </div>
-                                    </div>
-                                </fieldset>
-                            </div>
+                             <ProductImageGallery 
+                                 label="Tracking Images"
+                                :imageList="trackingImgList"
+                                :imageType="'tracking'"
+                                :maxImages="2"
+                                :productId="item.ProductID"
+                                :company="item.company"
+                                @request-refresh="fetchInventory()"
+                            />
                         </div>
 
                         <!-- CENTER: ALL OTHER INFO EXCEPT PRICING -->
@@ -662,7 +623,27 @@
                                                                     key,
                                                                 )
                                                             "
+                                                            :class="{
+                                                                'p-invalid':
+                                                                    serialErrors[
+                                                                        key
+                                                                    ],
+                                                            }"
                                                         />
+                                                        <small
+                                                            v-if="
+                                                                serialErrors[
+                                                                    key
+                                                                ]
+                                                            "
+                                                            class="p-error"
+                                                        >
+                                                            {{
+                                                                serialErrors[
+                                                                    key
+                                                                ]
+                                                            }}
+                                                        </small>
                                                     </fieldset>
                                                 </template>
 
@@ -1159,6 +1140,114 @@
             @close="closeCopyDetailsModal"
         />
 
+        <!----DIALOGS FOR UPDATING CAPTURED IMAGES---->
+        <Dialog
+            v-model:visible="openCapturedImageDialog"
+            modal
+            header="Images"
+            :pt="{
+                root: { class: 'mobile-fullscreen-dialog' },
+            }"
+        >
+            <div class="image-list-container">
+                <!-- Existing Images -->
+                <div
+                    v-for="(image, index) in selectedImageList"
+                    :key="`dialog-img-${index}`"
+                    class="image-wrapper"
+                >
+                    <div class="image-container-with-overlay">
+                        <!-- Delete Button - MUST be before img -->
+                        <button
+                            v-if="
+                                uploadingIndex !== index &&
+                                deletingIndex !== index
+                            "
+                            class="delete-image-btn"
+                            @click.stop="confirmDeleteImage(index, image)"
+                            type="button"
+                        >
+                            <i class="pi pi-trash"></i>
+                        </button>
+
+                        <img
+                            :src="image"
+                            :alt="`Product image ${index + 1}`"
+                            class="image-item"
+                            :class="{
+                                uploading: uploadingIndex === index,
+                                deleting: deletingIndex === index,
+                            }"
+                            :key="`img-content-${image}`"
+                        />
+
+                        <!-- Loading Overlay for Upload -->
+                        <div
+                            v-if="uploadingIndex === index"
+                            class="upload-overlay"
+                        >
+                            <div class="upload-spinner"></div>
+                            <p class="upload-text">Uploading...</p>
+                        </div>
+
+                        <!-- Loading Overlay for Delete -->
+                        <div
+                            v-if="deletingIndex === index"
+                            class="upload-overlay"
+                        >
+                            <div class="upload-spinner"></div>
+                            <p class="upload-text">Deleting...</p>
+                        </div>
+                    </div>
+
+                    <input
+                        type="file"
+                        ref="capturedProductImageRef"
+                        accept="image/*"
+                        style="display: none"
+                        @change="handleFileChange($event, index)"
+                    />
+
+                    <Button
+                        :label="
+                            uploadingIndex === index ? 'Uploading...' : 'Update'
+                        "
+                        size="small"
+                        icon="pi pi-upload"
+                        class="upload-button"
+                        :loading="uploadingIndex === index"
+                        :disabled="uploadingIndex === index || deletingIndex === index"
+                        @click="handleUploadClick(index, image)"
+                    />
+                </div>
+
+                <!-- Add New Image Button -->
+                <div
+                    class="image-wrapper add-image-wrapper"
+                    v-if="selectedImageList.length < imageLimitCount"
+                >
+                    <div
+                        class="add-image-container"
+                        @click="handleAddNewImageClick"
+                    >
+                        <i class="pi pi-plus add-icon"></i>
+                        <p class="add-text">Add Image</p>
+                        <p class="add-subtext">
+                            {{ selectedImageList.length }}/
+                            {{ imageLimitCount }}
+                        </p>
+                    </div>
+
+                    <input
+                        type="file"
+                        ref="addNewImageInputRef"
+                        accept="image/*"
+                        style="display: none"
+                        @change="handleAddImageChange"
+                    />
+                </div>
+            </div>
+        </Dialog>
         <ScrollTop />
     </div>
 </template>
@@ -1182,6 +1271,7 @@ import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewIm
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 import { showPricingForPH } from "../../utils/helpers.js";
+import ProductImageGallery from "../../components/ProductImageGallery/ProductImageGallery.vue";
 
 const TABLE_COLUMNS = [
     {
@@ -1270,6 +1360,7 @@ export default {
         TitlePage,
         ViewImageGalleryModal,
         AnimateDiv,
+        ProductImageGallery
     },
     data() {
         return {
@@ -1306,7 +1397,10 @@ export default {
             ],
             rowsPerPage: ROWS_PER_PAGE,
             showPricingSection: showPricingForPH(),
+            openCapturedImageDialog: false
         };
+    },
+    methods: {
     },
     computed: {
         courierOptions() {
@@ -1356,13 +1450,12 @@ export default {
 </script>
 
 <style>
-/* Search input wrapper for positioning */
+/* ... (keep all your existing styles) ... */
 .search-input-wrapper {
     position: relative;
     width: 100%;
 }
 
-/* Small spinner inside search input */
 .search-loading-spinner {
     position: absolute;
     right: 10px;
@@ -1380,7 +1473,6 @@ export default {
     animation: spin 1s linear infinite;
 }
 
-/* Loading text below search */
 .search-loading-text {
     text-align: center;
     color: #6c757d;
@@ -1389,7 +1481,6 @@ export default {
     font-style: italic;
 }
 
-/* Loading overlay for FNSKU list */
 .fnsku-loading-overlay {
     position: absolute;
     top: 0;
@@ -1410,7 +1501,6 @@ export default {
     background: rgba(248, 249, 250, 0.9);
 }
 
-/* Loading content */
 .loading-content {
     text-align: center;
     padding: 20px;
@@ -1422,7 +1512,6 @@ export default {
     font-weight: 500;
 }
 
-/* Large spinner for overlay */
 .loading-spinner-large {
     width: 40px;
     height: 40px;
@@ -1433,7 +1522,6 @@ export default {
     margin: 0 auto;
 }
 
-/* Blur effect when loading */
 .loading-blur {
     filter: blur(1px);
     opacity: 0.6;
@@ -1441,31 +1529,23 @@ export default {
     transition: all 0.3s ease;
 }
 
-/* Spinner animation */
 @keyframes spin {
     0% {
         transform: rotate(0deg);
     }
-
     100% {
         transform: rotate(360deg);
     }
 }
 
-/* Disabled state for buttons during loading */
 button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
 }
 
-/* Search input disabled state */
 .fnsku-search-input:disabled {
     background-color: #f8f9fa;
     cursor: not-allowed;
-}
-
-/* Pulse animation for search input when loading */
-.fnsku-search-input:disabled {
     animation: pulse 2s infinite;
 }
 
@@ -1473,40 +1553,33 @@ button:disabled {
     0% {
         background-color: #f8f9fa;
     }
-
     50% {
         background-color: #e9ecef;
     }
-
     100% {
         background-color: #f8f9fa;
     }
 }
 
-/* Container positioning for overlay */
 .fnsku-list-container,
 .fnsku-card-container {
     position: relative;
 }
 
-/* Ensure table maintains structure during blur */
 .table.loading-blur {
     table-layout: fixed;
 }
 
-/* Loading state for mobile cards */
 .fnsku-card-container.loading-blur .card {
     pointer-events: none;
 }
 
-/* Smooth transitions */
 .fnsku-list-container,
 .fnsku-card-container,
 .search-input-wrapper {
     transition: all 0.3s ease;
 }
 
-/* Loading indicator variants */
 .spinner-small {
     width: 12px;
     height: 12px;
@@ -1551,7 +1624,6 @@ button:disabled {
     font-size: 0.9rem;
 }
 
-/* Responsive loading overlay */
 @media (max-width: 768px) {
     .fnsku-loading-overlay {
         border-radius: 0;
@@ -1591,5 +1663,11 @@ button:disabled {
     .select-form {
         width: 100%;
     }
+}
+
+fieldset > .p-error {
+    color: #a94442;
+    font-size: 10px;
+    line-height: 0;
 }
 </style>

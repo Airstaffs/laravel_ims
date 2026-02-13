@@ -157,7 +157,7 @@
                                             class="username-link"
                                             @click="
                                                 goToUserPrivileges(
-                                                    slotProps.data
+                                                    slotProps.data,
                                                 )
                                             "
                                         >
@@ -171,7 +171,7 @@
                                             :value="slotProps.data.role"
                                             :severity="
                                                 getRoleSeverity(
-                                                    slotProps.data.role
+                                                    slotProps.data.role,
                                                 )
                                             "
                                         />
@@ -185,7 +185,7 @@
                                     <template #body="slotProps">
                                         {{
                                             formatDate(
-                                                slotProps.data.created_at
+                                                slotProps.data.created_at,
                                             )
                                         }}
                                     </template>
@@ -214,7 +214,7 @@
                                             size="small"
                                             @click="
                                                 confirmDeleteUser(
-                                                    slotProps.data
+                                                    slotProps.data,
                                                 )
                                             "
                                             aria-label="Delete"
@@ -318,6 +318,23 @@
                             />
                         </div>
 
+                        <!-- Account Type - NEW -->
+                        <div class="form-field">
+                            <label for="accountType" class="form-label"
+                                >Account Type</label
+                            >
+                            <Dropdown
+                                id="accountType"
+                                v-model="userForm.accounttype"
+                                :options="accountTypeOptions"
+                                optionLabel="label"
+                                optionValue="value"
+                                placeholder="Select account type"
+                                class="w-full"
+                                required
+                            />
+                        </div>
+
                         <div class="button-group">
                             <Button
                                 type="submit"
@@ -375,6 +392,23 @@
                                 optionValue="value"
                                 placeholder="Select a role"
                                 class="w-full"
+                            />
+                        </div>
+
+                        <!-- Account Type - NEW -->
+                        <div class="form-field">
+                            <label for="edit_accounttype" class="form-label"
+                                >Account Type</label
+                            >
+                            <Dropdown
+                                id="edit_accounttype"
+                                v-model="editForm.accounttype"
+                                :options="accountTypeOptions"
+                                optionLabel="label"
+                                optionValue="value"
+                                placeholder="Select account type"
+                                class="w-full"
+                                required
                             />
                         </div>
 
@@ -1106,7 +1140,7 @@
                                             ></i>
                                             {{
                                                 formatLogDate(
-                                                    slotProps.data.datetimelogs
+                                                    slotProps.data.datetimelogs,
                                                 )
                                             }}
                                         </div>
@@ -1211,7 +1245,10 @@
                             <Button
                                 :class="[
                                     'printer-subtab-btn',
-                                    { active: activePrinterTab === 'identifier' },
+                                    {
+                                        active:
+                                            activePrinterTab === 'identifier',
+                                    },
                                 ]"
                                 @click="switchPrinterTab('identifier')"
                             >
@@ -1260,7 +1297,7 @@
                                                 :value="
                                                     getPrinterTypeLabel(
                                                         slotProps.data
-                                                            .printer_type
+                                                            .printer_type,
                                                     )
                                                 "
                                                 :severity="
@@ -1289,7 +1326,7 @@
                                                 "
                                                 :severity="
                                                     getStatusSeverity(
-                                                        slotProps.data.status
+                                                        slotProps.data.status,
                                                     )
                                                 "
                                             />
@@ -1317,7 +1354,7 @@
                                                 rounded
                                                 @click="
                                                     confirmDeletePrinter(
-                                                        slotProps.data
+                                                        slotProps.data,
                                                     )
                                                 "
                                             />
@@ -1394,7 +1431,7 @@
                                             "
                                             :severity="
                                                 getStatusSeverity(
-                                                    slotProps.data.status
+                                                    slotProps.data.status,
                                                 )
                                             "
                                         />
@@ -1417,7 +1454,7 @@
                                             rounded
                                             @click="
                                                 confirmDeletePrinter(
-                                                    slotProps.data
+                                                    slotProps.data,
                                                 )
                                             "
                                         />
@@ -1468,7 +1505,7 @@
                                             "
                                             :severity="
                                                 getStatusSeverity(
-                                                    slotProps.data.status
+                                                    slotProps.data.status,
                                                 )
                                             "
                                         />
@@ -1491,7 +1528,7 @@
                                             rounded
                                             @click="
                                                 confirmDeletePrinter(
-                                                    slotProps.data
+                                                    slotProps.data,
                                                 )
                                             "
                                         />
@@ -1598,18 +1635,21 @@
                                 <p>No married printers found</p>
                             </div>
                         </div>
-                        <div v-show="activePrinterTab === 'identifier'" class="printer_tab_content">
+                        <div
+                            v-show="activePrinterTab === 'identifier'"
+                            class="printer_tab_content"
+                        >
                             <DataTable
-                            :value="uniqueIdentifiersData"
-                            :loading="loadingUniqueIdentifiers"
-                            class="printers-table"
+                                :value="uniqueIdentifiersData"
+                                :loading="loadingUniqueIdentifiers"
+                                class="printers-table"
                             >
                                 <Column header="ID Name" field="name" />
                                 <Column header="Start" field="start" />
                                 <Column header="End" field="end" />
                                 <!-- <Column header="Quantity" field="QTY" />
                                 <Column header="Sticker" field="sticker" /> -->
-                                <Column header="Actions" >
+                                <Column header="Actions">
                                     <template #body="slotProps">
                                         <Button
                                             icon="pi pi-pencil"
@@ -1618,8 +1658,11 @@
                                             rounded
                                             class="mr-1"
                                             @click="
-                                            showSetStartDialogFunc(slotProps)"
-                                            />
+                                                showSetStartDialogFunc(
+                                                    slotProps,
+                                                )
+                                            "
+                                        />
                                     </template>
                                 </Column>
                             </DataTable>
@@ -1978,17 +2021,29 @@
                 </Dialog>
 
                 <!---- SET START NUMBER ---->
-                <Dialog v-model:visible="showSetStartDialog" modal header="Set Start Count" :style="{width: '600px'}">
+                <Dialog
+                    v-model:visible="showSetStartDialog"
+                    modal
+                    header="Set Start Count"
+                    :style="{ width: '600px' }"
+                >
                     <form action="" @submit.prevent="updateStartValueCount">
                         <div class="form-field">
                             <label for="">Input Count</label>
-                            <InputText type="number" size="small" v-model="identifierEditForm.startCountValue" class="w-100" />
+                            <InputText
+                                type="number"
+                                size="small"
+                                v-model="identifierEditForm.startCountValue"
+                                class="w-100"
+                            />
                         </div>
 
                         <div class="form-footer">
-                            <Button   
+                            <Button
                                 type="submit"
-                                :label="isUpdatingStartCount ? 'Saving': 'Save' "
+                                :label="
+                                    isUpdatingStartCount ? 'Saving' : 'Save'
+                                "
                                 :loading="isUpdatingStartCount"
                                 icon="pi pi-save"
                                 severity="success"
@@ -2077,6 +2132,7 @@ export default {
                 password: "",
                 password_confirmation: "",
                 role: "User",
+                accounttype: "",
             },
             roleOptions: [
                 { label: "Super-Admin", value: "SuperAdmin" },
@@ -2095,6 +2151,7 @@ export default {
                 username: "",
                 role: "User",
                 password: "",
+                accounttype: "",
             },
             isUpdatingUser: false,
             // Store management
@@ -2142,10 +2199,12 @@ export default {
                 { label: "RTS", value: "rts" },
                 { label: "Return Scanner", value: "returnscanner" },
                 { label: "FBM Order", value: "fbmorder" },
+                { label: "Shipment", value: "shipment" },
                 { label: "Sold Items", value: "soldlist" },
                 { label: "Not Found", value: "notfound" },
                 { label: "Houseage", value: "houseage" },
                 { label: "Auxiliary Label", value: "auxiliary" },
+                { label: "Inventory Statistics", value: "inventorystatistics" },
             ],
             subModules: [
                 { label: "Human Resource", value: "humanresource" },
@@ -2164,13 +2223,15 @@ export default {
                 { label: "RTS", value: "rts" },
                 { label: "Return Scanner", value: "returnscanner" },
                 { label: "FBM Order", value: "fbmorder" },
-                 { label: "Sold Items", value: "soldlist" },
+                { label: "Shipment", value: "shipment" },
+                { label: "Sold Items", value: "soldlist" },
                 { label: "Not Found", value: "notfound" },
                 { label: "ASIN Option", value: "asinoption" },
                 { label: "Houseage", value: "houseage" },
                 { label: "Printer", value: "printer" },
                 { label: "Announcement", value: "announcement" },
                 { label: "Auxiliary Label", value: "auxiliary" },
+                { label: "Inventory Statistics", value: "inventorystatistics" },
             ],
             userStores: [],
             isSavingPrivileges: false,
@@ -2247,11 +2308,16 @@ export default {
             uniqueIdentifiersData: [],
             identifierEditForm: {
                 startCountValue: null,
-                name: ''
+                name: "",
             },
             isUpdatingStartCount: false,
-            showSetStartDialog:false,
-            loadingUniqueIdentifiers: false
+            showSetStartDialog: false,
+            loadingUniqueIdentifiers: false,
+
+            accountTypeOptions: [
+                { label: "Philippines (PH)", value: "PH" },
+                { label: "United States (US)", value: "US" },
+            ],
         };
     },
     watch: {
@@ -2301,9 +2367,8 @@ export default {
         activePrinterTab(newTab) {
             if (newTab === "married" && this.marriedPrinters.length === 0) {
                 this.fetchMarriedPrinters();
-            }
-            else if (newTab === 'identifier') {
-                this.fetchIdentifiers()
+            } else if (newTab === "identifier") {
+                this.fetchIdentifiers();
             }
         },
     },
@@ -2323,7 +2388,7 @@ export default {
 
             const query = this.userSearchQuery.toLowerCase();
             return this.users.filter((user) =>
-                user.username.toLowerCase().includes(query)
+                user.username.toLowerCase().includes(query),
             );
         },
 
@@ -2337,13 +2402,13 @@ export default {
 
         smallLabelPrinters() {
             return this.allPrinters.filter(
-                (p) => p.printer_type === "small_label"
+                (p) => p.printer_type === "small_label",
             );
         },
 
         instructionCardPrinters() {
             return this.allPrinters.filter(
-                (p) => p.printer_type === "instruction_card"
+                (p) => p.printer_type === "instruction_card",
             );
         },
     },
@@ -2355,7 +2420,7 @@ export default {
                     headers: {
                         Accept: "application/json",
                         "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
+                            'meta[name="csrf-token"]',
                         ).content,
                     },
                 });
@@ -2381,7 +2446,7 @@ export default {
         applyThemeColor() {
             // Get theme color from session meta tag or use current form value
             const themeMeta = document.querySelector(
-                'meta[name="session-theme_color"]'
+                'meta[name="session-theme_color"]',
             );
             const themeColor =
                 this.currentThemeColor || themeMeta?.content || "#007bff";
@@ -2389,19 +2454,19 @@ export default {
             // Apply to CSS variables for navbar and other elements
             document.documentElement.style.setProperty(
                 "--navbar-bg",
-                themeColor
+                themeColor,
             );
             document.documentElement.style.setProperty(
                 "--theme-color",
-                themeColor
+                themeColor,
             );
             document.documentElement.style.setProperty(
                 "--theme-color-dark",
-                this.darkenColor(themeColor, 20)
+                this.darkenColor(themeColor, 20),
             );
             document.documentElement.style.setProperty(
                 "--theme-color-light",
-                this.lightenColor(themeColor, 90)
+                this.lightenColor(themeColor, 90),
             );
         },
 
@@ -2458,7 +2523,7 @@ export default {
                     body: formData,
                     headers: {
                         "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
+                            'meta[name="csrf-token"]',
                         ).content,
                     },
                 });
@@ -2490,7 +2555,7 @@ export default {
                 } else {
                     const errorData = await response.json();
                     throw new Error(
-                        errorData.message || "Failed to save settings"
+                        errorData.message || "Failed to save settings",
                     );
                 }
             } catch (error) {
@@ -2520,6 +2585,16 @@ export default {
                 return;
             }
 
+            // Validate account type
+            if (!this.userForm.accounttype) {
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: "Please select an account type!",
+                });
+                return;
+            }
+
             this.isAddingUser = true;
 
             try {
@@ -2528,9 +2603,10 @@ export default {
                 formData.append("password", this.userForm.password);
                 formData.append(
                     "password_confirmation",
-                    this.userForm.password_confirmation
+                    this.userForm.password_confirmation,
                 );
                 formData.append("role", this.userForm.role);
+                formData.append("accounttype", this.userForm.accounttype); // Add this
 
                 const response = await fetch("/add-user", {
                     method: "POST",
@@ -2539,7 +2615,7 @@ export default {
                         Accept: "application/json",
                         "X-Requested-With": "XMLHttpRequest",
                         "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
+                            'meta[name="csrf-token"]',
                         ).content,
                     },
                 });
@@ -2563,6 +2639,7 @@ export default {
                     password: "",
                     password_confirmation: "",
                     role: "User",
+                    accounttype: "", // Add this
                 };
 
                 // Show user list and refresh
@@ -2591,7 +2668,7 @@ export default {
                         Accept: "application/json",
                         "X-Requested-With": "XMLHttpRequest",
                         "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
+                            'meta[name="csrf-token"]',
                         ).content,
                     },
                 });
@@ -2642,6 +2719,7 @@ export default {
                 username: user.username,
                 role: user.role,
                 password: "",
+                accounttype: user.accounttype,
             };
             this.showEditUser = true;
         },
@@ -2667,10 +2745,10 @@ export default {
                             Accept: "application/json",
                             "X-Requested-With": "XMLHttpRequest",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             ).content,
                         },
-                    }
+                    },
                 );
 
                 const data = await response.json();
@@ -2725,7 +2803,7 @@ export default {
                     method: "DELETE",
                     headers: {
                         "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
+                            'meta[name="csrf-token"]',
                         ).content,
                         Accept: "application/json",
                     },
@@ -2743,7 +2821,7 @@ export default {
                 } else {
                     const errorData = await response.json();
                     throw new Error(
-                        errorData.message || "Failed to delete user"
+                        errorData.message || "Failed to delete user",
                     );
                 }
             } catch (error) {
@@ -2766,7 +2844,7 @@ export default {
                         Accept: "application/json",
                         "X-Requested-With": "XMLHttpRequest",
                         "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
+                            'meta[name="csrf-token"]',
                         ).content,
                     },
                 });
@@ -2806,7 +2884,7 @@ export default {
             const storeExists = this.stores.some(
                 (store) =>
                     store.storename.toLowerCase() ===
-                    this.storeForm.storename.toLowerCase()
+                    this.storeForm.storename.toLowerCase(),
             );
 
             if (storeExists) {
@@ -2828,7 +2906,7 @@ export default {
                         Accept: "application/json",
                         "X-Requested-With": "XMLHttpRequest",
                         "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
+                            'meta[name="csrf-token"]',
                         ).content,
                     },
                     body: JSON.stringify({
@@ -2882,7 +2960,7 @@ export default {
                         Accept: "application/json",
                         "X-Requested-With": "XMLHttpRequest",
                         "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
+                            'meta[name="csrf-token"]',
                         ).content,
                     },
                 });
@@ -2894,7 +2972,7 @@ export default {
                     const selectedMarketplaces = [];
                     if (data.store.MarketplaceID) {
                         const ids = data.store.MarketplaceID.split(",").map(
-                            (id) => id.trim()
+                            (id) => id.trim(),
                         );
                         selectedMarketplaces.push(...ids);
                     }
@@ -2913,7 +2991,7 @@ export default {
                     this.showEditStoreDialog = true;
                 } else {
                     throw new Error(
-                        data.message || "Failed to fetch store details"
+                        data.message || "Failed to fetch store details",
                     );
                 }
             } catch (error) {
@@ -2978,11 +3056,11 @@ export default {
                             Accept: "application/json",
                             "X-Requested-With": "XMLHttpRequest",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             ).content,
                         },
                         body: JSON.stringify(updateData),
-                    }
+                    },
                 );
 
                 const data = await response.json();
@@ -3046,7 +3124,7 @@ export default {
                     method: "DELETE",
                     headers: {
                         "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
+                            'meta[name="csrf-token"]',
                         ).content,
                         Accept: "application/json",
                     },
@@ -3080,7 +3158,7 @@ export default {
         async onUserChange() {
             if (this.privilegeForm.selectedUserId) {
                 await this.fetchUserPrivileges(
-                    this.privilegeForm.selectedUserId
+                    this.privilegeForm.selectedUserId,
                 );
             }
         },
@@ -3093,7 +3171,7 @@ export default {
                         Accept: "application/json",
                         "X-Requested-With": "XMLHttpRequest",
                         "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
+                            'meta[name="csrf-token"]',
                         ).content,
                     },
                 });
@@ -3124,14 +3202,14 @@ export default {
                         data.privileges_stores.forEach((store) => {
                             if (store.is_checked) {
                                 this.privilegeForm.stores.push(
-                                    store.store_column
+                                    store.store_column,
                                 );
                             }
                         });
                     }
                 } else {
                     throw new Error(
-                        data.message || "Failed to fetch user privileges"
+                        data.message || "Failed to fetch user privileges",
                     );
                 }
             } catch (error) {
@@ -3175,7 +3253,7 @@ export default {
                         Accept: "application/json",
                         "X-Requested-With": "XMLHttpRequest",
                         "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
+                            'meta[name="csrf-token"]',
                         ).content,
                     },
                     body: JSON.stringify({
@@ -3190,7 +3268,7 @@ export default {
 
                 if (!response.ok || data.success === false) {
                     throw new Error(
-                        data.message || "Failed to save privileges"
+                        data.message || "Failed to save privileges",
                     );
                 }
 
@@ -3203,13 +3281,13 @@ export default {
 
                 // Refresh privileges for the selected user
                 await this.fetchUserPrivileges(
-                    this.privilegeForm.selectedUserId
+                    this.privilegeForm.selectedUserId,
                 );
 
                 // If the updated user is the current logged-in user, reload the page
                 const loggedInUserId = parseInt(
                     document.querySelector('meta[name="user-id"]')?.content ||
-                        "0"
+                        "0",
                 );
                 if (this.privilegeForm.selectedUserId === loggedInUserId) {
                     setTimeout(() => {
@@ -3250,7 +3328,7 @@ export default {
                         Accept: "application/json",
                         "X-Requested-With": "XMLHttpRequest",
                         "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
+                            'meta[name="csrf-token"]',
                         ).content,
                     },
                 });
@@ -3292,10 +3370,10 @@ export default {
 
             try {
                 const startDate = this.formatDateForAPI(
-                    this.timeRecordForm.startDate
+                    this.timeRecordForm.startDate,
                 );
                 const endDate = this.formatDateForAPI(
-                    this.timeRecordForm.endDate
+                    this.timeRecordForm.endDate,
                 );
 
                 const response = await fetch(
@@ -3306,17 +3384,17 @@ export default {
                             Accept: "application/json",
                             "X-Requested-With": "XMLHttpRequest",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             ).content,
                         },
-                    }
+                    },
                 );
 
                 // Check if response is JSON
                 const contentType = response.headers.get("content-type");
                 if (!contentType || !contentType.includes("application/json")) {
                     throw new Error(
-                        "Invalid response from server. Please check the endpoint configuration."
+                        "Invalid response from server. Please check the endpoint configuration.",
                     );
                 }
 
@@ -3327,7 +3405,7 @@ export default {
                     this.timeRecords = data.map((record) => {
                         // Use timezone formatter for dates and times
                         const timeInFormatted = this.$formatDateTime(
-                            record.TimeIn
+                            record.TimeIn,
                         );
                         const timeOutFormatted = record.TimeOut
                             ? this.$formatDateTime(record.TimeOut)
@@ -3336,12 +3414,12 @@ export default {
                         // Calculate total hours using the formatter
                         const totalHours = this.$calculateHours(
                             record.TimeIn,
-                            record.TimeOut
+                            record.TimeOut,
                         );
 
                         return {
                             details: `${this.$formatDate(
-                                record.TimeIn
+                                record.TimeIn,
                             )} - ${this.$formatTime(record.TimeIn)}${
                                 timeOutFormatted
                                     ? " to " + this.$formatTime(record.TimeOut)
@@ -3395,14 +3473,14 @@ export default {
                 if (this.userLogsForm.startDate) {
                     params.append(
                         "start_date_logs",
-                        this.formatDateForAPI(this.userLogsForm.startDate)
+                        this.formatDateForAPI(this.userLogsForm.startDate),
                     );
                 }
 
                 if (this.userLogsForm.endDate) {
                     params.append(
                         "end_date_logs",
-                        this.formatDateForAPI(this.userLogsForm.endDate)
+                        this.formatDateForAPI(this.userLogsForm.endDate),
                     );
                 }
 
@@ -3416,7 +3494,7 @@ export default {
                         Accept: "application/json",
                         "X-Requested-With": "XMLHttpRequest",
                         "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
+                            'meta[name="csrf-token"]',
                         ).content,
                     },
                 });
@@ -3486,10 +3564,10 @@ export default {
                             Accept: "application/json",
                             "X-Requested-With": "XMLHttpRequest",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             ).content,
                         },
-                    }
+                    },
                 );
 
                 const data = await response.json();
@@ -3531,11 +3609,11 @@ export default {
                             Accept: "application/json",
                             "X-Requested-With": "XMLHttpRequest",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             ).content,
                         },
                         body: JSON.stringify(this.printerForm),
-                    }
+                    },
                 );
 
                 const data = await response.json();
@@ -3601,11 +3679,11 @@ export default {
                             Accept: "application/json",
                             "X-Requested-With": "XMLHttpRequest",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             ).content,
                         },
                         body: JSON.stringify(this.editPrinterForm),
-                    }
+                    },
                 );
 
                 const data = await response.json();
@@ -3661,11 +3739,11 @@ export default {
                         method: "DELETE",
                         headers: {
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             ).content,
                             Accept: "application/json",
                         },
-                    }
+                    },
                 );
 
                 const data = await response.json();
@@ -3695,7 +3773,7 @@ export default {
 
         getPrinterTypeLabel(type) {
             const option = this.printerTypeOptions.find(
-                (o) => o.value === type
+                (o) => o.value === type,
             );
             return option ? option.label : type;
         },
@@ -3725,15 +3803,15 @@ export default {
                         headers: {
                             Accept: "application/json",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             ).content,
                         },
-                    }
+                    },
                 );
 
                 if (!response.ok) {
                     throw new Error(
-                        `HTTP ${response.status}: Failed to load married printers`
+                        `HTTP ${response.status}: Failed to load married printers`,
                     );
                 }
 
@@ -3741,7 +3819,7 @@ export default {
 
                 if (!data.success) {
                     throw new Error(
-                        data.message || "Failed to load married printers"
+                        data.message || "Failed to load married printers",
                     );
                 }
 
@@ -3783,7 +3861,7 @@ export default {
                             Accept: "application/json",
                             "X-Requested-With": "XMLHttpRequest",
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             ).content,
                         },
                         body: JSON.stringify({
@@ -3794,14 +3872,14 @@ export default {
                             marriage_name: this.marriageForm.marriage_name,
                             description: this.marriageForm.description,
                         }),
-                    }
+                    },
                 );
 
                 const data = await response.json();
 
                 if (!response.ok || !data.success) {
                     throw new Error(
-                        data.message || "Failed to create marriage"
+                        data.message || "Failed to create marriage",
                     );
                 }
 
@@ -3862,18 +3940,18 @@ export default {
                         method: "DELETE",
                         headers: {
                             "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
+                                'meta[name="csrf-token"]',
                             ).content,
                             Accept: "application/json",
                         },
-                    }
+                    },
                 );
 
                 const data = await response.json();
 
                 if (!response.ok || !data.success) {
                     throw new Error(
-                        data.message || "Failed to delete marriage"
+                        data.message || "Failed to delete marriage",
                     );
                 }
 
@@ -3897,75 +3975,74 @@ export default {
             }
         },
 
-       // ###################### UNIQUE IDENTIFIER STICKERS ##################################
+        // ###################### UNIQUE IDENTIFIER STICKERS ##################################
 
-       showSetStartDialogFunc(data) {
-        this.showSetStartDialog = true,
-        this.identifierEditForm.name = data.data.name
-       },
+        showSetStartDialogFunc(data) {
+            ((this.showSetStartDialog = true),
+                (this.identifierEditForm.name = data.data.name));
+        },
 
-       async fetchIdentifiers() {
-        try {
-            this.loadingUniqueIdentifiers = true
-            const response = await fetch("/settings/getOrderIdentifiers", {
-                method: 'GET',
-                 headers: {
-                            Accept: "application/json",
-                            "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
-                            ).content,
-                        },
-            })
-
-            const data = await response.json()
-
-            this.uniqueIdentifiersData = data?.data || []
-
-        } catch (error) {
-            console.error("Failed to fetch the data:", error);
-        } finally {
-            this.loadingUniqueIdentifiers = false
-        }
-       },
-
-       async updateStartValueCount() {
-        try {
-            this.isUpdatingStartCount = true
-            const response = await fetch("/settings/updateStartCount", {
-                method: "POST",
-                 headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            "X-Requested-With": "XMLHttpRequest",
-                            "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
-                            ).content,
-                        },
-                        body: JSON.stringify({
-                            name: this.identifierEditForm.name,
-                            start: this.identifierEditForm.startCountValue
-                        }),
-            })
-
-            const result = await response.json()
-
-            if(result.success) {
-                  Swal.fire({
-                    icon: "success",
-                    title: "Updated",
-                    text: "Start count updated successfully",
-                    confirmButtonText: "OK",
+        async fetchIdentifiers() {
+            try {
+                this.loadingUniqueIdentifiers = true;
+                const response = await fetch("/settings/getOrderIdentifiers", {
+                    method: "GET",
+                    headers: {
+                        Accept: "application/json",
+                        "X-CSRF-TOKEN": document.querySelector(
+                            'meta[name="csrf-token"]',
+                        ).content,
+                    },
                 });
-                this.identifierEditForm.startCountValue = null
-                this.showSetStartDialog = false
-                await this.fetchIdentifiers()
+
+                const data = await response.json();
+
+                this.uniqueIdentifiersData = data?.data || [];
+            } catch (error) {
+                console.error("Failed to fetch the data:", error);
+            } finally {
+                this.loadingUniqueIdentifiers = false;
             }
-        } catch (error) {
-            console.error("Failed to fetch the data:", error);
-        } finally {
-            this.isUpdatingStartCount = false
-        }
-       },
+        },
+
+        async updateStartValueCount() {
+            try {
+                this.isUpdatingStartCount = true;
+                const response = await fetch("/settings/updateStartCount", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-CSRF-TOKEN": document.querySelector(
+                            'meta[name="csrf-token"]',
+                        ).content,
+                    },
+                    body: JSON.stringify({
+                        name: this.identifierEditForm.name,
+                        start: this.identifierEditForm.startCountValue,
+                    }),
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    Swal.fire({
+                        icon: "success",
+                        title: "Updated",
+                        text: "Start count updated successfully",
+                        confirmButtonText: "OK",
+                    });
+                    this.identifierEditForm.startCountValue = null;
+                    this.showSetStartDialog = false;
+                    await this.fetchIdentifiers();
+                }
+            } catch (error) {
+                console.error("Failed to fetch the data:", error);
+            } finally {
+                this.isUpdatingStartCount = false;
+            }
+        },
 
         handleClose(value) {
             if (!value) {

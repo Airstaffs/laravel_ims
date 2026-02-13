@@ -42,6 +42,7 @@ class UserController extends Controller
                 'rts',
                 'returnscanner',
                 'fbmorder',
+                'shipment',
                 'soldlist',
                 'notfound',
                 'asinoption',
@@ -51,6 +52,7 @@ class UserController extends Controller
                 'humanresource',
                 'announcement',
                 'auxiliary',
+                'inventorystatistics',
             )
             ->where('id', $currentUserId)
             ->first();
@@ -70,6 +72,7 @@ class UserController extends Controller
                 'username' => 'required|string|max:255|unique:tbluser,username',
                 'password' => 'required|min:6|confirmed',
                 'role' => 'required|in:SuperAdmin,SubAdmin,User',
+                'accounttype' => 'required|in:PH,US',
             ]);
 
             $user = Auth::user();
@@ -79,6 +82,7 @@ class UserController extends Controller
                 'username' => $validated['username'],
                 'password' => Hash::make($validated['password']),
                 'role' => $validated['role'],
+                'accounttype' => $validated['accounttype'],
                 'company' => $companyColumn,
             ]);
 
@@ -206,6 +210,7 @@ class UserController extends Controller
                     'rts' => (bool) $selectedUser->rts,
                     'returnscanner' => (bool) $selectedUser->returnscanner,
                     'fbmorder' => (bool) $selectedUser->fbmorder,
+                    'shipment' => (bool) $selectedUser->shipment,
                     'soldlist' => (bool) $selectedUser->soldlist,
                     'notfound' => (bool) $selectedUser->notfound,
                     'asinoption' => (bool) $selectedUser->asinoption,
@@ -213,6 +218,7 @@ class UserController extends Controller
                     'asinlist' => (bool) $selectedUser->asinlist,
                     'printer' => (bool) $selectedUser->printer,
                     'auxiliary' => (bool) $selectedUser->auxiliary,
+                    'inventorystatistics' => (bool) $selectedUser->inventorystatistics,
                 ],
                 'privileges_stores' => $storePrivileges, // Pass the processed store privileges
             ];
@@ -355,15 +361,16 @@ class UserController extends Controller
                 'RTS' => 'rts',
                 'Return Scanner' => 'returnscanner',
                 'FBM Order' => 'fbmorder',
+                'Shipment' => 'shipment',
                 'Sold Items' => 'soldlist',
                 'Not Found' => 'notfound',
                 'ASIN Option' => 'asinoption',
                 'Houseage' => 'houseage',
                 'ASIN List' => 'asinlist',
                 'Printer' => 'printer',
-                'Auxillary Label' => 'auxillary',
+                'Auxiliary Label' => 'auxiliary',
                 'Announcement' => 'announcement',
-               
+                'Inventory Statistics' => 'inventorystatistics',
             ];
 
             // Convert main module from display name to database column name
@@ -403,6 +410,7 @@ class UserController extends Controller
                 'rts',
                 'returnscanner',
                 'fbmorder',
+                'shipment',
                 'soldlist',
                 'notfound',
                 'asinoption',
@@ -411,7 +419,8 @@ class UserController extends Controller
                 'printer',
                 'auxiliary',
                 'announcement',
-        
+                'inventorystatistics',
+
             ];
 
             // First reset all modules to 0
@@ -550,6 +559,7 @@ class UserController extends Controller
                 'rts',
                 'returnscanner',
                 'fbmorder',
+                'shipment',
                 'soldlist',
                 'notfound',
                 'asinoption',
@@ -557,6 +567,7 @@ class UserController extends Controller
                 'asinlist',
                 'printer',
                 'auxiliary',
+                'inventorystatistics',
             ];
 
             // Get main module and ensure it's lowercase with no spaces

@@ -15,18 +15,20 @@ class ReturnScannerController extends BasetablesController
     /**
      * Extract base FNSKU from prefixed FNSKU
      */
-    private function extractBaseFnsku($fnsku)
-    {
-        if (empty($fnsku)) {
-            return $fnsku;
-        }
+        private function extractBaseFnsku($fnsku)
+        {
+            if (empty($fnsku)) {
+                return $fnsku;
+            }
 
-        if (preg_match('/^C(\d+)(.+)$/', $fnsku, $matches)) {
-            return $matches[2];
-        }
+            // Check if it's a prefixed FNSKU (starts with letter C-W or Y-Z, excluding X)
+            // Pattern: Letter(C-W,Y-Z) + Number(1-9) + BaseFNSKU (which starts with X)
+            if (preg_match('/^([C-W]|[Y-Z])(\d+)(X.+)$/', $fnsku, $matches)) {
+                return $matches[3]; // Return the base FNSKU (starting with X)
+            }
 
-        return $fnsku;
-    }
+            return $fnsku; // Return as-is if not prefixed
+        }
 
     /**
      * Display a listing of products in return list with joined LPN data
@@ -527,8 +529,8 @@ public function processScan(Request $request)
                 )
                 ->leftJoin($this->fnskuTable . ' as fnsku', function ($join) {
                     $join->on(DB::raw("CASE 
-                        WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
-                        THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
+                        WHEN prod.FNSKUviewer REGEXP '^[C-Z][0-9]+' 
+                        THEN REGEXP_REPLACE(prod.FNSKUviewer, '^[C-Z][0-9]+', '')
                         ELSE prod.FNSKUviewer 
                     END"), '=', 'fnsku.FNSKU');
                 })
@@ -552,8 +554,8 @@ public function processScan(Request $request)
                 )
                 ->leftJoin($this->fnskuTable . ' as fnsku', function ($join) {
                     $join->on(DB::raw("CASE 
-                        WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
-                        THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
+                        WHEN prod.FNSKUviewer REGEXP '^[C-Z][0-9]+' 
+                        THEN REGEXP_REPLACE(prod.FNSKUviewer, '^[C-Z][0-9]+', '')
                         ELSE prod.FNSKUviewer 
                     END"), '=', 'fnsku.FNSKU');
                 })
@@ -722,7 +724,7 @@ public function processScan(Request $request)
         $successCount = 0;
         $createdItems = [];
         
-        // ========== MODIFIED FNSKU LOGIC WITH STRICT COLOR MATCHING ==========
+        // ========== ATTRIBUTE-BASED FNSKU LOGIC ==========
         foreach ($serialsToProcess as $currentSerial) {
             if (substr($location, 0, 4) === 'L800') {
                 $modulelocation = 'Production Area';
@@ -737,6 +739,7 @@ public function processScan(Request $request)
             $actualFnskuToUse = null;
             $condition = null;
             $storename = null;
+            $mskuToUse = null;
             
             try {
                 if ($originalFnsku) {
@@ -761,7 +764,7 @@ public function processScan(Request $request)
                         ]);
                     }
                     
-                    $asinToUse = $fnskuInfo->ASIN ?? null;
+                    $packAsin = $fnskuInfo->ASIN ?? null;
                     $mskuToUse = $fnskuInfo->MSKU ?? null;
                     $condition = $fnskuInfo->grading ?? null;
                     $storename = $fnskuInfo->storename ?? null;
@@ -773,7 +776,7 @@ public function processScan(Request $request)
                     if (empty($color) || $color === null || trim($color) === '') {
                         Log::warning("FNSKU has no color defined", [
                             'fnsku' => $baseFnsku,
-                            'asin' => $asinToUse,
+                            'asin' => $packAsin,
                             'serial' => $currentSerial
                         ]);
                         
@@ -784,7 +787,7 @@ public function processScan(Request $request)
                             'reason' => 'missing_color',
                             'details' => [
                                 'fnsku' => $baseFnsku,
-                                'asin' => $asinToUse,
+                                'asin' => $packAsin,
                                 'serial' => $currentSerial,
                                 'condition' => $condition
                             ]
@@ -795,7 +798,7 @@ public function processScan(Request $request)
                     if (empty($storename) || $storename === null || trim($storename) === '') {
                         Log::warning("FNSKU has no store name defined", [
                             'fnsku' => $baseFnsku,
-                            'asin' => $asinToUse,
+                            'asin' => $packAsin,
                             'serial' => $currentSerial
                         ]);
                         
@@ -806,7 +809,7 @@ public function processScan(Request $request)
                             'reason' => 'missing_storename',
                             'details' => [
                                 'fnsku' => $baseFnsku,
-                                'asin' => $asinToUse,
+                                'asin' => $packAsin,
                                 'serial' => $currentSerial,
                                 'condition' => $condition,
                                 'color' => $color
@@ -816,7 +819,7 @@ public function processScan(Request $request)
                     
                     Log::info("FNSKU Info", [
                         'FNSKU' => $baseFnsku,
-                        'ASIN' => $asinToUse,
+                        'ASIN' => $packAsin,
                         'quantityinside' => $quantityInside,
                         'color' => $color,
                         'condition' => $condition,
@@ -824,168 +827,189 @@ public function processScan(Request $request)
                         'units' => $OriginalFnskuUnitCount
                     ]);
                     
-                    // ✅ MULTI-PACK CONVERSION WITH STRICT COLOR MATCHING
+                    // ✅ MULTI-PACK CONVERSION - ATTRIBUTE-BASED SEARCH
                     if ($quantityInside > 1) {
-                        Log::info("Pack detected: ASIN {$asinToUse} has {$quantityInside} items inside");
+                        Log::info("Pack detected: ASIN {$packAsin} has {$quantityInside} items inside", [
+                            'pack_asin' => $packAsin,
+                            'pack_fnsku' => $baseFnsku,
+                            'pack_quantity' => $quantityInside,
+                            'pack_color' => $color,
+                            'pack_condition' => $condition,
+                            'pack_storename' => $storename
+                        ]);
                         
-                        $asinBase = preg_replace('/-pack\d*$/i', '', $asinToUse);
-                        $asinBase = preg_replace('/-\d+$/i', '', $asinBase);
+                        // ✅ FIND SINGLE-UNIT ASIN WITH MATCHING ATTRIBUTES
+                        Log::info("Searching for single-unit FNSKU with matching attributes", [
+                            'required_quantity' => 1,
+                            'required_color' => $color,
+                            'required_condition' => $condition,
+                            'required_storename' => $storename
+                        ]);
                         
-                        // PRIMARY: Try exact ASIN pattern match with STRICT color and store
-                        $query = DB::table($this->fnskuTable . ' as fnsku')
-                            ->select('fnsku.*')
+                        // Direct search for single-unit FNSKU with matching attributes
+                        $singleItem = DB::table($this->fnskuTable . ' as fnsku')
+                            ->select('fnsku.*', 'asin.ASIN as single_asin', 'asin.color', 'asin.quantityinside')
                             ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                            ->where('asin.quantityinside', 1)  // ✅ MUST be single unit
+                            ->where('asin.color', $color)      // ✅ SAME color as pack
+                            ->where('fnsku.grading', $condition)  // ✅ SAME condition
+                            ->where('fnsku.storename', $storename)  // ✅ SAME store
                             ->where('fnsku.fnsku_status', 'available')
-                            ->where('fnsku.amazon_status', 'Existed')
+                            ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted'])
                             ->where('fnsku.LimitStatus', 'False')
-                            ->where('fnsku.grading', $condition)
-                            ->where('fnsku.storename', $storename)
                             ->where('fnsku.Units', '>', 0)
-                            ->where('asin.quantityinside', 1)
-                            ->where('fnsku.ASIN', 'LIKE', $asinBase . '%')
-                            ->where('asin.color', $color);
+                            ->orderByDesc('fnsku.FNSKUID')
+                            ->first();
                         
-                        $singleItem = $query->orderByDesc('fnsku.FNSKUID')->first();
-                        
-                        // FALLBACK: Search in related ASINs with STRICT color and store
-                        if (!$singleItem) {
-                            Log::info("No direct match found, searching related ASINs", [
-                                'original_asin' => $asinToUse,
-                                'required_color' => $color,
-                                'required_condition' => $condition,
-                                'required_storename' => $storename,
-                                'required_quantity' => 1
+                        if ($singleItem) {
+                            Log::info("✅ Found single-unit FNSKU with exact attributes match", [
+                                'pack_asin' => $packAsin,
+                                'pack_fnsku' => $baseFnsku,
+                                'pack_quantity' => $quantityInside,
+                                'single_asin' => $singleItem->single_asin,
+                                'single_fnsku' => $singleItem->FNSKU,
+                                'single_msku' => $singleItem->MSKU,
+                                'matched_color' => $color,
+                                'matched_condition' => $condition,
+                                'matched_storename' => $storename,
+                                'units_available' => $singleItem->Units
                             ]);
                             
-                            $relatedAsins = $this->findRelatedAsins($asinToUse);
+                            $baseFnskuToUse = $singleItem->FNSKU;
+                            $asinToUse = $singleItem->single_asin;  // ✅ Use the SINGLE-UNIT ASIN
+                            $mskuToUse = $singleItem->MSKU;
+                            $condition = $singleItem->grading;
+                            $storename = $singleItem->storename;
+                        } else {
+                            // ✅ FALLBACK: Try case-insensitive color match
+                            Log::info("No exact color match, trying case-insensitive search");
                             
-                            if (!empty($relatedAsins)) {
-                                $relatedQuery = DB::table($this->fnskuTable . ' as fnsku')
-                                    ->select('fnsku.*')
-                                    ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                                    ->whereIn('fnsku.ASIN', $relatedAsins)
-                                    ->where('fnsku.fnsku_status', 'available')
-                                    ->where('fnsku.amazon_status', 'Existed')
-                                    ->where('fnsku.LimitStatus', 'False')
-                                    ->where('fnsku.grading', $condition)
-                                    ->where('fnsku.storename', $storename)
-                                    ->where('fnsku.Units', '>', 0)
-                                    ->where('asin.quantityinside', 1)
-                                    ->where('asin.color', $color);
+                            $singleItem = DB::table($this->fnskuTable . ' as fnsku')
+                                ->select('fnsku.*', 'asin.ASIN as single_asin', 'asin.color', 'asin.quantityinside')
+                                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                                ->where('asin.quantityinside', 1)
+                                ->whereRaw('LOWER(TRIM(asin.color)) = LOWER(TRIM(?))', [$color])
+                                ->where('fnsku.grading', $condition)
+                                ->where('fnsku.storename', $storename)
+                                ->where('fnsku.fnsku_status', 'available')
+                                ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted'])
+                                ->where('fnsku.LimitStatus', 'False')
+                                ->where('fnsku.Units', '>', 0)
+                                ->orderByDesc('fnsku.FNSKUID')
+                                ->first();
+                            
+                            if ($singleItem) {
+                                Log::warning("⚠️ Found single-unit with case-insensitive color match", [
+                                    'pack_color' => $color,
+                                    'found_color' => $singleItem->color,
+                                    'single_asin' => $singleItem->single_asin,
+                                    'single_fnsku' => $singleItem->FNSKU
+                                ]);
                                 
-                                $singleItem = $relatedQuery->orderByDesc('fnsku.FNSKUID')->first();
-                                
-                                if ($singleItem) {
-                                    Log::info("✅ Found single-unit FNSKU in related ASINs", [
-                                        'found_fnsku' => $singleItem->FNSKU,
-                                        'found_asin' => $singleItem->ASIN,
-                                        'matched_color' => $color,
-                                        'matched_storename' => $storename
-                                    ]);
-                                }
+                                $baseFnskuToUse = $singleItem->FNSKU;
+                                $asinToUse = $singleItem->single_asin;
+                                $mskuToUse = $singleItem->MSKU;
+                                $condition = $singleItem->grading;
+                                $storename = $singleItem->storename;
+                            } else {
+                                DB::rollBack();
+                                return response()->json([
+                                    'success' => false,
+                                    'message' => "Cannot process multi-pack: No single-unit FNSKU available with matching attributes\n\n" .
+                                               "Pack Details:\n" .
+                                               "• ASIN: {$packAsin}\n" .
+                                               "• FNSKU: {$baseFnsku}\n" .
+                                               "• Quantity Inside: {$quantityInside}\n\n" .
+                                               "Required Single-Unit Must Have:\n" .
+                                               "• Quantity Inside: 1\n" .
+                                               "• Color: '{$color}'\n" .
+                                               "• Condition: '{$condition}'\n" .
+                                               "• Store: '{$storename}'\n" .
+                                               "• Status: Available with units > 0\n\n" .
+                                               "Please create a single-unit FNSKU with these exact attributes.",
+                                    'reason' => 'no_single_unit_available',
+                                    'details' => [
+                                        'pack_asin' => $packAsin,
+                                        'pack_fnsku' => $baseFnsku,
+                                        'pack_quantity_inside' => $quantityInside,
+                                        'required_single_attributes' => [
+                                            'quantity_inside' => 1,
+                                            'color' => $color,
+                                            'grading' => $condition,
+                                            'storename' => $storename
+                                        ],
+                                        'serial' => $currentSerial
+                                    ]
+                                ]);
                             }
                         }
                         
-                        if (!$singleItem) {
-                            DB::rollBack();
-                            return response()->json([
-                                'success' => false,
-                                'message' => "Cannot process multi-pack: No single-unit FNSKU available for ASIN '{$asinToUse}'" . 
-                                           " with color '{$color}', grading '{$condition}', and store '{$storename}' (checked related ASINs too)",
-                                'reason' => 'no_single_unit_available',
-                                'details' => [
-                                    'original_asin' => $asinToUse,
-                                    'original_fnsku' => $baseFnsku,
-                                    'quantity_inside' => $quantityInside,
-                                    'required_color' => $color,
-                                    'required_grading' => $condition,
-                                    'required_storename' => $storename,
-                                    'asin_pattern' => $asinBase,
-                                    'serial' => $currentSerial,
-                                    'related_asins_checked' => count($relatedAsins ?? [])
-                                ]
-                            ]);
-                        }
-                        
-                        $baseFnskuToUse = $singleItem->FNSKU;
-                        $asinToUse = $singleItem->ASIN;
-                        $condition = $singleItem->grading;
-                        $storename = $singleItem->storename;
-                        Log::info("✅ Found single-unit FNSKU: {$baseFnskuToUse} with color: {$color} and store: {$storename}");
-                        
                     } else {
-                        // ✅ SINGLE UNIT WITH STRICT COLOR AND STORE FALLBACK
+                        // ✅ SINGLE UNIT - CHECK IF AVAILABLE OR FIND ALTERNATIVE
                         if (strtolower($fnskuInfo->fnsku_status ?? '') !== 'available' || $OriginalFnskuUnitCount <= 0) {
-                            Log::info("Original FNSKU not available, searching related ASINs", [
+                            Log::info("Original single-unit FNSKU not available, searching for alternative", [
                                 'original_fnsku' => $baseFnsku,
-                                'original_asin' => $asinToUse,
+                                'original_asin' => $packAsin,
                                 'required_color' => $color,
                                 'required_storename' => $storename,
                                 'status' => $fnskuInfo->fnsku_status,
                                 'units' => $OriginalFnskuUnitCount
                             ]);
                             
-                            // Search in related ASINs with STRICT color and store
-                            $relatedAsins = $this->findRelatedAsins($asinToUse);
-                            $foundInRelated = false;
+                            // Search for alternative single-unit FNSKU with same attributes
+                            $alternativeFnsku = DB::table($this->fnskuTable . ' as fnsku')
+                                ->select('fnsku.*', 'asin.ASIN as single_asin')
+                                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                                ->where('asin.quantityinside', 1)
+                                ->whereRaw('LOWER(TRIM(asin.color)) = LOWER(TRIM(?))', [$color])
+                                ->where('fnsku.grading', $condition)
+                                ->where('fnsku.storename', $storename)
+                                ->where('fnsku.fnsku_status', 'available')
+                                ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted'])
+                                ->where('fnsku.LimitStatus', 'False')
+                                ->where('fnsku.Units', '>', 0)
+                                ->orderByDesc('fnsku.FNSKUID')
+                                ->first();
                             
-                            if (!empty($relatedAsins)) {
-                                $relatedQuery = DB::table($this->fnskuTable . ' as fnsku')
-                                    ->select('fnsku.*')
-                                    ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                                    ->whereIn('fnsku.ASIN', $relatedAsins)
-                                    ->where('fnsku.fnsku_status', 'available')
-                                    ->where('fnsku.amazon_status', 'Existed')
-                                    ->where('fnsku.LimitStatus', 'False')
-                                    ->where('fnsku.grading', $condition)
-                                    ->where('fnsku.storename', $storename)
-                                    ->where('fnsku.Units', '>', 0)
-                                    ->where('asin.quantityinside', $quantityInside)
-                                    ->where('asin.color', $color);
+                            if ($alternativeFnsku) {
+                                $baseFnskuToUse = $alternativeFnsku->FNSKU;
+                                $asinToUse = $alternativeFnsku->single_asin;
+                                $mskuToUse = $alternativeFnsku->MSKU;
+                                $storename = $alternativeFnsku->storename;
                                 
-                                $relatedFnsku = $relatedQuery->orderByDesc('fnsku.FNSKUID')->first();
-                                
-                                if ($relatedFnsku) {
-                                    $baseFnskuToUse = $relatedFnsku->FNSKU;
-                                    $asinToUse = $relatedFnsku->ASIN;
-                                    $storename = $relatedFnsku->storename;
-                                    $foundInRelated = true;
-                                    
-                                    Log::info("✅ Found available FNSKU in related ASINs", [
-                                        'found_fnsku' => $baseFnskuToUse,
-                                        'found_asin' => $asinToUse,
-                                        'matched_color' => $color,
-                                        'matched_storename' => $storename,
-                                        'units' => $relatedFnsku->Units
-                                    ]);
-                                }
-                            }
-                            
-                            if (!$foundInRelated) {
+                                Log::info("✅ Found alternative single-unit FNSKU", [
+                                    'original_fnsku' => $baseFnsku,
+                                    'alternative_fnsku' => $baseFnskuToUse,
+                                    'alternative_asin' => $asinToUse,
+                                    'matched_color' => $color,
+                                    'matched_storename' => $storename,
+                                    'units' => $alternativeFnsku->Units
+                                ]);
+                            } else {
                                 DB::rollBack();
                                 return response()->json([
                                     'success' => false,
                                     'message' => "FNSKU '{$baseFnsku}' is not available" . 
                                                " (Status: " . ($fnskuInfo->fnsku_status ?? 'unknown') . 
-                                               ", Units: {$OriginalFnskuUnitCount}). No available FNSKU found in related ASINs with matching color '{$color}', condition '{$condition}', and store '{$storename}'.",
+                                               ", Units: {$OriginalFnskuUnitCount}). No alternative single-unit FNSKU found with matching color '{$color}', condition '{$condition}', and store '{$storename}'.",
                                     'reason' => 'fnsku_not_available',
                                     'details' => [
                                         'fnsku' => $baseFnsku,
-                                        'asin' => $asinToUse,
+                                        'asin' => $packAsin,
                                         'current_status' => $fnskuInfo->fnsku_status ?? 'unknown',
                                         'current_units' => $OriginalFnskuUnitCount,
                                         'required_color' => $color,
                                         'required_grading' => $condition,
                                         'required_storename' => $storename,
-                                        'serial' => $currentSerial,
-                                        'related_asins_checked' => count($relatedAsins ?? [])
+                                        'serial' => $currentSerial
                                     ]
                                 ]);
                             }
                         } else {
                             $baseFnskuToUse = $fnskuInfo->FNSKU;
+                            $asinToUse = $packAsin;
                             $storename = $fnskuInfo->storename;
-                            Log::info("✅ Using original FNSKU {$baseFnskuToUse} with color {$color} and store {$storename} (Units: {$OriginalFnskuUnitCount})");
+                            Log::info("✅ Using original single-unit FNSKU {$baseFnskuToUse} (Units: {$OriginalFnskuUnitCount})");
                         }
                     }
                 } else {
@@ -1016,8 +1040,8 @@ public function processScan(Request $request)
                     ]);
                 }
                 
-                // ✅ AT THIS POINT, WE HAVE A VALID FNSKU WITH VERIFIED COLOR
-                if ($baseFnskuToUse) {
+                // ✅ AT THIS POINT, WE HAVE A VALID FNSKU WITH VERIFIED ATTRIBUTES
+                if ($baseFnskuToUse && $mskuToUse) {
                     $fnskuGenerationInfo = $this->getNextAvailableFnsku(
                         $baseFnskuToUse,
                         $mskuToUse,
@@ -1031,6 +1055,8 @@ public function processScan(Request $request)
                     Log::info('✅ Generated prefixed FNSKU', [
                         'base_fnsku' => $baseFnskuToUse,
                         'actual_fnsku' => $actualFnskuToUse,
+                        'msku' => $mskuToUse,
+                        'asin' => $asinToUse,
                         'times_used' => $fnskuGenerationInfo['times_used'],
                         'remaining_units' => $fnskuGenerationInfo['remaining_units'],
                         'color' => $color,
@@ -1080,6 +1106,7 @@ public function processScan(Request $request)
                         'serial' => $currentSerial,
                         'base_fnsku' => $baseFnskuToUse,
                         'actual_fnsku' => $actualFnskuToUse,
+                        'msku' => $mskuToUse,
                         'asin' => $asinToUse,
                         'location' => $modulelocation,
                         'rt' => $newRt
@@ -1087,14 +1114,16 @@ public function processScan(Request $request)
                     
                     $successCount++;
                 } else {
-                    Log::error("❌ No FNSKU found for serial: {$currentSerial}");
+                    Log::error("❌ No FNSKU or MSKU found for serial: {$currentSerial}");
                     DB::rollBack();
                     return response()->json([
                         'success' => false,
                         'message' => "Failed to assign FNSKU for serial: {$currentSerial}",
                         'reason' => 'fnsku_assignment_failed',
                         'details' => [
-                            'serial' => $currentSerial
+                            'serial' => $currentSerial,
+                            'fnsku' => $baseFnskuToUse,
+                            'msku' => $mskuToUse
                         ]
                     ]);
                 }
@@ -1114,7 +1143,7 @@ public function processScan(Request $request)
                 ]);
             }
         }
-        // ========== END OF MODIFIED FNSKU LOGIC ==========
+        // ========== END OF ATTRIBUTE-BASED FNSKU LOGIC ==========
         
         // ========== SWITCHERU DETECTION (FIXED FOR UP TO 4 SERIALS) ==========
         $switcheruRecords = [];
@@ -1193,7 +1222,6 @@ public function processScan(Request $request)
             ]);
             
             // Create switcheru records ONLY IF there are switched serials
-            // ✅ FIXED: If user only returned fewer serials (like 1 from 2-pack), don't create switcheru unless there's a NEW serial
             if (!empty($serialsNotReturned) && !empty($newSwitchedSerials)) {
                 // TRUE SWITCHERU: Sent serials not returned AND new serials received
                 $switcheruFound = true;
@@ -1285,7 +1313,7 @@ public function processScan(Request $request)
                     ->where('ProductID', $originalItem->ProductID)
                     ->update($updateData);
 
-                if ($originalFnsku) {
+                if ($originalFnsku && $mskuToUse) {
                     $baseFnsku = $this->extractBaseFnsku($originalFnsku);
                     $this->returnFnskuUnits($mskuToUse, $baseFnsku);
                     Log::info("Restored units to original FNSKU {$baseFnsku}");
@@ -1409,21 +1437,21 @@ public function processScan(Request $request)
 private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $storename)
 {
     try {
-        // ✅ Lock FNSKU record
+        // ✅ Lock FNSKU record using MSKU
         $fnskuRecord = DB::table($this->fnskuTable)
-            ->where('FNSKU', $baseFnsku)
-            ->where('ASIN', $asin)
             ->where('MSKU', $msku)
+            ->where('ASIN', $asin)
             ->where('grading', $grading)
             ->where('storename', $storename)
             ->where('LimitStatus', 'False')
-            ->whereIn('amazon_status', ['Active', 'Notposted'])
+            ->whereIn('amazon_status', ['Active', 'Inactive', 'Notposted'])
             ->lockForUpdate()
             ->first();
 
         if (!$fnskuRecord) {
             Log::warning("FNSKU not found in database", [
                 'base_fnsku' => $baseFnsku,
+                'msku' => $msku,
                 'asin' => $asin,
                 'grading' => $grading,
                 'storename' => $storename
@@ -1431,6 +1459,7 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
             
             return [
                 'actual_fnsku' => $baseFnsku,
+                'actual_msku' => $msku,
                 'times_used' => 0,
                 'remaining_units' => 0
             ];
@@ -1438,9 +1467,8 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
 
         $currentUnits = $fnskuRecord->Units;
 
-        // ✅ Check if units are available
         if ($currentUnits <= 0) {
-            throw new \Exception("No remaining units for FNSKU: {$baseFnsku} (Units: {$currentUnits})");
+            throw new \Exception("No remaining units for MSKU: {$msku} (Units: {$currentUnits})");
         }
 
         // ✅ Get ALL active FNSKUs (with and without prefix) currently in use
@@ -1448,7 +1476,7 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
             ->select('FNSKUviewer')
             ->where(function($query) use ($baseFnsku) {
                 $query->where('FNSKUviewer', $baseFnsku)
-                      ->orWhere('FNSKUviewer', 'LIKE', 'C%' . $baseFnsku);
+                      ->orWhere('FNSKUviewer', 'LIKE', '%' . $baseFnsku); // Match any prefix
             })
             ->whereNotIn('ProductModuleLoc', ['Shipment', 'Soldlist', 'Returnlist', 'Merged', 'RTS'])
             ->lockForUpdate()
@@ -1462,38 +1490,64 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
             'remaining_units' => $currentUnits
         ]);
 
-        // ✅ Extract used prefixes from active products
+        // ✅ Extract used prefixes from active products (supports C-Z)
         $usedPrefixes = [];
         
         foreach ($activeFnskus as $fnsku) {
             if ($fnsku === $baseFnsku) {
                 // Base FNSKU (no prefix) is used
-                $usedPrefixes[] = 0;
-            } elseif (preg_match('/^C(\d+)' . preg_quote($baseFnsku, '/') . '$/', $fnsku, $matches)) {
-                // Extract prefix number (e.g., "C3" -> 3)
-                $usedPrefixes[] = (int)$matches[1];
+                $usedPrefixes[] = ['letter' => null, 'number' => 0];
+            } elseif (preg_match('/^([C-Z])(\d+)' . preg_quote($baseFnsku, '/') . '$/', $fnsku, $matches)) {
+                // Extract prefix letter and number (e.g., "C3", "D5", "E1")
+                $usedPrefixes[] = [
+                    'letter' => $matches[1],
+                    'number' => (int)$matches[2]
+                ];
             }
         }
-
-        sort($usedPrefixes);
-
-        // ✅ Maximum prefix is 9 (C0 through C9 = 10 total slots)
-        $maxAllowedPrefix = 9;
 
         Log::info("Prefix analysis", [
             'base_fnsku' => $baseFnsku,
             'used_prefixes' => $usedPrefixes,
             'used_count' => count($usedPrefixes),
-            'max_allowed_prefix' => $maxAllowedPrefix,
             'remaining_units_in_db' => $currentUnits
         ]);
 
-        // ✅ Find first UNUSED prefix within the allowed range
+        // ✅ Generate prefix sequence from C to Z (C1-C9, D1-D9, ..., Z1-Z9)
+        $prefixSequence = [];
+        
+        // No prefix (base FNSKU)
+        $prefixSequence[] = ['letter' => null, 'number' => 0];
+        
+        // C through Z, each with 1-9 (24 letters × 9 numbers = 216 slots + 1 base = 217 total)
+        for ($charCode = ord('C'); $charCode <= ord('Z'); $charCode++) {
+            $letter = chr($charCode);
+            for ($i = 1; $i <= 9; $i++) {
+                $prefixSequence[] = ['letter' => $letter, 'number' => $i];
+            }
+        }
+
+        Log::info("Prefix sequence generated", [
+            'total_slots_available' => count($prefixSequence),
+            'pattern' => 'base + C1-C9 + D1-D9 + ... + Z1-Z9'
+        ]);
+
+        // ✅ Find first UNUSED prefix in sequence
         $nextPrefix = null;
 
-        for ($i = 0; $i <= $maxAllowedPrefix; $i++) {
-            if (!in_array($i, $usedPrefixes)) {
-                $nextPrefix = $i;
+        foreach ($prefixSequence as $candidate) {
+            $isUsed = false;
+            
+            foreach ($usedPrefixes as $used) {
+                if ($used['letter'] === $candidate['letter'] && 
+                    $used['number'] === $candidate['number']) {
+                    $isUsed = true;
+                    break;
+                }
+            }
+            
+            if (!$isUsed) {
+                $nextPrefix = $candidate;
                 break;
             }
         }
@@ -1502,36 +1556,42 @@ private function getNextAvailableFnsku($baseFnsku, $msku, $asin, $grading, $stor
         if ($nextPrefix === null) {
             throw new \Exception(
                 "All prefix slots exhausted for FNSKU: {$baseFnsku}. " .
-                "All " . ($maxAllowedPrefix + 1) . " prefixes (C0-C9) are in use. " .
-                "Used prefixes: " . implode(', ', $usedPrefixes)
+                "All " . count($prefixSequence) . " prefixes (base + C1-Z9) are in use."
             );
         }
 
         // ✅ Generate FNSKU with correct prefix
-        if ($nextPrefix === 0) {
-            $actualFnsku = $baseFnsku; // No prefix
+        if ($nextPrefix['letter'] === null) {
+            $actualFnsku = $baseFnsku; // No prefix (base FNSKU)
         } else {
-            $actualFnsku = "C{$nextPrefix}{$baseFnsku}";
+            $actualFnsku = "{$nextPrefix['letter']}{$nextPrefix['number']}{$baseFnsku}";
         }
+
+        $prefixDisplay = $nextPrefix['letter'] 
+            ? "{$nextPrefix['letter']}{$nextPrefix['number']}" 
+            : 'base';
 
         Log::info("✅ Generated FNSKU with available prefix", [
             'base_fnsku' => $baseFnsku,
-            'used_prefixes' => $usedPrefixes,
-            'next_prefix' => $nextPrefix,
+            'used_count' => count($usedPrefixes),
+            'next_prefix' => $prefixDisplay,
             'actual_fnsku' => $actualFnsku,
-            'remaining_units' => $currentUnits
+            'remaining_units' => $currentUnits,
+            'total_capacity' => count($prefixSequence)
         ]);
 
         return [
             'actual_fnsku' => $actualFnsku,
+            'actual_msku' => $msku,
             'times_used' => count($usedPrefixes),
             'remaining_units' => $currentUnits,
-            'next_prefix' => $nextPrefix
+            'next_prefix' => $prefixDisplay
         ];
 
     } catch (\Exception $e) {
         Log::error("Error in getNextAvailableFnsku: " . $e->getMessage(), [
             'base_fnsku' => $baseFnsku,
+            'msku' => $msku,
             'trace' => $e->getTraceAsString()
         ]);
 
@@ -1559,7 +1619,7 @@ private function updateFnskuUnits($msku, $baseFnsku, $asin, $grading, $storename
 
         $currentUnits = $fnskuRecord->Units ?? 0;
         $newUnits = max(0, $currentUnits - 1);
-        $newStatus = ($newUnits <= 0) ? 'Unavailable' : 'available';
+        $newStatus = ($newUnits <= 0) ? 'Unavailable' : 'Available';
 
         DB::table($this->fnskuTable)
             ->where('MSKU', $msku)
@@ -1612,7 +1672,7 @@ private function returnFnskuUnits($mskuViewer, $fnskuViewer)
             ->where('FNSKU', $baseFnsku)
             ->update([
                 'Units' => $newUnits,
-                'fnsku_status' => 'available'
+                'fnsku_status' => 'Available'
             ]);
 
         $asin = $fnskuRecord->ASIN;

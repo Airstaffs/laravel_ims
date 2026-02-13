@@ -2,3 +2,122 @@
 .order-module td:nth-child(2) {
     min-width: 375px;
 }
+.tracking-cell {
+    min-width: 200px;
+}
+
+.tracking-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.tracking-item {
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border-left: 3px solid #6c757d;
+}
+
+.tracking-item:last-child {
+    margin-bottom: 0 !important;
+}
+
+.tracking-number {
+    font-size: 0.85rem;
+}
+
+.tracking-status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.delivered-info {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.last-checked {
+    font-size: 0.7rem;
+}
+
+.no-tracking {
+    padding: 0.5rem;
+    text-align: center;
+}
+
+/* Status-based left border colors */
+.tracking-item:has(.p-badge-success) {
+    border-left-color: #22c55e;
+}
+
+.tracking-item:has(.p-badge-info) {
+    border-left-color: #3b82f6;
+}
+
+.tracking-item:has(.p-badge-warning) {
+    border-left-color: #f59e0b;
+}
+
+.tracking-item:has(.p-badge-danger) {
+    border-left-color: #ef4444;
+}
+
+.tracking-group {
+    background-color: #f8f9fa;
+    transition: all 0.2s ease;
+}
+
+.tracking-group:hover {
+    background-color: #e9ecef;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.badge-overdue-warning {
+    background-color: #ffc107 !important;
+    color: #000 !important;
+    border-color: #ffc107 !important;
+}
+
+.badge-overdue-orange {
+    background-color: #ff9800 !important;
+    color: #fff !important;
+    border-color: #ff9800 !important;
+}
+
+.badge-overdue-danger {
+    background-color: #f44336 !important;
+    color: #fff !important;
+    border-color: #f44336 !important;
+}
+
+/* Overdue Indicator Styling */
+.overdue-indicator {
+    display: flex;
+    align-items: center;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.badge-overdue-warning ~ .overdue-indicator {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.badge-overdue-orange ~ .overdue-indicator {
+    background-color: #fff3e0;
+    color: #e65100;
+}
+
+.badge-overdue-danger ~ .overdue-indicator {
+    background-color: #ffebee;
+    color: #c62828;
+}
+
+/* Text color utilities */
+.text-orange {
+    color: #ff9800 !important;
+}

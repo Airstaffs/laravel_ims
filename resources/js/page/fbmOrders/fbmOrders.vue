@@ -53,6 +53,59 @@
             </div>
         </div> -->
 
+        <scanner-component 
+            scanner-title="Matching Serials Scanner"
+            storage-prefix="matchSerials"
+            :enable-camera="true"
+            :display-fields="['Message', 'Status']"
+            :hide-button="true"
+            :show-camera-screen="false"
+            @scanner-opened="handleMatchSerialScannerOpened"
+            @scanner-closed="handleMatchSerialScannerClosed"
+            @hardware-scan="handleHardwareScan"
+            @mode-changed="handleModeChange"
+            @scanner-reset="handleScannerReset"
+            ref="scanner"
+        >
+            <template #input-fields>
+                <div>
+                   <div class="location-scanner-container">
+                        <h4>Location: {{ productLocationScanner }}</h4>
+
+                        <div class="scanner-details">
+                            <div class="info-group">
+                                <h6>Looking for serial number:</h6>
+                                <div v-for="(item, index) in serialsAndTracking" :key="'serial-' + index">
+                                    {{ item.serial }}
+                                </div>
+                            </div>
+
+                            <div class="info-group">
+                                <h6>Looking for tracking number:</h6>
+                                <div v-for="(item, index) in serialsAndTracking" :key="'track-' + index">
+                                    {{ item.tracking}}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                    <label>Match {{ scanMode === 'serial' ? 'Serial' : 'Tracking' }} Number:</label>
+                    <input 
+                        v-model="scanInput" 
+                        type="text" 
+                        :placeholder="`Enter ${scanMode === 'serial' ? 'serial' : 'tracking'} number`"
+                        @input="handleSerialInput"
+                         @keyup.enter="processMatchSerialNumber"
+                        ref="scanInputRef"
+                    >
+                    <button class="switch-scan-mode" @click="handleChangeScanMode">
+                        Switch to {{ scanMode === 'serial' ? 'Tracking' : 'Serial' }}
+                    </button>
+                </div>
+                </div>
+            </template>
+        </scanner-component>
+
         <!-- Selection status bar - NEW COMPONENT -->
         <div class="selection-status-bar" v-if="persistentSelectedOrderIds.length > 0">
             <div class="selection-info">
@@ -238,8 +291,23 @@
                                         </div>
 
                                         <div v-if="dispensedProduct.serialNumber" class="dispensed-detail">
-                                            <strong>Serial #:</strong>
+                                            <strong>Serial #1:</strong>
                                             {{ dispensedProduct.serialNumber }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.serialNumberb" class="dispensed-detail">
+                                            <strong>Serial #2:</strong>
+                                            {{ dispensedProduct.serialNumberb }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.serialNumberc" class="dispensed-detail">
+                                            <strong>Serial #3:</strong>
+                                            {{ dispensedProduct.serialNumberc }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.serialNumberd" class="dispensed-detail">
+                                            <strong>Serial #4:</strong>
+                                            {{ dispensedProduct.serialNumberd }}
                                         </div>
 
                                         <div v-if="dispensedProduct.rtCounter" class="dispensed-detail">
@@ -258,6 +326,11 @@
                                                 title="Mark product as not found and auto-select replacement">
                                                 <i class="fas fa-exclamation-triangle"></i>
                                                 Not Found
+                                            </button>
+                                            <button class="btn-matching-serials" 
+                                                @click="openMatchSerialScannerModal(subdata, dpIndex)">
+                                                <i class="fas fa-copy"></i>
+                                                Matching Serials
                                             </button>
                                         </div>
 
@@ -510,7 +583,7 @@
                             </div>
 
                             <!-- Enhanced mobile dispensed products display -->
-                            <div v-if="isItemDispensed(item)" class="mobile-product-dispense">
+                            <!-- <div v-if="isItemDispensed(item)" class="mobile-product-dispense">
                                 <div class="mobile-dispensed-header">
                                     Dispensed Products ({{
                                         getDispensedProductCount(item)
@@ -555,10 +628,84 @@ dispensedProduct, dpIndex
                                             )
                                             " title="Mark as not found">
                                             <i class="fas fa-exclamation-triangle"></i>
+                                            Not Found
                                         </button>
+                                          <button class="btn-matching-serials-mobile" 
+                                                @click="openMatchSerialScannerModal(subdata, dpIndex)">
+                                                <i class="fas fa-copy"></i>
+                                                Match Serials
+                                            </button>
                                     </div>
                                 </div>
-                            </div>
+                            </div> -->
+                            <Panel v-if="isItemDispensed(item)" toggleable :collapsed="true" 
+                            class="dispensed-item-details dispensed-panel" :header="`Dispensed Products (${getDispensedProductCount(item)}/${item.quantity_ordered})`">
+                                <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)"
+                                        :key="'dp-' + dpIndex" class="dispensed-product-item">
+                                        <div class="dispensed-detail">
+                                            <strong>Title:</strong>
+                                            {{ dispensedProduct.title || 'N/A' }}
+                                        </div>
+
+                                        <div class="dispensed-detail">
+                                            <strong>ASIN:</strong>
+                                            {{ dispensedProduct.asin || 'N/A' }}
+                                        </div>
+
+                                        <div class="dispensed-detail">
+                                            <strong>Location:</strong>
+                                            {{ dispensedProduct.warehouseLocation || 'N/A' }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.serialNumber" class="dispensed-detail">
+                                            <strong>Serial #1:</strong>
+                                            {{ dispensedProduct.serialNumber }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.serialNumberb" class="dispensed-detail">
+                                            <strong>Serial #2:</strong>
+                                            {{ dispensedProduct.serialNumberb }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.serialNumberc" class="dispensed-detail">
+                                            <strong>Serial #3:</strong>
+                                            {{ dispensedProduct.serialNumberc }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.serialNumberd" class="dispensed-detail">
+                                            <strong>Serial #4:</strong>
+                                            {{ dispensedProduct.serialNumberd }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.rtCounter" class="dispensed-detail">
+                                            <strong>RT Counter:</strong>
+                                            {{ dispensedProduct.rtCounter }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.FNSKU" class="dispensed-detail">
+                                            <strong>FNSKU:</strong>
+                                            {{ dispensedProduct.FNSKU }}
+                                        </div>
+
+                                        <div class="dispensed-actions">
+                                            <button class="btn-not-found"
+                                                @click="markProductNotFound(dispensedProduct.product_id, item)"
+                                                title="Mark product as not found and auto-select replacement">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                                Not Found
+                                            </button>
+                                            <button class="btn-matching-serials" 
+                                                @click="openMatchSerialScannerModal(item, dpIndex)">
+                                                <i class="fas fa-copy"></i>
+                                                Matching Serials
+                                            </button>
+                                        </div>
+
+                                        <hr v-if="dpIndex < getDispensedProductsDisplay(item).length - 1"
+                                            class="dispensed-separator" />
+                                    </div>
+                            </Panel>
+                        
                         </div>
                     </div>
 
@@ -1987,6 +2134,7 @@ export default {
                 { value: "", label: "All Status" },
                 { value: "Pending", label: "Pending" },
                 { value: "Shipped", label: "Shipped" },
+                { value: "Delivered", label: "Delivered" },
                 { value: "Canceled", label: "Canceled" },
                 { value: "Unshipped", label: "Unshipped" }
             ],
@@ -2108,19 +2256,21 @@ export default {
 
 
         getStatusColor(status) {
-            switch (status) {
+           switch (status) {
                 case 'Pending':
-                    return "#037CA6"
+                    return "#037CA6"  // Blue
                 case 'Unshipped':
-                    return "#FFCC00"
+                    return "#FFCC00"  // Yellow
                 case 'Shipped':
-                    return '#47FF69'
+                    return '#47FF69'  // Green
+                case 'Delivered':
+                    return '#28A745'  // Darker green (Bootstrap success green)
                 case 'Canceled':
-                    return '#E30000'
+                    return '#E30000'  // Red
                 default:
-                    return '#F1FF00'
+                    return '#F1FF00'  // Light yellow
             }
-        }
+        },
 
     },
     mounted() {
@@ -2574,6 +2724,27 @@ export default {
 
 .process-modal-body::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
+}
+
+.location-scanner-container {
+    width: 100%;
+    color: #ffffff;
+    background: #16506b;
+    background: linear-gradient(90deg, rgba(22, 80, 107, 1) 0%, rgba(30, 176, 91, 1) 50%, rgba(145, 130, 76, 1) 99%);
+    padding: 1rem;
+    border-radius: 1rem;
+    margin-bottom: 2rem;
+}
+
+.scanner-details {
+    display: flex;
+    gap: 20px; 
+}
+
+.info-group h6 {
+    margin-top: 1rem;
+    color: #ffffff;
+    font-weight: bold;
 }
 
 /* Responsive */

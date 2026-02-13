@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 
@@ -278,101 +279,104 @@ class EbayController extends Controller
     /**
      * ENHANCED: Process orders with better error handling and currency conversion
      */
-    private function processOrdersEnhanced($response, $exchangeRates)
-    {
-        if (empty($response['OrderArray']['Order'])) {
-            Log::info('No orders found in response.');
-            return [];
-        }
+   private function processOrdersEnhanced($response, $exchangeRates)
+{
+    if (empty($response['OrderArray']['Order'])) {
+        Log::info('No orders found in response.');
+        return [];
+    }
 
-        $orders = $response['OrderArray']['Order'];
-        if (!isset($orders[0])) {
-            $orders = [$orders]; // Ensure it's always an array
-        }
+    $orders = $response['OrderArray']['Order'];
+    if (!isset($orders[0])) {
+        $orders = [$orders];
+    }
 
-        $processedOrders = [];
+    $processedOrders = [];
+    $credentials = EbayCredentials();
+    $accessToken = $credentials['access_token'] ?? null;
 
-        foreach ($orders as $order) {
-            try {
-                // NEW: Enhanced currency conversion
-                $currency = $order['AmountPaid']['@currencyID'] ?? 'USD';
-                $amountPaid = $order['AmountPaid'] ?? 0;
-                $amountPaidInUSD = $this->convertToUSD($amountPaid, $currency, $exchangeRates);
+    foreach ($orders as $order) {
+        try {
+            // Currency conversion
+            $currency = $order['AmountPaid']['@currencyID'] ?? 'USD';
+            $amountPaid = $order['AmountPaid'] ?? 0;
+            $amountPaidInUSD = $this->convertToUSD($amountPaid, $currency, $exchangeRates);
 
-                $shippingCost = $order['ShippingServiceSelected']['ShippingServiceCost'] ?? 0;
-                $shippingCurrency = $order['ShippingServiceSelected']['ShippingServiceCost']['@currencyID'] ?? $currency;
-                $shippingCostUSD = $this->convertToUSD($shippingCost, $shippingCurrency, $exchangeRates);
+            $shippingCost = $order['ShippingServiceSelected']['ShippingServiceCost'] ?? 0;
+            $shippingCurrency = $order['ShippingServiceSelected']['ShippingServiceCost']['@currencyID'] ?? $currency;
+            $shippingCostUSD = $this->convertToUSD($shippingCost, $shippingCurrency, $exchangeRates);
 
-                // NEW: Enhanced tracking extraction (up to 5 tracking numbers)
-                $trackingNumbers = $this->extractTrackingNumbers($order);
+            // Extract tracking numbers
+            $trackingNumbers = $this->extractTrackingNumbers($order);
 
-                // Process items with enhanced error handling
-                $items = [];
-                if (!empty($order['TransactionArray']['Transaction'])) {
-                    $transactions = $order['TransactionArray']['Transaction'];
-                    if (!isset($transactions[0])) {
-                        $transactions = [$transactions];
-                    }
-
-                    foreach ($transactions as $transaction) {
-                        if (!is_array($transaction) || !isset($transaction['Item'])) {
-                            Log::error("Transaction is not structured correctly", ['transaction' => $transaction]);
-                            continue;
-                        }
-
-                        $itemId = $transaction['Item']['ItemID'] ?? null;
-                        if (!$itemId) {
-                            Log::error("Item ID is missing for Transaction ID: " . ($transaction['TransactionID'] ?? 'Unknown'));
-                            continue;
-                        }
-
-                        // NEW: Enhanced item processing with better error handling
-                        $items[] = [
-                            'transaction_id' => $transaction['TransactionID'] ?? null,
-                            'item_id' => $itemId,
-                            'title' => $transaction['Item']['Title'] ?? null,
-                            'quantity_purchased' => $transaction['QuantityPurchased'] ?? 1,
-                            'transaction_price' => $transaction['TransactionPrice'] ?? 0,
-                            'discount_amount' => $transaction['SellerDiscounts']['SellerDiscount']['ItemDiscountAmount'] ?? 0,
-                        ];
-                    }
+            // Process items
+            $items = [];
+            if (!empty($order['TransactionArray']['Transaction'])) {
+                $transactions = $order['TransactionArray']['Transaction'];
+                if (!isset($transactions[0])) {
+                    $transactions = [$transactions];
                 }
 
-                $processedOrder = [
-                    'order_id' => $order['OrderID'] ?? null,
-                    'order_status' => $order['OrderStatus'] ?? null,
-                    'paid_time' => $order['PaidTime'] ?? null,
-                    'amount_paid' => $amountPaidInUSD,
-                    'created_time' => $order['CreatedTime'] ?? null,
-                    'shipping_cost' => $shippingCostUSD,
-                    'subtotal' => $order['Subtotal'] ?? null,
-                    'total' => $order['Total'] ?? null,
-                    'tax' => $order['TransactionArray']['Transaction']['Taxes']['TotalTaxAmount'] ?? 0,
-                    'seller_user_id' => $order['SellerUserID'] ?? null,
-                    'seller_email' => $order['SellerEmail'] ?? null,
-                    'shipped_time' => $order['ShippedTime'] ?? null,
-                    'shipping_address' => isset($order['ShippingAddress']) ? json_encode($order['ShippingAddress']) : null,
-                    'payment_method' => $order['CheckoutStatus']['PaymentMethod'] ?? 'eBay',
-                    // NEW: Enhanced tracking fields
-                    'tracking_number1' => $trackingNumbers['tracking_number1'],
-                    'tracking_number2' => $trackingNumbers['tracking_number2'],
-                    'tracking_number3' => $trackingNumbers['tracking_number3'],
-                    'tracking_number4' => $trackingNumbers['tracking_number4'],
-                    'tracking_number5' => $trackingNumbers['tracking_number5'],
-                    'shipping_carrier' => $trackingNumbers['shipping_carrier'],
-                    'items' => $items,
-                ];
+                foreach ($transactions as $transaction) {
+                    if (!is_array($transaction) || !isset($transaction['Item'])) {
+                        continue;
+                    }
 
-                $processedOrders[] = $processedOrder;
+                    $itemId = $transaction['Item']['ItemID'] ?? null;
+                    if (!$itemId) {
+                        continue;
+                    }
 
-            } catch (\Exception $e) {
-                Log::error("Error processing order: " . $e->getMessage(), ['order' => $order]);
-                continue;
+                    $items[] = [
+                        'transaction_id' => $transaction['TransactionID'] ?? null,
+                        'item_id' => $itemId,
+                        'title' => $transaction['Item']['Title'] ?? null,
+                        'quantity_purchased' => $transaction['QuantityPurchased'] ?? 1,
+                        'transaction_price' => $transaction['TransactionPrice'] ?? 0,
+                        'discount_amount' => $transaction['SellerDiscounts']['SellerDiscount']['ItemDiscountAmount'] ?? 0,
+                    ];
+                }
             }
-        }
 
-        return $processedOrders;
+            // Build order array first
+            $processedOrder = [
+                'order_id' => $order['OrderID'] ?? null,
+                'order_status' => $order['OrderStatus'] ?? null,
+                'paid_time' => $order['PaidTime'] ?? null,
+                'amount_paid' => $amountPaidInUSD,
+                'created_time' => $order['CreatedTime'] ?? null,
+                'shipping_cost' => $shippingCostUSD,
+                'subtotal' => $order['Subtotal'] ?? null,
+                'total' => $order['Total'] ?? null,
+                'tax' => $order['TransactionArray']['Transaction']['Taxes']['TotalTaxAmount'] ?? 0,
+                'seller_user_id' => $order['SellerUserID'] ?? null,
+                'seller_email' => $order['SellerEmail'] ?? null,
+                'shipped_time' => $order['ShippedTime'] ?? null,
+                'shipping_address' => isset($order['ShippingAddress']) ? json_encode($order['ShippingAddress']) : null,
+                'payment_method' => $order['CheckoutStatus']['PaymentMethod'] ?? 'eBay',
+                'tracking_number1' => $trackingNumbers['tracking_number1'],
+                'tracking_number2' => $trackingNumbers['tracking_number2'],
+                'tracking_number3' => $trackingNumbers['tracking_number3'],
+                'tracking_number4' => $trackingNumbers['tracking_number4'],
+                'tracking_number5' => $trackingNumbers['tracking_number5'],
+                'shipping_carrier' => $trackingNumbers['shipping_carrier'],
+                'items' => $items,
+            ];
+
+            // NOW get delivery status using 17track
+            $deliveryStatus = $this->getAccurateDeliveryStatusCombined($processedOrder, $accessToken);
+            $processedOrder['delivery_status'] = $deliveryStatus;
+
+            $processedOrders[] = $processedOrder;
+
+        } catch (\Exception $e) {
+            Log::error("Error processing order: " . $e->getMessage(), ['order' => $order]);
+            continue;
+        }
     }
+
+    return $processedOrders;
+   }
 
     /**
      * NEW: Enhanced tracking number extraction
@@ -574,164 +578,186 @@ class EbayController extends Controller
     /**
      * NEW: Update tracking information if needed
      */
-    private function updateTrackingIfNeeded($existingRecord, $order, $orderID, $itemID)
-    {
-        $needsUpdate = false;
-        $updateData = [];
+   private function updateTrackingIfNeeded($existingRecord, $order, $orderID, $itemID)
+{
+    $needsUpdate = false;
+    $updateData = [];
+    
+    // Check each tracking field for updates
+    $trackingFields = [
+        'tracking_number1' => 'trackingnumber',
+        'tracking_number2' => 'trackingnumber2', 
+        'tracking_number3' => 'trackingnumber3',
+        'tracking_number4' => 'trackingnumber4',
+        'tracking_number5' => 'trackingnumber5'
+    ];
+    
+    foreach ($trackingFields as $orderField => $dbField) {
+        $newValue = trim($order[$orderField] ?? '');
+        $existingValue = $existingRecord->$dbField ?? '';
         
-        // Check each tracking field for updates
-        $trackingFields = [
-            'tracking_number1' => 'trackingnumber',
-            'tracking_number2' => 'trackingnumber2', 
-            'tracking_number3' => 'trackingnumber3',
-            'tracking_number4' => 'trackingnumber4',
-            'tracking_number5' => 'trackingnumber5'
-        ];
-        
-        foreach ($trackingFields as $orderField => $dbField) {
-            $newValue = trim($order[$orderField] ?? '');
-            $existingValue = $existingRecord->$dbField ?? '';
-            
-            if (!empty($newValue) && $newValue !== $existingValue) {
-                $updateData[$dbField] = $newValue;
-                $needsUpdate = true;
-                Log::info("$dbField UPDATE: '$existingValue' -> '$newValue'");
-            }
-        }
-        
-        // Check carrier
-        $newCarrier = trim($order['shipping_carrier'] ?? '');
-        if (!empty($newCarrier) && $newCarrier !== ($existingRecord->carrier ?? '')) {
-            $updateData['carrier'] = $newCarrier;
+        if (!empty($newValue) && $newValue !== $existingValue) {
+            $updateData[$dbField] = $newValue;
             $needsUpdate = true;
-            Log::info("Carrier UPDATE: '{$existingRecord->carrier}' -> '$newCarrier'");
+            Log::info("$dbField UPDATE: '$existingValue' -> '$newValue'");
         }
-        
-        // Check ship date
-        $newShipDate = $order['shipped_time'] ? Carbon::parse($order['shipped_time'])->format('Y-m-d H:i:s') : null;
-        if ($newShipDate && $newShipDate !== $existingRecord->shipdate) {
-            $updateData['shipdate'] = $newShipDate;
-            $needsUpdate = true;
-            Log::info("Ship Date UPDATE: '{$existingRecord->shipdate}' -> '$newShipDate'");
-        }
-        
-        if ($needsUpdate) {
-            DB::table('tblproduct')
-                ->where('rtid', $orderID)
-                ->where('itemnumber', $itemID)
-                ->update($updateData);
-            
-            Log::info("✓ TRACKING UPDATED for Order ID: $orderID, Item ID: $itemID (Module: {$existingRecord->ProductModuleLoc})");
-            return true;
-        }
-        
-        return false;
     }
+    
+    // Check carrier
+    $newCarrier = trim($order['shipping_carrier'] ?? '');
+    if (!empty($newCarrier) && $newCarrier !== ($existingRecord->carrier ?? '')) {
+        $updateData['carrier'] = $newCarrier;
+        $needsUpdate = true;
+        Log::info("Carrier UPDATE: '{$existingRecord->carrier}' -> '$newCarrier'");
+    }
+    
+    // Check delivery status - UPDATED LOGIC
+    $newDeliveryStatus = $order['delivery_status'] ?? '';
+    $existingDeliveryStatus = $existingRecord->delivery_status ?? '';
+    
+    // Only update delivery status if:
+    // 1. New status exists
+    // 2. It's different from existing
+    // 3. Existing is NOT a final status (Delivered, Cancelled, Refunded)
+    $finalStatuses = ['Delivered', 'Cancelled', 'Refunded'];
+    
+    if (!empty($newDeliveryStatus) && 
+        $newDeliveryStatus !== $existingDeliveryStatus &&
+        !in_array($existingDeliveryStatus, $finalStatuses)) {
+        
+        $updateData['delivery_status'] = $newDeliveryStatus;
+        $needsUpdate = true;
+        Log::info("Delivery Status UPDATE: '{$existingDeliveryStatus}' -> '{$newDeliveryStatus}'");
+    } elseif (in_array($existingDeliveryStatus, $finalStatuses)) {
+        Log::info("Delivery Status NOT updated - already in final state: '{$existingDeliveryStatus}'");
+    }
+    
+    // Check ship date
+    $newShipDate = $order['shipped_time'] ? Carbon::parse($order['shipped_time'])->format('Y-m-d H:i:s') : null;
+    if ($newShipDate && $newShipDate !== $existingRecord->shipdate) {
+        $updateData['shipdate'] = $newShipDate;
+        $needsUpdate = true;
+        Log::info("Ship Date UPDATE: '{$existingRecord->shipdate}' -> '$newShipDate'");
+    }
+    
+    if ($needsUpdate) {
+        DB::table('tblproduct')
+            ->where('rtid', $orderID)
+            ->where('itemnumber', $itemID)
+            ->update($updateData);
+        
+        Log::info("✓ TRACKING & STATUS UPDATED for Order ID: $orderID, Item ID: $itemID (Module: {$existingRecord->ProductModuleLoc})");
+        return true;
+    }
+    
+    return false;
+   }
 
     /**
      * NEW: Enhanced item processing with detailed analysis
      */
     private function processOrderItem($order, $item, $existingRecord = null)
-    {
-        $orderID = $order['order_id'];
-        $itemID = $item['item_id'];
+{
+    $orderID = $order['order_id'];
+    $itemID = $item['item_id'];
+    
+    // Fetch detailed item information
+    $credentials = EbayCredentials();
+    $itemDetails = $this->fetchItemDetails($itemID, $credentials['access_token']);
+    $locationDetails = $this->getItemLocation($itemID, $credentials['access_token']);
+    
+    // Clean and prepare data
+    $title = $this->cleanTitle($item['title'] ?? '');
+    $conditionDisplay = 'Unknown';
+    $itemDescription = '';
+    $sellerNotes = 'N/A';
+    
+    if ($itemDetails && isset($itemDetails['Item'])) {
+        $conditionDisplay = $itemDetails['Item']['ConditionDisplayName'] ?? 'Unknown';
         
-        // Fetch detailed item information
-        $credentials = EbayCredentials();
-        $itemDetails = $this->fetchItemDetails($itemID, $credentials['access_token']);
-        $locationDetails = $this->getItemLocation($itemID, $credentials['access_token']);
-        
-        // Clean and prepare data
-        $title = $this->cleanTitle($item['title'] ?? '');
-        $conditionDisplay = 'Unknown';
-        $itemDescription = '';
-        $sellerNotes = 'N/A';
-        
-        if ($itemDetails && isset($itemDetails['Item'])) {
-            $conditionDisplay = $itemDetails['Item']['ConditionDisplayName'] ?? 'Unknown';
-            
-            if (!empty($itemDetails['Item']['Description'])) {
-                $htmlDescription = (string) $itemDetails['Item']['Description'];
-                $itemDescription = strip_tags($htmlDescription);
-                $itemDescription = str_replace(["'", '"', "\n", "\r"], "", $itemDescription);
-                $itemDescription = trim($itemDescription);
-            }
-            
-            $sellerNotes = isset($itemDetails['Item']['ConditionDescription'])
-                ? str_replace(["'", '"'], "", (string) $itemDetails['Item']['ConditionDescription'])
-                : "N/A";
+        if (!empty($itemDetails['Item']['Description'])) {
+            $htmlDescription = (string) $itemDetails['Item']['Description'];
+            $itemDescription = strip_tags($htmlDescription);
+            $itemDescription = str_replace(["'", '"', "\n", "\r"], "", $itemDescription);
+            $itemDescription = trim($itemDescription);
         }
         
-        // NEW: Enhanced status determination logic from V1
-        $itemStatus = $this->determineItemStatus($title, $itemDescription, $conditionDisplay);
-        
-        // Prepare dates
-        $createdTime = $order['created_time'] ? Carbon::parse($order['created_time'])->format('Y-m-d H:i:s') : null;
-        $shippedTime = $order['shipped_time'] ? Carbon::parse($order['shipped_time'])->format('Y-m-d H:i:s') : null;
-        $paymentDate = $order['paid_time'] ? Carbon::parse($order['paid_time'])->format('Y-m-d H:i:s') : null;
-        
-        $orderData = [
-            'ProductTitle' => $title,
-            'orderdate' => $createdTime,
-            'total' => $order['total'] ?? 0,
-            'quantity' => $item['quantity_purchased'] ?? 1,
-            'price' => $item['transaction_price'] ?? 0,
-            'Discount' => $item['discount_amount'] ?? 0,
-            'priceshipping' => $order['shipping_cost'] ?? 0,
-            'tax' => $order['tax'] ?? 0,
-            'trackingnumber' => $order['tracking_number1'] ?? null,
-            'trackingnumber2' => $order['tracking_number2'] ?? null,
-            'trackingnumber3' => $order['tracking_number3'] ?? null,
-            'trackingnumber4' => $order['tracking_number4'] ?? null,
-            'trackingnumber5' => $order['tracking_number5'] ?? null,
-            'carrier' => $order['shipping_carrier'] ?? null,
-            'listedcondition' => $conditionDisplay,
-            'seller' => $order['seller_user_id'] ?? 'N/A',
-            'shipdate' => $shippedTime,
-            'paymentdate' => $paymentDate,
-            'description' => $itemDescription,
-            'notes' => $sellerNotes,
-            'paymentmethod' => $order['payment_method'] ?? 'eBay',
-            'itemstatus' => $itemStatus['status'],
-            'conditionStatusApplied' => $itemStatus['applied_condition'],
-            'Ebay_seller_location' => $locationDetails,
-        ];
-        
-        if ($existingRecord) {
-            // Update existing record
-            DB::table('tblproduct')
-                ->where('ProductID', $existingRecord->ProductID)
-                ->update($orderData);
-            
-            Log::info("Updated Order ID: $orderID (Item ID: $itemID) - ProductID: {$existingRecord->ProductID}");
-            
-            // Download images if we have item details
-            if ($itemDetails && isset($itemDetails['Item']['PictureDetails']['PictureURL'])) {
-                $this->saveItemImages($itemDetails['Item']['PictureDetails']['PictureURL'], $existingRecord->ProductID, $itemID);
-            }
-            
-        } else {
-            // Insert new record
-            $orderData['rtid'] = $orderID;
-            $orderData['itemnumber'] = $itemID;
-            $orderData['rtcounter'] = fetchRtCounter();
-            $orderData['fetchStatus'] = 'Pending';
-            $orderData['ProductModuleLoc'] = 'Orders';
-            $orderData['materialtype'] = 'Default';
-            $orderData['validation'] = '';
-            
-            $productID = DB::table('tblproduct')->insertGetId($orderData);
-            
-            Log::info("Inserted Order ID: $orderID (Item ID: $itemID) - ProductID: $productID");
-            
-            // Download images for new record
-            if ($itemDetails && isset($itemDetails['Item']['PictureDetails']['PictureURL'])) {
-                $this->saveItemImages($itemDetails['Item']['PictureDetails']['PictureURL'], $productID, $itemID);
-            }
-        }
-        
-        return true;
+        $sellerNotes = isset($itemDetails['Item']['ConditionDescription'])
+            ? str_replace(["'", '"'], "", (string) $itemDetails['Item']['ConditionDescription'])
+            : "N/A";
     }
+    
+    // Enhanced status determination logic
+    $itemStatus = $this->determineItemStatus($title, $itemDescription, $conditionDisplay);
+    
+    // Prepare dates
+    $createdTime = $order['created_time'] ? Carbon::parse($order['created_time'])->format('Y-m-d H:i:s') : null;
+    $shippedTime = $order['shipped_time'] ? Carbon::parse($order['shipped_time'])->format('Y-m-d H:i:s') : null;
+    $paymentDate = $order['paid_time'] ? Carbon::parse($order['paid_time'])->format('Y-m-d H:i:s') : null;
+    
+    $orderData = [
+        'ProductTitle' => $title,
+        'orderdate' => $createdTime,
+        'total' => $order['total'] ?? 0,
+        'quantity' => $item['quantity_purchased'] ?? 1,
+        'price' => $item['transaction_price'] ?? 0,
+        'Discount' => $item['discount_amount'] ?? 0,
+        'priceshipping' => $order['shipping_cost'] ?? 0,
+        'tax' => $order['tax'] ?? 0,
+        'delivery_status' => $order['delivery_status'] ?? null, // ADD THIS
+        'trackingnumber' => $order['tracking_number1'] ?? null,
+        'trackingnumber2' => $order['tracking_number2'] ?? null,
+        'trackingnumber3' => $order['tracking_number3'] ?? null,
+        'trackingnumber4' => $order['tracking_number4'] ?? null,
+        'trackingnumber5' => $order['tracking_number5'] ?? null,
+        'carrier' => $order['shipping_carrier'] ?? null,
+        'listedcondition' => $conditionDisplay,
+        'seller' => $order['seller_user_id'] ?? 'N/A',
+        'shipdate' => $shippedTime,
+        'paymentdate' => $paymentDate,
+        'description' => $itemDescription,
+        'notes' => $sellerNotes,
+        'paymentmethod' => $order['payment_method'] ?? 'eBay',
+        'itemstatus' => $itemStatus['status'],
+        'conditionStatusApplied' => $itemStatus['applied_condition'],
+        'Ebay_seller_location' => $locationDetails,
+    ];
+    
+    if ($existingRecord) {
+        // Update existing record
+        DB::table('tblproduct')
+            ->where('ProductID', $existingRecord->ProductID)
+            ->update($orderData);
+        
+        Log::info("Updated Order ID: $orderID (Item ID: $itemID) - ProductID: {$existingRecord->ProductID} - Delivery Status: {$order['delivery_status']}");
+        
+        // Download images if we have item details
+        if ($itemDetails && isset($itemDetails['Item']['PictureDetails']['PictureURL'])) {
+            $this->saveItemImages($itemDetails['Item']['PictureDetails']['PictureURL'], $existingRecord->ProductID, $itemID);
+        }
+        
+    } else {
+        // Insert new record
+        $orderData['rtid'] = $orderID;
+        $orderData['itemnumber'] = $itemID;
+        $orderData['rtcounter'] = fetchRtCounter();
+        $orderData['fetchStatus'] = 'Pending';
+        $orderData['ProductModuleLoc'] = 'Orders';
+        $orderData['materialtype'] = 'Default';
+        $orderData['validation'] = '';
+        
+        $productID = DB::table('tblproduct')->insertGetId($orderData);
+        
+        Log::info("Inserted Order ID: $orderID (Item ID: $itemID) - ProductID: $productID - Delivery Status: {$order['delivery_status']}");
+        
+        // Download images for new record
+        if ($itemDetails && isset($itemDetails['Item']['PictureDetails']['PictureURL'])) {
+            $this->saveItemImages($itemDetails['Item']['PictureDetails']['PictureURL'], $productID, $itemID);
+        }
+    }
+    
+    return true;
+   }
 
     /**
      * NEW: Enhanced status determination from V1
@@ -910,44 +936,50 @@ class EbayController extends Controller
 
     // Keep your existing methods but enhance them:
     
-    private function handleEbayErrors($errors, $serverconfig, $credentials, $request)
-    {
-        foreach ($errors as $error) {
-            if (!is_array($error)) {
-                Log::warning('Unexpected error format: ' . json_encode($error));
-                continue;
-            }
-
-            if (isset($error['ErrorCode'])) {
-                switch ($error['ErrorCode']) {
-                    case '931':
-                        Log::error('eBay API error: Invalid auth token.');
-                        if ($serverconfig === 'LIVE') {
-                            Log::info('Attempting to refresh eBay access token...');
-                            $newAccessToken = refreshEbayAccessToken($credentials);
-                            if ($newAccessToken) {
-                                return $this->fetchOrders($request);
-                            }
-                        }
-                        return response()->json(['error' => 'Invalid eBay access token'], 401);
-                        
-                    case '932':
-                        Log::error('eBay API error: Auth token is hard expired.');
-                        return response()->json(['error' => 'Auth token is hard expired, please reauthorize the application'], 401);
-                        
-                    case '21916653':
-                        Log::error('eBay API error: Application request limit exceeded.');
-                        return 'API_LIMIT_REACHED';
-                        
-                    default:
-                        Log::error("eBay API error: Code {$error['ErrorCode']} - " . ($error['ShortMessage'] ?? 'Unknown error'));
-                        break;
-                }
-            }
-        }
-        
-        return null;
+private function handleEbayErrors($errors, $serverconfig, $credentials, $request)
+{
+    // Fix: Handle single error (flat structure) from XML parsing
+    if (isset($errors['ErrorCode'])) {
+        $errors = [$errors];
     }
+
+    foreach ($errors as $error) {
+        if (!is_array($error)) {
+            Log::warning('Unexpected error format: ' . json_encode($error));
+            continue;
+        }
+
+        $errorCode = $error['ErrorCode'] ?? null;
+
+        switch ($errorCode) {
+            case '931':
+                Log::error('eBay API error: Invalid auth token.');
+                if ($serverconfig === 'LIVE') {
+                    Log::info('Attempting to refresh eBay access token...');
+                    $newAccessToken = refreshEbayAccessToken($credentials);
+                    if ($newAccessToken) {
+                        return $this->fetchOrders($request);
+                    }
+                }
+                return response()->json(['error' => 'Invalid eBay access token'], 401);
+
+            case '932':
+                Log::error('eBay API error: Auth token is hard expired.');
+                return response()->json(['error' => 'Auth token is hard expired, please reauthorize the application'], 401);
+
+            case '518':
+            case '21916653':
+                Log::error('eBay API error: Application request limit exceeded.');
+                return response()->json(['error' => 'API limit reached, try again later'], 429);
+
+            default:
+                Log::error("eBay API error: Code {$errorCode} - " . ($error['ShortMessage'] ?? 'Unknown error'));
+                break;
+        }
+    }
+
+    return null;
+}
 
     private function sendRequest($requestBody, $apiCallName)
     {
@@ -1090,6 +1122,353 @@ class EbayController extends Controller
             return $amount;
         }
     }
+
+
+    /**
+ * Check delivery status using 17track API (supports 1,700+ carriers globally)
+ * Documentation: https://api.17track.net/en/doc
+ */
+private function check17TrackDeliveryStatus($trackingNumber, $carrierCode = null)
+{
+    try {
+        $apiKey = env('TRACK17_API_KEY', '5EC4C3FCD4929687DC76822C8D154C20');
+        
+        if (empty($apiKey)) {
+            Log::warning('17track API key not configured');
+            return ['status' => 'Unknown', 'error' => 'API not configured'];
+        }
+        
+        // Step 1: Register tracking (required before getting info)
+        $registerUrl = 'https://api.17track.net/track/v2.2/register';
+        
+        $trackingData = [
+            [
+                'number' => $trackingNumber
+            ]
+        ];
+        
+        // If we know the carrier, add it for better accuracy
+        if ($carrierCode) {
+            $trackingData[0]['carrier'] = $carrierCode;
+        }
+        
+        $registerPayload = json_encode($trackingData);
+        
+        $headers = [
+            '17token: ' . $apiKey,
+            'Content-Type: application/json'
+        ];
+        
+        // Register the tracking number
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $registerUrl);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $registerPayload);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        
+        $registerResponse = curl_exec($ch);
+        $registerHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        
+        if ($registerHttpCode !== 200) {
+            Log::error("17track register error: HTTP {$registerHttpCode}");
+            // Continue anyway - tracking might already be registered
+        }
+        
+        $registerData = json_decode($registerResponse, true);
+        Log::info("17track register response for {$trackingNumber}", ['response' => $registerData]);
+        
+        // Step 2: Get tracking information (wait 1 second for registration to process)
+        sleep(1);
+        
+        $getTrackUrl = 'https://api.17track.net/track/v2.2/gettrackinfo';
+        
+        $getTrackPayload = json_encode([
+            [
+                'number' => $trackingNumber
+            ]
+        ]);
+        
+        curl_setopt($ch, CURLOPT_URL, $getTrackUrl);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $getTrackPayload);
+        
+        $trackResponse = curl_exec($ch);
+        $trackHttpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($trackHttpCode !== 200 || !$trackResponse) {
+            Log::error("17track gettrackinfo error: HTTP {$trackHttpCode}");
+            return ['status' => 'Unknown', 'error' => 'API request failed'];
+        }
+        
+        $trackData = json_decode($trackResponse, true);
+        
+        // Check for errors
+        if (!isset($trackData['data']['accepted'][0])) {
+            Log::warning("No tracking data found for {$trackingNumber}", ['response' => $trackData]);
+            return ['status' => 'Unknown', 'error' => 'No tracking data found'];
+        }
+        
+        $track = $trackData['data']['accepted'][0];
+        
+        // Get tracking details
+        $trackInfo = $track['track_info'] ?? [];
+        $latestEvent = $trackInfo['latest_event'] ?? [];
+        $latestStatus = $trackInfo['latest_status'] ?? [];
+        
+        // 17track status codes:
+        // 0 = Not Found
+        // 10 = Pick Up / In Transit
+        // 20 = In Transit  
+        // 30 = Customs
+        // 35 = Undelivered
+        // 40 = Delivered
+        // 50 = Exception / Expired
+        
+        $statusCode = $latestStatus['status'] ?? 0;
+        $statusDescription = $latestEvent['description'] ?? 'Unknown';
+        $eventTime = $latestEvent['time_iso'] ?? null;
+        
+        Log::info("17track status for {$trackingNumber}: Code={$statusCode}, Desc={$statusDescription}");
+        
+        // Map 17track status to your delivery status
+        switch ($statusCode) {
+            case 40: // Delivered
+                return [
+                    'status' => 'Delivered',
+                    'delivered_date' => $eventTime,
+                    'raw_status' => $statusDescription,
+                    'carrier' => $track['provider_name'] ?? 'Unknown',
+                    'carrier_code' => $track['provider'] ?? null
+                ];
+                
+            case 10: // Pick Up
+            case 20: // In Transit
+            case 30: // Customs
+                return [
+                    'status' => 'In Transit',
+                    'raw_status' => $statusDescription,
+                    'carrier' => $track['provider_name'] ?? 'Unknown',
+                    'carrier_code' => $track['provider'] ?? null
+                ];
+                
+            case 35: // Undelivered
+            case 50: // Exception
+                return [
+                    'status' => 'Delivery Exception',
+                    'raw_status' => $statusDescription,
+                    'carrier' => $track['provider_name'] ?? 'Unknown',
+                    'carrier_code' => $track['provider'] ?? null
+                ];
+                
+            case 0: // Not Found
+                return [
+                    'status' => 'Not Found',
+                    'raw_status' => 'Tracking number not found',
+                    'carrier' => $track['provider_name'] ?? 'Unknown'
+                ];
+                
+            default:
+                return [
+                    'status' => 'Unknown',
+                    'raw_status' => $statusDescription,
+                    'carrier' => $track['provider_name'] ?? 'Unknown'
+                ];
+        }
+        
+    } catch (\Exception $e) {
+        Log::error("17track exception for {$trackingNumber}: " . $e->getMessage());
+        return ['status' => 'Unknown', 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Convert carrier name from eBay to 17track carrier code
+ * Documentation: https://res.17track.net/asset/carrier/info/apicarrier.all.json
+ */
+private function getCarrierCodeFor17Track($carrierName)
+{
+    if (empty($carrierName)) {
+        return null;
+    }
+    
+    $carrierName = strtoupper(trim($carrierName));
+    
+    // Map common eBay carrier names to 17track carrier codes
+    $carrierMap = [
+        // US Carriers
+        'USPS' => 70001,
+        'US POSTAL SERVICE' => 70001,
+        'UNITED STATES POSTAL SERVICE' => 70001,
+        'FEDEX' => 70002,
+        'FEDERAL EXPRESS' => 70002,
+        'FDX' => 70002,
+        'UPS' => 70003,
+        'UNITED PARCEL SERVICE' => 70003,
+        'DHL' => 70004,
+        'DHL EXPRESS' => 70004,
+        'DHL ECOMMERCE' => 2159,
+        
+        // UK Carriers
+        'ROYAL MAIL' => 60001,
+        'PARCELFORCE' => 60002,
+        
+        // China Carriers
+        'CHINA POST' => 20001,
+        'EMS' => 20002,
+        'YANWEN' => 2076,
+        'SF EXPRESS' => 20021,
+        'CHINA EMS' => 20002,
+        
+        // Other Popular
+        'ONTRAC' => 2087,
+        'LASERSHIP' => 2109,
+        'AMAZON' => 2196,
+        'AMAZON LOGISTICS' => 2196,
+    ];
+    
+    // Try exact match first
+    if (isset($carrierMap[$carrierName])) {
+        return $carrierMap[$carrierName];
+    }
+    
+    // Try partial match
+    foreach ($carrierMap as $key => $code) {
+        if (strpos($carrierName, $key) !== false) {
+            return $code;
+        }
+    }
+    
+    // If no match, let 17track auto-detect
+    return null;
+}
+
+/**
+ * Get the most accurate delivery status using 17track (supports 1,700+ carriers)
+ */
+private function getAccurateDeliveryStatusCombined($order, $accessToken)
+{
+    $orderId = $order['order_id'];
+    $trackingNumber = trim($order['tracking_number1'] ?? '');
+    $carrier = trim($order['shipping_carrier'] ?? '');
+    
+    // Step 1: Check if order already has a final status in database (to avoid API calls)
+    $existingRecord = DB::table('tblproduct')
+        ->where('rtid', $orderId)
+        ->first();
+    
+    if ($existingRecord && !empty($existingRecord->delivery_status)) {
+        $currentStatus = $existingRecord->delivery_status;
+        
+        // If already in a final state, don't check tracking again
+        $finalStatuses = ['Delivered', 'Cancelled', 'Refunded'];
+        if (in_array($currentStatus, $finalStatuses)) {
+            Log::info("Order {$orderId} already has final status: {$currentStatus} - skipping tracking check");
+            return $currentStatus;
+        }
+    }
+    
+    // Step 2: Check eBay order status for Cancelled/Refunded FIRST (before API call)
+    $orderStatus = $order['order_status'] ?? '';
+    
+    if ($orderStatus === 'Cancelled') {
+        Log::info("Order {$orderId} is Cancelled per eBay");
+        return 'Cancelled';
+    }
+    
+    // Note: eBay doesn't directly provide "Refunded" in OrderStatus
+    // You might need to check MonetaryDetails or payment history for refunds
+    // For now, we'll detect this from the existing database status or manually set
+    
+    // Step 3: Only call 17track API if we have tracking and order is not in final state
+    if (!empty($trackingNumber)) {
+        Log::info("Checking 17track for Order {$orderId}: Tracking={$trackingNumber}, Carrier={$carrier}");
+        
+        // Convert carrier name to 17track carrier code
+        $carrierCode = $this->getCarrierCodeFor17Track($carrier);
+        
+        if ($carrierCode) {
+            Log::info("Mapped carrier '{$carrier}' to 17track code: {$carrierCode}");
+        } else {
+            Log::info("No carrier code found for '{$carrier}', using auto-detection");
+        }
+        
+        // Get status from 17track WITH rate limiting
+        $trackingStatus = $this->check17TrackDeliveryStatusWithRateLimit($trackingNumber, $carrierCode);
+        
+        // If we got a valid status, use it
+        if ($trackingStatus && $trackingStatus['status'] !== 'Unknown' && $trackingStatus['status'] !== 'Not Found') {
+            Log::info("17track reported status: {$trackingStatus['status']}");
+            return $trackingStatus['status'];
+        } else {
+            Log::warning("Could not get status from 17track, falling back to estimate");
+        }
+    } else {
+        Log::info("No tracking number available for Order {$orderId}");
+    }
+    
+    // Step 4: Fall back to basic logic based on eBay data
+    if (!empty($order['shipped_time'])) {
+        $shippedDate = new \DateTime($order['shipped_time']);
+        $now = new \DateTime();
+        $daysSinceShipped = $now->diff($shippedDate)->days;
+        
+        if ($daysSinceShipped >= 14) {
+            return 'Delivered (Estimated)';
+        }
+        
+        return 'In Transit';
+    }
+    
+    if (!empty($order['paid_time']) && empty($order['shipped_time'])) {
+        return 'Awaiting Shipment';
+    }
+    
+    if (empty($order['paid_time'])) {
+        return 'Payment Pending';
+    }
+    
+    return 'Active';
+}
+
+
+/**
+ * Check delivery status with rate limiting
+ */
+private function check17TrackDeliveryStatusWithRateLimit($trackingNumber, $carrierCode = null)
+{
+    // Check if we've checked this tracking recently (cache for 1 hour)
+    $cacheKey = "track17_{$trackingNumber}";
+    $cachedResult = Cache::get($cacheKey);
+    
+    if ($cachedResult) {
+        Log::info("Using cached 17track result for {$trackingNumber}");
+        return $cachedResult;
+    }
+    
+    // Add delay to avoid rate limiting (max 1 request per second recommended)
+    static $lastRequestTime = 0;
+    $now = microtime(true);
+    $timeSinceLastRequest = $now - $lastRequestTime;
+    
+    if ($timeSinceLastRequest < 1.0) {
+        $sleepTime = 1.0 - $timeSinceLastRequest;
+        usleep($sleepTime * 1000000);
+    }
+    
+    $result = $this->check17TrackDeliveryStatus($trackingNumber, $carrierCode);
+    
+    $lastRequestTime = microtime(true);
+    
+    // Cache the result for 1 hour
+    if ($result && $result['status'] !== 'Unknown') {
+        Cache::put($cacheKey, $result, 3600); // 1 hour
+    }
+    
+    return $result;
+}
 
     // Keep the existing insertOrUpdate method for backward compatibility
     private function insertOrUpdate($processedOrders)

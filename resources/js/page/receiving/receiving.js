@@ -744,7 +744,10 @@ export default {
         },
 
         async processFirstSerial() {
-            if (!this.firstSerialNumber.trim()) {
+            const trimmedSerial = this.firstSerialNumber.trim()
+
+            //check if the serial number is valid
+            if (!trimmedSerial || this.isInvalidSerial(trimmedSerial)) {
                 this.$refs.scanner.showScanError(
                     "Please enter a valid serial number"
                 );
@@ -752,6 +755,17 @@ export default {
                 this.$refs.firstSerialInput.select();
                 return;
             }
+
+             //check if the serial number is same as the tracking number
+            if(trimmedSerial === this.trackingNumber) {
+                this.$refs.scanner.showScanError(
+                    "Tracking number cannot use as serial number"
+                );
+                SoundService.error();
+                this.$refs.secondSerialInput.select();
+                return;
+            }
+
 
             SoundService.success();
 
@@ -781,9 +795,22 @@ export default {
         },
 
         async processSecondSerial() {
-            if (!this.secondSerialNumber.trim()) {
+            const trimmedSerial = this.secondSerialNumber.trim()
+
+            //check if the serial number is valid
+            if (!trimmedSerial || this.isInvalidSerial(trimmedSerial)) {
                 this.$refs.scanner.showScanError(
                     "Please enter a valid serial number"
+                );
+                SoundService.error();
+                this.$refs.secondSerialInput.select();
+                return;
+            }
+
+            //check if the serial number is same as the tracking number
+            if(trimmedSerial === this.trackingNumber) {
+                this.$refs.scanner.showScanError(
+                    "Tracking number cannot use as serial number"
                 );
                 SoundService.error();
                 this.$refs.secondSerialInput.select();
@@ -1638,6 +1665,26 @@ export default {
                 this.loading = false;
             }
         },
+        isInvalidSerial(serial) {
+            const RESTRICTED_PREFIXES = ['SI', 'BKT', 'RPN'];
+
+            const startsWithRestrictedPrefix = new RegExp(
+                `^(${RESTRICTED_PREFIXES.join('|')})`,
+                'i'
+            );
+
+            const lettersOnlyRegex = /^[A-Z]+$/i;
+
+            const value = serial.trim();
+
+            console.log( startsWithRestrictedPrefix.test(value) ||
+                lettersOnlyRegex.test(value))
+
+            return (
+                startsWithRestrictedPrefix.test(value) ||
+                lettersOnlyRegex.test(value)
+            );
+        }
     },
     watch: {
         searchQuery() {

@@ -113,3 +113,128 @@ form.serialVerificationForm {
     height: 100%;
     padding-left: 15px;
 }
+
+.main-image img {
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+.hover-image-container {
+    position: relative;
+    display: inline-block;
+}
+
+.hover-overlay {
+    display: none;
+}
+
+.asin-hover-preview {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 105%;
+    padding: 5px;
+    border-radius: 6px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+    z-index: 100;
+}
+
+.asin-hover-preview img {
+    max-width: 500px;
+    max-height: 500px;
+    object-fit: contain;
+    display: block;
+}
+
+.captured-hover-preview {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 105%;
+    padding: 5px;
+    border-radius: 6px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+    z-index: 100;
+}
+
+.captured-hover-preview img {
+    max-width: 500px;
+    max-height: 500px;
+    object-fit: contain;
+    display: block;
+}
+
+/* Desktop hover behavior - only on devices with hover capability */
+@media (hover: hover) and (min-width: 768px) {
+    .hover-image-container:hover .captured-hover-preview {
+        display: block;
+    }
+
+    .hover-image-container:hover .asin-hover-preview {
+        display: block;
+    }
+}
+
+/* Mobile click/toggle behavior */
+@media (max-width: 767px) {
+
+    .image-container {
+        display: flex;
+        gap: 10px; /* Optional: add spacing between images */
+    }
+
+    .asin-img-container,
+    .captured-img-container {
+        flex: 1;
+        min-width: 0; /* Prevents flex items from overflowing */
+    }
+
+    .main-image img {
+        width: 100%;
+        height: 300px;
+        object-fit: cover;
+        cursor: pointer;
+    }
+
+    .preview-active .hover-overlay {
+        position: fixed;
+        inset: 0;
+        background-color: rgba(0, 0, 0, 0.7);
+        z-index: 99;
+        display: block;
+        cursor: pointer;
+    }
+
+    .preview-active .asin-hover-preview {
+        display: block;
+        position: fixed;
+        inset: 0;
+        margin: auto;
+        width: fit-content;
+        height: fit-content;
+        max-width: 90vw;
+    }
+    
+    .preview-active .asin-hover-preview img {
+        max-width: 90vw;
+        max-height: 80vh;
+    }
+
+    .preview-active .captured-hover-preview {
+        display: block;
+        position: fixed;
+        inset: 0;
+        margin: auto;
+        width: fit-content;
+        height: fit-content;
+        max-width: 90vw;
+    }
+
+    .preview-active .captured-hover-preview img {
+        max-width: 90vw;
+        max-height: 80vh;
+    }
+}

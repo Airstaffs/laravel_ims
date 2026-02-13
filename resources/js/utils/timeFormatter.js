@@ -1,36 +1,78 @@
 /**
  * Universal Time Formatter Utility
- * Can be used in Vue components, vanilla JS, and exposed to Blade templates
+ * Optimized with caching and request deduplication
  */
-
 class TimeFormatter {
     constructor() {
         this.userTimezone = "UTC";
         this.initialized = false;
         this.geolocationEnabled = false;
+
+        // Cache and optimization
+        this.initPromise = null; // Prevent duplicate init calls
+        this.timezoneCache = null;
+        this.cacheExpiry = null;
+        this.CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+
+        // Formatter cache for performance
+        this.formatterCache = new Map();
+
+        // Auto-initialize on first use
+        this.autoInitialized = false;
     }
 
     /**
-     * Initialize with user's timezone
+     * Initialize with user's timezone (with deduplication)
      */
     async init() {
-        if (this.initialized) return;
+        // Return existing promise if init is in progress
+        if (this.initPromise) {
+            return this.initPromise;
+        }
 
+        // Return immediately if already initialized and cache is valid
+        if (this.initialized && this.isCacheValid()) {
+            return Promise.resolve();
+        }
+
+        // Create new initialization promise
+        this.initPromise = this._performInit();
+
+        try {
+            await this.initPromise;
+        } finally {
+            this.initPromise = null; // Clear promise after completion
+        }
+    }
+
+    /**
+     * Check if cache is still valid
+     */
+    isCacheValid() {
+        if (!this.cacheExpiry) return false;
+        return Date.now() < this.cacheExpiry;
+    }
+
+    /**
+     * Actual initialization logic
+     */
+    async _performInit() {
         try {
             const response = await axios.get("/api/timezone/current");
             const data = response.data;
 
-            // Check if auto_sync is enabled
+            // Update cache
+            this.timezoneCache = data;
+            this.cacheExpiry = Date.now() + this.CACHE_DURATION;
+
             if (data.auto_sync) {
-                // Use browser's detected timezone
                 this.userTimezone = this.detectBrowserTimezone();
                 this.geolocationEnabled = true;
                 console.log(
                     "🌍 Auto-sync enabled, using browser timezone:",
-                    this.userTimezone
+                    this.userTimezone,
                 );
             } else {
-                // Use saved timezone
                 this.userTimezone = data.usertimezone || "UTC";
                 console.log("⚙️ Using saved timezone:", this.userTimezone);
             }
@@ -38,55 +80,34 @@ class TimeFormatter {
             this.initialized = true;
         } catch (error) {
             console.error("Error loading timezone:", error);
-            // Fallback to browser timezone
             this.userTimezone = this.detectBrowserTimezone();
             console.log("⚠️ Fallback to browser timezone:", this.userTimezone);
+
+            // Set shorter cache for error state
+            this.cacheExpiry = Date.now() + 60000; // 1 minute
         }
     }
 
     /**
-     * Detect browser's timezone using Intl API
+     * Lazy initialization - only init when needed
+     */
+    async ensureInitialized() {
+        if (!this.autoInitialized) {
+            this.autoInitialized = true;
+            await this.init();
+        }
+    }
+
+    /**
+     * Detect browser's timezone (cached)
      */
     detectBrowserTimezone() {
         try {
-            // Use Intl.DateTimeFormat to get the browser's timezone
-            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            return timezone || "UTC";
+            return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
         } catch (error) {
             console.error("Error detecting browser timezone:", error);
             return "UTC";
         }
-    }
-
-    /**
-     * Get timezone from geolocation (optional enhancement)
-     * This requires a geolocation API service
-     */
-    async getTimezoneFromGeolocation() {
-        return new Promise((resolve, reject) => {
-            if (!navigator.geolocation) {
-                reject(new Error("Geolocation not supported"));
-                return;
-            }
-
-            navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                    try {
-                        // You can use a service like GeoNames or TimeZoneDB
-                        // For now, we'll just use the browser's timezone
-                        const timezone = this.detectBrowserTimezone();
-                        resolve(timezone);
-                    } catch (error) {
-                        reject(error);
-                    }
-                },
-                (error) => {
-                    console.warn("Geolocation permission denied:", error);
-                    // Fallback to browser timezone
-                    resolve(this.detectBrowserTimezone());
-                }
-            );
-        });
     }
 
     /**
@@ -95,6 +116,7 @@ class TimeFormatter {
     setTimezone(timezone) {
         this.userTimezone = timezone;
         this.initialized = true;
+        this.formatterCache.clear(); // Clear formatter cache on timezone change
     }
 
     /**
@@ -105,17 +127,29 @@ class TimeFormatter {
     }
 
     /**
+     * Get cached formatter or create new one
+     */
+    _getFormatter(options) {
+        const key = JSON.stringify(options);
+
+        if (!this.formatterCache.has(key)) {
+            this.formatterCache.set(
+                key,
+                new Intl.DateTimeFormat("en-US", options),
+            );
+        }
+
+        return this.formatterCache.get(key);
+    }
+
+    /**
      * Format time (e.g., "03:45 PM")
-     * @param {string|Date} datetime - Date string or Date object
-     * @param {object} options - Optional formatting options
-     * @returns {string}
      */
     formatTime(datetime, options = {}) {
         if (!datetime) return "";
 
         try {
             const date = new Date(datetime);
-
             const defaultOptions = {
                 timeZone: this.userTimezone,
                 hour: "2-digit",
@@ -124,7 +158,9 @@ class TimeFormatter {
             };
 
             const mergedOptions = { ...defaultOptions, ...options };
-            return date.toLocaleTimeString("en-US", mergedOptions);
+            const formatter = this._getFormatter(mergedOptions);
+
+            return formatter.format(date);
         } catch (error) {
             console.error("Error formatting time:", error);
             return "";
@@ -132,7 +168,7 @@ class TimeFormatter {
     }
 
     /**
-     * Format time with seconds (e.g., "03:45:22 PM")
+     * Format time with seconds
      */
     formatTimeWithSeconds(datetime) {
         return this.formatTime(datetime, {
@@ -145,16 +181,12 @@ class TimeFormatter {
 
     /**
      * Format date (e.g., "Dec 11, 2025")
-     * @param {string|Date} datetime
-     * @param {object} options - Optional formatting options
-     * @returns {string}
      */
     formatDate(datetime, options = {}) {
         if (!datetime) return "";
 
         try {
             const date = new Date(datetime);
-
             const defaultOptions = {
                 timeZone: this.userTimezone,
                 month: "short",
@@ -163,7 +195,9 @@ class TimeFormatter {
             };
 
             const mergedOptions = { ...defaultOptions, ...options };
-            return date.toLocaleDateString("en-US", mergedOptions);
+            const formatter = this._getFormatter(mergedOptions);
+
+            return formatter.format(date);
         } catch (error) {
             console.error("Error formatting date:", error);
             return "";
@@ -171,7 +205,7 @@ class TimeFormatter {
     }
 
     /**
-     * Format date with full month name (e.g., "December 11, 2025")
+     * Format date with full month name
      */
     formatDateLong(datetime) {
         return this.formatDate(datetime, {
@@ -182,14 +216,13 @@ class TimeFormatter {
     }
 
     /**
-     * Format date and time (e.g., "Dec 11, 2025 03:45 PM")
+     * Format date and time
      */
     formatDateTime(datetime, options = {}) {
         if (!datetime) return "";
 
         try {
             const date = new Date(datetime);
-
             const defaultOptions = {
                 timeZone: this.userTimezone,
                 month: "short",
@@ -201,7 +234,9 @@ class TimeFormatter {
             };
 
             const mergedOptions = { ...defaultOptions, ...options };
-            return date.toLocaleString("en-US", mergedOptions);
+            const formatter = this._getFormatter(mergedOptions);
+
+            return formatter.format(date);
         } catch (error) {
             console.error("Error formatting datetime:", error);
             return "";
@@ -224,21 +259,15 @@ class TimeFormatter {
     }
 
     /**
-     * Calculate hours difference between two times
-     * @param {string|Date} timeIn
-     * @param {string|Date} timeOut
-     * @returns {string} - Formatted as "8h 45m"
+     * Calculate hours difference (optimized)
      */
     calculateHours(timeIn, timeOut) {
         if (!timeIn || !timeOut) return "Not calculated";
 
         try {
-            const start = new Date(timeIn);
-            const end = new Date(timeOut);
-            const diff = end - start;
-
-            const hours = Math.floor(diff / (1000 * 60 * 60));
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const diff = new Date(timeOut) - new Date(timeIn);
+            const hours = Math.floor(diff / 3600000); // 1000 * 60 * 60
+            const minutes = Math.floor((diff % 3600000) / 60000); // 1000 * 60
 
             return `${hours}h ${minutes}m`;
         } catch (error) {
@@ -248,48 +277,46 @@ class TimeFormatter {
     }
 
     /**
-     * Get current time in user's timezone
+     * Get current time
      */
     getCurrentTime() {
-        const now = new Date();
-        return this.formatTimeWithSeconds(now);
+        return this.formatTimeWithSeconds(new Date());
     }
 
     /**
-     * Get current date in user's timezone
+     * Get current date
      */
     getCurrentDate() {
-        const now = new Date();
-        return this.formatDate(now);
+        return this.formatDate(new Date());
     }
 
     /**
      * Get current date and time
      */
     getCurrentDateTime() {
-        const now = new Date();
-        return this.formatDateTime(now);
+        return this.formatDateTime(new Date());
     }
 
     /**
-     * Format relative time (e.g., "2 hours ago", "in 5 minutes")
+     * Format relative time (optimized)
      */
     formatRelativeTime(datetime) {
         if (!datetime) return "";
 
         try {
-            const date = new Date(datetime);
-            const now = new Date();
-            const diff = now - date;
+            const diff = Date.now() - new Date(datetime);
             const seconds = Math.floor(diff / 1000);
-            const minutes = Math.floor(seconds / 60);
-            const hours = Math.floor(minutes / 60);
-            const days = Math.floor(hours / 24);
 
             if (seconds < 60) return "just now";
+
+            const minutes = Math.floor(seconds / 60);
             if (minutes < 60)
                 return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+
+            const hours = Math.floor(minutes / 60);
             if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+
+            const days = Math.floor(hours / 24);
             if (days < 7) return `${days} day${days > 1 ? "s" : ""} ago`;
 
             return this.formatDate(datetime);
@@ -300,7 +327,7 @@ class TimeFormatter {
     }
 
     /**
-     * Get timezone display name
+     * Get timezone display name (cached)
      */
     getTimezoneDisplay() {
         const timezoneNames = {
@@ -310,23 +337,41 @@ class TimeFormatter {
         };
 
         try {
-            const now = new Date();
-            const formatter = new Intl.DateTimeFormat("en-US", {
+            const formatter = this._getFormatter({
                 timeZone: this.userTimezone,
                 timeZoneName: "short",
             });
 
-            const parts = formatter.formatToParts(now);
+            const parts = formatter.formatToParts(new Date());
             const timeZoneName =
                 parts.find((part) => part.type === "timeZoneName")?.value || "";
-
             const friendlyName =
                 timezoneNames[this.userTimezone] || this.userTimezone;
+
             return `${friendlyName} (${timeZoneName})`;
         } catch (error) {
             console.error("Error getting timezone display:", error);
             return this.userTimezone;
         }
+    }
+
+    /**
+     * Clear cache manually (useful for testing or forced refresh)
+     */
+    clearCache() {
+        this.timezoneCache = null;
+        this.cacheExpiry = null;
+        this.formatterCache.clear();
+        this.initialized = false;
+        this.autoInitialized = false;
+    }
+
+    /**
+     * Refresh timezone data from server
+     */
+    async refresh() {
+        this.clearCache();
+        await this.init();
     }
 }
 
@@ -336,7 +381,7 @@ const timeFormatter = new TimeFormatter();
 // Export for ES6 modules
 export default timeFormatter;
 
-// Also make it globally available for non-module scripts
+// Global availability
 if (typeof window !== "undefined") {
     window.timeFormatter = timeFormatter;
 }

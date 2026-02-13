@@ -21,6 +21,7 @@ use App\Http\Controllers\FnskuController;
 use App\Http\Controllers\HistoryTrackingController;
 use App\Http\Controllers\HouseageController;
 use App\Http\Controllers\HrController;
+use App\Http\Controllers\InventoryStatisticsController;
 use App\Http\Controllers\KanbanActivityLogController;
 use App\Http\Controllers\KanbanCommentController;
 use App\Http\Controllers\KanbanTaskController;
@@ -38,6 +39,7 @@ use App\Http\Controllers\ProductionAreaController;
 use App\Http\Controllers\ReceivedController;
 use App\Http\Controllers\ReturnScannerController;
 use App\Http\Controllers\RTSController;
+use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\SoldlistController;
 use App\Http\Controllers\StockroomController;
 use App\Http\Controllers\StoreController;
@@ -372,6 +374,7 @@ Route::get('/apis/ebay-login', action: function () {
 });
 
 Route::get('/ebay/orders', [EbayController::class, 'fetchOrders']);
+Route::post('/ebay/mark-refunded/{orderId}', [EbayController::class, 'markOrderAsRefunded']);
 
 Route::get('/ebay/orders/cron-automation/{token}', function ($token) {
     if ($token !== env('CRON_SECRET')) {
@@ -456,6 +459,7 @@ Route::prefix('api/stockroom')->group(function () {
 
     Route::get('check-serial', [StockroomController::class, 'checkSerial']);
 
+    Route::post('move-back-to-labeling', [StockroomController::class, 'moveBackToLabeling']);
 });
 
 // Routes for Unreceived scanner
@@ -481,10 +485,12 @@ Route::prefix('api/orders')->middleware(['auth'])->group(function () {
     Route::get('products', [OrdersController::class, 'index']);
     Route::post('products', [OrdersController::class, 'store']);
     Route::get('next-product-id', [OrdersController::class, 'getNextProductId']);
-    
+
     // ✅ ADD THIS NEW ROUTE FOR QUANTITY EDITING
     Route::put('products/{id}/quantity', [OrdersController::class, 'updateQuantity']);
-    
+      
+    Route::put('products/{id}/materialtype', [OrdersController::class, 'updateMaterialType']);
+     
     Route::patch('{id}/status', [OrdersController::class, 'updateStatus']);
     Route::patch('{id}/tracking', [OrdersController::class, 'updateTracking']);
     Route::delete('{id}', [OrdersController::class, 'destroy']);
@@ -492,11 +498,13 @@ Route::prefix('api/orders')->middleware(['auth'])->group(function () {
     Route::post('set-asin', [OrdersController::class, 'setAsin']);
     Route::post('remove-asin', [OrdersController::class, 'removeAsin']);
 
-        // ✅ NEW: Incoming Counter Routes
+    // ✅ NEW: Incoming Counter Routes
     Route::get('incoming-count', [OrdersController::class, 'getIncomingCount'])
         ->name('orders.incoming.count');
     Route::get('incoming-count-details', [OrdersController::class, 'getIncomingCountDetails'])
         ->name('orders.incoming.details');
+
+
 });
 
 // Routes Production Area
@@ -527,6 +535,9 @@ Route::prefix('api/labeling')->group(function () {
     Route::post('move-to-validation', [LabelingController::class, 'moveToValidation']);
     Route::post('move-to-stockroom', [LabelingController::class, 'moveToStockroom']);
     Route::post('move-back-to-received', [LabelingController::class, 'moveBackToReceived']);
+
+    Route::post('check-duplicate-serial', [LabelingController::class, 'checkDuplicateSerial'])
+        ->middleware('throttle:60,1'); // Allow more checks
 });
 
 // Routes for RTS Function
@@ -636,8 +647,9 @@ Route::prefix('api/houseage')->middleware('auth')->group(function () {
     Route::put('products/{id}', [HouseageController::class, 'update'])
         ->middleware('throttle:30,1');
 
-    Route::post('check-duplicate-serial', [HouseageController::class, 'checkDuplicateSerial'])
-        ->middleware('throttle:60,1'); // Allow more checks
+    Route::post('/check-duplicate-serial', action: [HouseageController::class, 'checkDuplicateSerial'])
+        ->middleware('throttle:60,1')
+        ->name('check.duplicate.serial');
 
     // ✅ Strict rate limit for uploads
     Route::post('serial-image', [HouseageController::class, 'uploadSerialNumber'])
@@ -645,6 +657,22 @@ Route::prefix('api/houseage')->middleware('auth')->group(function () {
         ->middleware('throttle:10,1'); // Only 10 uploads per minute
 
     Route::get('serial-image', [HouseageController::class, 'getSerialImage']);
+
+    // upload product image
+    // Route::post('upload-image', [HouseageController::class, 'uploadCapturedImage']);
+
+    // Route::post('delete-image', [HouseageController::class, 'deleteCapturedImage']);
+    // Multiple image upload (NEW - Optimized)
+    Route::post('/upload-images', [HouseageController::class, 'uploadMultipleImages']);
+    
+    // Single image upload (Keep for backward compatibility)
+    Route::post('/upload-image', [HouseageController::class, 'uploadCapturedImage']);
+    
+    // Single image delete
+    Route::post('/delete-image', [HouseageController::class, 'deleteImage']);
+    
+    // Multiple image delete (Optional utility)
+    Route::post('/delete-images', [HouseageController::class, 'deleteMultipleImages']);
 });
 
 // Testing module routes
@@ -665,6 +693,22 @@ Route::middleware(['auth'])->prefix('api/testing')->group(function () {
 // Cleaning module routes
 Route::middleware(['auth'])->prefix('api/cleaning')->group(function () {
     Route::get('products', [CleaningController::class, 'index']);
+});
+
+// Routes for Shipment Module
+Route::prefix('api/shipments')->group(function () {
+    Route::get('/', [ShipmentController::class, 'index']);
+    Route::get('/detail', [ShipmentController::class, 'show']);
+    Route::get('/stores', [ShipmentController::class, 'getStores']);
+    Route::get('/carriers', [ShipmentController::class, 'getCarriers']);
+    Route::get('/stats', [ShipmentController::class, 'getStats']);
+    Route::post('/manual-deliver', [ShipmentController::class, 'manualDeliver']);
+});
+
+// Inventory Statistics Routes
+Route::prefix('api/inventory-statistics')->group(function () {
+    Route::get('/summary', [InventoryStatisticsController::class, 'getSummary']);
+    Route::get('/asin-details', [InventoryStatisticsController::class, 'getAsinDetails']);
 });
 
 // Printer API routes
@@ -746,6 +790,7 @@ Route::get('api/fnsku/fnsku', [FnskuController::class, 'index']);
 Route::post('api/fnsku/insert-fnsku', [FnskuController::class, 'insertFnsku']);
 Route::get('api/labeling/product/{productId}', [LabelingController::class, 'getProduct']);
 Route::get('api/fnsku/availability', [FnskuController::class, 'getFnskuAvailability']);
+Route::post('/fnsku/clear-block', [FnskuController::class, 'clearBlock']);
 
 Route::get('/clone-table-form', [App\Http\Controllers\TableController::class, 'showCloneForm'])->name('clone.table.form');
 Route::post('/clone-table', [App\Http\Controllers\TableController::class, 'cloneTable'])->name('clone.table');
@@ -891,6 +936,9 @@ Route::get('/joined-fnsku-data', [LabelingController::class, 'getFnskuData']);
 // HR Controller
 Route::prefix('hr')->group(function () {
     Route::get('/employees', [HrController::class, 'getEmployees']);
+
+    Route::post('/employees', [HrController::class, 'addEmployee']);
+
     Route::get('/employee-rate-history', [HrController::class, 'getEmployeeRateHistory']);
     Route::get('/employees/{employee}/rates', [HrController::class, 'indexRate']);
     Route::get('/employees/{employee}/rates/current', [HrController::class, 'currentRate']);

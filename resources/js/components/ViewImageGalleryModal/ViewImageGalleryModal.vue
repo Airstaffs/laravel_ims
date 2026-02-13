@@ -58,10 +58,16 @@
                         />
 
                         <img
-                            :src="tab.images[tabIndices[tab.key]]"
+                            :src="tab.images[tabIndices[tab.key]].src"
                             alt="Image"
                             class="main-image"
-                            @error="handleImageError"
+                            @error="
+                                onImageError(
+                                    $event,
+                                    tab.images[tabIndices[tab.key]],
+                                    `${tab.key}-${tabIndices[tab.key]}`,
+                                )
+                            "
                         />
 
                         <Button
@@ -99,9 +105,16 @@
                             @click="tabIndices[tab.key] = i"
                         >
                             <img
-                                :src="img"
-                                @error="handleImageError"
+                                :src="img.src"
+                                @error="
+                                    onImageError(
+                                        $event,
+                                        img,
+                                        `${tab.key}-thumb-${i}`,
+                                    )
+                                "
                                 loading="lazy"
+                                :alt="img.src"
                             />
                         </div>
                     </div>
@@ -132,24 +145,62 @@ const tabIndices = reactive({
     captured: 0,
 });
 
+const imageExtensionAttempts = reactive({});
+
 console.log(props.capturedImages, "capturedImages", props.regularImages);
+
+// Process images to create objects with src and original path
+const processImages = (images) => {
+    return images
+        .filter((img) => img != null && img !== "")
+        .map((img) => ({
+            src: img,
+            originalPath: img,
+        }));
+};
 
 const tabs = computed(() => [
     {
         key: "regular",
         label: "Product Images",
-        images: (props.regularImages || []).filter(
-            (img) => img != null && img !== ""
-        ),
+        images: processImages(props.regularImages || []),
     },
     {
         key: "captured",
         label: "Captured Images",
-        images: (props.capturedImages || []).filter(
-            (img) => img != null && img !== ""
-        ),
+        images: processImages(props.capturedImages || []),
     },
 ]);
+
+// Handle image errors with extension fallback
+const onImageError = (event, imageObj, imageKey) => {
+    // List of extensions to try
+    const extensions = ["jpg", "jpeg", "png", "webp", "gif"];
+
+    // Initialize attempt counter for this image
+    if (!imageExtensionAttempts[imageKey]) {
+        imageExtensionAttempts[imageKey] = 0;
+    }
+
+    // Increment attempt
+    imageExtensionAttempts[imageKey]++;
+
+    // Check if we've tried all extensions
+    if (imageExtensionAttempts[imageKey] >= extensions.length) {
+        event.target.src = "/images/placeholder.png";
+        return;
+    }
+
+    // Get the base path without extension
+    const basePath = imageObj.originalPath.substring(
+        0,
+        imageObj.originalPath.lastIndexOf("."),
+    );
+
+    // Try next extension
+    const nextExt = extensions[imageExtensionAttempts[imageKey]];
+    event.target.src = basePath + "." + nextExt;
+};
 
 // Preload adjacent images for smoother navigation
 const preloadImages = (tabKey) => {
@@ -163,10 +214,10 @@ const preloadImages = (tabKey) => {
     const prevIndex = (currentIndex - 1 + images.length) % images.length;
     const nextIndex = (currentIndex + 1) % images.length;
 
-    [images[prevIndex], images[nextIndex]].forEach((src) => {
-        if (src) {
+    [images[prevIndex], images[nextIndex]].forEach((imgObj) => {
+        if (imgObj && imgObj.src) {
             const img = new Image();
-            img.src = src;
+            img.src = imgObj.src;
         }
     });
 };
@@ -195,6 +246,11 @@ watch(
             tabIndices.regular = 0;
             tabIndices.captured = 0;
 
+            // Clear extension attempts when modal opens
+            Object.keys(imageExtensionAttempts).forEach((key) => {
+                delete imageExtensionAttempts[key];
+            });
+
             // Preload first images when modal opens
             setTimeout(() => {
                 preloadImages("regular");
@@ -206,7 +262,7 @@ watch(
                 }
             }, 100);
         }
-    }
+    },
 );
 </script>
 

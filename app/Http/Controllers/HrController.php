@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class HrController extends Controller
 {
@@ -25,33 +25,100 @@ class HrController extends Controller
                 'u.username',
                 \DB::raw('u.username as name'),
                 \DB::raw('u.office_role as position'),
-                'u.accounttype',  // ✅ include account type
+                'u.accounttype',
+                'u.active',
                 \DB::raw("(SELECT er.monthly_rate
-                       FROM tblemployeerate er
-                       WHERE er.employee_id = u.id
-                         AND er.effective_start <= '{$today}'
-                         AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
-                       ORDER BY er.effective_start DESC
-                       LIMIT 1) as current_monthly_rate"),
+                   FROM tblemployeerate er
+                   WHERE er.employee_id = u.id
+                     AND er.effective_start <= '{$today}'
+                     AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
+                   ORDER BY er.effective_start DESC
+                   LIMIT 1) as current_monthly_rate"),
                 \DB::raw("(SELECT er.hourly_rate
-                       FROM tblemployeerate er
-                       WHERE er.employee_id = u.id
-                         AND er.effective_start <= '{$today}'
-                         AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
-                       ORDER BY er.effective_start DESC
-                       LIMIT 1) as current_hourly_rate"),
+                   FROM tblemployeerate er
+                   WHERE er.employee_id = u.id
+                     AND er.effective_start <= '{$today}'
+                     AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
+                   ORDER BY er.effective_start DESC
+                   LIMIT 1) as current_hourly_rate"),
                 \DB::raw("(SELECT er.currency
-                       FROM tblemployeerate er
-                       WHERE er.employee_id = u.id
-                         AND er.effective_start <= '{$today}'
-                         AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
-                       ORDER BY er.effective_start DESC
-                       LIMIT 1) as current_currency")
+                   FROM tblemployeerate er
+                   WHERE er.employee_id = u.id
+                     AND er.effective_start <= '{$today}'
+                     AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
+                   ORDER BY er.effective_start DESC
+                   LIMIT 1) as current_currency")
             )
             ->orderBy('u.id', 'asc')
             ->get();
 
         return response()->json($employees);
+    }
+
+    public function addEmployee(Request $request)
+    {
+        try {
+            // Validate the request
+            $validated = $request->validate([
+                'username' => 'required|string|max:255',
+                'office_role' => 'required|string|max:255',
+                'accounttype' => 'required|in:PH,US',
+            ]);
+
+            // Insert the employee
+            $employeeId = \DB::table('tbluser')->insertGetId([
+                'username' => $validated['username'],
+                'office_role' => $validated['office_role'],
+                'accounttype' => $validated['accounttype'],
+                'password' => bcrypt('password123'),
+                'active' => 1, // Set as active by default
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // Get the newly created employee with the same structure as getEmployees
+            $today = date('Y-m-d');
+
+            $newEmployee = \DB::table('tbluser as u')
+                ->select(
+                    'u.id',
+                    'u.username',
+                    \DB::raw('u.username as name'),
+                    \DB::raw('u.office_role as position'),
+                    'u.accounttype',
+                    'u.active',
+                    \DB::raw("(SELECT er.monthly_rate
+                   FROM tblemployeerate er
+                   WHERE er.employee_id = u.id
+                     AND er.effective_start <= '{$today}'
+                     AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
+                   ORDER BY er.effective_start DESC
+                   LIMIT 1) as current_monthly_rate"),
+                    \DB::raw("(SELECT er.hourly_rate
+                   FROM tblemployeerate er
+                   WHERE er.employee_id = u.id
+                     AND er.effective_start <= '{$today}'
+                     AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
+                   ORDER BY er.effective_start DESC
+                   LIMIT 1) as current_hourly_rate"),
+                    \DB::raw("(SELECT er.currency
+                   FROM tblemployeerate er
+                   WHERE er.employee_id = u.id
+                     AND er.effective_start <= '{$today}'
+                     AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
+                   ORDER BY er.effective_start DESC
+                   LIMIT 1) as current_currency")
+                )
+                ->where('u.id', $employeeId)
+                ->first();
+
+            return response()->json($newEmployee, 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to add employee',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function showemployeedetails($userId)
@@ -61,7 +128,7 @@ class HrController extends Controller
             ->first();
 
         // Fallback: if missing, seed from tbluser (optional)
-        if (!$profile) {
+        if (! $profile) {
             $u = DB::table('tbluser')->where('id', $userId)->first();
             if ($u) {
                 $profile = (object) [
@@ -99,7 +166,7 @@ class HrController extends Controller
                 'er.created_by',
                 'er.created_at'
             )
-            ->when($employeeId, fn($qq) => $qq->where('er.employee_id', $employeeId))
+            ->when($employeeId, fn ($qq) => $qq->where('er.employee_id', $employeeId))
             ->orderBy('er.employee_id')
             ->orderByDesc('er.effective_start');
 
@@ -119,7 +186,7 @@ class HrController extends Controller
         if ($request->filled('dateFrom') && $request->filled('dateTo')) {
             $query->whereBetween('DateToday', [
                 $request->input('dateFrom'),
-                $request->input('dateTo')
+                $request->input('dateTo'),
             ]);
         }
 
@@ -139,23 +206,24 @@ class HrController extends Controller
 
         return response()->json($records);
     }
+
     /**
      * Summary of editTimeRecord
-     * @param \Illuminate\Http\Request $request
-     * @param mixed $id
+     *
+     * @param  mixed  $id
      * @return \Illuminate\Http\JsonResponse
-     * JSON Structure of changes field
-     *  {
-     *      "TimeIn": { "from": "2025-08-09 08:00:00", "to": "2025-08-09 09:00:00" },
-     *      "Notes": { "from": "Late", "to": "On Time" }
-     *  }
-     * 
+     *                                       JSON Structure of changes field
+     *                                       {
+     *                                       "TimeIn": { "from": "2025-08-09 08:00:00", "to": "2025-08-09 09:00:00" },
+     *                                       "Notes": { "from": "Late", "to": "On Time" }
+     *                                       }
+     *
      **/
     public function editTimeRecord(Request $request, int $id): JsonResponse
     {
         // 1) Load BEFORE state from DB
         $beforeRow = DB::table('tblemployeeclocks')->where('ID', $id)->first();
-        if (!$beforeRow) {
+        if (! $beforeRow) {
             return response()->json(['message' => 'Time record not found.'], 404);
         }
         $before = (array) $beforeRow;
@@ -194,7 +262,7 @@ class HrController extends Controller
         $changes = [];
 
         foreach ($allowed as $col) {
-            if (!array_key_exists($col, $after)) {
+            if (! array_key_exists($col, $after)) {
                 continue; // not sent => not changing
             }
 
@@ -251,6 +319,7 @@ class HrController extends Controller
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
+
             return response()->json([
                 'message' => 'Update failed.',
                 'error' => config('app.debug') ? $e->getMessage() : 'Server error',
@@ -279,6 +348,7 @@ class HrController extends Controller
 
         $rows = $q->get()->map(function ($row) {
             $row->changes = json_decode($row->changes, true);
+
             return $row;
         });
 
@@ -294,6 +364,7 @@ class HrController extends Controller
             ->get()
             ->map(function ($row) {
                 $row->changes = json_decode($row->changes, true);
+
                 return $row;
             });
 
@@ -303,14 +374,14 @@ class HrController extends Controller
     public function getLeaveHistory()
     {
         return response()->json([
-            ['employee' => 'Bob', 'type' => 'Vacation', 'date_from' => '2025-08-01', 'date_to' => '2025-08-05']
+            ['employee' => 'Bob', 'type' => 'Vacation', 'date_from' => '2025-08-01', 'date_to' => '2025-08-05'],
         ]);
     }
 
     public function getViolations()
     {
         return response()->json([
-            ['employee' => 'Alice', 'violation' => 'Late', 'date' => '2025-07-30']
+            ['employee' => 'Alice', 'violation' => 'Late', 'date' => '2025-07-30'],
         ]);
     }
 
@@ -332,6 +403,7 @@ class HrController extends Controller
             ->where('employee_id', $employee)
             ->orderByDesc('effective_start')
             ->get();
+
         return response()->json(['success' => true, 'data' => $rows]);
     }
 
@@ -346,6 +418,7 @@ class HrController extends Controller
             })
             ->orderByDesc('effective_start')
             ->first();
+
         return response()->json(['success' => true, 'data' => $row]);
     }
 
@@ -362,7 +435,7 @@ class HrController extends Controller
         if (is_null($data['monthly_rate']) && is_null($data['hourly_rate'])) {
             return response()->json([
                 'success' => false,
-                'error' => 'Provide at least monthly_rate or hourly_rate.'
+                'error' => 'Provide at least monthly_rate or hourly_rate.',
             ], 422);
         }
 
@@ -384,7 +457,7 @@ class HrController extends Controller
                 ->first();
 
             if ($active && $start > $active->effective_start) {
-                $newEnd = date('Y-m-d', strtotime($start . ' -1 day'));
+                $newEnd = date('Y-m-d', strtotime($start.' -1 day'));
                 \DB::table('tblemployeerate')
                     ->where('id', $active->id)
                     ->update([
@@ -408,9 +481,11 @@ class HrController extends Controller
             ]);
 
             \DB::commit();
+
             return response()->json(['success' => true]);
         } catch (\Throwable $e) {
             \DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to save rate',
@@ -431,14 +506,15 @@ class HrController extends Controller
         // Expand display_date for UI based on selected year if recurring
         $items = $rows->map(function ($r) use ($year) {
             $md = Carbon::parse($r->holidate)->format('m-d');
-            $displayDate = $r->is_recurring ? Carbon::createFromFormat('Y-m-d', $year . '-' . $md)->toDateString() : $r->holidate;
+            $displayDate = $r->is_recurring ? Carbon::createFromFormat('Y-m-d', $year.'-'.$md)->toDateString() : $r->holidate;
+
             return [
                 'holidayID' => (int) $r->holidayID,
                 'holidate' => $r->holidate,
                 'display_date' => $displayDate,
                 'status' => $r->status,
                 'title' => $r->title,
-                'is_recurring' => (int) $r->is_recurring
+                'is_recurring' => (int) $r->is_recurring,
             ];
         })->values();
 
@@ -451,7 +527,7 @@ class HrController extends Controller
             'title' => 'required|string|max:255',
             'status' => 'required|string|max:255',
             'holidate' => 'required|date',
-            'is_recurring' => 'required|in:0,1'
+            'is_recurring' => 'required|in:0,1',
         ]);
 
         if ($v->fails()) {
@@ -462,7 +538,7 @@ class HrController extends Controller
             'holidate' => $request->holidate,
             'status' => $request->status,
             'title' => $request->title,
-            'is_recurring' => (int) $request->is_recurring
+            'is_recurring' => (int) $request->is_recurring,
         ]);
 
         return response()->json(['success' => true, 'id' => $id]);
@@ -475,7 +551,7 @@ class HrController extends Controller
             'title' => 'required|string|max:255',
             'status' => 'required|string|max:255',
             'holidate' => 'required|date',
-            'is_recurring' => 'required|in:0,1'
+            'is_recurring' => 'required|in:0,1',
         ]);
 
         if ($v->fails()) {
@@ -486,7 +562,7 @@ class HrController extends Controller
             'holidate' => $request->holidate,
             'status' => $request->status,
             'title' => $request->title,
-            'is_recurring' => (int) $request->is_recurring
+            'is_recurring' => (int) $request->is_recurring,
         ]);
 
         return response()->json(['success' => true]);
@@ -495,7 +571,7 @@ class HrController extends Controller
     public function deleteHoliday(Request $request): JsonResponse
     {
         $v = Validator::make($request->all(), [
-            'holidayID' => 'required|integer|exists:tblholiday,holidayID'
+            'holidayID' => 'required|integer|exists:tblholiday,holidayID',
         ]);
 
         if ($v->fails()) {
@@ -503,6 +579,7 @@ class HrController extends Controller
         }
 
         DB::table('tblholiday')->where('holidayID', $request->holidayID)->delete();
+
         return response()->json(['success' => true]);
     }
 
@@ -529,8 +606,8 @@ class HrController extends Controller
         $userIds = collect($data['user_ids'] ?? []);
 
         $groups = collect($data['groups'] ?? [])
-            ->map(fn($g) => strtoupper(trim($g)))
-            ->filter(fn($g) => in_array($g, ['PH', 'US']))
+            ->map(fn ($g) => strtoupper(trim($g)))
+            ->filter(fn ($g) => in_array($g, ['PH', 'US']))
             ->values();
 
         if ($groups->isNotEmpty()) {
@@ -541,7 +618,7 @@ class HrController extends Controller
         }
 
         // Dedup + sanitize
-        $finalUserIds = $userIds->unique()->values()->map(fn($v) => (int) $v)->all();
+        $finalUserIds = $userIds->unique()->values()->map(fn ($v) => (int) $v)->all();
 
         $createdByUserId = session('userid') ?? optional($request->user())->id;
         $createdBy = session('user_name') ?? optional($request->user())->username;
@@ -563,7 +640,7 @@ class HrController extends Controller
             // 2) Create a notification for recipients
             $notifId = DB::table('tblnotifications')->insertGetId([
                 'module' => 'HR',
-                'title' => 'Announcement: ' . $data['title'],
+                'title' => 'Announcement: '.$data['title'],
                 'subtitle' => null,
                 'content' => $data['content'] ?? null,
                 'severity' => 'info',
@@ -589,6 +666,7 @@ class HrController extends Controller
             }
 
             DB::commit();
+
             return response()->json([
                 'success' => true,
                 'announcement_id' => $annId,
@@ -597,6 +675,7 @@ class HrController extends Controller
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -604,61 +683,63 @@ class HrController extends Controller
         }
     }
 
-public function acknowledgeAnnouncement(Request $request)
-{
-    $request->validate([
-        'announcement_id' => 'required|integer|exists:tblannouncements,id',
-    ]);
+    public function acknowledgeAnnouncement(Request $request)
+    {
+        $request->validate([
+            'announcement_id' => 'required|integer|exists:tblannouncements,id',
+        ]);
 
-    // ✅ Prefer logged-in user (most reliable)
-    $user = auth()->user();
+        // ✅ Prefer logged-in user (most reliable)
+        $user = auth()->user();
 
-    $username =
-        $user->username ??              // if you have "username"
-        $user->name ??                  // or "name"
-        $user->email ??                 // fallback
-        session('user_name') ??         // your old session key
-        session('username') ??          // common variant
-        session('name') ??              // common variant
-        $request->input('username');    // last resort (payload)
+        $username =
+            $user->username ??              // if you have "username"
+            $user->name ??                  // or "name"
+            $user->email ??                 // fallback
+            session('user_name') ??         // your old session key
+            session('username') ??          // common variant
+            session('name') ??              // common variant
+            $request->input('username');    // last resort (payload)
 
-    if (!$username) {
+        if (! $username) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Username missing (not authenticated / not in session).',
+            ], 422);
+        }
+
+        $ann = DB::table('tblannouncements')
+            ->where('id', $request->announcement_id)
+            ->first();
+
+        if (! $ann) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Announcement not found.',
+            ], 404);
+        }
+
+        $readby = json_decode($ann->readby ?? '[]', true);
+        if (! is_array($readby)) {
+            $readby = [];
+        }
+
+        if (! in_array($username, $readby, true)) {
+            $readby[] = $username;
+
+            DB::table('tblannouncements')
+                ->where('id', $ann->id)
+                ->update([
+                    'readby' => json_encode(array_values(array_unique($readby))),
+                ]);
+        }
+
         return response()->json([
-            'success' => false,
-            'message' => 'Username missing (not authenticated / not in session).',
-        ], 422);
+            'success' => true,
+            'announcement_id' => $ann->id,
+            'readby' => $readby,
+        ]);
     }
-
-    $ann = DB::table('tblannouncements')
-        ->where('id', $request->announcement_id)
-        ->first();
-
-    if (!$ann) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Announcement not found.',
-        ], 404);
-    }
-
-    $readby = json_decode($ann->readby ?? '[]', true);
-    if (!is_array($readby)) $readby = [];
-
-    if (!in_array($username, $readby, true)) {
-        $readby[] = $username;
-
-        DB::table('tblannouncements')
-            ->where('id', $ann->id)
-            ->update([
-                'readby' => json_encode(array_values(array_unique($readby))),
-            ]);
-    }
-
-    return response()->json([
-        'success' => true,
-        'announcement_id' => $ann->id,
-        'readby' => $readby,
-    ]);
-}
 
     public function saveAnnouncement(Request $request)
     {
@@ -680,9 +761,10 @@ public function acknowledgeAnnouncement(Request $request)
 
         // sanitize recipients to int[]
         $recips = $request->input('recipients', []);
-        if (!is_array($recips))
+        if (! is_array($recips)) {
             $recips = [];
-        $recips = collect($recips)->map(fn($v) => (int) $v)->unique()->values()->all();
+        }
+        $recips = collect($recips)->map(fn ($v) => (int) $v)->unique()->values()->all();
 
         $row = [
             'title' => $data['title'],
@@ -694,7 +776,7 @@ public function acknowledgeAnnouncement(Request $request)
             'updated_at' => now('UTC'),
         ];
 
-        if (!empty($data['id'])) {
+        if (! empty($data['id'])) {
             \DB::table('tblannouncements')->where('id', $data['id'])->update($row);
             $id = (int) $data['id'];
         } else {
@@ -716,8 +798,8 @@ public function acknowledgeAnnouncement(Request $request)
         $q = trim($request->query('q', ''));
 
         $rows = \DB::table('tblannouncements')
-            ->when($status === 'active', fn($q) => $q->where('is_active', 1))
-            ->when($status === 'draft', fn($q) => $q->where('is_active', 0))
+            ->when($status === 'active', fn ($q) => $q->where('is_active', 1))
+            ->when($status === 'draft', fn ($q) => $q->where('is_active', 0))
             ->when($q !== '', function ($qq) use ($q) {
                 $qq->where(function ($w) use ($q) {
                     $w->where('title', 'like', "%$q%")
@@ -795,13 +877,15 @@ public function acknowledgeAnnouncement(Request $request)
                 if (is_array($rec) && count($rec) > 0) {
                     return in_array((int) $userId, array_map('intval', $rec), true);
                 }
+
                 return true; // empty means "everyone"
             })->values();
         }
 
-        if (!$includeAck && $username) {
+        if (! $includeAck && $username) {
             $rows = $rows->reject(function ($r) use ($username) {
                 $readby = is_array($r->readby) ? $r->readby : (json_decode($r->readby, true) ?? []);
+
                 return in_array($username, $readby, true);
             })->values();
         }
@@ -832,8 +916,10 @@ public function acknowledgeAnnouncement(Request $request)
     private function makeTitle(int $dow, string $start, string $end, bool $overn): string
     {
         $dash = '–';
-        return $this->dayName($dow) . ' ' . substr($start, 0, 5) . $dash . substr($end, 0, 5) . ($overn ? ' (+1)' : '');
+
+        return $this->dayName($dow).' '.substr($start, 0, 5).$dash.substr($end, 0, 5).($overn ? ' (+1)' : '');
     }
+
     private function dbNow(): Carbon
     {
         return Carbon::now('America/Los_Angeles');
@@ -841,22 +927,28 @@ public function acknowledgeAnnouncement(Request $request)
 
     private function maskFromDayOfWeek(?int $dow): int
     {
-        if (!$dow || $dow === 0)
-            return 127;                   // legacy 0 ⇒ Everyday
-        if ($dow < 1 || $dow > 7)
+        if (! $dow || $dow === 0) {
             return 127;
+        }                   // legacy 0 ⇒ Everyday
+        if ($dow < 1 || $dow > 7) {
+            return 127;
+        }
+
         return 1 << ($dow - 1);                                 // 1..7 ⇒ bit
     }
 
     private function inferDayOfWeekFromMask(int $mask): int
     {
         // if exactly one bit, return its 1..7 index; else 0 (multi/everyday)
-        if ($mask === 0)
+        if ($mask === 0) {
             return 0;
+        }
         if (($mask & ($mask - 1)) === 0) {                      // power of two
             $bitIndex = (int) log($mask, 2);                     // 0..6
+
             return $bitIndex + 1;                               // 1..7
         }
+
         return 0;
     }
 
@@ -876,6 +968,7 @@ public function acknowledgeAnnouncement(Request $request)
         }
 
         $dow = $this->inferDayOfWeekFromMask($mask);
+
         return [$mask, $dow];
     }
 
@@ -883,9 +976,11 @@ public function acknowledgeAnnouncement(Request $request)
     {
         $names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         $list = [];
-        for ($i = 0; $i < 7; $i++)
-            if ($mask & (1 << $i))
+        for ($i = 0; $i < 7; $i++) {
+            if ($mask & (1 << $i)) {
                 $list[] = $names[$i];
+            }
+        }
 
         $days =
             count($list) === 7 ? 'Everyday' :
@@ -920,7 +1015,7 @@ public function acknowledgeAnnouncement(Request $request)
         }
 
         // Order: group by the first day present (for masks), then by time
-        $q->orderByRaw("
+        $q->orderByRaw('
         CASE
           WHEN days_mask IS NULL OR days_mask = 0 THEN day_of_week
           WHEN days_mask & 1   THEN 1
@@ -932,11 +1027,10 @@ public function acknowledgeAnnouncement(Request $request)
           WHEN days_mask & 64  THEN 7
           ELSE 0
         END
-    ")->orderBy('start_time');
+    ')->orderBy('start_time');
 
         return response()->json(['success' => true, 'data' => $q->get()]);
     }
-
 
     public function createTimesched(Request $r)
     {
@@ -957,7 +1051,7 @@ public function acknowledgeAnnouncement(Request $request)
         $overn = (bool) ($d['end_next_day'] ?? false);
         $s = \Carbon\Carbon::createFromFormat('H:i', $d['start_time']);
         $e = \Carbon\Carbon::createFromFormat('H:i', $d['end_time']);
-        if (!$overn && $e->lessThanOrEqualTo($s)) {
+        if (! $overn && $e->lessThanOrEqualTo($s)) {
             return response()->json(['success' => false, 'error' => 'end_time must be after start_time for same-day'], 422);
         }
 
@@ -984,7 +1078,7 @@ public function acknowledgeAnnouncement(Request $request)
     public function updateTimesched($id, Request $r)
     {
         $row = DB::table('tbltimesched')->where('timeschedId', $id)->first();
-        if (!$row) {
+        if (! $row) {
             return response()->json(['success' => false, 'error' => 'not found'], 404);
         }
 
@@ -1016,7 +1110,7 @@ public function acknowledgeAnnouncement(Request $request)
 
         $s = \Carbon\Carbon::createFromFormat('H:i', $start);
         $e = \Carbon\Carbon::createFromFormat('H:i', $end);
-        if (!$overn && $e->lessThanOrEqualTo($s)) {
+        if (! $overn && $e->lessThanOrEqualTo($s)) {
             return response()->json(['success' => false, 'error' => 'end_time must be after start_time for same-day'], 422);
         }
 
@@ -1039,12 +1133,14 @@ public function acknowledgeAnnouncement(Request $request)
         ];
 
         DB::table('tbltimesched')->where('timeschedId', $id)->update($payload);
+
         return response()->json(['success' => true]);
     }
 
     public function deleteTimesched($id)
     {
         $ok = DB::table('tbltimesched')->where('timeschedId', $id)->delete();
+
         return response()->json(['success' => (bool) $ok]);
     }
 
@@ -1055,7 +1151,7 @@ public function acknowledgeAnnouncement(Request $request)
         $rows = DB::table('tblusersched as us')
             ->join('tbltimesched as ts', 'ts.timeschedId', '=', 'us.schedId')
             ->where('us.userId', $r->integer('userId'))
-            ->selectRaw("
+            ->selectRaw('
             us.userschedId,
             us.userId,
             us.schedId,
@@ -1070,7 +1166,7 @@ public function acknowledgeAnnouncement(Request $request)
             ts.end_next_day,
             ts.title,
             ts.is_active as sched_active
-        ")
+        ')
             ->orderBy('ts.day_of_week')
             ->orderBy('ts.start_time')
             ->get();
@@ -1108,8 +1204,9 @@ public function acknowledgeAnnouncement(Request $request)
     public function updateUserSched($id, Request $r)
     {
         $row = DB::table('tblusersched')->where('userschedId', $id)->first();
-        if (!$row)
+        if (! $row) {
             return response()->json(['success' => false, 'error' => 'not found'], 404);
+        }
 
         $d = $r->validate([
             'schedId' => 'nullable|integer',
@@ -1120,7 +1217,7 @@ public function acknowledgeAnnouncement(Request $request)
         ]);
 
         if (
-            !empty($d['effective_from']) && !empty($d['effective_to']) &&
+            ! empty($d['effective_from']) && ! empty($d['effective_to']) &&
             \Carbon\Carbon::parse($d['effective_to'])->lt(\Carbon\Carbon::parse($d['effective_from']))
         ) {
             return response()->json(['success' => false, 'error' => 'effective_to must be on/after effective_from'], 422);
@@ -1142,6 +1239,7 @@ public function acknowledgeAnnouncement(Request $request)
     public function deleteUserSched($id)
     {
         $ok = DB::table('tblusersched')->where('userschedId', $id)->delete();
+
         return response()->json(['success' => (bool) $ok]);
     }
 
@@ -1233,7 +1331,7 @@ public function acknowledgeAnnouncement(Request $request)
             }
 
             // Keep tbluser.email in sync with work_email if provided
-            if (!empty($data['work_email'])) {
+            if (! empty($data['work_email'])) {
                 DB::table('tbluser')->where('id', $uid)->update([
                     'email' => $data['work_email'],
                     'updated_at' => now(),
@@ -1243,7 +1341,7 @@ public function acknowledgeAnnouncement(Request $request)
             // If this was the first-login completion, set the timestamp
             if ($firstLogin) {
                 DB::table('tbluser')->where('id', $uid)->update([
-                    'first_login' => now()
+                    'first_login' => now(),
                 ]);
                 Log::info('First login completed, setting first_login timestamp', ['user_id' => $uid]);
             }
@@ -1258,7 +1356,7 @@ public function acknowledgeAnnouncement(Request $request)
         // abort_unless(auth()->user() && auth()->user()->office_role === 'admin', 403);
 
         $user = DB::table('tbluser')->where('id', $userId)->first();
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'User not found'], 404);
         }
 
@@ -1313,7 +1411,8 @@ public function acknowledgeAnnouncement(Request $request)
     {
         // Keep letters/numbers as-is (case preserved), strip everything else.
         $slug = preg_replace('/[^A-Za-z0-9]/', '', $name);
-        return 'store_' . $slug;
+
+        return 'store_'.$slug;
     }
 
     /** Discover all store_* columns currently present on tbluser (no migration needed). */
@@ -1326,7 +1425,8 @@ public function acknowledgeAnnouncement(Request $request)
               AND TABLE_NAME = 'tbluser'
               AND COLUMN_NAME LIKE 'store\\_%'
         ");
-        return array_map(fn($r) => $r->COLUMN_NAME, $rows);
+
+        return array_map(fn ($r) => $r->COLUMN_NAME, $rows);
     }
 
     /** Map { store_col => storename } by checking existing stores. */
@@ -1337,6 +1437,7 @@ public function acknowledgeAnnouncement(Request $request)
         foreach ($stores as $s) {
             $map[$this->storeColFromName($s->storename)] = $s->storename;
         }
+
         return $map; // note: may not include legacy store_* columns that don't exist in tblstores
     }
 
@@ -1353,8 +1454,9 @@ public function acknowledgeAnnouncement(Request $request)
     public function getEmployeePermissions(int $id)
     {
         $user = DB::table('tbluser')->where('id', $id)->first();
-        if (!$user)
+        if (! $user) {
             return response()->json(['message' => 'User not found'], 404);
+        }
 
         // modules -> booleans
         $modules = [];
@@ -1400,8 +1502,9 @@ public function acknowledgeAnnouncement(Request $request)
     public function updateEmployeePermissions(Request $req, int $id)
     {
         $user = DB::table('tbluser')->where('id', $id)->first();
-        if (!$user)
+        if (! $user) {
             return response()->json(['message' => 'User not found'], 404);
+        }
 
         $data = $req->validate([
             'modules' => ['array'],
@@ -1456,6 +1559,4 @@ public function acknowledgeAnnouncement(Request $request)
         // Return updated snapshot
         return $this->getEmployeePermissions($id);
     }
-
-
 }
