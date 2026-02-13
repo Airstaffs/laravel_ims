@@ -124,12 +124,27 @@ class ReceivedController extends BasetablesController
         if ($processedProduct && $receivedProduct) {
             $trackingImages = $this->getTrackingImagesByTrackingNumber($processedProduct->trackingnumber);
 
+            $imageFields = [
+                'img1','img2','img3','img4','img5',
+                'img6','img7','img8','img9','img10',
+                'img11','img12','img13','img14','img15',
+            ];
+
+            $productDetails = new \stdClass;
+
+            foreach ($imageFields as $field) {
+                if (property_exists($receivedProduct, $field) && !empty($receivedProduct->$field)) {
+                    $productDetails->$field = $receivedProduct->$field;
+                }
+            }
+
             return response()->json([
                 'found' => true,
                 'productId' => $receivedProduct->ProductID,
                 'rtcounter' => $receivedProduct->rtcounter,
                 'trackingnumber' => $receivedProduct->trackingnumber,
                 'quantity' => $receivedProduct->quantity ?? 1,
+                'productDetails' => $productDetails,
                 'reuseTrackingImages' => true,
                 'trackingImages' => $trackingImages,
                 'alreadyScanned' => false,
