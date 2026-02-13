@@ -873,7 +873,7 @@ export default {
                 this.$refs.scanner.showScanError(
                     "Basket number must start with BKT, SI, or ENV followed by numbers"
                 );
-                SoundService.error();
+          //      SoundService.error();
                 this.$refs.basketInput.select();
                 return;
             }
