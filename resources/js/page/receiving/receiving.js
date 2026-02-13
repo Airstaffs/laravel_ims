@@ -479,7 +479,7 @@ export default {
                         "⚠️ Tracking already processed in another module."
                     );
 
-                    SoundService.successScan(true);
+                    SoundService.alreadyScanned(true);
 
                     // 🔥 Reset critical states
                     this.trackingFound = false;
