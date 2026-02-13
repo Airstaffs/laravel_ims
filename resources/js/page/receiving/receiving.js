@@ -504,6 +504,7 @@ export default {
                 this.rtcounter = response.data.rtcounter;
                 this.originalQuantity = response.data.quantity || 1;
                 this.remainingQuantity = this.originalQuantity;
+                this.$refs.scanner.loadProductThumbnails(response.data.productDetails);
 
                 this.applyTrackingResponse(response.data, response.data.moduleLocation);
 
@@ -531,8 +532,6 @@ export default {
                 // 🟢 NORMAL Received flow
                 this.originalQuantity = response.data.quantity || 1;
                 this.remainingQuantity = this.originalQuantity;
-
-                this.$refs.scanner.loadProductThumbnails(response.data.productDetails);
 
                 const basePath = "/images/thumbnails/";
                 this.productImages = [];
