@@ -586,6 +586,7 @@ class ReceivedController extends BasetablesController
                 ->where('ProductID', $request->productId)
                 ->delete();
 
+
                 // ðŸ”¥ UPDATED: Track history for split with full tracking and employee
                 $totalUnitPrice = $unitPrice + $unitPriceShipping + $unitTax;
     
