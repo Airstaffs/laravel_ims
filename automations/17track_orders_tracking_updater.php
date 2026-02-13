@@ -28,29 +28,21 @@ $RUN_ONCE = false;  // web-only convenience
 // CHANGE THIS TO A LONG RANDOM STRING
 define('WEB_RUN_KEY', 'Rawr');
 
-if (php_sapi_name() !== 'cli') {
-    // Gate the endpoint
-    $key = (string) ($_GET['key'] ?? '');
-    if ($key !== WEB_RUN_KEY) {
-        http_response_code(403);
-        exit('Forbidden');
-    }
+$DEBUG = !empty($_GET['debug']);
+$RUN_ONCE = !empty($_GET['run_once']);
 
-    $DEBUG = !empty($_GET['debug']);
-    $RUN_ONCE = !empty($_GET['run_once']);
+// Default web testing is LIMIT 1
+$LIMIT = isset($_GET['limit']) ? max(1, (int) $_GET['limit']) : 1;
 
-    // Default web testing is LIMIT 1
-    $LIMIT = isset($_GET['limit']) ? max(1, (int) $_GET['limit']) : 1;
+if ($RUN_ONCE)
+    $LIMIT = 1;
 
-    if ($RUN_ONCE)
-        $LIMIT = 1;
-
-    if ($DEBUG) {
-        header('Content-Type: text/plain; charset=utf-8');
-        ini_set('display_errors', 1);
-        ini_set('display_startup_errors', 1);
-    }
+if ($DEBUG) {
+    header('Content-Type: text/plain; charset=utf-8');
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
 }
+
 
 
 /* =========================

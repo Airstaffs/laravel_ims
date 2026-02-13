@@ -415,7 +415,6 @@ class ShipmentController extends Controller
                 // 1) Update outbound item Shipped -> Delivered
                 $affected1 = DB::table('tbloutboundordersitem')
                     ->where('outboundorderitemid', $outboundId)
-                    ->where('order_status', 'Shipped')
                     ->update(['order_status' => 'Delivered']);
 
                 if ($affected1 <= 0) {
