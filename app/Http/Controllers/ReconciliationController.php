@@ -12,27 +12,12 @@ class ReconciliationController extends Controller
      */
     public function index(Request $request)
     {
-        $rows = DB::table('tblreconciliation')
-            ->whereNotNull('trackingnumber')
-            ->orderByRaw('COALESCE(stockroom_insert_date, DateCreated) DESC')
-            ->limit(300)
-            ->get();
+        $perPage = $request->input('per_page', 10);
 
-        $normalized = [];
+        $products = DB::table('tblreconciliation')
+            ->paginate($perPage);
 
-        foreach ($rows as $row) {
-            $normalized[] = [
-                'product_id'      => $row->ProductID,
-                'tracking_number' => $row->trackingnumber,
-                'image_path'      => $row->img1, // ✅ tracking image ONLY
-                'created_at'      => $row->stockroom_insert_date ?? $row->DateCreated,
-            ];
-        }
-
-        return response()->json([
-            'success' => true,
-            'data' => $normalized,
-        ]);
+        return response()->json($products);
     }
 
 }

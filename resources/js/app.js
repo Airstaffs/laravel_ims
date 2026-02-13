@@ -547,6 +547,7 @@ import Labeling from "./page/labeling/labeling.vue";
 import Order from "./page/orders/orders.vue";
 import Packing from "./page/packing/packing.vue";
 import Receiving from "./page/receiving/receiving.vue";
+import Reconciliation from "./page/reconciliation/reconciliation.vue";
 import Testing from "./page/testing/testing.vue";
 import Searching from "./page/searching/searching.vue";
 import Unreceived from "./page/unreceived/unreceived.vue";
@@ -938,6 +939,7 @@ const app = createApp({
         cleaning: Cleaning,
         packing: Packing,
         receiving: Receiving,
+        reconciliation: Reconciliation,
         stockroom: Stockroom,
         testing: Testing,
         validation: Validation,

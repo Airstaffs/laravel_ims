@@ -36,13 +36,6 @@
                     target="_blank"
                     rel="noopener"
                 />
-                <!-- <Button
-                    label="🧪 Reconciliation Debug"
-                    size="small"
-                    severity="warning"
-                    outlined
-                    @click="toggleReconciliationDebug"
-                /> -->
 
             </div>
         </div>
@@ -1121,52 +1114,6 @@
             </div>
         </div>
         <ScrollTop />
-        <!-- 🧪 RECONCILIATION DEBUG TABLE -->
-                    <!-- <div v-if="showReconciliationDebug" class="mt-6 border-t pt-4">
-
-                        <h3 class="text-lg font-semibold mb-3">
-                            🧪 Reconciliation Debug (Images)
-                        </h3>
-
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full text-xs border border-gray-300">
-                                <thead class="bg-gray-100">
-                                    <tr>
-                                        <th>Tracking Number</th>
-                                        <th>Product ID</th>
-                                        <th>Tracking Image</th>
-                                        <th>Created</th>
-                                    </tr>
-                                </thead>
-
-                                <tbody>
-                                    <tr v-for="row in reconciliationRows" :key="row.product_id">
-                                        <td class="border px-2 py-1 font-mono">
-                                            {{ row.tracking_number }}
-                                        </td>
-
-                                        <td class="border px-2 py-1 text-center">
-                                            {{ row.product_id }}
-                                        </td>
-
-                                        <td class="border px-2 py-1">
-                                            <img
-                                                v-if="row.image_path"
-                                                :src="resolveReconciliationImage(row.image_path)"
-                                                class="w-20 h-20 object-contain border rounded"
-                                            />
-                                            <span v-else class="text-gray-400">No Tracking Image</span>
-                                        </td>
-
-                                        <td class="border px-2 py-1 text-gray-500">
-                                            {{ row.created_at }}
-                                        </td>
-                                    </tr>
-                                </tbody>
-
-                            </table>
-                        </div>
-                    </div> -->
     </div>
 </template>
 
@@ -1182,7 +1129,6 @@ import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 import { showPricingForPH } from "../../utils/helpers.js";
-import Reconciliation from "./reconciliation.js";
 
 const TABLE_COLUMNS = [
     {
@@ -1233,7 +1179,7 @@ const TABLE_COLUMNS = [
 ];
 
 export default {
-    mixins: [Received, Reconciliation],
+    mixins: [Received],
     components: {
         Button,
         Dialog,

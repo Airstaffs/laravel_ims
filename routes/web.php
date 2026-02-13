@@ -1015,11 +1015,6 @@ Route::get('/history', function () {
     return view('dashboard');
 })->middleware(['auth'])->name('history.page');
 
-Route::get('/debug/reconciliation', [ReconciliationController::class, 'index'])
-    ->middleware('auth'); 
+Route::get('/reconciliation/products', [ReconciliationController::class, 'index']);
 
-Route::get('/received/verify-tracking-rescan', [
-    ReceivedController::class,
-    'verifyTrackingForReceivingRescan'
-]);
 

@@ -4,12 +4,10 @@ import { SoundService } from "../../components/Sound_service";
 import DetectSerialModal from "./modal-detect/modal-detect.vue";
 import "../../../css/modules.css";
 import { DEFAULT_IMAGE } from "../../constant";
-import reconciliationMixin from './reconciliation';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
-    mixins: [reconciliationMixin],
     name: "ReceivedModule",
     components: {
         ScannerComponent,
