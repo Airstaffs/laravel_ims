@@ -139,6 +139,12 @@ export default {
 
           // 🧹 2. Clear captured data & statuses
           this.capturedImages = [];
+
+          // 🔥 Clear product thumbnails
+          if (typeof this.clearProductThumbnails === 'function') {
+              this.clearProductThumbnails();
+          }
+          
           this.showSuccessNotification = false;
           this.showWarningNotification = false;
           this.showErrorNotification = false;

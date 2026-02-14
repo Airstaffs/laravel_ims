@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use PHPMailer\PHPMailer\Exception;
 use PHPMailer\PHPMailer\PHPMailer;
+use Illuminate\Support\Facades\Log;
 
 class AttendanceController extends Controller
 {
@@ -1624,4 +1625,128 @@ class AttendanceController extends Controller
             'hasPreviousDayOpenRecord' => $hasPreviousDayOpenRecord, // NEW LINE
         ]);
     }
+
+public function getAllUsersAttendanceToday(Request $request)
+{
+    try {
+        // ✅ Fixed validation syntax
+        $validated = $request->validate([
+            'status' => 'nullable|string|in:clocked_in,clocked_out,absent,',
+            'account' => 'nullable|string|in:PH,US,'
+        ]);
+
+        // ✅ Explicitly set to US Eastern Time
+        $tz = 'America/Los_Angeles'; 
+        $todayUS = Carbon::today($tz)->toDateString();
+        
+        $query = DB::table('tblemployeeclocks')
+            ->join('tbluser', 'tblemployeeclocks.userid', '=', 'tbluser.id')
+            ->select(
+                'tblemployeeclocks.ID as id',
+                'tblemployeeclocks.userid',
+                'tblemployeeclocks.Employee as employee_name',
+                'tblemployeeclocks.TimeIn as time_in',
+                'tblemployeeclocks.TimeOut as time_out',
+                'tblemployeeclocks.Notes as notes',
+                'tblemployeeclocks.schedID as scheduleid',
+                'tblemployeeclocks.DateToday as date_today',
+                'tbluser.username',
+                'tbluser.accounttype', 
+                'tbluser.profile_picture',
+                DB::raw('TIMESTAMPDIFF(MINUTE, tblemployeeclocks.TimeIn, tblemployeeclocks.TimeOut) as duration_minutes'),
+                DB::raw('DATE(tblemployeeclocks.TimeIn) as date')
+            )
+            // ✅ Use the US-calculated date for the filter
+            ->whereRaw('DATE(tblemployeeclocks.TimeIn) = ?', [$todayUS]);
+
+        // ✅ Apply account type filter
+        if (!empty($validated['account'])) {
+            $query->where('tbluser.accounttype', $validated['account']);
+        }
+
+        $attendanceRecords = $query->orderBy('tblemployeeclocks.TimeIn', 'desc')->get();
+
+        $formattedData = $attendanceRecords->map(function ($record) use ($tz) {
+            // Parse UTC from DB and convert to US Eastern
+            $timeIn = $record->time_in ? Carbon::parse($record->time_in, 'UTC')->timezone($tz) : null;
+            $timeOut = $record->time_out ? Carbon::parse($record->time_out, 'UTC')->timezone($tz) : null;
+            
+            $status = 'clocked_out';
+            if ($timeIn && !$timeOut) {
+                $status = 'clocked_in';
+            } elseif (!$timeIn) {
+                $status = 'absent';
+            }
+
+            // ✅ Calculate formatted duration
+            $duration = null;
+            $durationFormatted = null;
+            
+            if ($timeIn && $timeOut && $record->duration_minutes) {
+                $duration = $record->duration_minutes;
+                $hours = floor($duration / 60);
+                $minutes = $duration % 60;
+                
+                if ($hours > 0 && $minutes > 0) {
+                    $durationFormatted = "{$hours}h {$minutes}m";
+                } elseif ($hours > 0) {
+                    $durationFormatted = "{$hours}h";
+                } else {
+                    $durationFormatted = "{$minutes}m";
+                }
+            }
+
+            return [
+                'id' => $record->id,
+                'userid' => $record->userid,
+                'employee_name' => $record->employee_name,
+                'username' => $record->username,
+                'profile_picture' => $record->profile_picture,
+                'accounttype' => $record->accounttype,
+                'scheduleid' => $record->scheduleid,
+                'time_in' => $record->time_in,
+                'time_out' => $record->time_out,
+                'time_in_full' => $timeIn ? $timeIn->format('m-d-Y H:i:s') : null,
+                'time_out_full' => $timeOut ? $timeOut->format('m-d-Y H:i:s') : null,
+                'duration_minutes' => $duration,
+                'duration' => $durationFormatted,
+                'notes' => $record->notes,
+                'status' => $status,
+                'date' => $record->date,
+                'date_today' => $record->date_today,
+            ];
+        });
+
+        // ✅ Calculate unique user counts based on LATEST record per user
+        $latestRecordsByUser = $formattedData->groupBy('userid')->map(function ($userRecords) {
+            // Get the latest record for this user (first one since already ordered by TimeIn desc)
+            return $userRecords->first();
+        });
+
+        $currentlyClockedInCount = $latestRecordsByUser->where('status', 'clocked_in')->count();
+        $currentlyClockedOutCount = $latestRecordsByUser->where('status', 'clocked_out')->count();
+
+        // ✅ Apply status filter after mapping (since status is calculated)
+        if (!empty($validated['status'])) {
+            $formattedData = $formattedData->where('status', $validated['status']);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'records' => $formattedData->values(),
+                'summary' => [
+                    'total' => $latestRecordsByUser->count(),
+                    'clocked_in' => $currentlyClockedInCount,
+                    'clocked_out' => $currentlyClockedOutCount,
+                ]
+            ],
+            'message' => "Today's US Attendance ($todayUS) retrieved successfully",
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Attendance Error: ' . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Failed to retrieve records'], 500);
+    }
+}
 }

@@ -514,6 +514,12 @@ export default {
         });
     },
 
+    clearProductThumbnails() {
+        this.productThumbnails = [];
+        this.showProductImageModal = false;
+        this.currentProductImageIndex = 0;
+    },
+
     // =========================
     // ✅ FREE CAPTURE (default)
     // =========================

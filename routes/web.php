@@ -287,6 +287,7 @@ Route::middleware(['auth', PreventBackHistory::class])->group(function () {
     Route::post('/attendance/filter', [AttendanceController::class, 'filterAttendanceAjax'])->name('attendance.filter.ajax');
     Route::post('/attendance/auto-clockout', [AttendanceController::class, 'autoClockOut'])->name('auto-clockout');
     Route::post('/update-notes/{id}', [AttendanceController::class, 'updateNotes'])->name('update-notes');
+    Route::post('/attendance/systeminout', [AttendanceController::class, 'getAllUsersAttendanceToday'])->name('attendance.systeminout');
 
     // Add these routes with your other attendance routes
     Route::get('/attendance/break/status', [AttendanceController::class, 'status'])->name('attendance.break.status');
@@ -1015,11 +1016,7 @@ Route::get('/history', function () {
     return view('dashboard');
 })->middleware(['auth'])->name('history.page');
 
-Route::get('/debug/reconciliation', [ReconciliationController::class, 'index'])
-    ->middleware('auth'); 
-
-Route::get('/received/verify-tracking-rescan', [
-    ReceivedController::class,
-    'verifyTrackingForReceivingRescan'
-]);
-
+//routes for reconciliation
+Route::prefix('api/reconciliation')->middleware(['auth'])->group(function () {
+    Route::get('products', [ReconciliationController::class, 'index']);
+});

@@ -1,7 +1,7 @@
 <template>
     <DataTable :value="displayValue" :paginator="paginator" :rows="rows" :rowsPerPageOptions="rowsPerPageOptions"
         :showGridlines="showGridlines" :class="tableClass" :style="tableStyle" size="small" :dataKey="autoDataKey"
-        :scrollable="hasFixedColumns">
+        :scrollable="scrollable || hasFixedColumns" :scrollHeight="scrollHeight">
         <!-- Empty -->
         <template #empty>
             <div class="p-datatable-empty-message">
@@ -63,21 +63,20 @@
         </Column>
     </DataTable>
 </template>
+
 <script>
 import {
     DataTable,
     Column,
     Checkbox
-}
-    from "primevue";
+} from "primevue";
+
 export default {
-    name:
-        "ReusableDataTable",
+    name: "ReusableDataTable",
     components: {
         DataTable,
         Column,
         Checkbox
-
     },
     props: {
         value: {
@@ -90,80 +89,72 @@ export default {
         },
         selectionMode: {
             type: String,
-            default:
-                null
+            default: null
         },
-        // "single" | "multiple" 
         selection: {
             type: [Array, Object],
-            default:
-                null
+            default: null
         },
         disableRowCheckbox: {
             type: Function,
-            default:
-                null
+            default: null
         },
-        // row => true = disabled 
         onSelectionChange: {
             type: Function,
-            default:
-                null
+            default: null
         },
         onAllSelectionChange: {
             type: Function,
-            default:
-                null
+            default: null
         },
         loading: {
             type: Boolean,
-            default:
-                false
+            default: false
         },
         paginator: {
             type: Boolean,
-            default:
-                false
+            default: false
         },
         rows: {
             type: Number,
-            default:
-                10
+            default: 10
         },
         rowsPerPageOptions: {
             type: Array,
-            default:
-                () => [10, 20, 50]
+            default: () => [10, 20, 50]
         },
         tableStyle: {
             type: [String, Object],
-            default:
-                () => ({})
+            default: () => ({})
         },
         tableClass: {
             type: String,
-            default:
-                ""
+            default: ""
         },
         showIndex: {
             type: Boolean,
-            default:
-                false
+            default: false
         },
         indexFrozen: {
             type: Boolean,
-            default:
-                false
+            default: false
         },
         actionsFrozen: {
             type: Boolean,
-            default:
-                false
+            default: false
         },
         dataKey: {
             type: String,
-            default:
-                "id"
+            default: "id"
+        },
+        // ✅ NEW: Scrollable props
+        scrollable: {
+            type: Boolean,
+            default: false
+        },
+        scrollHeight: {
+            type: String,
+            default: null // e.g., "400px", "50vh"
         },
     },
     emits: ["update:selection"],
@@ -185,7 +176,6 @@ export default {
         hasFixedColumns() {
             return this.indexFrozen || this.actionsFrozen || this.columns.some(c => c.frozen);
         },
-        // Select-all states 
         allCheckboxesDisabled() {
             return this.displayValue.filter(r => !this.isDisabled(r)).length === 0;
         },
@@ -271,12 +261,12 @@ export default {
     },
 }
 </script>
+
 <style scoped>
 .p-datatable-empty-message {
     display: flex;
     justify-content: center;
-    align-items:
-        center;
+    align-items: center;
     width: 100%;
     padding: 2rem 0;
 }
@@ -285,7 +275,6 @@ export default {
 .select-all-wrapper {
     display: flex;
     align-items: center;
-    /* justify-content: center; */
 }
 
 :deep(.p-datatable-thead > tr > th) {
@@ -296,5 +285,16 @@ export default {
 .select-all-wrapper input[type="checkbox"] {
     width: 1rem;
     height: 1rem;
+}
+
+/* ✅ Fixed header styles */
+:deep(.p-datatable-scrollable .p-datatable-thead) {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+:deep(.p-datatable-scrollable-body) {
+    overflow-y: auto;
 }
 </style>

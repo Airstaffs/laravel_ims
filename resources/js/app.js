@@ -567,9 +567,10 @@ import History from "./page/history/history.vue";
 import Soldlist from "./page/soldlist/soldlist.vue";
 import Returnedlist from "./page/returnlist/returnlist.vue";
 import AuxiliaryLabel from "./page/auxiliary/auxiliary.vue";
-import inventoryStatistics from "./page/inventoryStatistics/inventoryStatistics.vue";
-
+import Reconciliation from "./page/reconciliation/reconciliation.vue";
+import InventoryStatistics from "./page/inventoryStatistics/inventoryStatistics.vue";
 import FbaInboundShipment from "./components/Stockroom/fba_inbound/fba_inbound_shipment.vue";
+
 import Navbar from "./components/Navbar/Navbar.vue";
 import Login from "./components/Login/Login.vue";
 
@@ -636,6 +637,7 @@ const componentMapping = {
     "Returned Items": "returnlist",
     "Auxiliary Label": "auxiliary",
     "Inventory Statistics": "inventorystatistics",
+    "Reconciliation": "reconciliation",
 };
 
 // ============================================
@@ -938,6 +940,7 @@ const app = createApp({
         cleaning: Cleaning,
         packing: Packing,
         receiving: Receiving,
+        reconciliation: Reconciliation,
         stockroom: Stockroom,
         testing: Testing,
         validation: Validation,
@@ -960,6 +963,7 @@ const app = createApp({
         returnlist: Returnedlist,
         auxiliary: AuxiliaryLabel,
         inventorystatistics: InventoryStatistics,
+        reconciliation: Reconciliation,
     },
 });
 
@@ -971,8 +975,6 @@ import PrimeVue from "primevue/config";
 import Aura from "@primevue/themes/aura";
 import ToastService from "primevue/toastservice";
 import Tooltip from "primevue/tooltip";
-import shipment from "./page/shipment/shipment";
-import InventoryStatistics from "./page/inventoryStatistics/inventoryStatistics.vue";
 
 // ⭐ REGISTER TIME FORMATTER PLUGIN (initializes automatically)
 await app.use(timeFormatterPlugin);

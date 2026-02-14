@@ -378,7 +378,7 @@ class ReceivedController extends BasetablesController
                 $request->validate([
                     'trackingNumber' => 'required',
                     'status' => 'required|in:fail',
-                    'basketNumber' => ['required', 'regex:/^(BKT|SI|ENV)\d+$/i'],
+                     'basketNumber' => ['required', 'regex:/^(BKT\d+|S[I-Z]\d+|ENV\d+)$/i'],
                     'pcnNumber' => ['required', 'regex:/^PCN\d+$/i'],
                     'productId' => $isReconciliation ? 'nullable' : 'required',
                     'rtcounter' => 'required',
@@ -392,7 +392,7 @@ class ReceivedController extends BasetablesController
                     'firstSerialNumber' => ['required', 'regex:/^[A-Z0-9]+$/i'],
                     'secondSerialNumber' => ['required', 'regex:/^(N\/A|[A-Z0-9]+)$/i'],
                     'pcnNumber' => ['required', 'regex:/^PCN\d+$/i'],
-                    'basketNumber' => ['required', 'regex:/^(BKT|SI|ENV)\d+$/i'],
+                    'basketNumber' => ['required', 'regex:/^(BKT\d+|S[I-Z]\d+|ENV\d+)$/i'],
                     'productId' => $isReconciliation ? 'nullable' : 'required',
                     'rtcounter' => 'required',
                 ]);

@@ -4,12 +4,10 @@ import { SoundService } from "../../components/Sound_service";
 import DetectSerialModal from "./modal-detect/modal-detect.vue";
 import "../../../css/modules.css";
 import { DEFAULT_IMAGE } from "../../constant";
-import reconciliationMixin from './reconciliation';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
-    mixins: [reconciliationMixin],
     name: "ReceivedModule",
     components: {
         ScannerComponent,
@@ -96,6 +94,7 @@ export default {
             imageUrl: null,
             croppedImage: null,
             isDragging: false,
+
         };
     },
     computed: {
@@ -430,11 +429,8 @@ export default {
         },
 
         validateBasketNumber() {
-            const basketRegex = /^(BKT|SI|ENV)\d+$/i;
+            const basketRegex = /^(BKT\d+|S[I-Z]\d+|ENV\d+)$/i;
             this.basketNumberValid = basketRegex.test(this.basketNumber.trim());
-            if (!this.basketNumberValid) {
-                SoundService.error();
-            }
             return this.basketNumberValid;
         },
 
@@ -481,7 +477,7 @@ export default {
                         "⚠️ Tracking already processed in another module."
                     );
 
-                    SoundService.successScan(true);
+                    SoundService.alreadyScanned(true);
 
                     // 🔥 Reset critical states
                     this.trackingFound = false;
@@ -873,20 +869,20 @@ export default {
         processBasketNumber() {
             if (!this.validateBasketNumber()) {
                 this.$refs.scanner.showScanError(
-                    "Basket number must start with BKT, SI, or ENV followed by numbers"
+                    "Basket number must start with BKT, S[I-Z], or ENV followed by numbers"
                 );
-                SoundService.error();
+            //    SoundService.error(); // ✅ Just use regular error sound here
                 this.$refs.basketInput.select();
                 return;
             }
 
+            // ✅ NO SOUND HERE - let submit functions handle success/error sounds
             if (this.status === "fail") {
                 this.submitFailedItem();
             } else {
                 this.submitScanData();
             }
         },
-
         async captureSerialImage() {
             if (this.$refs.scanner && this.$refs.scanner.captureFromScanner) {
                 try {
@@ -905,7 +901,7 @@ export default {
             try {
                 if (!this.validateBasketNumber()) {
                     this.$refs.scanner.showScanError(
-                        "Basket number must start with BKT, SI, or ENV followed by numbers"
+                        "Basket number must start with BKT, S[I-Z], or ENV followed by numbers"
                     );
                     SoundService.error();
                     return;
@@ -1186,7 +1182,7 @@ export default {
                     this.$refs.scanner.showScanError(
                         response.data.message || "Error processing scan"
                     );
-                    SoundService.scanRejected(true);
+               //     SoundService.scanRejected(true);
 
                     this.$refs.scanner.addErrorScan(
                         {

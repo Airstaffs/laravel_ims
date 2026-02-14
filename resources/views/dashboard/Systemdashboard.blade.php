@@ -110,10 +110,12 @@
                     'notfound',
                     'asinoption',
                     'houseage',
+                    'reconciliation',
                     'asinlist',
                     'printer',
                     'auxiliary',
                     'inventorystatistics',
+
                 ];
 
                 foreach ($moduleColumns as $column) {
@@ -158,6 +160,7 @@
                 'printer' => 'Printer',
                 'auxiliary' => 'Auxiliary Label',
                 'inventorystatistics' => 'Inventory Statistics',
+                'reconciliation' => 'Reconciliation',
             ];
 
             function hasAccess($module, $mainModule, $subModules): bool
