@@ -908,67 +908,81 @@ function increment_tblfnsku_units_by_any_identifier(
     string $msku,
     string $asin
 ): array {
-    if ($qty <= 0)
+    if ($qty <= 0) {
         return ['ok' => false, 'error' => 'qty must be > 0'];
+    }
 
-    $conds = [];
-    $types = "i";
-    $params = [$qty];
+    // Priority: FNSKU > MSKU > ASIN
+    $field = '';
+    $value = '';
+
+    $fnsku = strtoupper(trim($fnsku));
+    $msku = strtoupper(trim($msku));
+    $asin = strtoupper(trim($asin));
 
     if ($fnsku !== '') {
-        $conds[] = "FNSKU = ?";
-        $types .= "s";
-        $params[] = $fnsku;
-    }
-    if ($msku !== '') {
-        $conds[] = "MSKU  = ?";
-        $types .= "s";
-        $params[] = $msku;
-    }
-    if ($asin !== '') {
-        $conds[] = "ASIN  = ?";
-        $types .= "s";
-        $params[] = $asin;
-    }
-
-    if (count($conds) === 0) {
+        $field = 'FNSKU';
+        $value = $fnsku;
+    } elseif ($msku !== '') {
+        $field = 'MSKU';
+        $value = $msku;
+    } elseif ($asin !== '') {
+        $field = 'ASIN';
+        $value = $asin;
+    } else {
         return ['ok' => false, 'error' => 'No identifiers (fnsku/msku/asin) provided'];
     }
 
-    $sql = "
-        UPDATE tblfnsku
-        SET units = COALESCE(units, 0) + ?
-        WHERE " . implode(" OR ", $conds) . "
-    ";
+    // Preview which row will be updated (for logs)
+    $preview = [];
+    $q = $db->prepare("SELECT id, FNSKU, MSKU, ASIN, units FROM tblfnsku WHERE {$field} = ? LIMIT 5");
+    if ($q) {
+        $q->bind_param("s", $value);
+        $q->execute();
+        $res = $q->get_result();
+        while ($r = $res->fetch_assoc())
+            $preview[] = $r;
+        $q->close();
+    }
+    cron_log("tblfnsku match preview Delivered sheesh", ['field' => $field, 'value' => $value, 'rows' => $preview]);
+
+    $sql = "UPDATE tblfnsku
+            SET units = COALESCE(units, 0) + ?
+            WHERE {$field} = ?";
 
     $stmt = $db->prepare($sql);
-    if (!$stmt)
+    if (!$stmt) {
         return ['ok' => false, 'error' => $db->error];
-
-    $bind = [];
-    $bind[] = $types;
-    foreach ($params as $k => $v) {
-        $bind[] = &$params[$k];
     }
 
-    call_user_func_array([$stmt, 'bind_param'], $bind);
-
+    $stmt->bind_param("is", $qty, $value);
     $stmt->execute();
+
     $affected = $stmt->affected_rows;
     $err = $stmt->error;
     $stmt->close();
 
-    if ($err)
+    if ($err) {
         return ['ok' => false, 'error' => $err];
+    }
 
-    if ($affected <= 0) {
+    // ✅ Safety: if it matches multiple rows, log it and fail (prevents another “66 rows”)
+    if ($affected !== 1) {
         return [
             'ok' => false,
-            'error' => "No tblfnsku rows matched for fnsku={$fnsku} msku={$msku} asin={$asin}"
+            'error' => "Expected 1 match, got {$affected} for {$field}={$value}",
+            'rowsAffected' => $affected,
+            'matchField' => $field,
+            'matchValue' => $value,
         ];
     }
 
-    return ['ok' => true, 'rowsAffected' => $affected];
+    return [
+        'ok' => true,
+        'rowsAffected' => $affected,
+        'matchField' => $field,
+        'matchValue' => $value,
+    ];
 }
 
 function moveProductParentAndChildrenToSoldList(mysqli $db, int $productId, int $rtcounter, bool $isPackParent): int

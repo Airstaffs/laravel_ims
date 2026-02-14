@@ -415,6 +415,7 @@ class ShipmentController extends Controller
                 // 1) Update outbound item Shipped -> Delivered
                 $affected1 = DB::table('tbloutboundordersitem')
                     ->where('outboundorderitemid', $outboundId)
+                    ->where('order_status', 'Shipped')
                     ->update(['order_status' => 'Delivered']);
 
                 if ($affected1 <= 0) {
@@ -453,9 +454,19 @@ class ShipmentController extends Controller
                     $key = json_encode($tuple, JSON_UNESCAPED_SLASHES);
                     $idCounts[$key] = ($idCounts[$key] ?? 0) + 1;
                 } else {
-                    // CASE B: Pack parent -> expand children (mergeTO = rtcounter)
+                    // CASE B: Pack parent -> parent + children
                     $rtcounter = (int) $prod->rtcounter;
 
+                    if ($rtcounter <= 0) {
+                        throw new \Exception("Pack parent missing rtcounter for ProductID={$productId}");
+                    }
+
+                    // ✅ 1) Count the PARENT as 1
+                    $tupleParent = $this->normalizeIdentifierTuple($fnskuviewer, $mskuviewer, $asinviewer);
+                    $keyParent = json_encode($tupleParent, JSON_UNESCAPED_SLASHES);
+                    $idCounts[$keyParent] = ($idCounts[$keyParent] ?? 0) + 1;
+
+                    // ✅ 2) Then count the CHILDREN
                     $children = DB::table('tblproduct')
                         ->select('FNSKUviewer', 'MSKUviewer', 'ASINviewer')
                         ->where('mergedTO', $rtcounter)
@@ -560,21 +571,47 @@ class ShipmentController extends Controller
         if ($qty <= 0)
             return 0;
 
-        $q = DB::table('tblfnsku');
+        $fnsku = strtoupper(trim($fnsku));
+        $msku = strtoupper(trim($msku));
+        $asin = strtoupper(trim($asin));
+
+        // pick best identifier (priority)
+        $field = null;
+        $value = null;
 
         if ($fnsku !== '') {
-            $q->where('FNSKU', $fnsku);
+            $field = 'FNSKU';
+            $value = $fnsku;
         } elseif ($msku !== '') {
-            $q->where('MSKU', $msku);
+            $field = 'MSKU';
+            $value = $msku;
         } elseif ($asin !== '') {
-            $q->where('ASIN', $asin);
+            $field = 'ASIN';
+            $value = $asin;
         } else {
             return 0;
         }
 
-        return $q->update([
-            'units' => DB::raw('COALESCE(units, 0) + ' . (int) $qty),
-        ]);
+        // SAFETY: require exactly 1 match
+        $matchIds = DB::table('tblfnsku')
+            ->where($field, $value)
+            ->pluck('id'); // assumes tblfnsku has id PK
+
+        $count = $matchIds->count();
+
+        if ($count !== 1) {
+            // throw so the transaction rolls back (prevents mass updates)
+            throw new \Exception("tblfnsku match not unique: {$field}={$value} matched {$count} rows");
+        }
+
+        // update exactly that row
+        $id = (int) $matchIds->first();
+
+        return DB::table('tblfnsku')
+            ->where('id', $id)
+            ->update([
+                'units' => DB::raw('COALESCE(units, 0) + ' . (int) $qty),
+            ]);
     }
 
 
