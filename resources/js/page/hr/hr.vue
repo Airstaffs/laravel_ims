@@ -71,6 +71,8 @@
             <History v-if="currentView === 'History'" />
 
             <scheduling v-if="currentView === 'Scheduling'" :ctx="hrContext" />
+
+            <Payroll v-if="currentView === 'Payroll'" />
         </div>
     </div>
 </template>

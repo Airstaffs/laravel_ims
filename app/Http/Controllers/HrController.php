@@ -20,6 +20,14 @@ class HrController extends Controller
         $today = date('Y-m-d');
 
         $employees = \DB::table('tbluser as u')
+            ->leftJoin('tblemployeerate as er', function ($join) use ($today) {
+                $join->on('er.employee_id', '=', 'u.id')
+                    ->where('er.effective_start', '<=', $today)
+                    ->where(function ($query) use ($today) {
+                        $query->whereNull('er.effective_end')
+                            ->orWhere('er.effective_end', '>=', $today);
+                    });
+            })
             ->select(
                 'u.id',
                 'u.username',
@@ -27,28 +35,11 @@ class HrController extends Controller
                 \DB::raw('u.office_role as position'),
                 'u.accounttype',
                 'u.active',
-                \DB::raw("(SELECT er.monthly_rate
-                   FROM tblemployeerate er
-                   WHERE er.employee_id = u.id
-                     AND er.effective_start <= '{$today}'
-                     AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
-                   ORDER BY er.effective_start DESC
-                   LIMIT 1) as current_monthly_rate"),
-                \DB::raw("(SELECT er.hourly_rate
-                   FROM tblemployeerate er
-                   WHERE er.employee_id = u.id
-                     AND er.effective_start <= '{$today}'
-                     AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
-                   ORDER BY er.effective_start DESC
-                   LIMIT 1) as current_hourly_rate"),
-                \DB::raw("(SELECT er.currency
-                   FROM tblemployeerate er
-                   WHERE er.employee_id = u.id
-                     AND er.effective_start <= '{$today}'
-                     AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
-                   ORDER BY er.effective_start DESC
-                   LIMIT 1) as current_currency")
+                'er.monthly_rate as current_monthly_rate',
+                'er.hourly_rate as current_hourly_rate',
+                'er.currency as current_currency'
             )
+            ->groupBy('u.id', 'u.username', 'u.office_role', 'u.accounttype', 'u.active', 'er.monthly_rate', 'er.hourly_rate', 'er.currency')
             ->orderBy('u.id', 'asc')
             ->get();
 
@@ -1558,5 +1549,128 @@ class HrController extends Controller
 
         // Return updated snapshot
         return $this->getEmployeePermissions($id);
+    }
+
+    public function getPayslips(Request $request)
+    {
+        $perPage = $request->input('per_page', 10);
+
+        $payslips = \DB::table('tblpayslips')
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
+
+        return response()->json($payslips);
+    }
+
+    public function createPayslip(Request $request)
+    {
+        $validated = $request->validate([
+            'employee_id' => 'required|integer',
+            'employee_name' => 'required|string',
+            'payout_date' => 'required|date',
+            'cutoff_from' => 'required|date',
+            'cutoff_to' => 'required|date',
+            'total_days' => 'required|integer',
+            'total_hours' => 'required|numeric',
+            'hourly_rate' => 'required|numeric',
+            'currency' => 'required|string|max:3',
+            'basic_pay' => 'required|numeric',
+            'regular_holiday_hours' => 'nullable|numeric',
+            'regular_holiday_pay' => 'nullable|numeric',
+            'special_holiday_hours' => 'nullable|numeric',
+            'special_holiday_pay' => 'nullable|numeric',
+            'gross_pay' => 'required|numeric',
+            'deductions' => 'nullable|numeric',
+            'net_pay' => 'required|numeric',
+            'deduction_details' => 'nullable|array', // Changed to array
+        ]);
+
+        try {
+            // Convert deduction_details array to JSON string
+            $deductionDetailsJson = null;
+            if (! empty($validated['deduction_details'])) {
+                $deductionDetailsJson = json_encode($validated['deduction_details']);
+            }
+
+            // Insert payslip
+            $payslipId = \DB::table('tblpayslips')->insertGetId([
+                'employee_id' => $validated['employee_id'],
+                'employee_name' => $validated['employee_name'],
+                'payout_date' => $validated['payout_date'],
+                'cutoff_from' => $validated['cutoff_from'],
+                'cutoff_to' => $validated['cutoff_to'],
+                'total_days' => $validated['total_days'],
+                'total_hours' => $validated['total_hours'],
+                'hourly_rate' => $validated['hourly_rate'],
+                'currency' => $validated['currency'],
+                'basic_pay' => $validated['basic_pay'],
+                'regular_holiday_hours' => $validated['regular_holiday_hours'] ?? 0,
+                'regular_holiday_pay' => $validated['regular_holiday_pay'] ?? 0,
+                'special_holiday_hours' => $validated['special_holiday_hours'] ?? 0,
+                'special_holiday_pay' => $validated['special_holiday_pay'] ?? 0,
+                'gross_pay' => $validated['gross_pay'],
+                'deductions' => $validated['deductions'] ?? 0,
+                'net_pay' => $validated['net_pay'],
+                'deduction_details' => $deductionDetailsJson, // Store as JSON string
+                'status' => 'draft',
+                'created_by' => auth()->user()->username ?? 'system',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payslip created successfully',
+                'payslip_id' => $payslipId,
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create payslip',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function deletePayslip($id)
+    {
+        try {
+            \DB::table('tblpayslips')->where('id', $id)->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payslip deleted successfully',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete payslip',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    private function calculateHoursFromRecord($record)
+    {
+        try {
+            $timeIn = new \DateTime($record['TimeIn']);
+            $timeOut = new \DateTime($record['TimeOut']);
+
+            $diff = $timeOut->getTimestamp() - $timeIn->getTimestamp();
+
+            // Subtract break time
+            if (! empty($record['shortbreak_start']) && ! empty($record['shortbreak_end'])) {
+                $breakStart = new \DateTime($record['shortbreak_start']);
+                $breakEnd = new \DateTime($record['shortbreak_end']);
+                $diff -= ($breakEnd->getTimestamp() - $breakStart->getTimestamp());
+            } elseif (! empty($record['shortbreak_totaltime'])) {
+                $diff -= ($record['shortbreak_totaltime'] * 60);
+            }
+
+            return round($diff / 3600, 2); // Convert to hours
+        } catch (\Exception $e) {
+            return 0;
+        }
     }
 }

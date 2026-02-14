@@ -37,6 +37,7 @@ use App\Http\Controllers\printer\PrinterController;
 use App\Http\Controllers\PrinterManagementController;
 use App\Http\Controllers\ProductionAreaController;
 use App\Http\Controllers\ReceivedController;
+use App\Http\Controllers\ReconciliationController;
 use App\Http\Controllers\ReturnScannerController;
 use App\Http\Controllers\RTSController;
 use App\Http\Controllers\ShipmentController;
@@ -61,7 +62,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
-use App\Http\Controllers\ReconciliationController;
 
 // ASIN Mappings Routes
 // ✅ Public API routes
@@ -488,9 +488,9 @@ Route::prefix('api/orders')->middleware(['auth'])->group(function () {
 
     // ✅ ADD THIS NEW ROUTE FOR QUANTITY EDITING
     Route::put('products/{id}/quantity', [OrdersController::class, 'updateQuantity']);
-      
+
     Route::put('products/{id}/materialtype', [OrdersController::class, 'updateMaterialType']);
-     
+
     Route::patch('{id}/status', [OrdersController::class, 'updateStatus']);
     Route::patch('{id}/tracking', [OrdersController::class, 'updateTracking']);
     Route::delete('{id}', [OrdersController::class, 'destroy']);
@@ -503,7 +503,6 @@ Route::prefix('api/orders')->middleware(['auth'])->group(function () {
         ->name('orders.incoming.count');
     Route::get('incoming-count-details', [OrdersController::class, 'getIncomingCountDetails'])
         ->name('orders.incoming.details');
-
 
 });
 
@@ -664,13 +663,13 @@ Route::prefix('api/houseage')->middleware('auth')->group(function () {
     // Route::post('delete-image', [HouseageController::class, 'deleteCapturedImage']);
     // Multiple image upload (NEW - Optimized)
     Route::post('/upload-images', [HouseageController::class, 'uploadMultipleImages']);
-    
+
     // Single image upload (Keep for backward compatibility)
     Route::post('/upload-image', [HouseageController::class, 'uploadCapturedImage']);
-    
+
     // Single image delete
     Route::post('/delete-image', [HouseageController::class, 'deleteImage']);
-    
+
     // Multiple image delete (Optional utility)
     Route::post('/delete-images', [HouseageController::class, 'deleteMultipleImages']);
 });
@@ -989,6 +988,10 @@ Route::prefix('hr')->group(function () {
     Route::get('/break/status', [AttendanceController::class, 'status'])->name('hr.break.status');
     Route::post('/break/start', [AttendanceController::class, 'start'])->name('hr.break.start');
     Route::post('/break/end', [AttendanceController::class, 'end'])->name('hr.break.end');
+
+    Route::get('/payslips', [HrController::class, 'getPayslips']);
+    Route::post('/payslips', [HrController::class, 'createPayslip']);
+    Route::delete('/payslips/{id}', [HrController::class, 'deletePayslip']);
 });
 
 Route::get('/schedule/month', [AttendanceController::class, 'month']);
@@ -1016,5 +1019,3 @@ Route::get('/history', function () {
 })->middleware(['auth'])->name('history.page');
 
 Route::get('/reconciliation/products', [ReconciliationController::class, 'index']);
-
-
