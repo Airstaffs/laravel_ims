@@ -689,10 +689,8 @@ $updatedCount = 0;
 $errorCount = 0;
 $skippedCount = 0;
 
-// Merge both tracking lists
-$allTrackingToCheck = array_merge($trackingToCheck17Track, $trackingToCheckFreight);
-
-foreach ($allTrackingToCheck as $trackingNumber => $records) {
+// Process 17track results
+foreach ($trackingToCheck17Track as $trackingNumber => $records) {
     if (!isset($trackingResults[$trackingNumber])) {
         echo "⚠️ No result for {$trackingNumber} (skipping update)<br>";
         $skippedCount++;
@@ -705,6 +703,84 @@ foreach ($allTrackingToCheck as $trackingNumber => $records) {
     
     // Skip if no useful status
     if (($status === 'Unknown' && !$deliveredDate) || $status === 'Not Found') {
+        echo "→ Skipping {$trackingNumber} (status: {$status})<br>";
+        $skippedCount++;
+        continue;
+    }
+    
+    // Update EACH record that uses this tracking number
+    foreach ($records as $record) {
+        $productID = $record['product_id'];
+        $trackingIndex = $record['tracking_field_index'];
+        
+        $statusField = "tracking{$trackingIndex}_status";
+        $dateField = "tracking{$trackingIndex}_delivered_date";
+        
+        // Build update query
+        $updateFields = [];
+        $updateValues = [];
+        $updateTypes = "";
+        
+        // Update status
+        $updateFields[] = "{$statusField} = ?";
+        $updateValues[] = $status;
+        $updateTypes .= "s";
+        
+        // Update delivered date if we have one
+        if ($deliveredDate) {
+            $updateFields[] = "{$dateField} = ?";
+            $updateValues[] = $deliveredDate;
+            $updateTypes .= "s";
+        }
+        
+        // Update last checked timestamp
+        $updateFields[] = "tracking_last_checked = NOW()";
+        
+        // Execute update
+        $updateSQL = "UPDATE tblproduct SET " . implode(", ", $updateFields) . " WHERE ProductID = ?";
+        $updateValues[] = $productID;
+        $updateTypes .= "i";
+        
+        $stmt = $mysqli->prepare($updateSQL);
+        
+        if (!$stmt) {
+            echo "<span style='color: red;'>❌ Prepare failed for ProductID {$productID}: " . $mysqli->error . "</span><br>";
+            $errorCount++;
+            continue;
+        }
+        
+        $stmt->bind_param($updateTypes, ...$updateValues);
+        
+        if ($stmt->execute()) {
+            echo "→ <strong>ProductID {$productID}</strong> | tracking{$trackingIndex}_status = '<strong>{$status}</strong>'";
+            if ($deliveredDate) {
+                echo " | Date: {$deliveredDate}";
+            }
+            echo "<br>";
+            $updatedCount++;
+        } else {
+            echo "<span style='color: red;'>❌ Update failed for ProductID {$productID}: " . $stmt->error . "</span><br>";
+            $errorCount++;
+        }
+        
+        $stmt->close();
+    }
+}
+
+// Process FREIGHT results separately
+foreach ($trackingToCheckFreight as $trackingNumber => $records) {
+    if (!isset($trackingResults[$trackingNumber])) {
+        echo "⚠️ No result for {$trackingNumber} (skipping update)<br>";
+        $skippedCount++;
+        continue;
+    }
+    
+    $result = $trackingResults[$trackingNumber];
+    $status = $result['status'];
+    $deliveredDate = $result['delivered_date'];
+    
+    // Skip if no useful status - BUT ALLOW "Delivery Exception" to update!
+    if ($status === 'Unknown' || $status === 'Not Found' || $status === 'Manual Tracking Required') {
         echo "→ Skipping {$trackingNumber} (status: {$status})<br>";
         $skippedCount++;
         continue;
