@@ -338,7 +338,16 @@ while ($row = $result->fetch_assoc()) {
         }
     }
     
-    // Determine if this is a freight carrier (check once per product)
+    // Count how many tracking numbers this product has
+    $trackingCount = 0;
+    for ($i = 1; $i <= 4; $i++) {
+        $trackingField = $i == 1 ? 'trackingnumber' : "trackingnumber{$i}";
+        if (!empty(trim($row[$trackingField] ?? ''))) {
+            $trackingCount++;
+        }
+    }
+    
+    // Determine if this is a freight carrier
     $isFreight = isFreightCarrier($carrier);
     
     // Check each tracking field (1-4) INDEPENDENTLY
@@ -349,26 +358,44 @@ while ($row = $result->fetch_assoc()) {
         $trackingNumber = trim($row[$trackingField] ?? '');
         $currentStatus = trim($row[$statusField] ?? '');
         
-        // === SKIP CONDITIONS - EVALUATED PER TRACKING FIELD, NOT PER PRODUCT ===
+        // === SKIP CONDITIONS - EVALUATED PER TRACKING FIELD ===
         
         // 1. SKIP if THIS tracking number is NULL or empty
         if (empty($trackingNumber)) {
             $skipReasons['empty']++;
-            continue; // Continue to NEXT tracking field, not next product
+            continue; // Continue to NEXT tracking field
         }
         
         // 2. SKIP if THIS tracking field is already in final status
         if (in_array($currentStatus, $finalStatuses)) {
             $skipReasons['final_status']++;
-            continue; // Continue to NEXT tracking field, not next product
+            continue; // Continue to NEXT tracking field
         }
         
         // 3. SKIP if checked recently (within cache duration)
-        // NOTE: tracking_last_checked is per-product, not per-field
-        // So if ANY field was checked recently, we skip checking that product's fields
-        if ($timeSinceCheck < CACHE_DURATION) {
+        // BUT: If product has MULTIPLE tracking numbers, skip cache check to ensure all fields are updated
+        if ($trackingCount == 1 && $timeSinceCheck < CACHE_DURATION) {
             $skipReasons['cache']++;
             continue;
+        }
+        
+        // For products with multiple tracking, only apply cache if ALL tracking are in final status
+        if ($trackingCount > 1) {
+            // Count how many tracking fields are in final status
+            $finalStatusCount = 0;
+            for ($j = 1; $j <= 4; $j++) {
+                $checkStatusField = "tracking{$j}_status";
+                $checkStatus = trim($row[$checkStatusField] ?? '');
+                if (in_array($checkStatus, $finalStatuses)) {
+                    $finalStatusCount++;
+                }
+            }
+            
+            // Only apply cache if ALL tracking fields are in final status
+            if ($finalStatusCount == $trackingCount && $timeSinceCheck < CACHE_DURATION) {
+                $skipReasons['cache']++;
+                continue;
+            }
         }
         
         // 4. SKIP if overdue (more than 14 days past estimated delivery)
