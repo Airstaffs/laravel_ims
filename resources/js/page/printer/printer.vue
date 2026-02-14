@@ -594,10 +594,11 @@ export default {
     if (hasScans && hasStats) {
       // Data exists - load it
       this.$refs.scannerComponent.loadScans()
-    } else {
-      // No data - reset to clean state
-      this.$refs.scannerComponent.resetScanner()
-    }
+    } 
+    // else {
+    //   // No data - reset to clean state
+    //   this.$refs.scannerComponent.resetScanner()
+    // }
   },
     onChangeTab(tabName) {
   // Save current scans before switching tabs

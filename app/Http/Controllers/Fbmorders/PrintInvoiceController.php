@@ -304,7 +304,7 @@ class PrintInvoiceController extends Controller
                 continue;
 
             $childIds = DB::table('tblproduct')
-                ->where('mergeTO', $rtcounter)
+                ->where('mergedTO', $rtcounter)
                 ->pluck('ProductID')
                 ->map(fn($x) => (int) $x)
                 ->all();
