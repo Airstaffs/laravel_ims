@@ -1,0 +1,10 @@
+.filter-container {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.select-status {
+    min-width: 14rem;
+    margin-left: 1rem;
+}

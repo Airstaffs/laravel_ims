@@ -5,6 +5,7 @@ use App\Http\Controllers\AsinMappingController;
 use App\Http\Controllers\TrainingProxyController;
 use App\Http\Controllers\DatasetProxyController;
 use App\Http\Controllers\AIExecutionController;
+use App\Http\Controllers\Fbmorders\ManualShipmentLabelController;
 
 /*
 |--------------------------------------------------------------------------
@@ -147,3 +148,4 @@ Route::prefix('ai')->group(function () {
         ->middleware('auth'); // protect this
 });
 
+Route::post('/import-fbm-order-shipment', [ManualShipmentLabelController::class, 'import']);

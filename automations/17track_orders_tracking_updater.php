@@ -798,7 +798,7 @@ function handleDeliveredTransaction(mysqli $db, int $outboundId, int $productId,
             $stmt = $db->prepare("
                 SELECT FNSKUviewer, MSKUviewer, ASINviewer
                 FROM tblproduct
-                WHERE mergeTO = ?
+                WHERE mergedTO = ?
             ");
             if (!$stmt)
                 throw new Exception($db->error);
@@ -1003,7 +1003,7 @@ function moveProductParentAndChildrenToSoldList(mysqli $db, int $productId, int 
         $stmtC = $db->prepare("
             UPDATE tblproduct
             SET ProductModuleLoc = 'Soldlist'
-            WHERE mergeTO = ?
+            WHERE mergedTO = ?
         ");
         if (!$stmtC)
             throw new Exception($db->error);

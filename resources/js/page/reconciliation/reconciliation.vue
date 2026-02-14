@@ -165,12 +165,7 @@ export default {
                     field: "datedelivered",
                     header: "Date Delivered",
                     slot: "datedelivered",
-                },
-                {
-                    field: "actions",
-                    header: "Actions",
-                    slot: "actions",
-                },
+                }
             ],
         };
     },

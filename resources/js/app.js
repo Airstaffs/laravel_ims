@@ -547,7 +547,6 @@ import Labeling from "./page/labeling/labeling.vue";
 import Order from "./page/orders/orders.vue";
 import Packing from "./page/packing/packing.vue";
 import Receiving from "./page/receiving/receiving.vue";
-import Reconciliation from "./page/reconciliation/reconciliation.vue";
 import Testing from "./page/testing/testing.vue";
 import Searching from "./page/searching/searching.vue";
 import Unreceived from "./page/unreceived/unreceived.vue";
@@ -568,9 +567,10 @@ import History from "./page/history/history.vue";
 import Soldlist from "./page/soldlist/soldlist.vue";
 import Returnedlist from "./page/returnlist/returnlist.vue";
 import AuxiliaryLabel from "./page/auxiliary/auxiliary.vue";
-import inventoryStatistics from "./page/inventoryStatistics/inventoryStatistics.vue";
-
+import Reconciliation from "./page/reconciliation/reconciliation.vue";
+import InventoryStatistics from "./page/inventoryStatistics/inventoryStatistics.vue";
 import FbaInboundShipment from "./components/Stockroom/fba_inbound/fba_inbound_shipment.vue";
+
 import Navbar from "./components/Navbar/Navbar.vue";
 import Login from "./components/Login/Login.vue";
 
@@ -637,6 +637,7 @@ const componentMapping = {
     "Returned Items": "returnlist",
     "Auxiliary Label": "auxiliary",
     "Inventory Statistics": "inventorystatistics",
+    "Reconciliation": "reconciliation",
 };
 
 // ============================================
@@ -962,6 +963,7 @@ const app = createApp({
         returnlist: Returnedlist,
         auxiliary: AuxiliaryLabel,
         inventorystatistics: InventoryStatistics,
+        reconciliation: Reconciliation,
     },
 });
 
@@ -973,8 +975,6 @@ import PrimeVue from "primevue/config";
 import Aura from "@primevue/themes/aura";
 import ToastService from "primevue/toastservice";
 import Tooltip from "primevue/tooltip";
-import shipment from "./page/shipment/shipment";
-import InventoryStatistics from "./page/inventoryStatistics/inventoryStatistics.vue";
 
 // ⭐ REGISTER TIME FORMATTER PLUGIN (initializes automatically)
 await app.use(timeFormatterPlugin);

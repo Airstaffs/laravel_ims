@@ -2205,6 +2205,7 @@ export default {
                 { label: "Houseage", value: "houseage" },
                 { label: "Auxiliary Label", value: "auxiliary" },
                 { label: "Inventory Statistics", value: "inventorystatistics" },
+                { label: "Reconciliation", value: "reconciliation" },
             ],
             subModules: [
                 { label: "Human Resource", value: "humanresource" },
@@ -2232,6 +2233,7 @@ export default {
                 { label: "Announcement", value: "announcement" },
                 { label: "Auxiliary Label", value: "auxiliary" },
                 { label: "Inventory Statistics", value: "inventorystatistics" },
+                { label: "Reconciliation", value: "reconciliation" },
             ],
             userStores: [],
             isSavingPrivileges: false,
