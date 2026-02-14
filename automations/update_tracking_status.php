@@ -580,16 +580,15 @@ if (!empty($trackingToCheck17Track)) {
             if (empty($tn)) {
                 continue;
             }
-            
             $trackInfo = $track['track_info'] ?? [];
             $latestEvent = $trackInfo['latest_event'] ?? [];
             $latestStatus = $trackInfo['latest_status'] ?? [];
-            
+
             $statusCode = $latestStatus['status'] ?? 0;
             $eventTime = $latestEvent['time_iso'] ?? null;
             $description = $latestEvent['description'] ?? 'Unknown';
             $carrierName = $track['provider_name'] ?? 'Unknown';
-            
+
             // Parse delivered date
             $deliveredDate = null;
             if ($eventTime) {
@@ -599,31 +598,60 @@ if (!empty($trackingToCheck17Track)) {
                     // Ignore
                 }
             }
-            
-            // Map status code to text
+
+            // Map status code to text (handle both numeric and string status codes)
             $status = 'Unknown';
-            switch ($statusCode) {
-                case 40:
+
+            // Handle STRING status codes (new 17track API format)
+            if (is_string($statusCode)) {
+                $statusCodeLower = strtolower($statusCode);
+                
+                if ($statusCodeLower === 'delivered') {
                     $status = 'Delivered';
-                    break;
-                case 10:
-                case 20:
-                case 30:
+                } elseif (in_array($statusCodeLower, ['intransit', 'in transit', 'pickup', 'infoprovided'])) {
                     $status = 'In Transit';
-                    break;
-                case 35:
-                case 50:
+                } elseif (in_array($statusCodeLower, ['exception', 'alert', 'expired'])) {
                     $status = 'Delivery Exception';
-                    break;
-                case 0:
+                } elseif (in_array($statusCodeLower, ['notfound', 'not found'])) {
                     $status = 'Not Found';
-                    break;
+                }
             }
-            
+            // Handle NUMERIC status codes (old 17track API format)
+            elseif (is_numeric($statusCode)) {
+                switch ((int)$statusCode) {
+                    case 40:
+                        $status = 'Delivered';
+                        break;
+                    case 10:
+                    case 20:
+                    case 30:
+                        $status = 'In Transit';
+                        break;
+                    case 35:
+                    case 50:
+                        $status = 'Delivery Exception';
+                        break;
+                    case 0:
+                        $status = 'Not Found';
+                        break;
+                }
+            }
+
+            // Fallback: If status is still Unknown, check description for keywords
+            if ($status === 'Unknown' && !empty($description)) {
+                $descLower = strtolower($description);
+                if (strpos($descLower, 'delivered') !== false) {
+                    $status = 'Delivered';
+                } elseif (strpos($descLower, 'in transit') !== false || strpos($descLower, 'arrived at') !== false) {
+                    $status = 'In Transit';
+                }
+            }
+
+            // Override: If status is Unknown but we have a delivered date, mark as Delivered
             if ($status === 'Unknown' && $deliveredDate) {
                 $status = 'Delivered';
             }
-            
+                        
             $trackingResults[$tn] = [
                 'status' => $status,
                 'delivered_date' => $deliveredDate,
@@ -947,8 +975,9 @@ while ($row = $result->fetch_assoc()) {
     if (in_array('Delivered', $statuses)) {
         $newMainStatus = 'Delivered';
         
+        // Use LATEST (most recent) delivered date instead of earliest
         if (!empty($deliveredDates)) {
-            $newDeliveredDate = min($deliveredDates);
+            $newDeliveredDate = max($deliveredDates); // Changed from min() to max()
         }
     }
     // Priority 2: Check if ANY tracking is In Transit
@@ -987,7 +1016,11 @@ while ($row = $result->fetch_assoc()) {
     }
     
     if ($newDeliveredDate && $newMainStatus === 'Delivered') {
-        if (empty($currentDeliveredDate) || $currentDeliveredDate === '0000-00-00 00:00:00' || $newDeliveredDate < $currentDeliveredDate) {
+        // Update if no existing date OR new date is different (always sync with tracking)
+        if (empty($currentDeliveredDate) || 
+            $currentDeliveredDate === '0000-00-00 00:00:00' || 
+            $newDeliveredDate !== $currentDeliveredDate) {
+            
             $updateParts[] = "datedelivered = ?";
             $updateValues[] = $newDeliveredDate;
             $updateTypes .= "s";
@@ -1019,6 +1052,7 @@ while ($row = $result->fetch_assoc()) {
 echo "<br><div style='background: #d4edda; padding: 10px; border-left: 4px solid #28a745;'>";
 echo "<strong>✅ Main delivery status updated for {$mainStatusUpdated} records</strong><br>";
 echo "</div><br>";
+
 
 // ========================================
 // FINAL SUMMARY

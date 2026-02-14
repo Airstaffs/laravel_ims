@@ -582,3 +582,76 @@ table tbody tr td {
         margin-bottom: 0.5rem;
     }
 }
+
+/* Payslip */
+.payroll-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.payslip-view {
+    font-size: 14px;
+}
+
+.payslip-view .section-title {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+}
+
+.payslip-view .info-label {
+    color: #6c757d;
+}
+
+.payslip-view .section {
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 1rem;
+}
+
+.payslip-view .section:last-child {
+    border-bottom: none;
+}
+
+.payslip-view .table th {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.payslip-view .table td {
+    font-size: 13px;
+}
+
+.payslip-view .table tfoot {
+    font-weight: 700;
+}
+
+.deduction-item {
+    background-color: #f8f9fa;
+    transition: all 0.2s;
+}
+
+.deduction-item:hover {
+    background-color: #e9ecef;
+}
+
+.form-check-input:checked {
+    background-color: #198754;
+    border-color: #198754;
+}
+
+/* Print styles */
+@media print {
+    .p-dialog-header,
+    .p-dialog-footer {
+        display: none !important;
+    }
+
+    .payslip-view {
+        padding: 10px;
+    }
+}
