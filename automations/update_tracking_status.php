@@ -580,28 +580,15 @@ if (!empty($trackingToCheck17Track)) {
             if (empty($tn)) {
                 continue;
             }
-            
-               $trackInfo = $track['track_info'] ?? [];
-                $latestEvent = $trackInfo['latest_event'] ?? [];
-                $latestStatus = $trackInfo['latest_status'] ?? [];
-                
-                $statusCode = $latestStatus['status'] ?? 0;
-                $eventTime = $latestEvent['time_iso'] ?? null;
-                $description = $latestEvent['description'] ?? 'Unknown';
-                $carrierName = $track['provider_name'] ?? 'Unknown';
-                
-                // === ADD DEBUG OUTPUT HERE ===
-                echo "<div style='background: #f8f9fa; padding: 10px; margin: 5px 0; border-left: 3px solid #6c757d;'>";
-                echo "🔍 <strong>DEBUG - Tracking: {$tn}</strong><br>";
-                echo "Status Code: <strong>{$statusCode}</strong><br>";
-                echo "Event Time: " . ($eventTime ?: 'null') . "<br>";
-                echo "Description: {$description}<br>";
-                echo "Carrier: {$carrierName}<br>";
-                echo "Latest Status Array: <pre>" . print_r($latestStatus, true) . "</pre>";
-                echo "Latest Event Array: <pre>" . print_r($latestEvent, true) . "</pre>";
-                echo "</div>";
-                // === END DEBUG ===
-            
+            $trackInfo = $track['track_info'] ?? [];
+            $latestEvent = $trackInfo['latest_event'] ?? [];
+            $latestStatus = $trackInfo['latest_status'] ?? [];
+
+            $statusCode = $latestStatus['status'] ?? 0;
+            $eventTime = $latestEvent['time_iso'] ?? null;
+            $description = $latestEvent['description'] ?? 'Unknown';
+            $carrierName = $track['provider_name'] ?? 'Unknown';
+
             // Parse delivered date
             $deliveredDate = null;
             if ($eventTime) {
@@ -611,43 +598,60 @@ if (!empty($trackingToCheck17Track)) {
                     // Ignore
                 }
             }
-            
-            // Map status code to text
-           $status = 'Unknown';
-            switch ($statusCode) {
-                case 40:
+
+            // Map status code to text (handle both numeric and string status codes)
+            $status = 'Unknown';
+
+            // Handle STRING status codes (new 17track API format)
+            if (is_string($statusCode)) {
+                $statusCodeLower = strtolower($statusCode);
+                
+                if ($statusCodeLower === 'delivered') {
                     $status = 'Delivered';
-                    break;
-                case 10:
-                case 20:
-                case 30:
+                } elseif (in_array($statusCodeLower, ['intransit', 'in transit', 'pickup', 'infoprovided'])) {
                     $status = 'In Transit';
-                    break;
-                case 35:
-                case 50:
+                } elseif (in_array($statusCodeLower, ['exception', 'alert', 'expired'])) {
                     $status = 'Delivery Exception';
-                    break;
-                case 0:
-                    // Check if there are ANY events
-                    $events = $trackInfo['tracking']['providers'][0]['events'] ?? [];
-                    if (empty($events)) {
-                        $status = 'Pre-Shipment'; // Label created, not yet scanned
-                    } else {
-                        $status = 'Not Found'; // Truly not found
-                    }
-                    break;
+                } elseif (in_array($statusCodeLower, ['notfound', 'not found'])) {
+                    $status = 'Not Found';
+                }
+            }
+            // Handle NUMERIC status codes (old 17track API format)
+            elseif (is_numeric($statusCode)) {
+                switch ((int)$statusCode) {
+                    case 40:
+                        $status = 'Delivered';
+                        break;
+                    case 10:
+                    case 20:
+                    case 30:
+                        $status = 'In Transit';
+                        break;
+                    case 35:
+                    case 50:
+                        $status = 'Delivery Exception';
+                        break;
+                    case 0:
+                        $status = 'Not Found';
+                        break;
+                }
             }
 
-            // If status is Unknown but we have a delivered date, mark as Delivered
+            // Fallback: If status is still Unknown, check description for keywords
+            if ($status === 'Unknown' && !empty($description)) {
+                $descLower = strtolower($description);
+                if (strpos($descLower, 'delivered') !== false) {
+                    $status = 'Delivered';
+                } elseif (strpos($descLower, 'in transit') !== false || strpos($descLower, 'arrived at') !== false) {
+                    $status = 'In Transit';
+                }
+            }
+
+            // Override: If status is Unknown but we have a delivered date, mark as Delivered
             if ($status === 'Unknown' && $deliveredDate) {
                 $status = 'Delivered';
             }
-
-            // NEW: If status is still Unknown and no events, mark as Pre-Shipment
-            if ($status === 'Unknown' && empty($trackInfo['tracking']['providers'][0]['events'] ?? [])) {
-                $status = 'Pre-Shipment';
-            }
-            
+                        
             $trackingResults[$tn] = [
                 'status' => $status,
                 'delivered_date' => $deliveredDate,
