@@ -458,7 +458,7 @@ class ShipmentController extends Controller
 
                     $children = DB::table('tblproduct')
                         ->select('FNSKUviewer', 'MSKUviewer', 'ASINviewer')
-                        ->where('mergeTO', $rtcounter)
+                        ->where('mergedTO', $rtcounter)
                         ->get();
 
                     if ($children->count() === 0) {
