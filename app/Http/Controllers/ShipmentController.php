@@ -608,7 +608,7 @@ class ShipmentController extends Controller
         $id = (int) $matchIds->first();
 
         return DB::table('tblfnsku')
-            ->where('id', $id)
+            ->where('FNSKUID', $id)
             ->update([
                 'units' => DB::raw('COALESCE(units, 0) + ' . (int) $qty),
             ]);

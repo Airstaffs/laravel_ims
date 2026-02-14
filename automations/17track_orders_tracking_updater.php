@@ -935,7 +935,7 @@ function increment_tblfnsku_units_by_any_identifier(
 
     // Preview which row will be updated (for logs)
     $preview = [];
-    $q = $db->prepare("SELECT id, FNSKU, MSKU, ASIN, units FROM tblfnsku WHERE {$field} = ? LIMIT 5");
+    $q = $db->prepare("SELECT FNSKUID, FNSKU, MSKU, ASIN, units FROM tblfnsku WHERE {$field} = ? LIMIT 5");
     if ($q) {
         $q->bind_param("s", $value);
         $q->execute();
