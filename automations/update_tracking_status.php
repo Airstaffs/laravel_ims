@@ -975,8 +975,9 @@ while ($row = $result->fetch_assoc()) {
     if (in_array('Delivered', $statuses)) {
         $newMainStatus = 'Delivered';
         
+        // Use LATEST (most recent) delivered date instead of earliest
         if (!empty($deliveredDates)) {
-            $newDeliveredDate = min($deliveredDates);
+            $newDeliveredDate = max($deliveredDates); // Changed from min() to max()
         }
     }
     // Priority 2: Check if ANY tracking is In Transit
@@ -1015,7 +1016,11 @@ while ($row = $result->fetch_assoc()) {
     }
     
     if ($newDeliveredDate && $newMainStatus === 'Delivered') {
-        if (empty($currentDeliveredDate) || $currentDeliveredDate === '0000-00-00 00:00:00' || $newDeliveredDate < $currentDeliveredDate) {
+        // Update if no existing date OR new date is different (always sync with tracking)
+        if (empty($currentDeliveredDate) || 
+            $currentDeliveredDate === '0000-00-00 00:00:00' || 
+            $newDeliveredDate !== $currentDeliveredDate) {
+            
             $updateParts[] = "datedelivered = ?";
             $updateValues[] = $newDeliveredDate;
             $updateTypes .= "s";
@@ -1047,6 +1052,7 @@ while ($row = $result->fetch_assoc()) {
 echo "<br><div style='background: #d4edda; padding: 10px; border-left: 4px solid #28a745;'>";
 echo "<strong>✅ Main delivery status updated for {$mainStatusUpdated} records</strong><br>";
 echo "</div><br>";
+
 
 // ========================================
 // FINAL SUMMARY
