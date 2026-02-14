@@ -338,10 +338,10 @@ while ($row = $result->fetch_assoc()) {
         }
     }
     
-    // Determine if this is a freight carrier
+    // Determine if this is a freight carrier (check once per product)
     $isFreight = isFreightCarrier($carrier);
     
-    // Check each tracking field (1-4)
+    // Check each tracking field (1-4) INDEPENDENTLY
     for ($i = 1; $i <= 4; $i++) {
         $trackingField = $i == 1 ? 'trackingnumber' : "trackingnumber{$i}";
         $statusField = "tracking{$i}_status";
@@ -349,21 +349,23 @@ while ($row = $result->fetch_assoc()) {
         $trackingNumber = trim($row[$trackingField] ?? '');
         $currentStatus = trim($row[$statusField] ?? '');
         
-        // === SKIP CONDITIONS (Save API Quota) ===
+        // === SKIP CONDITIONS - EVALUATED PER TRACKING FIELD, NOT PER PRODUCT ===
         
-        // 1. SKIP if tracking number is NULL or empty
+        // 1. SKIP if THIS tracking number is NULL or empty
         if (empty($trackingNumber)) {
             $skipReasons['empty']++;
-            continue;
+            continue; // Continue to NEXT tracking field, not next product
         }
         
-        // 2. SKIP if already in final status
+        // 2. SKIP if THIS tracking field is already in final status
         if (in_array($currentStatus, $finalStatuses)) {
             $skipReasons['final_status']++;
-            continue;
+            continue; // Continue to NEXT tracking field, not next product
         }
         
         // 3. SKIP if checked recently (within cache duration)
+        // NOTE: tracking_last_checked is per-product, not per-field
+        // So if ANY field was checked recently, we skip checking that product's fields
         if ($timeSinceCheck < CACHE_DURATION) {
             $skipReasons['cache']++;
             continue;
