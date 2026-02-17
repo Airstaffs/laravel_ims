@@ -430,6 +430,15 @@ export default {
         timestamp
       });
 
+      // 🔥 Trigger parent OCR only if AI enabled
+      if (this.$parent?.useAiDetection &&
+          (this.$parent.currentStep === 3 || this.$parent.currentStep === 4)) {
+
+          this.$parent.handleImageUploadFromCamera?.(
+              this.capturedImages[this.capturedImages.length - 1].data
+          );
+      }
+
       this.showSuccessNotification = true;
       this.lastScannedItem = 'Image captured';
 

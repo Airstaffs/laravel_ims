@@ -40,6 +40,9 @@ export default {
             rtcounter: "",
             status: "",
 
+            // 🔥 NEW — OCR toggle
+            useAiDetection: false,
+
             existingTrackingImgs: { trackingimg1: null, trackingimg2: null },
             
             // ✅ NEW: Track quantity info for splitting
@@ -697,6 +700,20 @@ export default {
         },
 
         async processFirstSerial() {
+
+            // 🚫 REQUIRE serial image for first serial step
+            const hasSerial1Image = this.$refs.scanner?.capturedImages?.some(
+                img => img.step === 3
+            );
+
+            if (!hasSerial1Image) {
+                this.$refs.scanner.showScanWarning(
+                    "📸 Please capture first serial image before continuing."
+                );
+                SoundService.error();
+                return;
+            }
+
             const trimmedSerial = this.firstSerialNumber.trim()
 
             //check if the serial number is valid
@@ -1262,6 +1279,7 @@ export default {
             this.rtcounter = "";
             this.status = "";
             this.showSecondSerialInput = false;
+            this.useAiDetection = false;
             
             // ✅ Reset quantity tracking
             this.originalQuantity = 1;
@@ -1558,13 +1576,20 @@ export default {
             const formData = new FormData();
             formData.append("file", file, file.name || "upload.jpg");
 
+            // if (!this.useAiDetection) {
+            //     if (this.$refs.scanner?.showScanSuccess) {
+            //         this.$refs.scanner.showScanSuccess("📸 Image captured (AI disabled)");
+            //     }
+            //     return;
+            // }
+
             const baseURL =
                 window.location.hostname === "localhost" ||
                 window.location.hostname === "127.0.0.1"
                     ? "http://127.0.0.1:8001"
                     : "/fastapi";
-
             this.loading = true;
+
             try {
                 const response = await fetch(`${baseURL}/detect`, {
                     method: "POST",
@@ -1637,7 +1662,17 @@ export default {
                 startsWithRestrictedPrefix.test(value) ||
                 lettersOnlyRegex.test(value)
             );
+        },
+        
+        async handleImageUploadFromCamera(imageData) {
+            if (!this.useAiDetection) return;
+
+            const blob = await (await fetch(imageData)).blob();
+            const file = new File([blob], "camera.jpg", { type: "image/jpeg" });
+
+            await this.handleImageUpload(file);
         }
+
     },
     watch: {
         searchQuery() {
