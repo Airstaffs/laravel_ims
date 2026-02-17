@@ -238,8 +238,26 @@
                     <p class="instruction-text">
                         Please picture the first serial number.
                     </p>
+                    <div class="label-wrap">
+                        <label>First Serial Number:</label>
+                        <!-- AI Toggle Switch -->
+                        <div v-if="currentStep === 3 || currentStep === 4" class="ai-switch-container">
+                            <span class="ai-label">AI Detection</span>
 
-                    <label>First Serial Number:</label>
+                            <label class="ai-switch">
+                                <input
+                                type="checkbox"
+                                v-model="useAiDetection"
+                                />
+                                <span class="ai-slider"></span>
+                            </label>
+
+                            <span class="ai-status">
+                                {{ useAiDetection ? 'ON' : 'OFF' }}
+                            </span>
+                        </div>
+                    </div>
+
                     <input
                         type="text"
                         v-model="firstSerialNumber"
@@ -342,7 +360,26 @@
                     <!-- Step 4: Second Serial Input -->
                     <div v-if="showSecondSerialInput" class="second-serial-input mt-4">
                         <div class="input-container">
-                            <label>Second Serial Number:</label>
+                            <div class="label-wrap">
+                                <label>Second Serial Number:</label>
+                                <!-- AI Toggle Switch -->
+                                <div v-if="currentStep === 3 || currentStep === 4" class="ai-switch-container">
+                                    <span class="ai-label">AI Detection</span>
+
+                                    <label class="ai-switch">
+                                        <input
+                                        type="checkbox"
+                                        v-model="useAiDetection"
+                                        />
+                                        <span class="ai-slider"></span>
+                                    </label>
+
+                                    <span class="ai-status">
+                                        {{ useAiDetection ? 'ON' : 'OFF' }}
+                                    </span>
+                                </div>
+                            </div>
+
                             <input
                             type="text"
                             v-model="secondSerialNumber"
@@ -1414,6 +1451,78 @@ export default {
 </script>
 
 <style scoped>
+.label-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+.ai-switch-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+  font-size: 14px;
+}
+
+.ai-label {
+  font-weight: 600;
+  color: #374151;
+}
+
+.ai-status {
+  font-weight: 600;
+  min-width: 35px;
+}
+
+/* Switch Wrapper */
+.ai-switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 24px;
+}
+
+.ai-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* Slider */
+.ai-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #9ca3af;
+  transition: 0.3s;
+  border-radius: 34px;
+}
+
+.ai-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+/* ON State */
+.ai-switch input:checked + .ai-slider {
+  background-color: #16a34a;
+}
+
+.ai-switch input:checked + .ai-slider:before {
+  transform: translateX(22px);
+}
+
+
 .uploader-area {
     border: 2px dashed #ccc;
     border-radius: 12px;

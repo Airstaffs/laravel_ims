@@ -706,20 +706,6 @@ export default {
         return;
       }
 
-      // 🚫 Step 1: Not allowed
-      // 🚫 Step 0 or invalid
-      // if (currentStep < 1) {
-      //   this.showScanWarning('Please start with tracking verification.');
-      //   return;
-      // }
-      // 🚫 Standard capture permission gate
-      // if (!this.canCaptureImage()) {
-      //   this.showScanWarning(
-      //     'Please verify tracking and follow the capture limits.'
-      //   );
-      //   return;
-      // }
-
       // 🚫 STEP 1 — Tracking capture rules
       if (currentStep === 1) {
 
@@ -780,9 +766,18 @@ export default {
       this.showScanSuccess('Image captured.');
 
       // ✅ Step 3–4 OCR
-      if (currentStep === 3 || currentStep === 4) {
+      // if (currentStep === 3 || currentStep === 4) {
+      //   await this.detectSerialFromCanvas(canvas, currentStep);
+      // }
+
+      // ✅ Step 3–4 OCR (ONLY if AI enabled in parent)
+      if (
+        (currentStep === 3 || currentStep === 4) &&
+        this.$parent?.useAiDetection
+      ) {
         await this.detectSerialFromCanvas(canvas, currentStep);
       }
+
 
       setTimeout(() => {
         this.showSuccessNotification = false;
