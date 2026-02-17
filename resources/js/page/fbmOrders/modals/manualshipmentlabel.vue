@@ -202,57 +202,51 @@ export default {
                 this.carrierMode === "input" ? "select" : "input";
         },
         async addCarrierDescription() {
-            const value = this.form.CarrierDescription.trim();
+            const value = (this.form.CarrierDescription || "").trim();
             if (!value) {
-                // alert("Carrier description is empty.");
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Ooops',
-                    text: 'Carrier description is empty.',
-                    confirmButtonText: 'Ok'
-                })
+                await Swal.fire({
+                    icon: "warning",
+                    title: "Ooops",
+                    text: "Carrier description is empty.",
+                    confirmButtonText: "Ok",
+                });
                 return;
             }
 
             try {
-                const res = await axios.post(
-                    `${API_BASE_URL}/fbm-orders-add-new-carrier`,
-                    {
-                        name: value,
-                    }
-                );
+                const res = await axios.post(`${API_BASE_URL}/fbm-orders-add-new-carrier`, { name: value });
 
-                if (res.data.success) {
+                if (res?.data?.success === true) {
                     if (!this.carrierDescriptions.includes(value)) {
                         this.carrierDescriptions.push(value);
                     }
-                    // alert("Carrier description added.");
-                    Swal.alert({
-                        icon: 'success',
-                        title: 'Operation Success',
-                        text: 'Carrier description added.',
-                        confirmButtonText: 'Ok'
-                    })
-                } else {
-                    // alert(
-                    //     res.data.error || "Failed to save carrier description."
-                    // );
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Operation Failed',
-                        text: res.data.error || "Failed to save carrier description.",
-                        confirmButtonText: 'Ok'
-                    })
+
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Operation Success",
+                        text: res.data.message || "Carrier description added.",
+                        confirmButtonText: "Ok",
+                    });
+
+                    // optional: switch back to select mode after adding
+                    this.carrierMode = "select";
+                    return;
                 }
+
+                await Swal.fire({
+                    icon: "error",
+                    title: "Operation Failed",
+                    text: res?.data?.error || res?.data?.message || "Failed to save carrier description.",
+                    confirmButtonText: "Ok",
+                });
             } catch (err) {
                 console.error(err);
-                // alert("Server error saving carrier description.");
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Operation Failed',
-                    text: 'Server error saving carrier description.',
-                    confirmButtonText: 'Ok'
-                })
+                await Swal.fire({
+                    icon: "error",
+                    title: "Operation Failed",
+                    text: "Server error saving carrier description.",
+                    confirmButtonText: "Ok",
+                });
             }
         },
         addOrderItemId() {
@@ -302,16 +296,25 @@ export default {
                     }
                 );
 
-                if (res.data.success) {
-                    // alert("Label submitted successfully!");
-                    Swal.fire({
+                if (res?.data?.success === true) {
+                    await Swal.fire({
                         icon: 'success',
                         title: 'Operation Success',
-                        text: 'Label submitted successfully!',
+                        text: res.data.message || 'Label submitted successfully!',
                         confirmButtonText: 'Ok'
-                    })
+                    });
+
                     this.resetForm();
-                    window.closeManualShipmentLabel();
+
+                    // Prefer closing via Vue (since your modal is controlled by `visible`)
+                    this.$emit("close");
+
+                    // If you still want to support a global closer, guard it
+                    if (typeof window.closeManualShipmentLabel === "function") {
+                        window.closeManualShipmentLabel();
+                    }
+
+                    return;
                 } else {
                     // alert("Submission failed: " + res.data.error);
                     Swal.fire({
@@ -335,13 +338,16 @@ export default {
         resetForm() {
             this.form = {
                 AmazonOrderId: "",
+                OrderItemIds: [""],
                 LCode: 0.0,
                 ShipDate: "",
                 TrackingNumber: "",
                 Carrier: "USPS",
+                CarrierDescription: "",
                 DeliveryExperience: "DeliveryConfirmationWithoutSignature",
                 shippinglabelpdf: null,
             };
+            this.carrierMode = "select";
         },
         async fetchCarrierDescriptions() {
             try {
