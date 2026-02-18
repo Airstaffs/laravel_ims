@@ -35,7 +35,7 @@
                         rounded
                         size="small"
                         aria-label="Clock"
-                        v-tooltip.bottom="'System Clock In and Out'"
+                        v-tooltip.bottom="'Time Logs'"
                     />
                     <!-- ADD HISTORY BUTTON FOR MOBILE -->
                     <Button
@@ -148,7 +148,7 @@
                     <!---SYSTEM CLOCK IN--->
                     <Button
                         icon="pi pi-clock"
-                        label="Clock In Out"
+                        label="Time Logs"
                         @click="openSystemClockInOut"
                         severity="secondary"
                         text

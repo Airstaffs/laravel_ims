@@ -61,6 +61,7 @@
                             :src="tab.images[tabIndices[tab.key]].src"
                             alt="Image"
                             class="main-image"
+                            @click="openZoomModal(tab.images[tabIndices[tab.key]].src, tabIndices[tab.key])"
                             @error="
                                 onImageError(
                                     $event,
@@ -78,6 +79,12 @@
                             text
                             @click="changeImage(tab.key, 1)"
                         />
+
+                        <!-- Zoom indicator -->
+                        <div class="zoom-indicator">
+                            <i class="pi pi-search-plus"></i>
+                            Click to zoom
+                        </div>
                     </div>
 
                     <!-- COUNTER -->
@@ -122,6 +129,14 @@
             </div>
         </div>
     </Dialog>
+
+    <!-- Image Zoom Modal -->
+    <ZoomImageModal
+        v-model:visible="showZoomModal"
+        :images="activeTab === 'regular' ? regularImages : capturedImages"
+        :initialIndex="activeIndex"
+        :title="ProductTitle"
+    />
 </template>
 
 <script setup>
@@ -129,6 +144,7 @@ import { ref, computed, watch, reactive } from "vue";
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
 import Tag from "primevue/tag";
+import ZoomImageModal from "../ZoomImageModal/ZoomImageModal.vue";
 
 const props = defineProps({
     showImageModal: Boolean,
@@ -146,6 +162,12 @@ const tabIndices = reactive({
 });
 
 const imageExtensionAttempts = reactive({});
+
+// Zoom modal state
+const showZoomModal = ref(false);
+const zoomImagePath = ref("");
+
+const activeIndex = ref(0)
 
 console.log(props.capturedImages, "capturedImages", props.regularImages);
 
@@ -171,6 +193,14 @@ const tabs = computed(() => [
         images: processImages(props.capturedImages || []),
     },
 ]);
+
+// Open zoom modal
+const openZoomModal = (imagePath, index) => {
+    zoomImagePath.value = imagePath;
+    showZoomModal.value = true;
+    activeIndex.value = index
+    console.log(index, "activeIndexlabeling")
+};
 
 // Handle image errors with extension fallback
 const onImageError = (event, imageObj, imageKey) => {
@@ -362,6 +392,35 @@ watch(
     height: auto;
     max-height: 500px;
     object-fit: contain;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.main-image:hover {
+    opacity: 0.9;
+}
+
+/* Zoom Indicator */
+.zoom-indicator {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+}
+
+.main-image-wrapper:hover .zoom-indicator {
+    opacity: 1;
 }
 
 /* ===== NAV ARROWS ===== */
@@ -373,6 +432,7 @@ watch(
     padding: 0.5rem;
     border-radius: 50%;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+    z-index: 5;
 }
 
 .nav-btn:hover {
@@ -490,6 +550,11 @@ watch(
     .thumbnail {
         width: 60px;
         height: 60px;
+    }
+
+    .zoom-indicator {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.8rem;
     }
 }
 </style>
