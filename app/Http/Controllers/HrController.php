@@ -1564,34 +1564,41 @@ class HrController extends Controller
 
     public function createPayslip(Request $request)
     {
-        $validated = $request->validate([
-            'employee_id' => 'required|integer',
-            'employee_name' => 'required|string',
-            'payout_date' => 'required|date',
-            'cutoff_from' => 'required|date',
-            'cutoff_to' => 'required|date',
-            'total_days' => 'required|integer',
-            'total_hours' => 'required|numeric',
-            'hourly_rate' => 'required|numeric',
-            'currency' => 'required|string|max:3',
-            'basic_pay' => 'required|numeric',
-            'regular_holiday_hours' => 'nullable|numeric',
-            'regular_holiday_pay' => 'nullable|numeric',
-            'special_holiday_hours' => 'nullable|numeric',
-            'special_holiday_pay' => 'nullable|numeric',
-            'gross_pay' => 'required|numeric',
-            'deductions' => 'nullable|numeric',
-            'net_pay' => 'required|numeric',
-            'deduction_details' => 'nullable|array',
-            'holiday_details' => 'nullable|array',
-        ]);
+        // Log incoming data for debugging
+        \Log::info('Payslip request data:', $request->all());
 
         try {
+            $validated = $request->validate([
+                'employee_id' => 'required|integer',
+                'employee_name' => 'required|string',
+                'payout_date' => 'required|date',
+                'cutoff_from' => 'required|date',
+                'cutoff_to' => 'required|date',
+                'total_days' => 'required|integer',
+                'total_hours' => 'required|numeric',
+                'hourly_rate' => 'required|numeric',
+                'currency' => 'required|string|max:3',
+                'basic_pay' => 'required|numeric',
+                'regular_holiday_hours' => 'nullable|numeric',
+                'regular_holiday_pay' => 'nullable|numeric',
+                'special_holiday_hours' => 'nullable|numeric',
+                'special_holiday_pay' => 'nullable|numeric',
+                'gross_pay' => 'required|numeric',
+                'deductions' => 'nullable|numeric',
+                'net_pay' => 'required|numeric',
+                'deduction_details' => 'nullable|array',
+                'holiday_details' => 'nullable|array',
+                'attendance_records' => 'nullable|array',
+                'notes' => 'nullable|string|max:65535',
+            ]);
+
+            // Convert deduction_details array to JSON string
             $deductionDetailsJson = null;
             if (! empty($validated['deduction_details'])) {
                 $deductionDetailsJson = json_encode($validated['deduction_details']);
             }
 
+            // Convert holiday_details array to JSON string
             $holidayDetailsJson = null;
             if (! empty($validated['holiday_details'])) {
                 $holidayDetailsJson = json_encode($validated['holiday_details']);
@@ -1616,10 +1623,11 @@ class HrController extends Controller
                 'gross_pay' => $validated['gross_pay'],
                 'deductions' => $validated['deductions'] ?? 0,
                 'net_pay' => $validated['net_pay'],
-                'deduction_details' => $deductionDetailsJson, // Store as JSON string
+                'deduction_details' => $deductionDetailsJson,
                 'holiday_details' => $holidayDetailsJson,
+                'notes' => $validated['notes'] ?? null,
                 'status' => 'draft',
-                'created_by' => auth()->user()->username ?? 'system',
+                'created_by' => auth()->check() ? auth()->user()->username : 'system',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -1630,7 +1638,18 @@ class HrController extends Controller
                 'payslip_id' => $payslipId,
             ]);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Validation error:', $e->errors());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
         } catch (\Exception $e) {
+            \Log::error('Payslip creation error: '.$e->getMessage());
+            \Log::error('Stack trace: '.$e->getTraceAsString());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create payslip',

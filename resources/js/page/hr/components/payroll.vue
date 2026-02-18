@@ -470,8 +470,93 @@
                     :key="index"
                     class="deduction-item mb-3 p-3 border rounded bg-white"
                 >
-                    <!-- ... existing deduction fields ... -->
+                    <div
+                        class="d-flex justify-content-between align-items-start mb-3"
+                    >
+                        <div class="form-check">
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                :id="'deduction-active-' + index"
+                                v-model="deduction.active"
+                            />
+                            <label
+                                class="form-check-label fw-semibold"
+                                :for="'deduction-active-' + index"
+                            >
+                                <span
+                                    v-if="deduction.active"
+                                    class="text-success"
+                                    >✓ Include in computation</span
+                                >
+                                <span v-else class="text-muted"
+                                    >○ Exclude from computation</span
+                                >
+                            </label>
+                        </div>
+                        <Button
+                            icon="pi pi-trash"
+                            size="small"
+                            severity="danger"
+                            text
+                            @click="removeDeduction(index)"
+                            type="button"
+                        />
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label class="small fw-semibold"
+                                >Deduction Name:
+                                <span class="text-danger">*</span></label
+                            >
+                            <InputText
+                                v-model="deduction.name"
+                                class="form-control"
+                                placeholder="e.g., SSS, PAGIBIG, Tax"
+                            />
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="small fw-semibold"
+                                >Amount:
+                                <span class="text-danger">*</span></label
+                            >
+                            <InputText
+                                v-model.number="deduction.amount"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                class="form-control"
+                                placeholder="0.00"
+                            />
+                        </div>
+                        <div class="col-md-12">
+                            <label class="small fw-semibold"
+                                >Description (Optional):</label
+                            >
+                            <textarea
+                                v-model="deduction.description"
+                                class="form-control"
+                                rows="2"
+                                placeholder="Add notes about this deduction"
+                            ></textarea>
+                        </div>
+                    </div>
                 </div>
+            </fieldset>
+
+            <fieldset>
+                <label>Notes: </label>
+                <textarea
+                    v-model="payslipNotes"
+                    class="form-control"
+                    rows="4"
+                    placeholder="Add any additional notes or comments about this payslip..."
+                ></textarea>
+                <small class="text-muted">
+                    Optional: Add any special instructions, adjustments, or
+                    comments
+                </small>
             </fieldset>
 
             <!-- Summary Preview -->
@@ -1054,11 +1139,18 @@ export default {
             perPage: 10,
             totalPages: 1,
             deductions: [],
+            payslipNotes: "",
         };
     },
     computed: {
-        sselectedEmployeeData() {
-            if (!this.selectedEmployee) return null;
+        selectedEmployeeData() {
+            if (
+                !this.selectedEmployee ||
+                !this.employees ||
+                this.employees.length === 0
+            ) {
+                return null;
+            }
             return this.employees.find(
                 (emp) => emp.id === this.selectedEmployee,
             );
@@ -1221,6 +1313,7 @@ export default {
             this.holidays = [];
             this.showAttendanceTable = false;
             this.deductions = [];
+            this.payslipNotes = "";
         },
         async fetchEmployees() {
             this.loadingEmployees = true;
@@ -1470,6 +1563,12 @@ export default {
         async savePayslip() {
             if (!this.canSave) return;
 
+            // Add validation check
+            if (!this.selectedEmployeeData) {
+                alert("Please select an employee first.");
+                return;
+            }
+
             this.saving = true;
             try {
                 const basicPay = this.calculateBasicPay();
@@ -1499,14 +1598,16 @@ export default {
 
                 const payslipData = {
                     employee_id: this.selectedEmployee,
-                    employee_name: this.selectedEmployeeData.name,
+                    employee_name: this.selectedEmployeeData?.name || "",
                     payout_date: this.payoutDate,
                     cutoff_from: this.cutoffDateFrom,
                     cutoff_to: this.cutoffDateTo,
                     total_days: this.attendanceRecords.length,
                     total_hours: this.totalHoursWorked,
-                    hourly_rate: this.selectedEmployeeData.current_hourly_rate,
-                    currency: this.selectedEmployeeData.current_currency,
+                    hourly_rate:
+                        this.selectedEmployeeData?.current_hourly_rate || 0,
+                    currency:
+                        this.selectedEmployeeData?.current_currency || "PHP",
                     basic_pay: basicPay,
                     regular_holiday_hours: regularHolidayHours,
                     regular_holiday_pay: regularHolidayPay,
@@ -1518,7 +1619,10 @@ export default {
                     deduction_details: this.deductions,
                     holiday_details: this.holidays,
                     attendance_records: this.attendanceRecords,
+                    notes: this.payslipNotes || null,
                 };
+
+                console.log("Sending payslip data:", payslipData);
 
                 const response = await axios.post("/hr/payslips", payslipData);
 
@@ -1528,8 +1632,16 @@ export default {
                 this.closeCreatePayslip();
                 this.fetchPayslips();
             } catch (error) {
-                console.error("Error saving payslip:", error);
-                alert("Failed to create payslip. Please try again.");
+                console.error("Full error details:", error);
+                console.error("Error response:", error.response);
+                console.error("Error data:", error.response?.data);
+
+                const errorMessage =
+                    error.response?.data?.message ||
+                    error.response?.data?.error ||
+                    error.message ||
+                    "Failed to create payslip";
+                alert(`Error: ${errorMessage}`);
             } finally {
                 this.saving = false;
             }
