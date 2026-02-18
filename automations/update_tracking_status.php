@@ -16,7 +16,7 @@ if ($mysqli->connect_error) {
 
 $mysqli->query("SET SESSION wait_timeout = 600");
 $mysqli->query("SET SESSION interactive_timeout = 600");
-$mysqli->query("SET time_zone = 'America/Los_Angeles'"); // ✅ MySQL timezone fix so NOW() = LA time
+
 
 echo "✓ Database connected<br><br>";
 
