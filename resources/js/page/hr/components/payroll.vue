@@ -1281,19 +1281,45 @@ export default {
                     },
                 });
 
-                this.holidays = response.data.map((holiday) => ({
+                // Initialize holidays
+                let holidays = response.data.map((holiday) => ({
                     ...holiday,
                     actualHoursWorked: 0,
                     timeRecord: null,
                 }));
 
                 // Match holidays with time records
-                this.matchHolidaysWithTimeRecords();
+                if (
+                    this.attendanceRecords &&
+                    this.attendanceRecords.length > 0
+                ) {
+                    holidays = holidays.map((holiday) => {
+                        const holidayDate = holiday.holidate;
+                        const timeRecord = this.attendanceRecords.find(
+                            (record) => {
+                                return record.DateToday === holidayDate;
+                            },
+                        );
+
+                        if (timeRecord) {
+                            const hoursWorked =
+                                this.calculateHoursFromRecord(timeRecord);
+
+                            return {
+                                ...holiday,
+                                actualHoursWorked: hoursWorked,
+                                timeRecord: timeRecord,
+                            };
+                        } else {
+                            return holiday;
+                        }
+                    });
+                }
 
                 // FILTER: Only keep holidays with actual hours worked
-                this.holidays = this.holidays.filter((holiday) => {
-                    return holiday.actualHoursWorked > 0;
-                });
+                this.holidays = holidays.filter(
+                    (holiday) => holiday.actualHoursWorked > 0,
+                );
 
                 console.log(
                     "Holidays with actual hours worked:",
