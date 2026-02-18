@@ -1,8 +1,14 @@
 <template>
     <div class="image-section" v-if="imageList.length">
         <!-- Main Image -->
-        <div class="main-image">
+        <div class="main-image" @click="openZoomModal">
             <img :src="activeImageUrl" alt="Main Product Image" loading="lazy" @error="onImageErrorMain" />
+            
+            <!-- Zoom Indicator -->
+            <div class="zoom-indicator">
+                <i class="pi pi-search-plus"></i>
+                <span>Click to zoom</span>
+            </div>
         </div>
 
         <!-- Thumbnails -->
@@ -13,20 +19,31 @@
             </div>
         </div>
     </div>
+
+    <!-- Image Zoom Modal -->
+    <ImageZoomModal
+        v-model:visible="showZoomModal"
+        :images="imageList"
+        :initialIndex="activeIndex"
+        :title="item.ProductTitle || 'Product Image'"
+    />
 </template>
 
 <script setup>
 import { ref, computed, defineProps } from "vue";
+import ImageZoomModal from "./ImageZoomModal.vue";
 
 const props = defineProps({
     item: { type: Object, required: true },
 });
 
 const basePath = "/images/thumbnails/";
+const fullSizePath = "/images/product_images/Airstaffs/";
 const defaultImage =
     "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZWVlIj48L3JlY3Q+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ibW9ub3NwYWNlLCBzYW5zLXNlcmlmIiBmaWxsPSIjOTk5Ij5JbWFnZTwvdGV4dD48L3N2Zz4=";
 
 const activeIndex = ref(0);
+const showZoomModal = ref(false);
 
 const imageList = computed(() =>
     Object.keys(props.item || {})
@@ -39,6 +56,17 @@ const activeImageUrl = computed(() =>
         ? basePath + imageList.value[activeIndex.value]
         : defaultImage
 );
+
+const zoomImagePath = computed(() => {
+    if (!imageList.value[activeIndex.value]) return defaultImage;
+    // Use full-size image for zoom, not thumbnail
+    return fullSizePath + imageList.value[activeIndex.value];
+});
+
+const openZoomModal = () => {
+    showZoomModal.value = true;
+    console.log(activeIndex, "activeIndex")
+};
 
 const onImageErrorMain = (event) => (event.target.src = defaultImage);
 const onThumbnailError = (event) => (event.target.src = defaultImage);
@@ -54,6 +82,7 @@ const onThumbnailError = (event) => (event.target.src = defaultImage);
 }
 
 .main-image {
+    position: relative;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -61,6 +90,7 @@ const onThumbnailError = (event) => (event.target.src = defaultImage);
     background-color: #fff;
     border-radius: 8px;
     overflow: hidden;
+    cursor: pointer;
 }
 
 .main-image img {
@@ -69,6 +99,40 @@ const onThumbnailError = (event) => (event.target.src = defaultImage);
     height: auto;
     object-fit: contain;
     display: block;
+    transition: transform 0.3s ease;
+}
+
+.main-image:hover img {
+    transform: scale(1.05);
+}
+
+/* Zoom Indicator */
+.zoom-indicator {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+    z-index: 5;
+}
+
+.main-image:hover .zoom-indicator {
+    opacity: 1;
+}
+
+.zoom-indicator i {
+    font-size: 1rem;
 }
 
 .thumbnail-list {
@@ -175,6 +239,15 @@ const onThumbnailError = (event) => (event.target.src = defaultImage);
     .thumbnail img {
         width: 56px;
         height: 55px;
+    }
+
+    .zoom-indicator {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.8rem;
+    }
+    
+    .zoom-indicator i {
+        font-size: 0.875rem;
     }
 }
 </style>

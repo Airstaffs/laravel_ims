@@ -1,5 +1,5 @@
 <template>
-    <Dialog :visible="visible" @update:visible="$emit('update:visible', $event)" modal header="System Clock In and Out"
+    <Dialog :visible="visible" @update:visible="$emit('update:visible', $event)" modal header="Time Logs"
         :style="{ width: '90%', height: '80vh' }" class="profile-modal" @show="onDialogShow">
         <div>
             <!-- Filters -->

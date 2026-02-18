@@ -32,74 +32,162 @@ class PrintShippingLabelController extends Controller
         $results = [];
 
         foreach ($platform_order_ids as $platform_order_id) {
-            $labelRow = DB::table('tbllabelhistoryitems')
-                ->where('AmazonOrderId', $platform_order_id)
-                ->orderBy('id', 'desc')
-                ->first();
+            try {
+                // 1) Find latest Purchased label history
+                $labelHistory = DB::table('tbllabelhistory')
+                    ->where('AmazonOrderId', $platform_order_id)
+                    ->where('status', 'Purchased')
+                    ->orderBy('id', 'desc')
+                    ->first();
 
-            if (!$labelRow || empty($labelRow->PDFLabel)) {
-                Log::warning("Missing PDFLabel for order: {$platform_order_id}");
-                continue;
-            }
+                if (!$labelHistory) {
+                    Log::warning("No Purchased tbllabelhistory found for order: {$platform_order_id}");
 
-            // Step 1: Decode base64
-            $decoded = base64_decode($labelRow->PDFLabel, true);
-            if (!$decoded) {
-                return response()->json([
-                    'success' => false,
-                    'error' => "Base64 decode failed for order: {$platform_order_id}"
+                    $results[] = [
+                        'order_id' => $platform_order_id,
+                        'success' => false,
+                        'error' => 'No Purchased label found',
+                        'pdf_url' => null,
+                        'zpl_preview' => null,
+                    ];
+                    continue;
+                }
+
+                $shipmentId = (string) ($labelHistory->shipmentid ?? '');
+                $trackingId = (string) ($labelHistory->trackingid ?? ''); // if exists in tbllabelhistory
+                $isManual = ($shipmentId === 'Manual');
+
+                // Working PDF path (safe to overwrite)
+                $pdfPath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$platform_order_id}.pdf");
+                $this->ensureDirExists(dirname($pdfPath));
+
+                // 2) Manual flow: load pdf from manual_shipping_label
+                if ($isManual) {
+                    $manualPdfPath = public_path("images/FBM_docs/manual_shipping_label/amzn_manual_{$platform_order_id}.pdf");
+
+                    if (!file_exists($manualPdfPath)) {
+                        Log::warning("Manual label PDF missing for order: {$platform_order_id}", [
+                            'path' => $manualPdfPath
+                        ]);
+
+                        $results[] = [
+                            'order_id' => $platform_order_id,
+                            'success' => false,
+                            'error' => 'Manual label PDF file missing',
+                            'pdf_url' => null,
+                            'zpl_preview' => null,
+                        ];
+                        continue;
+                    }
+
+                    copy($manualPdfPath, $pdfPath);
+                }
+                // 3) Normal flow: fetch tbllabelhistoryitems using shipmentid + AmazonOrderId (+ trackingid if present)
+                else {
+                    $itemsQ = DB::table('tbllabelhistoryitems')
+                        ->where('AmazonOrderId', $platform_order_id)
+                        ->where('shipmentid', $shipmentId);
+
+                    // If tbllabelhistoryitems has trackingid AND labelHistory has trackingid, lock it in
+                    if (!empty($trackingId)) {
+                        $itemsQ->where('trackingid', $trackingId);
+                    }
+
+                    $labelRow = $itemsQ->orderBy('id', 'desc')->first();
+
+                    if (!$labelRow || empty($labelRow->PDFLabel)) {
+                        Log::warning("Missing PDFLabel for Purchased shipment for order: {$platform_order_id}", [
+                            'shipmentid' => $shipmentId,
+                            'trackingid' => $trackingId ?: null,
+                        ]);
+
+                        $results[] = [
+                            'order_id' => $platform_order_id,
+                            'success' => false,
+                            'error' => 'Missing PDFLabel for Purchased shipment',
+                            'pdf_url' => null,
+                            'zpl_preview' => null,
+                        ];
+                        continue;
+                    }
+
+                    // Decode base64
+                    $decoded = base64_decode($labelRow->PDFLabel, true);
+                    if ($decoded === false) {
+                        $results[] = [
+                            'order_id' => $platform_order_id,
+                            'success' => false,
+                            'error' => 'Base64 decode failed',
+                            'pdf_url' => null,
+                            'zpl_preview' => null,
+                        ];
+                        continue;
+                    }
+
+                    // gzdecode if needed
+                    $pdfData = gzdecode($decoded);
+                    if ($pdfData === false)
+                        $pdfData = $decoded;
+
+                    // Write working PDF (PNG->PDF or PDF direct)
+                    if (substr($pdfData, 0, 4) === "\x89PNG") {
+                        $tmpImagePath = tempnam(sys_get_temp_dir(), 'png');
+                        file_put_contents($tmpImagePath, $pdfData);
+
+                        $mpdf = new Mpdf([
+                            'margin_top' => 0,
+                            'margin_bottom' => 0,
+                            'margin_left' => 0,
+                            'margin_right' => 0
+                        ]);
+                        $mpdf->WriteHTML('<img src="' . $tmpImagePath . '" style="width:100%; height:auto;">');
+                        $mpdf->Output($pdfPath, 'F');
+
+                        @unlink($tmpImagePath);
+                    } elseif (substr($pdfData, 0, 4) === '%PDF') {
+                        file_put_contents($pdfPath, $pdfData);
+                    } else {
+                        $results[] = [
+                            'order_id' => $platform_order_id,
+                            'success' => false,
+                            'error' => 'Decoded data is not valid PNG/PDF',
+                            'pdf_url' => null,
+                            'zpl_preview' => null,
+                        ];
+                        continue;
+                    }
+                }
+
+                // 4) Convert to ZPL
+                $zplCode = $this->convertPDFToZPL($pdfPath, $platform_order_id, ['note' => $note]);
+
+                // 5) Optional print
+                if ($action === 'PrintShipmentLabel') {
+                    $this->sendToPrinter($zplCode);
+                }
+
+                // 6) Result
+                $results[] = [
+                    'order_id' => $platform_order_id,
+                    'success' => true,
+                    'is_manual' => $isManual,
+                    'shipmentid' => $shipmentId,
+                    'pdf_url' => asset("images/FBM_docs/shipping_label/shippinglabel_{$platform_order_id}.pdf"),
+                    'zpl_preview' => $action === 'ViewShipmentLabel' ? $zplCode : null,
+                ];
+            } catch (\Throwable $e) {
+                Log::error("printshippinglabel failed for order {$platform_order_id}", [
+                    'message' => $e->getMessage(),
                 ]);
-            }
 
-            // Step 2: Try gzdecode
-            $pdfData = gzdecode($decoded);
-            if ($pdfData === false) {
-                $pdfData = $decoded; // maybe it was not gzipped
-            }
-
-            $pdfPath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$platform_order_id}.pdf");
-
-            // Step 3A: If PNG, render using mPDF
-            if (substr($pdfData, 0, 4) === "\x89PNG") {
-                $tmpImagePath = tempnam(sys_get_temp_dir(), 'png');
-                file_put_contents($tmpImagePath, $pdfData);
-
-                $mpdf = new Mpdf(['margin_top' => 0, 'margin_bottom' => 0, 'margin_left' => 0, 'margin_right' => 0]);
-                $mpdf->WriteHTML('<img src="' . $tmpImagePath . '" style="width:100%; height:auto;">');
-                $mpdf->Output($pdfPath, 'F');
-
-                unlink($tmpImagePath);
-            }
-
-            // Step 3B: If real PDF
-            elseif (substr($pdfData, 0, 4) === '%PDF') {
-                file_put_contents($pdfPath, $pdfData);
-            }
-
-            // Step 3C: Invalid data
-            else {
-                return response()->json([
+                $results[] = [
+                    'order_id' => $platform_order_id,
                     'success' => false,
-                    'error' => "Decoded data is not a valid PNG or PDF for order: {$platform_order_id}"
-                ]);
+                    'error' => $e->getMessage(),
+                    'pdf_url' => null,
+                    'zpl_preview' => null,
+                ];
             }
-
-            // Step 4: Convert to ZPL
-            $zplCode = $this->convertPDFToZPL($pdfPath, $platform_order_id, ['note' => $note]);
-
-
-
-            // Step 5: Optional print
-            if ($action === 'PrintShipmentLabel') {
-                $this->sendToPrinter($zplCode);
-            }
-
-            // Step 6: Add result
-            $results[] = [
-                'order_id' => $platform_order_id,
-                'pdf_url' => asset("images/FBM_docs/shipping_label/shippinglabel_{$platform_order_id}.pdf"),
-                'zpl_preview' => $action === 'ViewShipmentLabel' ? $zplCode : null,
-            ];
         }
 
         return response()->json([
@@ -107,6 +195,14 @@ class PrintShippingLabelController extends Controller
             'results' => $results
         ]);
     }
+
+    protected function ensureDirExists(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+    }
+
 
     public static function convertImageToZPL($testPrint, $imagePath, $maxWidth = 1250, $maxHeight = 1100, $bottomRightNumber = "0313")
     {

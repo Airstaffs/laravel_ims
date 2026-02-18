@@ -278,7 +278,8 @@ class ShippingLabelController extends Controller
 
         return response()->json([
             'success' => true,
-            'results' => $allRates
+            'results' => $allRates,
+            'Data_Additionale' => $data_additionale
         ]);
     }
 
