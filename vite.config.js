@@ -18,18 +18,11 @@ export default defineConfig({
   build: {
     target: 'esnext',
   },
-  server: {
-    host: '0.0.0.0',
+server: {
+    host: '127.0.0.1',
     port: 5173,
-    strictPort: true,
-    origin: 'http://localhost:5173',
-    cors: {
-      origin: ['http://localhost:8000'],
-      credentials: true,
-    },
     hmr: {
-      host: 'localhost',
-      port: 5173,
+        host: '127.0.0.1',
     },
-  },
+},
 });
