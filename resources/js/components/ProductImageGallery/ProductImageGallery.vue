@@ -12,7 +12,7 @@
             @mouseleave="handleMouseLeave"
         >
             <!-- Main Image -->
-            <div class="main-image-display" @click="openDialog">
+            <div class="main-image-display" @click="openZoomModal(localActiveIndex)">
                 <img
                     :src="activeImageUrl"
                     :key="`main-${activeImageUrl}-${localRenderKey}`"
@@ -22,6 +22,12 @@
                 <!-- Image Counter Badge -->
                 <div v-if="showCount && localImageList.length > 1" class="image-counter">
                     {{ localActiveIndex + 1 }} / {{ localImageList.length }}
+                </div>
+                
+                <!-- Zoom Indicator -->
+                <div class="zoom-indicator">
+                    <i class="pi pi-search-plus"></i>
+                    <span>Click to zoom</span>
                 </div>
             </div>
 
@@ -46,12 +52,26 @@
                     </div>
                 </div>
             </transition>
+
+            
+            <!-- Manage Button -->
+            <Button
+                label="Manage Images"
+                icon="pi pi-cog"
+                @click="openDialog"
+                class="manage-btn"
+                outlined
+                size="small"
+            />
+
         </div>
+        
 
         <!-- No Images State -->
         <div v-else class="empty-state" @click="openDialog">
             <i class="pi pi-image"></i>
             <p>No images available</p>
+            <p class="empty-hint">Click to add images</p>
         </div>
 
         <!-- Image Management Dialog -->
@@ -112,6 +132,17 @@
                             <i class="pi pi-trash"></i>
                         </button>
 
+                        <!-- Zoom Button -->
+                        <button
+                            v-if="!isImageProcessing(index)"
+                            class="zoom-btn"
+                            @click.stop="openZoomModalWithImage(image)"
+                            type="button"
+                            title="View fullscreen"
+                        >
+                            <i class="pi pi-search-plus"></i>
+                        </button>
+
                         <!-- Image -->
                         <img
                             :src="getImageUrl(image)"
@@ -121,6 +152,7 @@
                             :class="{ processing: isImageProcessing(index) }"
                             @error="onImageError"
                             @load="onImageLoad(index, image)"
+                            @click="openZoomModalWithImage(image, index)"
                         />
 
                         <!-- Processing Overlay -->
@@ -187,6 +219,14 @@
                 </div>
             </div>
         </Dialog>
+
+        <!-- Image Zoom Modal -->
+        <ZoomImageModal
+            v-model:visible="showZoomModal"
+            :images="imagesWithPathList"
+            :initialIndex="localActiveIndex"
+            :title="label"
+        />
     </div>
 </template>
 
@@ -195,12 +235,14 @@ import { Dialog, Button } from "primevue";
 import axios from "axios";
 import Swal from "sweetalert2";
 import { DEFAULT_IMAGE } from "../../constant";
+import ZoomImageModal from "../ZoomImageModal/ZoomImageModal.vue";
 
 export default {
     name: "ProductImageGallery",
     components: {
         Dialog,
         Button,
+        ZoomImageModal,
     },
     props: {
         label: {
@@ -249,21 +291,23 @@ export default {
             localRenderKey: 0,
             showDialog: false,
             dialogKey: 0,
-            imageGridKey: 0, // Separate key for forcing image grid re-render
-            dialogContentKey: 1, // Key for v-if/v-show toggling
-            processingStates: {}, // Track processing state per index
+            imageGridKey: 0,
+            dialogContentKey: 1,
+            processingStates: {},
             isAddingNew: false,
             fileInputRefs: {},
             defaultImage: DEFAULT_IMAGE,
             showThumbnails: false,
             isMobile: false,
             cacheBustTimestamp: Date.now(),
-            uploadQueue: [], // Track multiple uploads
+            uploadQueue: [],
+            showZoomModal: false,
+            zoomImagePath: "",
+            imagesWithPathList: []
         };
     },
     computed: {
         displayImageList() {
-            // Return a fresh copy to ensure reactivity
             const list = [...this.localImageList];
             console.log('🎨 displayImageList computed:', {
                 length: list.length,
@@ -272,13 +316,11 @@ export default {
             return list;
         },
         activeImageUrl() {
-            // Guard against invalid index
             if (!this.localImageList || this.localImageList.length === 0) {
                 console.log('⚠️ No images in list, returning default');
                 return this.defaultImage;
             }
 
-            // Ensure index is within bounds
             const safeIndex = Math.min(
                 Math.max(0, this.localActiveIndex), 
                 this.localImageList.length - 1
@@ -317,12 +359,10 @@ export default {
                 console.log(`📥 ${this.label} - imageList prop changed:`, newVal.length, 'images');
                 this.localImageList = [...newVal];
                 
-                // Ensure active index is valid
                 if (this.localActiveIndex >= this.localImageList.length) {
                     this.localActiveIndex = Math.max(0, this.localImageList.length - 1);
                 }
                 
-                // If dialog is open, refresh it
                 if (this.showDialog) {
                     this.$nextTick(() => {
                         console.log('🔄 imageList changed while dialog open, refreshing');
@@ -346,9 +386,6 @@ export default {
                     activeIndex: this.localActiveIndex,
                     dialogOpen: this.showDialog
                 });
-                
-                // Don't auto-refresh from watcher - let manual refresh handle it
-                // This prevents double refreshes
             },
             deep: true,
         },
@@ -365,6 +402,26 @@ export default {
         window.removeEventListener('resize', this.checkMobile);
     },
     methods: {
+        openZoomModal(index) {
+            this.zoomImagePath = this.activeImageUrl;
+            this.showZoomModal = true;
+            this.showDialog = false
+            this.imagesWithPathList = this.localImageList.map((image) => image.startsWith("/") ? image : this.basePath + image)
+             console.log(index, "indexindex", this.imagesWithPathList)
+        },
+
+        openZoomModalWithImage(imagePath) {
+            let fullPath;
+            if (imagePath.startsWith("/images/")) {
+                fullPath = imagePath.split('?')[0]; // Remove cache buster for zoom
+            } else {
+                fullPath = (this.basePath + imagePath).split('?')[0];
+            }
+            this.zoomImagePath = fullPath;
+            this.showZoomModal = true;
+            this.showDialog = false
+        },
+
         isImageProcessing(index) {
             return this.processingStates[index] !== undefined;
         },
@@ -386,18 +443,13 @@ export default {
             
             let url;
             
-            // Image already has full path with /images/
             if (img.startsWith("/images/")) {
                 url = img;
             } else {
-                // Need to prepend basePath
                 url = this.basePath + img;
             }
             
-            // Clean any existing query parameters
             const cleanUrl = url.split('?')[0];
-            
-            // Add fresh cache buster
             const finalUrl = `${cleanUrl}?t=${this.cacheBustTimestamp}`;
             
             console.log('🖼️ getImageUrl:', {
@@ -458,7 +510,6 @@ export default {
         },
 
         refreshDialogContent() {
-            // Force complete re-render of dialog content
             console.log('🔄 Starting dialog content refresh');
             console.log('📊 Current state before refresh:', {
                 localImageListLength: this.localImageList.length,
@@ -467,10 +518,10 @@ export default {
                 images: this.localImageList
             });
             
-            this.dialogContentKey = 0; // Destroy
+            this.dialogContentKey = 0;
             
             this.$nextTick(() => {
-                this.dialogContentKey = Date.now(); // Recreate with timestamp
+                this.dialogContentKey = Date.now();
                 console.log('✨ Dialog content key updated:', this.dialogContentKey);
                 console.log('📊 State after refresh:', {
                     localImageListLength: this.localImageList.length,
@@ -573,7 +624,6 @@ export default {
                 const file = event.target.files[0];
                 if (!file) return;
 
-                // Extract image number from current image URL
                 const currentImage = this.localImageList[index];
                 const urlWithoutQuery = currentImage.split('?')[0];
                 const imgNumber = urlWithoutQuery.split("_").pop().match(/(\d+)/)?.[1] || (index + 1);
@@ -619,28 +669,23 @@ export default {
                             index
                         });
                         
-                        // Update using Vue's reactivity - create new array
                         const updatedList = [...this.localImageList];
                         updatedList[index] = cachedPath;
                         this.localImageList = updatedList;
                         
                         console.log('📋 LocalImageList after update:', this.localImageList.length);
                         
-                        // Force re-render
                         this.cacheBustTimestamp = uniqueTimestamp;
                         this.localRenderKey++;
                         this.dialogKey++;
                         this.imageGridKey++;
 
-                        // Ensure DOM updates
                         await this.$nextTick();
                         console.log('✨ After nextTick');
                         
-                        // Small delay
                         await new Promise(resolve => setTimeout(resolve, 100));
                         console.log('⏱️ After delay');
                         
-                        // Force dialog content refresh
                         this.refreshDialogContent();
                         console.log('🔄 Dialog refreshed');
                         
@@ -678,7 +723,6 @@ export default {
                 const files = Array.from(event.target.files);
                 if (files.length === 0) return;
 
-                // Calculate how many images we can add
                 const availableSlots = this.maxImages - this.localImageList.length;
                 const filesToUpload = files.slice(0, availableSlots);
 
@@ -691,7 +735,6 @@ export default {
                     });
                 }
 
-                // Get available image numbers
                 const imageNumbers = this.findNextAvailableImageNumbers(filesToUpload.length);
 
                 if (imageNumbers.length < filesToUpload.length) {
@@ -706,7 +749,6 @@ export default {
 
                 this.isAddingNew = true;
                 
-                // Initialize upload queue
                 this.uploadQueue = filesToUpload.map((file, idx) => ({
                     filename: file.name,
                     imageNumber: imageNumbers[idx],
@@ -743,7 +785,6 @@ export default {
                     console.log('🏢 Using company:', this.company);
                     console.log('📁 Base path:', basePath);
                     
-                    // Update upload queue with results
                     response.data.results.forEach((result, idx) => {
                         if (this.uploadQueue[idx]) {
                             this.uploadQueue[idx].completed = result.success;
@@ -765,20 +806,17 @@ export default {
                     console.log('📊 Total new images to add:', newImages.length);
                     console.log('📋 Current localImageList length:', this.localImageList.length);
                     
-                    // IMPORTANT: Update the array FIRST
                     this.localImageList = [...this.localImageList, ...newImages];
                     
                     console.log('📋 Updated localImageList length:', this.localImageList.length);
                     console.log('🗂️ Full image list:', JSON.stringify(this.localImageList, null, 2));
                     
-                    // If gallery was empty, set active index to first image
                     if (wasEmpty && this.localImageList.length > 0) {
                         this.localActiveIndex = 0;
                         this.$emit("update:activeIndex", 0);
                         console.log('🎯 Set active index to 0');
                     }
 
-                    // Update cache buster
                     this.cacheBustTimestamp = uniqueTimestamp;
                     this.localRenderKey++;
                     this.dialogKey++;
@@ -791,26 +829,21 @@ export default {
                         imageGridKey: this.imageGridKey
                     });
 
-                    // Wait for Vue to process the data changes
                     await this.$nextTick();
                     console.log('✨ After nextTick - localImageList:', this.localImageList.length);
                     
-                    // Small delay to ensure state is fully updated
                     await new Promise(resolve => setTimeout(resolve, 100));
                     console.log('⏱️ After 100ms delay - localImageList:', this.localImageList.length);
                     
-                    // NOW refresh the dialog content
                     this.refreshDialogContent();
                     console.log('🔄 Dialog content refreshed');
                     
-                    // Force update the entire component
                     this.$forceUpdate();
                     console.log('💪 Component force updated');
 
                     const successCount = response.data.results.filter(r => r.success).length;
                     const failCount = response.data.results.length - successCount;
 
-                    // Clear upload queue after a delay
                     setTimeout(() => {
                         this.uploadQueue = [];
                     }, 3000);
@@ -911,7 +944,6 @@ export default {
 </script>
 
 <style scoped>
-/* Previous styles remain the same... */
 /* Main Container */
 .product-image-gallery {
     margin-bottom: .5rem;
@@ -955,6 +987,37 @@ export default {
     transform: scale(1.05);
 }
 
+/* Zoom Indicator */
+.zoom-indicator {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+    z-index: 5;
+}
+
+.main-image-display:hover .zoom-indicator {
+    opacity: 1;
+}
+
+/* Manage Button */
+.manage-btn {
+    margin-top: 0.5rem;
+    width: 100%;
+}
+
 .empty-state {
     background: #f9fafb;
     border: 2px dashed #d1d5db;
@@ -966,8 +1029,8 @@ export default {
 }
 
 .empty-state:hover {
-    transform: scale(1.05);
-    transition: transform 0.3s ease;
+    border-color: #3b82f6;
+    background: #eff6ff;
 }
 
 .empty-state i {
@@ -979,6 +1042,12 @@ export default {
 .empty-state p {
     margin: 0;
     font-size: 0.875rem;
+}
+
+.empty-hint {
+    font-size: 0.75rem !important;
+    color: #6b7280 !important;
+    margin-top: 0.25rem !important;
 }
 
 .image-counter {
@@ -1074,7 +1143,7 @@ export default {
 /* Thumbnail Strip */
 .thumbnail-strip {
     position: absolute;
-    bottom: 0;
+    bottom: 42px;
     left: 0;
     right: 0;
     display: flex;
@@ -1095,6 +1164,9 @@ export default {
     padding: 0.75rem 0;
     margin: 0.5rem auto 0 auto;
     width: 95%;
+    bottom: 0;
+    left: 0;
+    right: 0;
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
     scrollbar-width: auto;
@@ -1180,6 +1252,12 @@ export default {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.card-image:hover {
+    opacity: 0.9;
 }
 
 .card-image.processing {
@@ -1207,6 +1285,30 @@ export default {
 
 .delete-btn:hover {
     background: #dc2626;
+    transform: scale(1.1);
+}
+
+.zoom-btn {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(59, 130, 246, 0.95);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.zoom-btn:hover {
+    background: #2563eb;
     transform: scale(1.1);
 }
 
@@ -1314,6 +1416,11 @@ export default {
     .slide-up-enter-active,
     .slide-up-leave-active {
         transition: none;
+    }
+
+    .zoom-indicator {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.8rem;
     }
 }
 
