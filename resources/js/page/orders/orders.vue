@@ -685,14 +685,20 @@
                         <!-- LEFT: IMAGE + GENERAL INFO -->
                         <div class="form-col-left">
                             <div class="image-section" v-if="imageList.length">
-                                <!-- Main Image -->
-                                <div class="main-image">
+                            <!-- Main Image -->
+                                <div class="main-image" @click="openEditModalZoom">
                                     <img
                                         :src="activeImageUrl"
                                         alt="Main Product Image"
                                         loading="lazy"
                                         @error="onImageErrorMain"
                                     />
+                                    
+                                    <!-- Zoom Indicator -->
+                                    <div class="zoom-indicator">
+                                        <i class="pi pi-search-plus"></i>
+                                        <span>Click to zoom</span>
+                                    </div>
                                 </div>
 
                                 <!-- Thumbnails -->
@@ -1223,6 +1229,11 @@
             @close="showIncomingCounter = false"
         />
     </div>
+
+    <ZoomImageModal  v-model:visible="showEditZoomModal"
+    :images="imagesWithPathList"
+    :initialIndex="activeIndex"
+    :title="item.ProductTitle" />
 </template>
 
 <script>
@@ -1249,7 +1260,7 @@ import SetASINModal from "./modals/setASIN.vue";
 import IncomingCountItem from "./modals/IncomingCountItem.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 import { showPricingForPH } from "../../utils/helpers.js";
-
+import ZoomImageModal from "../../components/ZoomImageModal/ZoomImageModal.vue";
 const TABLE_COLUMNS = [
     {
         field: "gallery",
@@ -1359,6 +1370,7 @@ export default {
         Tag,
         SetASINModal,
         IncomingCountItem,
+        ZoomImageModal
     },
     data() {
         return {
@@ -1407,6 +1419,8 @@ export default {
             showIncomingCounter: false,
 
             showFilters: false,
+            showEditZoomModal: false,
+            imagesWithPathList: [],
 
             dateFilters: {
                 orderDateFrom: null,
@@ -1538,6 +1552,43 @@ export default {
         },
     },
     methods: {
+           openEditModalZoom() {
+        if (this.activeImageUrl) {
+            //add path for the images
+            this.imagesWithPathList = this.imageList.map((img) => this.basePath+img)
+            this.showEditZoomModal = true;
+
+        }
+    },
+    
+    selectEditThumbnail(index) {
+        this.activeIndex = index;
+        // Also open zoom when clicking thumbnail in edit modal
+        this.openEditModalZoom();
+    },
+        formatDeliveryDate(dateString) {
+            if (
+                !dateString ||
+                dateString === "0000-00-00" ||
+                dateString === "0000-00-00 00:00:00"
+            ) {
+                return "N/A";
+            }
+
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    timeZone: this.currentTimezone || "UTC",
+                });
+            } catch (error) {
+                console.error("Error formatting delivery date:", error);
+                return dateString;
+            }
+        },
+
 
       isAnyTrackingDelivered(item) {
             if (!item.tracking_info || item.tracking_info.length === 0) {
@@ -1894,5 +1945,92 @@ convertToLocalDate(dateString) {
     font-size: 0.7rem;
     padding: 0.2rem 0.5rem;
     border-radius: 10px;
+}
+
+/* Main Image Cursor */
+.main-image {
+    cursor: pointer;
+    position: relative;
+}
+
+.main-image img {
+    transition: transform 0.3s ease;
+}
+
+.main-image:hover img {
+    transform: scale(1.05);
+}
+
+/* Zoom Indicator */
+.zoom-indicator {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+    z-index: 5;
+}
+
+.main-image:hover .zoom-indicator {
+    opacity: 1;
+}
+
+.zoom-indicator i {
+    font-size: 1rem;
+}
+
+/* Thumbnail Zoom Icon */
+.thumbnail {
+    position: relative;
+}
+
+.thumbnail-zoom-icon {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.thumbnail:hover .thumbnail-zoom-icon {
+    opacity: 1;
+}
+
+.thumbnail-zoom-icon i {
+    color: white;
+    font-size: 1.25rem;
+}
+
+/* Mobile - Hide zoom indicators */
+@media (max-width: 768px) {
+    .zoom-indicator {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.8rem;
+    }
+    
+    .zoom-indicator i {
+        font-size: 0.875rem;
+    }
+    
+    .thumbnail-zoom-icon {
+        display: none;
+    }
 }
 </style>

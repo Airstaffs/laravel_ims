@@ -12,9 +12,14 @@
                 <Button v-if="imageList.length > 1" icon="pi pi-chevron-left" text rounded class="nav-button nav-prev"
                     @click="prevImage" aria-label="Previous image" />
 
-                <div class="image-display-area">
-                    <img :src="activeImageUrl" :alt="title" class="main-product-image" @error="handleMainImageError"
-                        @click="togglePreview(activeImageUrl)" />
+                <div class="image-display-area" @click="openZoomModal">
+                    <img :src="activeImageUrl" :alt="title" class="main-product-image" @error="handleMainImageError" />
+                    
+                    <!-- Zoom Indicator -->
+                    <div class="zoom-indicator">
+                        <i class="pi pi-search-plus"></i>
+                        <span>Click to zoom</span>
+                    </div>
                 </div>
 
                 <Button v-if="imageList.length > 1" icon="pi pi-chevron-right" text rounded class="nav-button nav-next"
@@ -37,16 +42,26 @@
             </div>
         </div>
     </Dialog>
+
+    <!-- Image Zoom Modal -->
+    <ZoomImageModal
+        v-model:visible="showZoomModal"
+        :images="imagesWithPath"
+        :initialIndex="activeIndex"
+        :title="title"
+    />
 </template>
 
 <script>
 import { Dialog, Button } from 'primevue';
+import ZoomImageModal from '../ZoomImageModal/ZoomImageModal.vue';
 
 export default {
     name: 'ImageModal',
     components: {
         Dialog,
-        Button
+        Button,
+        ZoomImageModal
     },
     props: {
         visible: {
@@ -78,13 +93,20 @@ export default {
     data() {
         return {
             activeIndex: 0,
-            isVisible: this.visible
+            isVisible: this.visible,
+            showZoomModal: false,
+            zoomImagePath: ''
         };
     },
     computed: {
         activeImageUrl() {
             if (!this.imageList.length) return '';
             return this.getImageUrl(this.imageList[this.activeIndex]);
+        },
+        imagesWithPath() {
+            return this.imageList.map((image) => {
+                return image.startsWith('/') ? image : this.basePath+image
+            })
         }
     },
     watch: {
@@ -113,6 +135,21 @@ export default {
                 return img.startsWith('http') ? img : this.basePath + img;
             }
             return '';
+        },
+        openZoomModal() {
+            // Get the full-size image path for zoom
+            const currentImage = this.imageList[this.activeIndex];
+            if (currentImage) {
+                // Remove any query parameters for clean path
+                const cleanPath = this.getImageUrl(currentImage).split('?')[0];
+                this.zoomImagePath = cleanPath;
+                this.showZoomModal = true;
+            }
+        },
+        selectThumbnail(index) {
+            this.activeIndex = index;
+            // Also open zoom when clicking thumbnail
+            this.openZoomModal();
         },
         prevImage() {
             this.activeIndex = this.activeIndex > 0 ? this.activeIndex - 1 : this.imageList.length - 1;
@@ -185,6 +222,8 @@ export default {
     align-items: center;
     justify-content: center;
     max-height: 500px;
+    cursor: pointer;
+    position: relative;
 }
 
 .main-product-image {
@@ -192,6 +231,39 @@ export default {
     max-height: 500px;
     object-fit: contain;
     transition: transform 0.2s ease;
+}
+
+.image-display-area:hover .main-product-image {
+    transform: scale(1.05);
+}
+
+/* Zoom Indicator */
+.zoom-indicator {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+    z-index: 5;
+}
+
+.image-display-area:hover .zoom-indicator {
+    opacity: 1;
+}
+
+.zoom-indicator i {
+    font-size: 1rem;
 }
 
 /* Navigation Buttons */
@@ -265,6 +337,7 @@ export default {
 }
 
 .thumbnail-item {
+    position: relative;
     flex-shrink: 0;
     width: 80px;
     height: 80px;
@@ -293,67 +366,28 @@ export default {
     object-fit: cover;
 }
 
-/* Fullscreen Preview */
-.fullscreen-preview {
-    position: fixed;
+/* Thumbnail Zoom Icon */
+.thumbnail-zoom-icon {
+    position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.95);
+    background: rgba(0, 0, 0, 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 9999;
-    cursor: zoom-out;
-    padding: 3rem;
-    animation: fadeIn 0.2s ease;
+    opacity: 0;
+    transition: opacity 0.2s ease;
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
+.thumbnail-item:hover .thumbnail-zoom-icon {
+    opacity: 1;
 }
 
-.preview-close-btn {
-    position: absolute;
-    top: 1.5rem;
-    right: 1.5rem;
-    width: 3rem;
-    height: 3rem;
-    background: rgba(255, 255, 255, 0.9) !important;
-    transition: all 0.2s ease;
-}
-
-.preview-close-btn:hover {
-    background: #ffffff !important;
-    transform: rotate(90deg);
-}
-
-.preview-full-image {
-    max-width: 90%;
-    max-height: 90%;
-    object-fit: contain;
-    border-radius: 8px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-    animation: zoomIn 0.2s ease;
-}
-
-@keyframes zoomIn {
-    from {
-        transform: scale(0.95);
-        opacity: 0;
-    }
-
-    to {
-        transform: scale(1);
-        opacity: 1;
-    }
+.thumbnail-zoom-icon i {
+    color: white;
+    font-size: 1.25rem;
 }
 
 /* Responsive Design */
@@ -435,6 +469,19 @@ export default {
 
     .image-counter-display {
         flex-shrink: 0;
+    }
+
+    .zoom-indicator {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.8rem;
+    }
+
+    .zoom-indicator i {
+        font-size: 0.875rem;
+    }
+
+    .thumbnail-zoom-icon {
+        display: none;
     }
 }
 
