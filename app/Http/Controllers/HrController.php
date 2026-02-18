@@ -1582,14 +1582,19 @@ class HrController extends Controller
             'gross_pay' => 'required|numeric',
             'deductions' => 'nullable|numeric',
             'net_pay' => 'required|numeric',
-            'deduction_details' => 'nullable|array', // Changed to array
+            'deduction_details' => 'nullable|array',
+            'holiday_details' => 'nullable|array',
         ]);
 
         try {
-            // Convert deduction_details array to JSON string
             $deductionDetailsJson = null;
             if (! empty($validated['deduction_details'])) {
                 $deductionDetailsJson = json_encode($validated['deduction_details']);
+            }
+
+            $holidayDetailsJson = null;
+            if (! empty($validated['holiday_details'])) {
+                $holidayDetailsJson = json_encode($validated['holiday_details']);
             }
 
             // Insert payslip
@@ -1612,6 +1617,7 @@ class HrController extends Controller
                 'deductions' => $validated['deductions'] ?? 0,
                 'net_pay' => $validated['net_pay'],
                 'deduction_details' => $deductionDetailsJson, // Store as JSON string
+                'holiday_details' => $holidayDetailsJson,
                 'status' => 'draft',
                 'created_by' => auth()->user()->username ?? 'system',
                 'created_at' => now(),
@@ -1672,5 +1678,20 @@ class HrController extends Controller
         } catch (\Exception $e) {
             return 0;
         }
+    }
+
+    public function getHolidays(Request $request)
+    {
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+
+        $query = \DB::table('tblholiday')
+            ->select('holidayID', 'holidate', 'status', 'title', 'is_recurring')
+            ->where('holidate', '>=', $dateFrom)
+            ->where('holidate', '<=', $dateTo);
+
+        $holidays = $query->get();
+
+        return response()->json($holidays);
     }
 }

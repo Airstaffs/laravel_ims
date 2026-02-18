@@ -266,38 +266,182 @@
                 </div>
             </fieldset>
 
-            <!-- Holiday Pay Section -->
-            <fieldset>
-                <label>Regular Holiday Hours: </label>
-                <div class="d-flex gap-2 align-items-center">
-                    <InputText
-                        v-model.number="regularHolidayHours"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        class="form-control"
-                        placeholder="Hours worked on regular holiday"
-                    />
-                    <small class="text-muted">Leave empty if not worked</small>
+            <!-- Holiday Detection Section with AUTO-CALCULATED hours -->
+            <fieldset v-if="holidays.length > 0">
+                <label class="fw-semibold"
+                    >Detected Holidays in Cutoff Period:
+                </label>
+                <div class="p-3 border rounded bg-light">
+                    <!-- Show only holidays that were actually worked -->
+                    <template v-for="(holiday, index) in holidays" :key="index">
+                        <div
+                            v-if="holiday.actualHoursWorked > 0"
+                            class="mb-3 pb-3 border-bottom"
+                        >
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <div class="fw-semibold">
+                                        {{ holiday.title }}
+                                    </div>
+                                    <div class="text-muted small">
+                                        {{ formatDate(holiday.holidate) }}
+                                    </div>
+                                    <span
+                                        class="badge mt-1"
+                                        :class="
+                                            holiday.status === 'regular'
+                                                ? 'bg-primary'
+                                                : 'bg-warning'
+                                        "
+                                    >
+                                        {{
+                                            holiday.status === "regular"
+                                                ? "Regular Holiday"
+                                                : "Special Non-Working"
+                                        }}
+                                    </span>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <label class="small text-muted d-block"
+                                        >Hours Worked</label
+                                    >
+                                    <div class="fs-5 fw-bold text-success">
+                                        {{
+                                            holiday.actualHoursWorked.toFixed(2)
+                                        }}
+                                        hrs
+                                    </div>
+                                    <small class="text-success">Worked</small>
+                                </div>
+                                <div class="col-md-3 text-end">
+                                    <label class="small text-muted d-block"
+                                        >Holiday Pay</label
+                                    >
+                                    <div class="fs-5 fw-bold text-primary">
+                                        {{
+                                            selectedEmployeeData?.current_currency
+                                        }}
+                                        {{
+                                            formatCurrency(
+                                                calculateHolidayPay(holiday),
+                                            )
+                                        }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Show time record details -->
+                            <div
+                                v-if="holiday.timeRecord"
+                                class="mt-2 p-2 bg-white rounded small"
+                            >
+                                <div class="row">
+                                    <div class="col-6">
+                                        <strong>Time In:</strong>
+                                        {{
+                                            formatTime(
+                                                holiday.timeRecord.TimeIn,
+                                            )
+                                        }}
+                                    </div>
+                                    <div class="col-6">
+                                        <strong>Time Out:</strong>
+                                        {{
+                                            formatTime(
+                                                holiday.timeRecord.TimeOut,
+                                            )
+                                        }}
+                                    </div>
+                                    <div
+                                        class="col-12 mt-1"
+                                        v-if="
+                                            holiday.timeRecord
+                                                .shortbreak_totaltime
+                                        "
+                                    >
+                                        <strong>Break:</strong>
+                                        {{
+                                            holiday.timeRecord
+                                                .shortbreak_totaltime
+                                        }}
+                                        mins
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <div class="mt-3 pt-3 border-top">
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="d-flex justify-content-between">
+                                    <span>Regular Holiday Pay:</span>
+                                    <span class="fw-semibold">
+                                        {{
+                                            selectedEmployeeData?.current_currency
+                                        }}
+                                        {{
+                                            formatCurrency(
+                                                calculateRegularHolidayPayTotal(),
+                                            )
+                                        }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="d-flex justify-content-between">
+                                    <span>Special Holiday Pay:</span>
+                                    <span class="fw-semibold">
+                                        {{
+                                            selectedEmployeeData?.current_currency
+                                        }}
+                                        {{
+                                            formatCurrency(
+                                                calculateSpecialHolidayPayTotal(),
+                                            )
+                                        }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-12 mt-2 pt-2 border-top">
+                                <div class="d-flex justify-content-between">
+                                    <span class="fw-bold"
+                                        >Total Holiday Pay:</span
+                                    >
+                                    <span class="fw-bold text-success">
+                                        {{
+                                            selectedEmployeeData?.current_currency
+                                        }}
+                                        {{
+                                            formatCurrency(
+                                                calculateTotalHolidayPay(),
+                                            )
+                                        }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </fieldset>
 
-            <fieldset>
-                <label>Special Non-Working Holiday Hours: </label>
-                <div class="d-flex gap-2 align-items-center">
-                    <InputText
-                        v-model.number="specialHolidayHours"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        class="form-control"
-                        placeholder="Hours worked on special holiday"
-                    />
-                    <small class="text-muted">Leave empty if not worked</small>
+            <!-- Show message if no holidays were worked -->
+            <fieldset
+                v-else-if="
+                    cutoffDateFrom &&
+                    cutoffDateTo &&
+                    selectedEmployee &&
+                    !loadingHolidays &&
+                    attendanceRecords.length > 0
+                "
+            >
+                <div class="alert alert-info">
+                    <i class="pi pi-info-circle"></i> No holidays were worked
+                    during this cutoff period.
                 </div>
             </fieldset>
 
-            <!-- Deductions Section - REMOVED v-if condition -->
+            <!-- Deductions Section -->
             <fieldset>
                 <div
                     class="d-flex justify-content-between align-items-center mb-2"
@@ -326,78 +470,7 @@
                     :key="index"
                     class="deduction-item mb-3 p-3 border rounded bg-white"
                 >
-                    <div
-                        class="d-flex justify-content-between align-items-start mb-3"
-                    >
-                        <div class="form-check">
-                            <input
-                                type="checkbox"
-                                class="form-check-input"
-                                :id="'deduction-active-' + index"
-                                v-model="deduction.active"
-                            />
-                            <label
-                                class="form-check-label fw-semibold"
-                                :for="'deduction-active-' + index"
-                            >
-                                <span
-                                    v-if="deduction.active"
-                                    class="text-success"
-                                    >✓ Include in computation</span
-                                >
-                                <span v-else class="text-muted"
-                                    >○ Exclude from computation</span
-                                >
-                            </label>
-                        </div>
-                        <Button
-                            icon="pi pi-trash"
-                            size="small"
-                            severity="danger"
-                            text
-                            @click="removeDeduction(index)"
-                            type="button"
-                        />
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-2">
-                            <label class="small fw-semibold"
-                                >Deduction Name:
-                                <span class="text-danger">*</span></label
-                            >
-                            <InputText
-                                v-model="deduction.name"
-                                class="form-control"
-                                placeholder="e.g., SSS, PAGIBIG, Tax"
-                            />
-                        </div>
-                        <div class="col-md-6 mb-2">
-                            <label class="small fw-semibold"
-                                >Amount:
-                                <span class="text-danger">*</span></label
-                            >
-                            <InputText
-                                v-model.number="deduction.amount"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                class="form-control"
-                                placeholder="0.00"
-                            />
-                        </div>
-                        <div class="col-md-12">
-                            <label class="small fw-semibold"
-                                >Description (Optional):</label
-                            >
-                            <textarea
-                                v-model="deduction.description"
-                                class="form-control"
-                                rows="2"
-                                placeholder="Add notes about this deduction"
-                            ></textarea>
-                        </div>
-                    </div>
+                    <!-- ... existing deduction fields ... -->
                 </div>
             </fieldset>
 
@@ -421,35 +494,17 @@
                         </div>
                         <div
                             class="col-12 mb-2"
-                            v-if="parseFloat(regularHolidayHours) > 0"
+                            v-if="calculateTotalHolidayPay() > 0"
                         >
                             <div class="d-flex justify-content-between">
-                                <span>Regular Holiday Pay:</span>
+                                <span>Holiday Pay:</span>
                                 <span class="fw-semibold"
                                     >{{
                                         selectedEmployeeData?.current_currency
                                     }}
                                     {{
                                         formatCurrency(
-                                            calculateRegularHolidayPay(),
-                                        )
-                                    }}</span
-                                >
-                            </div>
-                        </div>
-                        <div
-                            class="col-12 mb-2"
-                            v-if="parseFloat(specialHolidayHours) > 0"
-                        >
-                            <div class="d-flex justify-content-between">
-                                <span>Special Holiday Pay:</span>
-                                <span class="fw-semibold"
-                                    >{{
-                                        selectedEmployeeData?.current_currency
-                                    }}
-                                    {{
-                                        formatCurrency(
-                                            calculateSpecialHolidayPay(),
+                                            calculateTotalHolidayPay(),
                                         )
                                     }}</span
                                 >
@@ -989,8 +1044,8 @@ export default {
             attendanceRecords: [],
             loadingAttendance: false,
             showAttendanceTable: false,
-            regularHolidayHours: null,
-            specialHolidayHours: null,
+            holidays: [],
+            loadingHolidays: false,
             saving: false,
             payslips: [],
             loadingPayslips: false,
@@ -1002,7 +1057,7 @@ export default {
         };
     },
     computed: {
-        selectedEmployeeData() {
+        sselectedEmployeeData() {
             if (!this.selectedEmployee) return null;
             return this.employees.find(
                 (emp) => emp.id === this.selectedEmployee,
@@ -1053,24 +1108,38 @@ export default {
             return totalHours;
         },
         parsedDeductions() {
-            if (
-                !this.viewingPayslip ||
-                !this.viewingPayslip.deduction_details
-            ) {
+            if (!this.viewingPayslip) {
                 return [];
             }
+
+            if (!this.viewingPayslip.deduction_details) {
+                return [];
+            }
+
             try {
-                return JSON.parse(this.viewingPayslip.deduction_details);
+                if (typeof this.viewingPayslip.deduction_details === "object") {
+                    return this.viewingPayslip.deduction_details;
+                }
+
+                if (typeof this.viewingPayslip.deduction_details === "string") {
+                    return JSON.parse(this.viewingPayslip.deduction_details);
+                }
+
+                return [];
             } catch (error) {
                 console.error("Error parsing deductions:", error);
                 return [];
             }
         },
         activeDeductions() {
-            return this.parsedDeductions.filter((d) => d.active === true);
+            return this.parsedDeductions.filter(
+                (d) => d.active === true || d.active === 1,
+            );
         },
         inactiveDeductions() {
-            return this.parsedDeductions.filter((d) => d.active === false);
+            return this.parsedDeductions.filter(
+                (d) => d.active === false || d.active === 0,
+            );
         },
         deductionsWithNotes() {
             return this.parsedDeductions.filter(
@@ -1092,6 +1161,11 @@ export default {
         selectedEmployee(newVal) {
             if (newVal && this.cutoffDateFrom && this.cutoffDateTo) {
                 this.fetchAttendanceData();
+            }
+        },
+        attendanceRecords(newVal) {
+            if (newVal && newVal.length > 0 && this.holidays.length > 0) {
+                this.matchHolidaysWithTimeRecords();
             }
         },
     },
@@ -1144,9 +1218,9 @@ export default {
             this.cutoffDateFrom = null;
             this.cutoffDateTo = null;
             this.attendanceRecords = [];
-            this.regularHolidayHours = null;
-            this.specialHolidayHours = null;
+            this.holidays = [];
             this.showAttendanceTable = false;
+            this.deductions = [];
         },
         async fetchEmployees() {
             this.loadingEmployees = true;
@@ -1183,11 +1257,255 @@ export default {
                     },
                 });
                 this.attendanceRecords = response.data.data || response.data;
+
+                // Fetch holidays after getting attendance
+                await this.fetchHolidays();
             } catch (error) {
                 console.error("Error fetching attendance data:", error);
                 this.attendanceRecords = [];
             } finally {
                 this.loadingAttendance = false;
+            }
+        },
+        async fetchHolidays() {
+            if (!this.cutoffDateFrom || !this.cutoffDateTo) {
+                return;
+            }
+
+            this.loadingHolidays = true;
+            try {
+                const response = await axios.get("/hr/holidays", {
+                    params: {
+                        date_from: this.cutoffDateFrom,
+                        date_to: this.cutoffDateTo,
+                    },
+                });
+
+                this.holidays = response.data.map((holiday) => ({
+                    ...holiday,
+                    actualHoursWorked: 0,
+                    timeRecord: null,
+                }));
+
+                // Match holidays with time records
+                this.matchHolidaysWithTimeRecords();
+
+                // FILTER: Only keep holidays with actual hours worked
+                this.holidays = this.holidays.filter((holiday) => {
+                    return holiday.actualHoursWorked > 0;
+                });
+
+                console.log(
+                    "Holidays with actual hours worked:",
+                    this.holidays,
+                );
+            } catch (error) {
+                console.error("Error fetching holidays:", error);
+                this.holidays = [];
+            } finally {
+                this.loadingHolidays = false;
+            }
+        },
+        // NEW: Match holidays with actual time records
+        matchHolidaysWithTimeRecords() {
+            if (
+                !this.attendanceRecords ||
+                this.attendanceRecords.length === 0
+            ) {
+                return;
+            }
+
+            this.holidays = this.holidays.map((holiday) => {
+                // Find time record that matches the holiday date
+                const holidayDate = holiday.holidate; // Format: YYYY-MM-DD
+                const timeRecord = this.attendanceRecords.find((record) => {
+                    return record.DateToday === holidayDate;
+                });
+
+                if (timeRecord) {
+                    // Calculate hours worked for this holiday
+                    const hoursWorked =
+                        this.calculateHoursFromRecord(timeRecord);
+
+                    return {
+                        ...holiday,
+                        actualHoursWorked: hoursWorked,
+                        timeRecord: timeRecord,
+                    };
+                } else {
+                    return {
+                        ...holiday,
+                        actualHoursWorked: 0,
+                        timeRecord: null,
+                    };
+                }
+            });
+        },
+        // NEW: Calculate hours from a time record
+        calculateHoursFromRecord(record) {
+            const timeIn = this.parseDateTime(record.TimeIn);
+            const timeOut = this.parseDateTime(record.TimeOut);
+
+            if (!timeIn || !timeOut) {
+                return 0;
+            }
+
+            let totalMs = timeOut - timeIn;
+
+            const breakStart = this.parseDateTime(record.shortbreak_start);
+            const breakEnd = this.parseDateTime(record.shortbreak_end);
+
+            if (breakStart && breakEnd) {
+                const breakMs = breakEnd - breakStart;
+                totalMs -= breakMs;
+            } else if (record.shortbreak_totaltime) {
+                const breakMs = record.shortbreak_totaltime * 60 * 1000;
+                totalMs -= breakMs;
+            }
+
+            const hours = totalMs / (1000 * 60 * 60);
+            return hours > 0 ? hours : 0;
+        },
+        calculateHolidayPay(holiday) {
+            if (!this.selectedEmployeeData) return 0;
+
+            const hourlyRate =
+                parseFloat(this.selectedEmployeeData.current_hourly_rate) || 0;
+            const hoursWorked = parseFloat(holiday.actualHoursWorked) || 0;
+
+            if (holiday.status === "regular") {
+                // Regular Holiday
+                if (hoursWorked > 0) {
+                    // Worked: Hours × Rate × 2
+                    return hoursWorked * hourlyRate * 2;
+                } else {
+                    // Not worked: 8 hours × Rate
+                    return 8 * hourlyRate;
+                }
+            } else {
+                // Special Non-Working Holiday
+                if (hoursWorked > 0) {
+                    // Worked: Hours × Rate × 1.3
+                    return hoursWorked * hourlyRate * 1.3;
+                } else {
+                    // Not worked: NO WORK NO PAY
+                    return 0;
+                }
+            }
+        },
+        calculateRegularHolidayPayTotal() {
+            return this.holidays
+                .filter((h) => h.status === "regular")
+                .reduce((total, h) => total + this.calculateHolidayPay(h), 0);
+        },
+        calculateSpecialHolidayPayTotal() {
+            return this.holidays
+                .filter((h) => h.status !== "regular")
+                .reduce((total, h) => total + this.calculateHolidayPay(h), 0);
+        },
+        calculateTotalHolidayPay() {
+            return this.holidays.reduce((total, holiday) => {
+                return total + this.calculateHolidayPay(holiday);
+            }, 0);
+        },
+        calculateBasicPay() {
+            if (!this.selectedEmployeeData) return 0;
+
+            const hourlyRate =
+                parseFloat(this.selectedEmployeeData.current_hourly_rate) || 0;
+            return this.totalHoursWorked * hourlyRate;
+        },
+        calculateGrossPay() {
+            const basicPay = this.calculateBasicPay();
+            const holidayPay = this.calculateTotalHolidayPay();
+            return basicPay + holidayPay;
+        },
+        addDeduction() {
+            this.deductions.push({
+                name: "",
+                amount: 0,
+                description: "",
+                active: true,
+            });
+        },
+        removeDeduction(index) {
+            this.deductions.splice(index, 1);
+        },
+        calculateTotalActiveDeductions() {
+            return this.deductions
+                .filter((d) => d.active)
+                .reduce((total, d) => total + (parseFloat(d.amount) || 0), 0);
+        },
+        calculateNetPay() {
+            const grossPay = this.calculateGrossPay();
+            const totalDeductions = this.calculateTotalActiveDeductions();
+            return grossPay - totalDeductions;
+        },
+        async savePayslip() {
+            if (!this.canSave) return;
+
+            this.saving = true;
+            try {
+                const basicPay = this.calculateBasicPay();
+                const regularHolidayPay =
+                    this.calculateRegularHolidayPayTotal();
+                const specialHolidayPay =
+                    this.calculateSpecialHolidayPayTotal();
+                const grossPay = this.calculateGrossPay();
+                const totalDeductions = this.calculateTotalActiveDeductions();
+                const netPay = this.calculateNetPay();
+
+                const regularHolidayHours = this.holidays
+                    .filter((h) => h.status === "regular")
+                    .reduce(
+                        (total, h) =>
+                            total + (parseFloat(h.actualHoursWorked) || 0),
+                        0,
+                    );
+
+                const specialHolidayHours = this.holidays
+                    .filter((h) => h.status !== "regular")
+                    .reduce(
+                        (total, h) =>
+                            total + (parseFloat(h.actualHoursWorked) || 0),
+                        0,
+                    );
+
+                const payslipData = {
+                    employee_id: this.selectedEmployee,
+                    employee_name: this.selectedEmployeeData.name,
+                    payout_date: this.payoutDate,
+                    cutoff_from: this.cutoffDateFrom,
+                    cutoff_to: this.cutoffDateTo,
+                    total_days: this.attendanceRecords.length,
+                    total_hours: this.totalHoursWorked,
+                    hourly_rate: this.selectedEmployeeData.current_hourly_rate,
+                    currency: this.selectedEmployeeData.current_currency,
+                    basic_pay: basicPay,
+                    regular_holiday_hours: regularHolidayHours,
+                    regular_holiday_pay: regularHolidayPay,
+                    special_holiday_hours: specialHolidayHours,
+                    special_holiday_pay: specialHolidayPay,
+                    gross_pay: grossPay,
+                    deductions: totalDeductions,
+                    net_pay: netPay,
+                    deduction_details: this.deductions,
+                    holiday_details: this.holidays,
+                    attendance_records: this.attendanceRecords,
+                };
+
+                const response = await axios.post("/hr/payslips", payslipData);
+
+                console.log("Payslip saved successfully:", response.data);
+                alert("Payslip created successfully!");
+
+                this.closeCreatePayslip();
+                this.fetchPayslips();
+            } catch (error) {
+                console.error("Error saving payslip:", error);
+                alert("Failed to create payslip. Please try again.");
+            } finally {
+                this.saving = false;
             }
         },
         parseDateTime(dateTimeString) {
@@ -1257,140 +1575,39 @@ export default {
 
             return `${this.totalHoursWorked.toFixed(2)} hrs`;
         },
-        calculateRegularHolidayPay() {
-            if (!this.selectedEmployeeData) return 0;
-
-            const hourlyRate =
-                parseFloat(this.selectedEmployeeData.current_hourly_rate) || 0;
-            const hoursWorked = parseFloat(this.regularHolidayHours) || 0;
-
-            if (hoursWorked > 0) {
-                const first8Hours = Math.min(hoursWorked, 8);
-                const overtimeHours = Math.max(hoursWorked - 8, 0);
-
-                const regularPay = first8Hours * hourlyRate * 2;
-                const overtimePay = overtimeHours * hourlyRate * 2;
-
-                return regularPay + overtimePay;
-            } else {
-                return 8 * hourlyRate;
+        formatTime(isoDateTime) {
+            if (
+                !isoDateTime ||
+                isoDateTime === "--:--" ||
+                isoDateTime === "-"
+            ) {
+                return "--:--:--";
             }
-        },
-        calculateSpecialHolidayPay() {
-            if (!this.selectedEmployeeData) return 0;
 
-            const hourlyRate =
-                parseFloat(this.selectedEmployeeData.current_hourly_rate) || 0;
-            const hoursWorked = parseFloat(this.specialHolidayHours) || 0;
-
-            if (hoursWorked > 0) {
-                const first8Hours = Math.min(hoursWorked, 8);
-                const overtimeHours = Math.max(hoursWorked - 8, 0);
-
-                const regularPay = first8Hours * hourlyRate * 1.3;
-                const overtimePay = overtimeHours * hourlyRate * 1.3;
-
-                return regularPay + overtimePay;
-            } else {
-                return 0;
-            }
-        },
-        calculateBasicPay() {
-            if (!this.selectedEmployeeData) return 0;
-
-            const hourlyRate =
-                parseFloat(this.selectedEmployeeData.current_hourly_rate) || 0;
-            return this.totalHoursWorked * hourlyRate;
-        },
-        addDeduction() {
-            this.deductions.push({
-                name: "",
-                amount: 0,
-                description: "",
-                active: true, // Default: include in computation
-            });
-        },
-        removeDeduction(index) {
-            this.deductions.splice(index, 1);
-        },
-        calculateTotalActiveDeductions() {
-            return this.deductions
-                .filter((d) => d.active)
-                .reduce((total, d) => total + (parseFloat(d.amount) || 0), 0);
-        },
-        calculateGrossPay() {
-            const basicPay = this.calculateBasicPay();
-            const regularHolidayPay = this.calculateRegularHolidayPay();
-            const specialHolidayPay = this.calculateSpecialHolidayPay();
-            return basicPay + regularHolidayPay + specialHolidayPay;
-        },
-        calculateNetPay() {
-            const grossPay = this.calculateGrossPay();
-            const totalDeductions = this.calculateTotalActiveDeductions();
-            return grossPay - totalDeductions;
-        },
-        resetForm() {
-            this.selectedEmployee = null;
-            this.payoutDate = null;
-            this.cutoffDateFrom = null;
-            this.cutoffDateTo = null;
-            this.attendanceRecords = [];
-            this.regularHolidayHours = null;
-            this.specialHolidayHours = null;
-            this.showAttendanceTable = false;
-            this.deductions = [];
-        },
-        async savePayslip() {
-            if (!this.canSave) return;
-
-            this.saving = true;
             try {
-                const basicPay = this.calculateBasicPay();
-                const regularHolidayPay = this.calculateRegularHolidayPay();
-                const specialHolidayPay = this.calculateSpecialHolidayPay();
-                const grossPay = this.calculateGrossPay();
-                const totalDeductions = this.calculateTotalActiveDeductions();
-                const netPay = this.calculateNetPay();
+                let timeString = String(isoDateTime);
 
-                const payslipData = {
-                    employee_id: this.selectedEmployee,
-                    employee_name: this.selectedEmployeeData.name,
-                    payout_date: this.payoutDate,
-                    cutoff_from: this.cutoffDateFrom,
-                    cutoff_to: this.cutoffDateTo,
-                    total_days: this.attendanceRecords.length,
-                    total_hours: this.totalHoursWorked,
-                    hourly_rate: this.selectedEmployeeData.current_hourly_rate,
-                    currency: this.selectedEmployeeData.current_currency,
-                    basic_pay: basicPay,
-                    regular_holiday_hours: this.regularHolidayHours || 0,
-                    regular_holiday_pay: regularHolidayPay,
-                    special_holiday_hours: this.specialHolidayHours || 0,
-                    special_holiday_pay: specialHolidayPay,
-                    gross_pay: grossPay,
-                    deductions: totalDeductions,
-                    net_pay: netPay,
-                    deduction_details: this.deductions, // Send as array, not stringified
-                    attendance_records: this.attendanceRecords,
-                };
+                if (timeString.includes(" ") && timeString.length > 10) {
+                    const parts = timeString.split(" ");
+                    if (parts.length >= 2) {
+                        timeString = parts[1];
+                    }
+                }
 
-                const response = await axios.post("/hr/payslips", payslipData);
+                const [hours, minutes, seconds] = timeString
+                    .split(":")
+                    .map((s) => parseInt(s) || 0);
 
-                console.log("Payslip saved successfully:", response.data);
-                alert("Payslip created successfully!");
+                const period = hours >= 12 ? "PM" : "AM";
+                const hour12 = hours % 12 || 12;
 
-                this.closeCreatePayslip();
-                this.fetchPayslips();
+                return `${hour12}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")} ${period}`;
             } catch (error) {
-                console.error("Error saving payslip:", error);
-                alert("Failed to create payslip. Please try again.");
-            } finally {
-                this.saving = false;
+                console.error("Error formatting time:", error, isoDateTime);
+                return "--:--:--";
             }
         },
         viewPayslip(payslip) {
-            console.log("Viewing payslip:", payslip);
-            console.log("Deduction details:", payslip.deduction_details);
             this.viewingPayslip = payslip;
             this.showViewPayslip = true;
         },
@@ -1405,7 +1622,6 @@ export default {
         },
         editPayslip(payslip) {
             console.log("Edit payslip:", payslip);
-            // TODO: Implement edit functionality
         },
         async deletePayslip(payslip) {
             if (

@@ -993,6 +993,8 @@ Route::prefix('hr')->group(function () {
     Route::get('/payslips', [HrController::class, 'getPayslips']);
     Route::post('/payslips', [HrController::class, 'createPayslip']);
     Route::delete('/payslips/{id}', [HrController::class, 'deletePayslip']);
+
+    Route::get('/holidays', [HrController::class, 'getHolidays']);
 });
 
 Route::get('/schedule/month', [AttendanceController::class, 'month']);
