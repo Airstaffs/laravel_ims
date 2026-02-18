@@ -644,14 +644,131 @@ table tbody tr td {
     border-color: #198754;
 }
 
-/* Print styles */
+/* Print Styles */
 @media print {
+    /* Hide dialog header, footer, close button, and all buttons */
     .p-dialog-header,
-    .p-dialog-footer {
+    .p-dialog-footer,
+    .p-dialog-header-icons,
+    .p-dialog-header-icon,
+    .p-dialog-close-button,
+    button,
+    .btn {
         display: none !important;
     }
 
+    /* Specifically hide the X close button */
+    .p-dialog-header .p-dialog-header-icons {
+        display: none !important;
+    }
+
+    /* Remove dialog constraints */
+    .p-dialog {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    .p-dialog-content {
+        padding: 20px 40px !important;
+        max-height: none !important;
+        overflow: visible !important;
+        height: auto !important;
+    }
+
+    .p-dialog-mask {
+        position: static !important;
+        background: white !important;
+    }
+
+    /* Payslip view styles */
     .payslip-view {
-        padding: 10px;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+        height: auto !important;
+    }
+
+    .payslip-view .section {
+        page-break-inside: avoid;
+        border-bottom: 1px solid #dee2e6;
+        overflow: visible !important;
+    }
+
+    /* Remove all scrollbars */
+    * {
+        overflow: visible !important;
+        max-height: none !important;
+    }
+
+    ::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+    }
+
+    /* Hide scrollbars for all elements */
+    body,
+    html,
+    div {
+        overflow: visible !important;
+        -ms-overflow-style: none !important;
+        scrollbar-width: none !important;
+    }
+
+    /* Ensure proper page layout */
+    @page {
+        size: A4 portrait;
+        margin: 1cm;
+    }
+
+    /* Tables */
+    .payslip-view table {
+        page-break-inside: avoid;
+        width: 100% !important;
+    }
+
+    /* Ensure black text for print */
+    .payslip-view * {
+        color: #000 !important;
+    }
+
+    .payslip-view .section-title {
+        color: #000 !important;
+        font-weight: bold !important;
+    }
+
+    .payslip-view .table-light {
+        background-color: #f8f9fa !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .payslip-view .bg-dark {
+        background-color: #212529 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .payslip-view .text-white {
+        color: #fff !important;
+    }
+
+    /* NET SALARY section */
+    .payslip-view .bg-dark.text-white {
+        background-color: #212529 !important;
+        color: #ffffff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Force print color accuracy */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 }
