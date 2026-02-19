@@ -150,7 +150,35 @@ export default {
             }
         },
 
-        // ─── Chart builders ──────────────────────────────────────────────────
+        // ─── Chart Preferences ───────────────────────────────────────────────
+
+        async loadChartPreferences() {
+            try {
+                const saved = localStorage.getItem('inventory_chart_prefs');
+                if (saved) {
+                    const prefs = JSON.parse(saved);
+                    this.moduleChartType        = prefs.moduleChartType        || 'bar';
+                    this.soldChartType          = prefs.soldChartType          || 'bar';
+                    this.returnChartType        = prefs.returnChartType        || 'bar';
+                    this.asinBreakdownChartType = prefs.asinBreakdownChartType || 'bar';
+                }
+            } catch (e) {
+                // No saved prefs yet, use defaults
+            }
+        },
+
+        saveChartPreferences() {
+            try {
+                localStorage.setItem('inventory_chart_prefs', JSON.stringify({
+                    moduleChartType:        this.moduleChartType,
+                    soldChartType:          this.soldChartType,
+                    returnChartType:        this.returnChartType,
+                    asinBreakdownChartType: this.asinBreakdownChartType,
+                }));
+            } catch (e) {
+                console.warn('Could not save chart preferences', e);
+            }
+        },
 
         /**
          * Generic chart config factory
@@ -202,6 +230,7 @@ export default {
             this._destroyChart('moduleChart');
             const ctx = this.$refs.moduleChart?.getContext('2d');
             if (!ctx || !this.moduleData.length) return;
+            this.saveChartPreferences();
 
             const labels = this.moduleData.map(m => m.name);
             const data   = this.moduleData.map(m => m.count);
@@ -234,6 +263,7 @@ export default {
             this._destroyChart('asinBreakdownChart');
             const ctx = this.$refs.asinBreakdownChart?.getContext('2d');
             if (!ctx || !this.filteredModuleAsins.length) return;
+            this.saveChartPreferences();
 
             const top    = this.filteredModuleAsins.slice(0, 20);
             const labels = top.map(item => item.asin || 'UNLABELED');
@@ -426,6 +456,7 @@ export default {
     },
 
     mounted() {
+        this.loadChartPreferences();
         this.fetchStatistics();
     },
 
