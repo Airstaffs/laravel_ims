@@ -758,23 +758,16 @@ dispensedProduct, dpIndex
         </div>
 
         <!-- Pagination with centered layout -->
-        <div class="pagination-container">
-            <div class="pagination-wrapper">
-                <div class="per-page-selector">
-                    <span>Rows per page</span>
-                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPageOptions" size="small"
-                        optionLabel="label" optionValue="value" />
-                </div>
-
-                <div class="pagination">
-                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" size="small"
-                        label="Back" icon="pi pi-angle-left" severity="info" />
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
-                        size="small" label="Next" icon="pi pi-angle-right" severity="info" iconPos="right" />
-                </div>
-            </div>
-        </div>
+        <Paginator
+            :first="first"
+            :rows="perPage"
+            :total-records="totalRecords"
+            :rows-per-page-options="[10, 20, 50]"
+            template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+            class="small-paginator"
+            @page="onPageChange"
+        />
 
         <!-- Order Details Modal -->
         <div v-if="showOrderDetailsModal" class="order-details-modal">
@@ -1989,7 +1982,7 @@ dispensedProduct, dpIndex
 </template>
 
 <script>
-import { Badge, Button, Dialog, Divider, InputText, Menu, Message, Panel, ScrollTop, Select, Tag, Textarea, Tooltip } from "primevue";
+import { Badge, Button, Dialog, Divider, InputText, Menu, Message, Panel, ScrollTop, Select, Tag, Textarea, Tooltip, Paginator } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import fbmorder from "./fbmOrders.js";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
@@ -2106,7 +2099,8 @@ export default {
         Menu,
         TitlePage,
         Tag,
-        AnimateDiv
+        AnimateDiv,
+        Paginator
     },
     data() {
         return {

@@ -33,9 +33,6 @@ export default {
             apiBaseUrl: window.location.origin,
             orders: [],
             loading: true,
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 10,
             selectAll: false,
 
             // For sorting and filtering
@@ -184,6 +181,12 @@ export default {
 
             //scan serial or tracking
             scanMode: "serial",
+
+            //pagination
+            currentPage: 1,
+            totalPages: 1,
+            perPage: 10,
+            first: 0 //paginator internal state
         };
     },
     computed: {
@@ -2203,6 +2206,7 @@ export default {
 
         changeStatusFilter() {
             this.currentPage = 1;
+            this.first = 0
             this.clearAllSelections();
             this.fetchOrders();
         },
@@ -2210,6 +2214,7 @@ export default {
         // ✅ ADD THIS NEW METHOD
         changeOrderBy() {
             this.currentPage = 1;
+            this.first = 0
             this.clearAllSelections();
             this.fetchOrders();
         },
@@ -2277,18 +2282,18 @@ export default {
                         this.orders,
                     );
 
-                    this.totalPages = response.data.last_page || 1;
+                    this.totalRecords = response.data.total;
 
                     this.initializeDispenseItems();
                 } else {
                     console.error("Invalid response format:", response.data);
                     this.orders = [];
-                    this.totalPages = 1;
+                    this.totalRecords = 0;
                 }
             } catch (error) {
                 console.error("Error fetching orders:", error);
                 this.orders = [];
-                this.totalPages = 1;
+                this.totalRecords = 0;
             } finally {
                 this.loading = false;
             }
@@ -2316,6 +2321,7 @@ export default {
         changeStore() {
             this.currentPage = 1;
             this.clearAllSelections();
+            this.first = 0
             this.fetchOrders();
         },
 
@@ -2323,6 +2329,7 @@ export default {
         changeStatusFilter() {
             this.currentPage = 1;
             this.clearAllSelections();
+            this.first = 0
             this.fetchOrders();
         },
 
@@ -2332,25 +2339,13 @@ export default {
         },
 
         // Pagination methods
-        changePerPage() {
-            this.currentPage = 1;
+        onPageChange(event) {
+            this.first = event.first
+            this.currentPage = event.page + 1; // convert to 1-based
+            this.perPage     = event.rows;
             this.fetchOrders();
         },
-
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.fetchOrders();
-            }
-        },
-
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.fetchOrders();
-            }
-        },
-
+    
         // Toggle select all orders
         toggleAll() {
             const newValue = this.selectAll;
@@ -4550,6 +4545,7 @@ export default {
     watch: {
         searchQuery() {
             this.currentPage = 1;
+            this.first = 0
             this.fetchOrders();
         },
     },
