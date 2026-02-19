@@ -282,23 +282,16 @@
         </div>
 
         <!-- Pagination -->
-        <div class="pagination-container">
-            <div class="pagination-wrapper">
-                <div class="per-page-selector">
-                    <span>Rows per page</span>
-                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPageOptions" size="small"
-                        optionLabel="label" optionValue="value" />
-                </div>
-
-                <div class="pagination">
-                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" size="small"
-                        label="Back" icon="pi pi-angle-left" severity="info" />
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
-                        size="small" label="Next" icon="pi pi-angle-right" severity="info" iconPos="right" />
-                </div>
-            </div>
-        </div>
+        <Paginator
+            :first="first"
+            :rows="perPage"
+            :total-records="totalRecords"
+            :rows-per-page-options="[10, 20, 50]"
+            template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+            class="small-paginator"
+            @page="onPageChange"
+        />
 
         <!-- Details Modal -->
         <Dialog v-model:visible="showDetailsModal" modal header="Shipment Details"
@@ -459,7 +452,7 @@
 </template>
 
 <script>
-import { Badge, Button, Dialog, Divider, Menu, ScrollTop, Select, Tag } from "primevue";
+import { Badge, Button, Dialog, Divider, Menu, ScrollTop, Select, Tag, Paginator } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
@@ -507,7 +500,8 @@ export default {
         ScrollTop,
         Menu,
         TitlePage,
-        AnimateDiv
+        AnimateDiv,
+        Paginator
     },
     data() {
         return {

@@ -7,9 +7,6 @@ export default {
         return {
             shipments: [],
             loading: true,
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 10,
 
             // Filters
             selectedStore: "",
@@ -33,6 +30,12 @@ export default {
 
             // manual Deliver
             manualDeliverLoading: false,
+
+            //pagination
+            currentPage: 1,
+            totalRecords: 1,
+            perPage: 10,
+            first: 0 //paginator internal state
         };
     },
     computed: {
@@ -76,18 +79,18 @@ export default {
 
                 if (response.data && response.data.success) {
                     this.shipments = response.data.data || [];
-                    this.totalPages = response.data.last_page || 1;
+                    this.totalRecords = response.data.total || 1;
 
                     console.log("Shipments loaded:", this.shipments.length);
                 } else {
                     console.error("Invalid response format:", response.data);
                     this.shipments = [];
-                    this.totalPages = 1;
+                    this.totalRecords = 1;
                 }
             } catch (error) {
                 console.error("Error fetching shipments:", error);
                 this.shipments = [];
-                this.totalPages = 1;
+                this.totalRecords = 1;
             } finally {
                 this.loading = false;
             }
@@ -203,32 +206,11 @@ export default {
             ]);
         },
 
-        /**
-         * Pagination: Change per page
-         */
-        changePerPage() {
-            this.currentPage = 1;
-            this.fetchShipments();
-        },
-
-        /**
-         * Pagination: Previous page
-         */
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.fetchShipments();
-            }
-        },
-
-        /**
-         * Pagination: Next page
-         */
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.fetchShipments();
-            }
+        onPageChange(event) {
+            this.first = event.first
+            this.currentPage = event.page + 1; // convert to 1-based
+            this.perPage     = event.rows;
+            this.fetchInventory();
         },
 
         /**
@@ -367,6 +349,7 @@ export default {
     watch: {
         searchQuery() {
             this.currentPage = 1;
+            this.first = 0;
             this.fetchShipments();
         },
     },

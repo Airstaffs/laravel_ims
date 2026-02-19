@@ -599,25 +599,29 @@
                                 :class="{ 'preview-active': isCapturedPreviewActive }"
                                 v-show="capturedImageList.length"
                             >
-                                <div class="hover-overlay" @click="closeCapturedPreview"></div>
                                 
-                                <div class="main-image" @click="toggleCapturedPreview">
+                                <div class="main-image" @click="handleOpenZoomImage('captured')">
                                     <img
                                         :src="activeCapturedImageUrl"
                                         alt="Main Product Image"
                                         loading="lazy"
                                         @error="onImageErrorMain"
                                     />
+
+                                       <div class="zoom-indicator">
+                                            <i class="pi pi-search-plus"></i>
+                                            <span>Click to zoom</span>
+                                        </div>
                                 </div>
 
-                                <div class="captured-hover-preview">
+                                <!-- <div class="captured-hover-preview">
                                     <img
                                         :src="activeCapturedImageUrl"
                                         alt="Main Product Image"
                                         loading="lazy"
                                         @error="onImageErrorMain"
                                     />
-                                </div>
+                                </div> -->
 
                                 <div class="thumbnail-carousel">
                                     <div
@@ -665,7 +669,7 @@
                             >
                                 <div class="hover-overlay" @click="closePreview"></div>
                                 
-                                <div class="main-image" @click="togglePreview">
+                                <div class="main-image" @click="handleOpenZoomImage('asin')">
                                     <img
                                         :src="activeAsinImageUrl"
                                         alt="Main ASIN Image"
@@ -673,7 +677,7 @@
                                         @error="handleImageError"
                                     />
                                 </div>
-
+<!-- 
                                 <div class="asin-hover-preview">
                                     <img
                                         :src="activeAsinImageUrl"
@@ -681,7 +685,7 @@
                                         loading="lazy"
                                         @error="handleImageError"
                                     />
-                                </div>
+                                </div> -->
                             </div>
                             <p>
                                 <label>
@@ -1028,6 +1032,8 @@
             </div>
         </div>
         <!-- End of Validation Confirmation Modal -->
+
+        <ZoomImageModal v-model:visible="showZoomImageModal" :images="imageListToZoom" :initialIndex="initImageIndex" :title="imageTitleToZoom"/>
         <ScrollTop />
     </div>
 </template>
@@ -1057,6 +1063,7 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
+import ZoomImageModal from "../../components/ZoomImageModal/ZoomImageModal.vue";
 // export default Validation;
 
 const TABLE_COLUMNS = [
@@ -1139,7 +1146,8 @@ export default {
         TabPanel,
         TabPanels,
         Galleria,
-        Paginator
+        Paginator,
+        ZoomImageModal
     },
     data() {
         return {
@@ -1147,8 +1155,10 @@ export default {
             rowsPerPage: ROWS_PER_PAGE,
             currentTimezone: "UTC",
             timezoneLabel: "Loading...",
-            isPreviewActive: false, // for ASIN image
-            isCapturedPreviewActive: false, // for captured images
+            showZoomImageModal: false,
+            imageListToZoom: [],
+            initImageIndex: 0,
+            imageTitleToZoom: ""
         };
     },
     async mounted() {
@@ -1161,9 +1171,6 @@ export default {
                 this.isPreviewActive = !this.isPreviewActive;
             }
         },
-        closePreview() {
-            this.isPreviewActive = false;
-        },
         
         // For captured images
         toggleCapturedPreview() {
@@ -1171,9 +1178,16 @@ export default {
                 this.isCapturedPreviewActive = !this.isCapturedPreviewActive;
             }
         },
-        closeCapturedPreview() {
-            this.isCapturedPreviewActive = false;
+
+        handleOpenZoomImage(type) {
+            this.showZoomImageModal = true
+            this.imageListToZoom = type === 'captured' ? this.capturedImageList : [this.asinImageList[0]]
+            this.initImageIndex = type === 'captured' ? this.activeCapturedIndex : this.activeAsinIndex
+            this.imageTitleToZoom = type === 'captured' ? this.item.ProductTitle : this.getDisplayTitle(this.item)
+
+            console.log([this.asinImageList[0]])
         },
+
         convertToLocalDate(dateString) {
             if (!dateString) return "";
 

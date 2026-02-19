@@ -1033,17 +1033,22 @@
                             v-if="allProductImages.length"
                             class="image-display"
                         >
-                            <div class="hover-image-container">
+                            <div class="hover-image-container" @click="handleOpenZoomModal">
                                 <img
                                     :src="selectedImage || mainImage"
                                     alt="Main Image"
                                     class="preview-image"
                                 />
-                                <div class="hover-preview">
+                                <!-- <div class="hover-preview">
                                     <img
                                         :src="selectedImage || mainImage"
                                         alt="Zoomed Preview"
                                     />
+                                </div> -->
+
+                                 <div class="zoom-indicator">
+                                    <i class="pi pi-search-plus"></i>
+                                    <span>Click to zoom</span>
                                 </div>
                             </div>
 
@@ -1057,7 +1062,7 @@
                                     :class="{
                                         active: selectedImage === img,
                                     }"
-                                    @click="selectedImage = img"
+                                    @click="selectProductImageToView(img, index)"
                                 />
                             </div>
                         </div>
@@ -1568,6 +1573,8 @@
                 >
             </template>
         </Dialog>
+
+        <ZoomImageModal v-model:visible="openZoomModal" :images="allProductImages" :initialIndex="activeIndex" :title=" getDisplayTitle(currentItem)"/>
         <ScrollTop />
     </div>
 </template>
@@ -1596,6 +1603,7 @@ import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 import { showPricingForPH } from "../../utils/helpers.js";
 import ProductImageGallery from "../../components/ProductImageGallery/ProductImageGallery.vue";
+import ZoomImageModal from "../../components/ZoomImageModal/ZoomImageModal.vue";
 
 const TABLE_COLUMNS = [
     // {
@@ -1729,7 +1737,8 @@ export default {
         AnimateDiv,
         Tag,
         ProductImageGallery,
-        Paginator
+        Paginator,
+        ZoomImageModal
     },
     data() {
         return {
@@ -1752,6 +1761,9 @@ export default {
             showStickyTitle: false,
             isMobile: false,
             dialogContent: null,
+
+            openZoomModal: false,
+            activeIndex: 0
         };
     },
     async mounted() {
@@ -1763,6 +1775,13 @@ export default {
         window.addEventListener("resize", this.checkMobile);
     },
     methods: {
+        selectProductImageToView(img, index) {
+            this.selectedImage = img
+            this.activeIndex = index
+        },
+        handleOpenZoomModal() {
+                        this.openZoomModal = true
+        },
         refreshProductData(updatedProduct) {
             console.log("🔄 Images updated, refreshing parent data");
 
