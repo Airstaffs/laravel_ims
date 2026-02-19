@@ -3,501 +3,473 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class InventoryStatisticsController extends BasetablesController
 {
+    private const ORDERS_RECEIVED = ['Orders', 'Received'];
+
+    private const LABELING_ONWARDS = [
+        'Labeling', 'Testing', 'Cleaning', 'Packing',
+        'Validation', 'Production Area', 'Stockroom', 'Shipment',
+        'Returnlist', 'Soldlist'
+    ];
+
+    private const ALL_MODULES = [
+        'Orders', 'Received', 'Labeling', 'Testing', 'Cleaning',
+        'Packing', 'Validation', 'Production Area', 'Stockroom',
+        'Shipment', 'Returnlist', 'Soldlist',
+    ];
+
     /**
      * Extract base FNSKU from prefixed FNSKU (e.g., C12X001ABC123 -> X001ABC123)
      */
     private function extractBaseFnsku($fnsku)
     {
-        if (empty($fnsku)) {
-            return $fnsku;
-        }
-
-        // Check if it starts with C followed by digits
+        if (empty($fnsku)) return $fnsku;
         if (preg_match('/^C\d+([A-Z].+)$/', $fnsku, $matches)) {
-            return $matches[1]; // Return the part after C and digits
+            return $matches[1];
         }
-
-        return $fnsku; // Return as-is if not prefixed
+        return $fnsku;
     }
 
     /**
-     * Get comprehensive inventory statistics
+     * Batch-load FNSKU->ASIN map for given FNSKUviewer values
+     * Returns: ['baseFnsku' => 'ASIN', ...]
+     */
+    private function buildFnskuAsinMap(array $rawFnskus): array
+    {
+        $baseToRaw = [];
+        foreach ($rawFnskus as $raw) {
+            if (empty($raw)) continue;
+            $base = $this->extractBaseFnsku($raw);
+            if (!empty($base)) {
+                $baseToRaw[$base] = $raw;
+            }
+        }
+
+        if (empty($baseToRaw)) return [];
+
+        $baseFnskus = array_keys($baseToRaw);
+        $rows = DB::table($this->fnskuTable)
+            ->whereIn('FNSKU', $baseFnskus)
+            ->whereNotNull('ASIN')
+            ->where('ASIN', '!=', '')
+            ->pluck('ASIN', 'FNSKU'); // ['fnsku' => 'asin']
+
+        // Map raw FNSKU -> ASIN (via base)
+        $map = [];
+        foreach ($baseToRaw as $base => $raw) {
+            $map[$raw] = $rows[$base] ?? null;
+        }
+
+        return $map; // null value means no ASIN found
+    }
+
+    /**
+     * Batch-load ASIN->title map
+     * Returns: ['ASIN' => 'title', ...]
+     */
+    private function buildAsinTitleMap(array $asins): array
+    {
+        if (empty($asins)) return [];
+
+        return DB::table($this->asinTable)
+            ->whereIn('ASIN', $asins)
+            ->get(['ASIN', 'system_title', 'internal'])
+            ->mapWithKeys(function ($row) {
+                $title = trim($row->system_title ?? '') ?: trim($row->internal ?? '') ?: 'No Title';
+                return [$row->ASIN => $title];
+            })
+            ->toArray();
+    }
+
+    /**
+     * GET /api/inventory-statistics/summary
      */
     public function getSummary(Request $request)
     {
         try {
-            Log::info('Fetching inventory statistics summary');
+            $cacheKey = 'inventory_statistics_summary_v2';
 
-            // Define all modules to track
-            $modules = [
-                'Orders',
-                'Received',
-                'Labeling',
-                'Testing',
-                'Cleaning',
-                'Packing',
-                'Validation',
-                'Production Area',
-                'Stockroom',
-                'Shipment',
-                'Returnlist',
-                'Soldlist',
-            ];
+            $result = Cache::remember($cacheKey, now()->addMinutes(5), function () {
+                return $this->buildSummary();
+            });
 
-            // Get module distribution with quantities
-            $moduleDistribution = DB::table($this->productTable . ' as prod')
-                ->select([
-                    'prod.ProductModuleLoc as name',
-                    DB::raw('COUNT(*) as count'),
-                    DB::raw('SUM(COALESCE(prod.quantity, 1)) as total_quantity')
-                ])
-                ->whereIn('prod.ProductModuleLoc', $modules)
-                ->groupBy('prod.ProductModuleLoc')
-                ->orderByDesc('count')
-                ->get();
-
-            // Calculate summary statistics
-            $totalItems = $moduleDistribution->sum('count');
-            $totalQuantity = $moduleDistribution->sum('total_quantity');
-
-            // Get unique ASINs count
-            // For Orders & Received: use ASINviewer directly
-            $ordersReceivedAsins = DB::table($this->productTable)
-                ->whereIn('ProductModuleLoc', ['Orders', 'Received'])
-                ->whereNotNull('ASINviewer')
-                ->where('ASINviewer', '!=', '')
-                ->distinct()
-                ->pluck('ASINviewer');
-
-            // For Labeling onwards: use FNSKUviewer -> manually extract base -> join with fnsku table
-            $labelingOnwardsProducts = DB::table($this->productTable)
-                ->select('FNSKUviewer')
-                ->whereIn('ProductModuleLoc', [
-                    'Labeling', 'Testing', 'Cleaning', 'Packing',
-                    'Validation', 'Production Area', 'Stockroom', 'Shipment',
-                    'Returnlist', 'Soldlist'
-                ])
-                ->whereNotNull('FNSKUviewer')
-                ->where('FNSKUviewer', '!=', '')
-                ->distinct()
-                ->get();
-
-            // Extract base FNSKUs and get their ASINs
-            $baseFnskus = [];
-            foreach ($labelingOnwardsProducts as $product) {
-                $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-                if (!empty($baseFnsku)) {
-                    $baseFnskus[] = $baseFnsku;
-                }
-            }
-            $baseFnskus = array_unique($baseFnskus);
-
-            $labelingOnwardsAsins = collect([]);
-            if (!empty($baseFnskus)) {
-                $labelingOnwardsAsins = DB::table($this->fnskuTable)
-                    ->whereIn('FNSKU', $baseFnskus)
-                    ->whereNotNull('ASIN')
-                    ->where('ASIN', '!=', '')
-                    ->distinct()
-                    ->pluck('ASIN');
-            }
-
-            $allAsins = $ordersReceivedAsins->merge($labelingOnwardsAsins)->unique();
-            $uniqueAsins = $allAsins->count();
-
-            // Count unlabeled items (no ASIN)
-            $unlabeledOrdersReceived = DB::table($this->productTable)
-                ->whereIn('ProductModuleLoc', ['Orders', 'Received'])
-                ->where(function ($q) {
-                    $q->whereNull('ASINviewer')
-                      ->orWhere('ASINviewer', '');
-                })
-                ->count();
-
-            // For labeling onwards, count items where base FNSKU has no ASIN
-            $labelingOnwardsAllProducts = DB::table($this->productTable)
-                ->select('FNSKUviewer')
-                ->whereIn('ProductModuleLoc', [
-                    'Labeling', 'Testing', 'Cleaning', 'Packing',
-                    'Validation', 'Production Area', 'Stockroom', 'Shipment',
-                    'Returnlist', 'Soldlist'
-                ])
-                ->get();
-
-            $unlabeledOthers = 0;
-            foreach ($labelingOnwardsAllProducts as $product) {
-                if (empty($product->FNSKUviewer)) {
-                    $unlabeledOthers++;
-                    continue;
-                }
-
-                $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-                $asinRecord = DB::table($this->fnskuTable)
-                    ->where('FNSKU', $baseFnsku)
-                    ->first();
-
-                if (!$asinRecord || empty($asinRecord->ASIN)) {
-                    $unlabeledOthers++;
-                }
-            }
-
-            $unlabeledItems = $unlabeledOrdersReceived + $unlabeledOthers;
-
-            // Get ASIN details grouped by ASIN
-            $asinDetails = $this->getAsinDetailsGrouped($modules);
-
-            // Get top sold items
-            $soldItems = $this->getTopItemsByModule('Soldlist', 10);
-
-            // Get top returned items
-            $returnItems = $this->getTopItemsByModule('Returnlist', 10);
-
-            Log::info('Statistics summary compiled', [
-                'total_items' => $totalItems,
-                'unique_asins' => $uniqueAsins,
-                'unlabeled_items' => $unlabeledItems,
-            ]);
-
-            return response()->json([
-                'summary' => [
-                    'total_items' => (int) $totalItems,
-                    'unique_asins' => (int) $uniqueAsins,
-                    'unlabeled_items' => (int) $unlabeledItems,
-                    'total_quantity' => (int) $totalQuantity,
-                ],
-                'module_distribution' => $moduleDistribution,
-                'asin_details' => $asinDetails,
-                'sold_items' => $soldItems,
-                'return_items' => $returnItems,
-            ]);
+            return response()->json($result);
 
         } catch (\Exception $e) {
-            Log::error('Error in InventoryStatisticsController@getSummary', [
+            Log::error('InventoryStatisticsController@getSummary', [
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'line' => $e->getLine(),
+                'line'    => $e->getLine(),
+                'trace'   => $e->getTraceAsString(),
             ]);
 
             return response()->json([
-                'error' => 'An error occurred while fetching statistics',
+                'error'   => 'An error occurred while fetching statistics',
                 'message' => $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Get ASIN details with module distribution (internal helper)
+     * Build the full summary payload (called inside cache closure)
      */
-    private function getAsinDetailsGrouped($modules)
+    private function buildSummary(): array
     {
-        // Get Orders & Received data with ASINviewer
-        $ordersReceivedData = DB::table($this->productTable . ' as prod')
-            ->leftJoin($this->asinTable . ' as asin', 'prod.ASINviewer', '=', 'asin.ASIN')
+        // ── 1. Module distribution (single query) ────────────────────────────
+        $moduleDistribution = DB::table($this->productTable)
             ->select([
-                DB::raw('COALESCE(prod.ASINviewer, "UNLABELED") as asin'),
+                'ProductModuleLoc as name',
+                DB::raw('COUNT(*) as count'),
+                DB::raw('SUM(COALESCE(quantity, 1)) as total_quantity'),
+            ])
+            ->whereIn('ProductModuleLoc', self::ALL_MODULES)
+            ->groupBy('ProductModuleLoc')
+            ->orderByDesc('count')
+            ->get();
+
+        $totalItems    = $moduleDistribution->sum('count');
+        $totalQuantity = $moduleDistribution->sum('total_quantity');
+
+        // ── 2. Unique ASINs (batch, no loops) ────────────────────────────────
+        // Orders & Received → ASINviewer
+        $ordersReceivedAsins = DB::table($this->productTable)
+            ->whereIn('ProductModuleLoc', self::ORDERS_RECEIVED)
+            ->whereNotNull('ASINviewer')
+            ->where('ASINviewer', '!=', '')
+            ->distinct()
+            ->pluck('ASINviewer');
+
+        // Labeling onwards → FNSKUviewer batch resolve
+        $rawFnskus = DB::table($this->productTable)
+            ->whereIn('ProductModuleLoc', self::LABELING_ONWARDS)
+            ->whereNotNull('FNSKUviewer')
+            ->where('FNSKUviewer', '!=', '')
+            ->distinct()
+            ->pluck('FNSKUviewer')
+            ->toArray();
+
+        $fnskuAsinMap = $this->buildFnskuAsinMap($rawFnskus);
+        $labelingAsins = collect(array_values($fnskuAsinMap))->filter()->unique();
+
+        $uniqueAsins = $ordersReceivedAsins->merge($labelingAsins)->unique()->count();
+
+        // ── 3. Unlabeled count ────────────────────────────────────────────────
+        $unlabeledOrdersReceived = DB::table($this->productTable)
+            ->whereIn('ProductModuleLoc', self::ORDERS_RECEIVED)
+            ->where(function ($q) {
+                $q->whereNull('ASINviewer')->orWhere('ASINviewer', '');
+            })
+            ->count();
+
+        // Labeling onwards unlabeled: FNSKUviewer is empty OR maps to no ASIN
+        $allLabelingFnskus = DB::table($this->productTable)
+            ->whereIn('ProductModuleLoc', self::LABELING_ONWARDS)
+            ->pluck('FNSKUviewer');
+
+        $labelingFnskuAsinMap = $this->buildFnskuAsinMap(
+            $allLabelingFnskus->filter()->unique()->toArray()
+        );
+
+        $unlabeledOthers = $allLabelingFnskus->filter(function ($raw) use ($labelingFnskuAsinMap) {
+            if (empty($raw)) return true;
+            return empty($labelingFnskuAsinMap[$raw] ?? null);
+        })->count();
+
+        $unlabeledItems = $unlabeledOrdersReceived + $unlabeledOthers;
+
+        // ── 4. ASIN details grouped ───────────────────────────────────────────
+        $asinDetails = $this->getAsinDetailsGrouped($labelingFnskuAsinMap);
+
+        // ── 5. Top sold / returned ────────────────────────────────────────────
+        $soldItems   = $this->getTopItemsByModule('Soldlist', 10);
+        $returnItems = $this->getTopItemsByModule('Returnlist', 10);
+
+        return [
+            'summary' => [
+                'total_items'      => (int) $totalItems,
+                'unique_asins'     => (int) $uniqueAsins,
+                'unlabeled_items'  => (int) $unlabeledItems,
+                'total_quantity'   => (int) $totalQuantity,
+            ],
+            'module_distribution' => $moduleDistribution,
+            'asin_details'        => $asinDetails,
+            'sold_items'          => $soldItems,
+            'return_items'        => $returnItems,
+        ];
+    }
+
+    /**
+     * Build ASIN details grouped by ASIN with module distribution.
+     * Accepts a pre-built $fnskuAsinMap to avoid re-querying.
+     */
+    private function getAsinDetailsGrouped(array $fnskuAsinMapForLabeling = []): array
+    {
+        // ── Orders & Received (SQL-level join) ────────────────────────────────
+        $ordersData = DB::table($this->productTable . ' as prod')
+            ->leftJoin($this->asinTable . ' as a', 'prod.ASINviewer', '=', 'a.ASIN')
+            ->select([
+                DB::raw('COALESCE(NULLIF(prod.ASINviewer,""), "UNLABELED") as asin'),
                 DB::raw('COALESCE(
-                    NULLIF(TRIM(asin.system_title), ""), 
-                    NULLIF(TRIM(asin.internal), ""),
-                    NULLIF(TRIM(prod.ProductTitle), ""),
+                    NULLIF(TRIM(a.system_title),""),
+                    NULLIF(TRIM(a.internal),""),
+                    NULLIF(TRIM(prod.ProductTitle),""),
                     "No Title"
                 ) as title'),
                 'prod.ProductModuleLoc as module',
                 DB::raw('COUNT(*) as count'),
-                DB::raw('SUM(COALESCE(prod.quantity, 1)) as quantity')
+                DB::raw('SUM(COALESCE(prod.quantity,1)) as quantity'),
             ])
-            ->whereIn('prod.ProductModuleLoc', ['Orders', 'Received'])
-            ->groupBy('prod.ASINviewer', 'asin.system_title', 'asin.internal', 'prod.ProductTitle', 'prod.ProductModuleLoc')
+            ->whereIn('prod.ProductModuleLoc', self::ORDERS_RECEIVED)
+            ->groupBy('prod.ASINviewer', 'a.system_title', 'a.internal', 'prod.ProductTitle', 'prod.ProductModuleLoc')
             ->get();
 
-        // Get Labeling onwards data - process manually
-        $labelingOnwardsProducts = DB::table($this->productTable)
-            ->select([
-                'FNSKUviewer',
-                'ProductTitle',
-                'ProductModuleLoc',
-                'quantity'
-            ])
-            ->whereIn('ProductModuleLoc', [
-                'Labeling', 'Testing', 'Cleaning', 'Packing',
-                'Validation', 'Production Area', 'Stockroom', 'Shipment',
-                'Returnlist', 'Soldlist'
-            ])
+        // ── Labeling onwards (batch-resolved, no per-row queries) ─────────────
+        $labelingProducts = DB::table($this->productTable)
+            ->select(['FNSKUviewer', 'ProductTitle', 'ProductModuleLoc', 'quantity'])
+            ->whereIn('ProductModuleLoc', self::LABELING_ONWARDS)
             ->get();
 
-        // Group by base FNSKU and get ASIN
-        $labelingGrouped = [];
-        foreach ($labelingOnwardsProducts as $product) {
-            $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-            
-            if (empty($baseFnsku)) {
-                $asin = 'UNLABELED';
-                $title = $product->ProductTitle ?: 'No Title';
-            } else {
-                $fnskuRecord = DB::table($this->fnskuTable)->where('FNSKU', $baseFnsku)->first();
-                $asin = $fnskuRecord->ASIN ?? 'UNLABELED';
-                
-                if ($asin !== 'UNLABELED') {
-                    $asinRecord = DB::table($this->asinTable)->where('ASIN', $asin)->first();
-                    $title = $asinRecord->system_title ?? $asinRecord->internal ?? $product->ProductTitle ?? 'No Title';
-                } else {
-                    $title = $product->ProductTitle ?: 'No Title';
-                }
-            }
-
-            $key = $asin . '|' . $product->ProductModuleLoc;
-            if (!isset($labelingGrouped[$key])) {
-                $labelingGrouped[$key] = (object) [
-                    'asin' => $asin,
-                    'title' => $title,
-                    'module' => $product->ProductModuleLoc,
-                    'count' => 0,
-                    'quantity' => 0
-                ];
-            }
-
-            $labelingGrouped[$key]->count++;
-            $labelingGrouped[$key]->quantity += ($product->quantity ?? 1);
+        // Build ASIN map if not provided
+        if (empty($fnskuAsinMapForLabeling)) {
+            $rawFnskus = $labelingProducts->pluck('FNSKUviewer')->filter()->unique()->toArray();
+            $fnskuAsinMapForLabeling = $this->buildFnskuAsinMap($rawFnskus);
         }
 
-        $labelingOnwardsData = collect(array_values($labelingGrouped));
+        // Get all unique ASINs to batch-load titles
+        $asinIds = collect(array_values($fnskuAsinMapForLabeling))->filter()->unique()->toArray();
+        $asinTitleMap = $this->buildAsinTitleMap($asinIds);
 
-        // Merge all data
-        $allData = $ordersReceivedData->merge($labelingOnwardsData);
+        // Group labeling products
+        $labelingGrouped = [];
+        foreach ($labelingProducts as $p) {
+            $asin = $fnskuAsinMapForLabeling[$p->FNSKUviewer] ?? null;
 
-        // Group by ASIN
-        $asinGroups = [];
-        foreach ($allData as $row) {
-            $asin = $row->asin;
-            
-            if (!isset($asinGroups[$asin])) {
-                $asinGroups[$asin] = [
-                    'asin' => $asin === 'UNLABELED' ? null : $asin,
-                    'title' => $row->title,
-                    'total_items' => 0,
-                    'total_quantity' => 0,
-                    'modules' => [],
-                ];
+            if ($asin) {
+                $title = $asinTitleMap[$asin] ?? ($p->ProductTitle ?: 'No Title');
+            } else {
+                $asin  = 'UNLABELED';
+                $title = $p->ProductTitle ?: 'No Title';
             }
 
-            $asinGroups[$asin]['total_items'] += $row->count;
+            $key = $asin . '|' . $p->ProductModuleLoc;
+            if (!isset($labelingGrouped[$key])) {
+                $labelingGrouped[$key] = (object)[
+                    'asin'     => $asin,
+                    'title'    => $title,
+                    'module'   => $p->ProductModuleLoc,
+                    'count'    => 0,
+                    'quantity' => 0,
+                ];
+            }
+            $labelingGrouped[$key]->count++;
+            $labelingGrouped[$key]->quantity += ($p->quantity ?? 1);
+        }
+
+        // ── Merge & group by ASIN ─────────────────────────────────────────────
+        $allData    = $ordersData->merge(collect(array_values($labelingGrouped)));
+        $asinGroups = [];
+
+        foreach ($allData as $row) {
+            $asin = $row->asin;
+            if (!isset($asinGroups[$asin])) {
+                $asinGroups[$asin] = [
+                    'asin'           => $asin === 'UNLABELED' ? null : $asin,
+                    'title'          => $row->title,
+                    'total_items'    => 0,
+                    'total_quantity' => 0,
+                    'modules'        => [],
+                ];
+            }
+            $asinGroups[$asin]['total_items']    += $row->count;
             $asinGroups[$asin]['total_quantity'] += $row->quantity;
             $asinGroups[$asin]['modules'][$row->module] = (int) $row->count;
         }
 
-        // Sort by total_items descending
-        $asinDetails = array_values($asinGroups);
-        usort($asinDetails, function ($a, $b) {
-            return $b['total_items'] - $a['total_items'];
-        });
+        $result = array_values($asinGroups);
+        usort($result, fn($a, $b) => $b['total_items'] - $a['total_items']);
 
-        return $asinDetails;
+        return $result;
     }
 
     /**
-     * Get top items by module (for Soldlist and Returnlist)
+     * Get top N items by module grouped by ASIN
      */
-    private function getTopItemsByModule($module, $limit = 10)
+    private function getTopItemsByModule(string $module, int $limit = 10)
     {
-        if (in_array($module, ['Orders', 'Received'])) {
-            // For Orders & Received, use ASINviewer
-            $items = DB::table($this->productTable . ' as prod')
-                ->leftJoin($this->asinTable . ' as asin', 'prod.ASINviewer', '=', 'asin.ASIN')
+        if (in_array($module, self::ORDERS_RECEIVED)) {
+            return DB::table($this->productTable . ' as prod')
+                ->leftJoin($this->asinTable . ' as a', 'prod.ASINviewer', '=', 'a.ASIN')
                 ->select([
-                    DB::raw('COALESCE(prod.ASINviewer, "UNLABELED") as asin'),
+                    DB::raw('COALESCE(NULLIF(prod.ASINviewer,""), "UNLABELED") as asin'),
                     DB::raw('COALESCE(
-                        NULLIF(TRIM(asin.system_title), ""), 
-                        NULLIF(TRIM(asin.internal), ""),
+                        NULLIF(TRIM(a.system_title),""),
+                        NULLIF(TRIM(a.internal),""),
                         "No Title"
                     ) as title'),
-                    DB::raw('COUNT(*) as count')
+                    DB::raw('COUNT(*) as count'),
                 ])
                 ->where('prod.ProductModuleLoc', $module)
-                ->groupBy('prod.ASINviewer', 'asin.system_title', 'asin.internal')
+                ->groupBy('prod.ASINviewer', 'a.system_title', 'a.internal')
                 ->orderByDesc('count')
                 ->limit($limit)
-                ->get();
-
-            return $items->map(function ($item) {
-                return [
-                    'asin' => $item->asin === 'UNLABELED' ? null : $item->asin,
+                ->get()
+                ->map(fn($item) => [
+                    'asin'  => $item->asin === 'UNLABELED' ? null : $item->asin,
                     'title' => $item->title,
                     'count' => (int) $item->count,
-                ];
-            });
-        } else {
-            // For Labeling onwards, manually process FNSKUs
-            $products = DB::table($this->productTable)
-                ->select('FNSKUviewer', 'ProductTitle')
-                ->where('ProductModuleLoc', $module)
-                ->get();
+                ]);
+        }
 
-            $asinCounts = [];
-            foreach ($products as $product) {
-                $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-                
-                if (empty($baseFnsku)) {
-                    $asin = 'UNLABELED';
-                    $title = 'No Title';
-                } else {
-                    $fnskuRecord = DB::table($this->fnskuTable)->where('FNSKU', $baseFnsku)->first();
-                    $asin = $fnskuRecord->ASIN ?? 'UNLABELED';
-                    
-                    if ($asin !== 'UNLABELED') {
-                        $asinRecord = DB::table($this->asinTable)->where('ASIN', $asin)->first();
-                        $title = $asinRecord->system_title ?? $asinRecord->internal ?? 'No Title';
-                    } else {
-                        $title = 'No Title';
-                    }
-                }
+        // Labeling onwards — batch load
+        $products = DB::table($this->productTable)
+            ->select(['FNSKUviewer', 'ProductTitle'])
+            ->where('ProductModuleLoc', $module)
+            ->get();
 
-                if (!isset($asinCounts[$asin])) {
-                    $asinCounts[$asin] = [
-                        'asin' => $asin === 'UNLABELED' ? null : $asin,
-                        'title' => $title,
-                        'count' => 0
-                    ];
-                }
-                $asinCounts[$asin]['count']++;
+        $rawFnskus    = $products->pluck('FNSKUviewer')->filter()->unique()->toArray();
+        $fnskuAsinMap = $this->buildFnskuAsinMap($rawFnskus);
+
+        $asinIds      = collect(array_values($fnskuAsinMap))->filter()->unique()->toArray();
+        $asinTitleMap = $this->buildAsinTitleMap($asinIds);
+
+        $counts = [];
+        foreach ($products as $p) {
+            $asin = $fnskuAsinMap[$p->FNSKUviewer] ?? null;
+
+            if ($asin) {
+                $title = $asinTitleMap[$asin] ?? 'No Title';
+            } else {
+                $asin  = 'UNLABELED';
+                $title = 'No Title';
             }
 
-            // Sort and limit
-            $asinCounts = collect(array_values($asinCounts))
-                ->sortByDesc('count')
-                ->take($limit)
-                ->values();
-
-            return $asinCounts;
+            if (!isset($counts[$asin])) {
+                $counts[$asin] = ['asin' => $asin === 'UNLABELED' ? null : $asin, 'title' => $title, 'count' => 0];
+            }
+            $counts[$asin]['count']++;
         }
+
+        return collect(array_values($counts))
+            ->sortByDesc('count')
+            ->take($limit)
+            ->values();
     }
 
     /**
-     * Get detailed items for a specific ASIN
+     * GET /api/inventory-statistics/asin-details?asin=XXXXX
      */
     public function getAsinDetails(Request $request)
     {
         try {
             $asin = $request->input('asin');
+            $isUnlabeled = ($asin === 'UNLABELED' || empty($asin));
 
             Log::info('Fetching ASIN details', ['asin' => $asin]);
 
-            if ($asin === 'UNLABELED' || empty($asin)) {
-                // Get unlabeled items from Orders & Received
-                $ordersReceivedItems = DB::table($this->productTable)
-                    ->select([
-                        'ProductID',
-                        'rtcounter',
-                        'ProductTitle',
-                        'ProductModuleLoc',
-                        'quantity',
-                        'serialnumber',
-                        'warehouselocation'
-                    ])
-                    ->whereIn('ProductModuleLoc', ['Orders', 'Received'])
-                    ->where(function ($q) {
-                        $q->whereNull('ASINviewer')
-                          ->orWhere('ASINviewer', '');
-                    })
+            $selectFields = [
+                'ProductID', 'rtcounter', 'ProductTitle',
+                'ProductModuleLoc', 'quantity', 'serialnumber', 'warehouselocation',
+            ];
+
+            if ($isUnlabeled) {
+                // Orders & Received with no ASINviewer
+                $ordersItems = DB::table($this->productTable)
+                    ->select($selectFields)
+                    ->whereIn('ProductModuleLoc', self::ORDERS_RECEIVED)
+                    ->where(fn($q) => $q->whereNull('ASINviewer')->orWhere('ASINviewer', ''))
                     ->get();
 
-                // Get unlabeled items from other modules
+                // Labeling onwards — batch resolve, filter unlabeled
                 $otherProducts = DB::table($this->productTable)
-                    ->select([
-                        'ProductID',
-                        'rtcounter',
-                        'ProductTitle',
-                        'ProductModuleLoc',
-                        'quantity',
-                        'serialnumber',
-                        'warehouselocation',
-                        'FNSKUviewer'
-                    ])
-                    ->whereNotIn('ProductModuleLoc', ['Orders', 'Received'])
+                    ->select(array_merge($selectFields, ['FNSKUviewer']))
+                    ->whereIn('ProductModuleLoc', self::LABELING_ONWARDS)
                     ->get();
 
-                $otherItems = collect([]);
-                foreach ($otherProducts as $product) {
-                    $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-                    
-                    if (empty($baseFnsku)) {
-                        $otherItems->push($product);
-                        continue;
-                    }
+                $rawFnskus    = $otherProducts->pluck('FNSKUviewer')->filter()->unique()->toArray();
+                $fnskuAsinMap = $this->buildFnskuAsinMap($rawFnskus);
 
-                    $fnskuRecord = DB::table($this->fnskuTable)->where('FNSKU', $baseFnsku)->first();
-                    if (!$fnskuRecord || empty($fnskuRecord->ASIN)) {
-                        $otherItems->push($product);
-                    }
-                }
+                $otherItems = $otherProducts->filter(function ($p) use ($fnskuAsinMap) {
+                    if (empty($p->FNSKUviewer)) return true;
+                    return empty($fnskuAsinMap[$p->FNSKUviewer] ?? null);
+                });
 
-                $items = $ordersReceivedItems->merge($otherItems);
+                $items = $ordersItems->merge($otherItems);
+
             } else {
-                // Get items with specific ASIN from Orders & Received
-                $ordersReceivedItems = DB::table($this->productTable)
-                    ->select([
-                        'ProductID',
-                        'rtcounter',
-                        'ProductTitle',
-                        'ProductModuleLoc',
-                        'quantity',
-                        'serialnumber',
-                        'warehouselocation'
-                    ])
-                    ->whereIn('ProductModuleLoc', ['Orders', 'Received'])
+                // Orders & Received with matching ASIN
+                $ordersItems = DB::table($this->productTable)
+                    ->select($selectFields)
+                    ->whereIn('ProductModuleLoc', self::ORDERS_RECEIVED)
                     ->where('ASINviewer', $asin)
                     ->get();
 
-                // Get items with specific ASIN from other modules
-                $otherProducts = DB::table($this->productTable)
-                    ->select([
-                        'ProductID',
-                        'rtcounter',
-                        'ProductTitle',
-                        'ProductModuleLoc',
-                        'quantity',
-                        'serialnumber',
-                        'warehouselocation',
-                        'FNSKUviewer'
-                    ])
-                    ->whereNotIn('ProductModuleLoc', ['Orders', 'Received'])
-                    ->get();
+                // Labeling onwards — find all FNSKUs that map to this ASIN
+                $matchingFnskus = DB::table($this->fnskuTable)
+                    ->where('ASIN', $asin)
+                    ->pluck('FNSKU')
+                    ->toArray();
 
-                $otherItems = collect([]);
-                foreach ($otherProducts as $product) {
-                    $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-                    
-                    if (empty($baseFnsku)) {
-                        continue;
-                    }
+                if (empty($matchingFnskus)) {
+                    $otherItems = collect([]);
+                } else {
+                    // Build all possible FNSKUviewer values (base + prefixed C\d+ variants)
+                    // by querying only the FNSKUviewer values that exist for these base FNSKUs
+                    $allFnskuViewers = DB::table($this->productTable)
+                        ->whereIn('ProductModuleLoc', self::LABELING_ONWARDS)
+                        ->whereNotNull('FNSKUviewer')
+                        ->where('FNSKUviewer', '!=', '')
+                        ->distinct()
+                        ->pluck('FNSKUviewer')
+                        ->filter(function ($raw) use ($matchingFnskus) {
+                            return in_array($this->extractBaseFnsku($raw), $matchingFnskus);
+                        })
+                        ->values()
+                        ->toArray();
 
-                    $fnskuRecord = DB::table($this->fnskuTable)->where('FNSKU', $baseFnsku)->first();
-                    if ($fnskuRecord && $fnskuRecord->ASIN === $asin) {
-                        $otherItems->push($product);
+                    if (empty($allFnskuViewers)) {
+                        $otherItems = collect([]);
+                    } else {
+                        // Now query only matching rows directly — no full table scan in PHP
+                        $otherItems = DB::table($this->productTable)
+                            ->select($selectFields)
+                            ->whereIn('ProductModuleLoc', self::LABELING_ONWARDS)
+                            ->whereIn('FNSKUviewer', $allFnskuViewers)
+                            ->get();
                     }
                 }
 
-                $items = $ordersReceivedItems->merge($otherItems);
+                $items = $ordersItems->merge($otherItems);
             }
 
             return response()->json([
-                'items' => $items,
+                'items' => $items->values(),
                 'count' => $items->count(),
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error in getAsinDetails', [
+            Log::error('InventoryStatisticsController@getAsinDetails', [
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'trace'   => $e->getTraceAsString(),
             ]);
 
             return response()->json([
-                'error' => 'An error occurred while fetching ASIN details',
+                'error'   => 'An error occurred while fetching ASIN details',
                 'message' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * POST /api/inventory-statistics/clear-cache
+     * Call this from your save/update routes whenever inventory changes
+     */
+    public function clearCache()
+    {
+        Cache::forget('inventory_statistics_summary_v2');
+        return response()->json(['message' => 'Cache cleared']);
     }
 }
