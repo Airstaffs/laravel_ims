@@ -1778,31 +1778,49 @@ export default {
 
         convertToLocalDate(dateString) {
             if (!dateString) return "";
-            try {
-                const isLATimezone =
-                    this.currentTimezone === "America/Los_Angeles";
 
-                // DB stores LA time — if user is in LA or no TZ info, extract date part directly
-                if (
-                    isLATimezone ||
-                    (!dateString.includes("T") &&
-                        !dateString.includes("+") &&
-                        !dateString.includes("Z"))
-                ) {
-                    return dateString.split(" ")[0]; // "2026-02-18"
+            try {
+                const userTimezone = this.currentTimezone;
+                const isLATimezone =
+                    userTimezone === "America/Los_Angeles" ||
+                    userTimezone === "America/Pacific" ||
+                    !userTimezone;
+
+                // DB stores time in LA timezone — if user is already in LA, just extract date directly
+                if (isLATimezone) {
+                    return dateString.split(" ")[0].split("T")[0];
                 }
 
-                // Has timezone info (ISO format) — convert to user's timezone
-                const date = new Date(dateString);
+                // User is in a different timezone — convert LA time to user's local timezone
+                const isRawFormat =
+                    !dateString.includes("T") &&
+                    !dateString.includes("Z") &&
+                    !dateString.includes("+");
+
+                let date;
+                if (isRawFormat) {
+                    const isoLike = dateString.replace(" ", "T");
+                    const tempDate = new Date(isoLike);
+                    const laWallClock = new Date(
+                        new Date(isoLike).toLocaleString("en-US", {
+                            timeZone: "America/Los_Angeles",
+                        }),
+                    );
+                    const diff = tempDate - laWallClock;
+                    date = new Date(tempDate.getTime() + diff);
+                } else {
+                    date = new Date(dateString);
+                }
+
                 const formatter = new Intl.DateTimeFormat("en-CA", {
-                    timeZone: this.currentTimezone,
+                    timeZone: userTimezone,
                     year: "numeric",
                     month: "2-digit",
                     day: "2-digit",
                 });
+
                 return formatter.format(date);
             } catch (error) {
-                console.error("Error converting to local date:", error);
                 return dateString;
             }
         },
