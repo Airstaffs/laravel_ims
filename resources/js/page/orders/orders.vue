@@ -229,9 +229,8 @@
                     </div>
                 </template>
 
-
-                    <!-- Material Type Column with Inline Editing -->
-                    <template #materialtype="{ data }">
+                <!-- Material Type Column with Inline Editing -->
+                <template #materialtype="{ data }">
                     <div class="materialtype-cell">
                         <div
                             v-if="editingMaterialType === data.ProductID"
@@ -256,7 +255,7 @@
                             @click="startMaterialTypeEdit(data)"
                         >
                             <span class="materialtype-value">{{
-                                data.materialtype || 'Not Set'
+                                data.materialtype || "Not Set"
                             }}</span>
                             <i
                                 class="pi pi-pencil text-muted ms-1"
@@ -300,120 +299,169 @@
                     </div>
                 </template>
 
-                    <template #tracking="{ data }">
-                        <div class="tracking-cell">
+                <template #tracking="{ data }">
+                    <div class="tracking-cell">
+                        <div
+                            v-if="
+                                data.tracking_info &&
+                                data.tracking_info.length > 0
+                            "
+                            class="tracking-list"
+                        >
                             <div
-                                v-if="data.tracking_info && data.tracking_info.length > 0"
-                                class="tracking-list"
+                                v-for="(tracking, idx) in data.tracking_info"
+                                :key="idx"
+                                class="tracking-item mb-2"
                             >
+                                <!-- Tracking Number -->
                                 <div
-                                    v-for="(tracking, idx) in data.tracking_info"
-                                    :key="idx"
-                                    class="tracking-item mb-2"
+                                    class="tracking-number d-flex align-items-center"
                                 >
-                                    <!-- Tracking Number -->
-                                    <div class="tracking-number d-flex align-items-center">
-                                        <i
-                                            class="pi pi-box text-muted me-1"
-                                            style="font-size: 0.7rem"
-                                        ></i>
-                                        <span class="fw-semibold" style="font-size: 0.85rem">
-                                            {{ tracking.number }}
-                                        </span>
-                                    </div>
-
-                                    <!-- Tracking Status Badge ONLY — no delivered date here -->
-                                    <div class="tracking-status mt-1">
-                                        <Badge
-                                            :severity="getTrackingStatusSeverity(
-                                                tracking.status,
-                                                tracking.delivered_date,
-                                                data.estimated_deliverydate
-                                            )"
-                                            :value="tracking.status"
-                                            size="small"
-                                            :class="getOverdueBadgeClass(
-                                                tracking.status,
-                                                tracking.delivered_date,
-                                                data.estimated_deliverydate
-                                            )"
-                                        />
-                                    </div>
-                                </div>
-
-                                <!-- Last Checked Timestamp -->
-                                <div
-                                    v-if="data.tracking_last_checked"
-                                    class="last-checked mt-2 pt-2 border-top"
-                                >
-                                    <small class="text-muted">
-                                        <i class="pi pi-clock me-1" style="font-size: 0.7rem"></i>
-                                        Updated: {{ formatLastChecked(data.tracking_last_checked) }}
-                                    </small>
-                                </div>
-                            </div>
-
-                            <!-- No Tracking Available -->
-                            <div v-else class="no-tracking">
-                                <span class="text-muted small">No tracking</span>
-                            </div>
-                        </div>
-                    </template>
-
-                    <template #deliverydate="{ data }">
-                        <div class="delivery-date-cell">
-
-                            <!-- CASE 1: At least one tracking is Delivered → show actual delivered date -->
-                            <div v-if="isAnyTrackingDelivered(data)">
-                                <i
-                                    class="pi pi-check-circle text-success me-1"
-                                    style="font-size: 0.8rem"
-                                ></i>
-                                <span class="fw-semibold text-success">
-                                    {{ formatDeliveryDate(getLatestDeliveredDate(data)) }}
-                                </span>
-                                <!-- Show if multiple deliveries -->
-                                <div v-if="hasMultipleDeliveries(data)" class="mt-1">
-                                    <small class="text-info">
-                                        <i class="pi pi-info-circle me-1" style="font-size: 0.7rem"></i>
-                                        Multiple deliveries
-                                    </small>
-                                </div>
-                            </div>
-
-                            <!-- CASE 2: NOT delivered → show estimated delivery date -->
-                            <div v-else-if="data.estimated_deliverydate">
-                                <div class="d-flex align-items-center gap-1">
                                     <i
-                                        class="pi pi-clock me-1"
-                                        :class="getOverdueIconClass(data.estimated_deliverydate)"
-                                        style="font-size: 0.8rem"
+                                        class="pi pi-box text-muted me-1"
+                                        style="font-size: 0.7rem"
                                     ></i>
-                                    <span :class="getOverdueDateClass(data.estimated_deliverydate)">
-                                        {{ data.estimated_deliverydate }}
+                                    <span
+                                        class="fw-semibold"
+                                        style="font-size: 0.85rem"
+                                    >
+                                        {{ tracking.number }}
                                     </span>
                                 </div>
-                                <!-- Overdue Warning -->
-                                <div
-                                    v-if="getOverdueText(data.estimated_deliverydate)"
-                                    class="mt-1"
-                                >
-                                    <small :class="getOverdueTextClass(data.estimated_deliverydate)">
-                                        <i class="pi pi-exclamation-triangle me-1" style="font-size: 0.7rem"></i>
-                                        {{ getOverdueText(data.estimated_deliverydate) }}
-                                    </small>
+
+                                <!-- Tracking Status Badge ONLY — no delivered date here -->
+                                <div class="tracking-status mt-1">
+                                    <Badge
+                                        :severity="
+                                            getTrackingStatusSeverity(
+                                                tracking.status,
+                                                tracking.delivered_date,
+                                                data.estimated_deliverydate,
+                                            )
+                                        "
+                                        :value="tracking.status"
+                                        size="small"
+                                        :class="
+                                            getOverdueBadgeClass(
+                                                tracking.status,
+                                                tracking.delivered_date,
+                                                data.estimated_deliverydate,
+                                            )
+                                        "
+                                    />
                                 </div>
                             </div>
 
-                            <!-- CASE 3: No date at all -->
-                            <span v-else class="text-muted small">N/A</span>
-
+                            <!-- Last Checked Timestamp -->
+                            <div
+                                v-if="data.tracking_last_checked"
+                                class="last-checked mt-2 pt-2 border-top"
+                            >
+                                <small class="text-muted">
+                                    <i
+                                        class="pi pi-clock me-1"
+                                        style="font-size: 0.7rem"
+                                    ></i>
+                                    Updated:
+                                    {{
+                                        formatLastChecked(
+                                            data.tracking_last_checked,
+                                        )
+                                    }}
+                                </small>
+                            </div>
                         </div>
-                    </template>
+
+                        <!-- No Tracking Available -->
+                        <div v-else class="no-tracking">
+                            <span class="text-muted small">No tracking</span>
+                        </div>
+                    </div>
+                </template>
 
                 <!-- Order Date Column -->
                 <template #orderdate="{ data }">
                     {{ convertToLocalDate(data.orderdate) }}
+                </template>
+
+                <template #deliverydate="{ data }">
+                    <div class="delivery-date-cell">
+                        <!-- CASE 1: At least one tracking is Delivered → show actual delivered date -->
+                        <div v-if="isAnyTrackingDelivered(data)">
+                            <i
+                                class="pi pi-check-circle text-success me-1"
+                                style="font-size: 0.8rem"
+                            ></i>
+                            <span class="fw-semibold text-success">
+                                {{ getLatestDeliveredDate(data) }}
+                            </span>
+                            <!-- Show if multiple deliveries -->
+                            <div
+                                v-if="hasMultipleDeliveries(data)"
+                                class="mt-1"
+                            >
+                                <small class="text-info">
+                                    <i
+                                        class="pi pi-info-circle me-1"
+                                        style="font-size: 0.7rem"
+                                    ></i>
+                                    Multiple deliveries
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- CASE 2: NOT delivered → show estimated delivery date -->
+                        <div v-else-if="data.estimated_deliverydate">
+                            <div class="d-flex align-items-center gap-1">
+                                <i
+                                    class="pi pi-clock me-1"
+                                    :class="
+                                        getOverdueIconClass(
+                                            data.estimated_deliverydate,
+                                        )
+                                    "
+                                    style="font-size: 0.8rem"
+                                ></i>
+                                <span
+                                    :class="
+                                        getOverdueDateClass(
+                                            data.estimated_deliverydate,
+                                        )
+                                    "
+                                >
+                                    {{ data.estimated_deliverydate }}
+                                </span>
+                            </div>
+                            <!-- Overdue Warning -->
+                            <div
+                                v-if="
+                                    getOverdueText(data.estimated_deliverydate)
+                                "
+                                class="mt-1"
+                            >
+                                <small
+                                    :class="
+                                        getOverdueTextClass(
+                                            data.estimated_deliverydate,
+                                        )
+                                    "
+                                >
+                                    <i
+                                        class="pi pi-exclamation-triangle me-1"
+                                        style="font-size: 0.7rem"
+                                    ></i>
+                                    {{
+                                        getOverdueText(
+                                            data.estimated_deliverydate,
+                                        )
+                                    }}
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- CASE 3: No date at all -->
+                        <span v-else class="text-muted small">N/A</span>
+                    </div>
                 </template>
 
                 <!-- Status Column -->
@@ -685,15 +733,18 @@
                         <!-- LEFT: IMAGE + GENERAL INFO -->
                         <div class="form-col-left">
                             <div class="image-section" v-if="imageList.length">
-                            <!-- Main Image -->
-                                <div class="main-image" @click="openEditModalZoom">
+                                <!-- Main Image -->
+                                <div
+                                    class="main-image"
+                                    @click="openEditModalZoom"
+                                >
                                     <img
                                         :src="activeImageUrl"
                                         alt="Main Product Image"
                                         loading="lazy"
                                         @error="onImageErrorMain"
                                     />
-                                    
+
                                     <!-- Zoom Indicator -->
                                     <div class="zoom-indicator">
                                         <i class="pi pi-search-plus"></i>
@@ -887,76 +938,139 @@
                                 <!-- SECTION: Serial & Tracking -->
                                 <div class="serial-tracking-section">
                                     <Card>
-  <template #title>
-            <div>
-                <h6 class="text-primary">Serial & Tracking</h6>
-                <Divider />
-            </div>
-        </template>
-        <template #content>
-            <!-- Serial Numbers -->
-            <template v-if="serialKeys.length">
-                <fieldset
-                    v-for="(key, index) in serialKeys"
-                    :key="key"
-                >
-                    <label>Serial Number {{ getLabel(index) }}:</label>
-                    <InputText
-                        size="small"
-                        fluid
-                        v-model="item[key]"
-                    />
-                </fieldset>
-            </template>
+                                        <template #title>
+                                            <div>
+                                                <h6 class="text-primary">
+                                                    Serial & Tracking
+                                                </h6>
+                                                <Divider />
+                                            </div>
+                                        </template>
+                                        <template #content>
+                                            <!-- Serial Numbers -->
+                                            <template v-if="serialKeys.length">
+                                                <fieldset
+                                                    v-for="(
+                                                        key, index
+                                                    ) in serialKeys"
+                                                    :key="key"
+                                                >
+                                                    <label
+                                                        >Serial Number
+                                                        {{
+                                                            getLabel(index)
+                                                        }}:</label
+                                                    >
+                                                    <InputText
+                                                        size="small"
+                                                        fluid
+                                                        v-model="item[key]"
+                                                    />
+                                                </fieldset>
+                                            </template>
 
-            <Divider v-if="serialKeys.length && trackingKeys.length" />
+                                            <Divider
+                                                v-if="
+                                                    serialKeys.length &&
+                                                    trackingKeys.length
+                                                "
+                                            />
 
-            <!-- Tracking Numbers - EDITABLE, Status READ-ONLY -->
-            <template v-if="trackingKeys.length">
-                <fieldset
-                    v-for="(key, index) in trackingKeys"
-                    :key="key"
-                >
-                    <label class="d-flex align-items-center justify-content-between">
-                        <span>Tracking Number {{ index + 1 }}:</span>
-                        <!-- Show status badge if exists - READ ONLY -->
-                        <Badge
-                            v-if="item[`tracking${index + 1}_status`]"
-                            :severity="getTrackingStatusSeverity(item[`tracking${index + 1}_status`])"
-                            :value="item[`tracking${index + 1}_status`]"
-                            size="small"
-                        />
-                    </label>
-                    <InputText
-                        size="small"
-                        fluid
-                        v-model="item[key]"
-                    />
-                    
-                    <!-- Show delivered date if exists - READ ONLY -->
-                    <div 
-                        v-if="item[`tracking${index + 1}_delivered_date`]" 
-                        class="mt-1"
-                    >
-                        <small class="text-success">
-                            <i class="pi pi-check-circle me-1"></i>
-                            Delivered: {{ formatDeliveryDate(item[`tracking${index + 1}_delivered_date`]) }}
-                        </small>
-                    </div>
-                </fieldset>
-            </template>
+                                            <!-- Tracking Numbers - EDITABLE, Status READ-ONLY -->
+                                            <template
+                                                v-if="trackingKeys.length"
+                                            >
+                                                <fieldset
+                                                    v-for="(
+                                                        key, index
+                                                    ) in trackingKeys"
+                                                    :key="key"
+                                                >
+                                                    <label
+                                                        class="d-flex align-items-center justify-content-between"
+                                                    >
+                                                        <span
+                                                            >Tracking Number
+                                                            {{
+                                                                index + 1
+                                                            }}:</span
+                                                        >
+                                                        <!-- Show status badge if exists - READ ONLY -->
+                                                        <Badge
+                                                            v-if="
+                                                                item[
+                                                                    `tracking${index + 1}_status`
+                                                                ]
+                                                            "
+                                                            :severity="
+                                                                getTrackingStatusSeverity(
+                                                                    item[
+                                                                        `tracking${index + 1}_status`
+                                                                    ],
+                                                                )
+                                                            "
+                                                            :value="
+                                                                item[
+                                                                    `tracking${index + 1}_status`
+                                                                ]
+                                                            "
+                                                            size="small"
+                                                        />
+                                                    </label>
+                                                    <InputText
+                                                        size="small"
+                                                        fluid
+                                                        v-model="item[key]"
+                                                    />
 
-            <!-- Last Checked Info - READ ONLY -->
-            <div
-                v-if="item.tracking_last_checked"
-                class="mt-3 pt-3 border-top"
-            >
-                <small class="text-muted">
-                    <i class="pi pi-clock me-1"></i>
-                    Last checked: {{ formatLastChecked(item.tracking_last_checked) }}
-                </small>
-            </div>
-        </template>
+                                                    <!-- Show delivered date if exists - READ ONLY -->
+                                                    <div
+                                                        v-if="
+                                                            item[
+                                                                `tracking${index + 1}_delivered_date`
+                                                            ]
+                                                        "
+                                                        class="mt-1"
+                                                    >
+                                                        <small
+                                                            class="text-success"
+                                                        >
+                                                            <i
+                                                                class="pi pi-check-circle me-1"
+                                                            ></i>
+                                                            Delivered:
+                                                            {{
+                                                                formatDeliveryDate(
+                                                                    item[
+                                                                        `tracking${index + 1}_delivered_date`
+                                                                    ],
+                                                                )
+                                                            }}
+                                                        </small>
+                                                    </div>
+                                                </fieldset>
+                                            </template>
+
+                                            <!-- Last Checked Info - READ ONLY -->
+                                            <div
+                                                v-if="
+                                                    item.tracking_last_checked
+                                                "
+                                                class="mt-3 pt-3 border-top"
+                                            >
+                                                <small class="text-muted">
+                                                    <i
+                                                        class="pi pi-clock me-1"
+                                                    ></i>
+                                                    Last checked:
+                                                    {{
+                                                        formatLastChecked(
+                                                            item.tracking_last_checked,
+                                                        )
+                                                    }}
+                                                </small>
+                                            </div>
+                                        </template>
                                     </Card>
                                 </div>
 
@@ -1230,10 +1344,12 @@
         />
     </div>
 
-    <ZoomImageModal  v-model:visible="showEditZoomModal"
-    :images="imagesWithPathList"
-    :initialIndex="activeIndex"
-    :title="item.ProductTitle" />
+    <ZoomImageModal
+        v-model:visible="showEditZoomModal"
+        :images="imagesWithPathList"
+        :initialIndex="activeIndex"
+        :title="item.ProductTitle"
+    />
 </template>
 
 <script>
@@ -1314,14 +1430,14 @@ const TABLE_COLUMNS = [
         headerStyle: "font-size: 16px;",
         style: { textAlign: "center" },
     },
-   
+
     {
-    field: "materialtype",
-    header: "Material Type",
-    sortable: true,
-    headerStyle: "font-size: 16px;",
-    slot: "materialtype",
-    style: { fontSize: "14px", minWidth: "150px", textAlign: "center" },
+        field: "materialtype",
+        header: "Material Type",
+        sortable: true,
+        headerStyle: "font-size: 16px;",
+        slot: "materialtype",
+        style: { fontSize: "14px", minWidth: "150px", textAlign: "center" },
     },
 
     {
@@ -1370,7 +1486,7 @@ export default {
         Tag,
         SetASINModal,
         IncomingCountItem,
-        ZoomImageModal
+        ZoomImageModal,
     },
     data() {
         return {
@@ -1552,20 +1668,21 @@ export default {
         },
     },
     methods: {
-           openEditModalZoom() {
-        if (this.activeImageUrl) {
-            //add path for the images
-            this.imagesWithPathList = this.imageList.map((img) => this.basePath+img)
-            this.showEditZoomModal = true;
+        openEditModalZoom() {
+            if (this.activeImageUrl) {
+                //add path for the images
+                this.imagesWithPathList = this.imageList.map(
+                    (img) => this.basePath + img,
+                );
+                this.showEditZoomModal = true;
+            }
+        },
 
-        }
-    },
-    
-    selectEditThumbnail(index) {
-        this.activeIndex = index;
-        // Also open zoom when clicking thumbnail in edit modal
-        this.openEditModalZoom();
-    },
+        selectEditThumbnail(index) {
+            this.activeIndex = index;
+            // Also open zoom when clicking thumbnail in edit modal
+            this.openEditModalZoom();
+        },
         formatDeliveryDate(dateString) {
             if (
                 !dateString ||
@@ -1589,32 +1706,36 @@ export default {
             }
         },
 
-
-      isAnyTrackingDelivered(item) {
+        isAnyTrackingDelivered(item) {
             if (!item.tracking_info || item.tracking_info.length === 0) {
                 // Fallback: check old delivery_status field
-                return item.delivery_status === 'Delivered';
+                return item.delivery_status === "Delivered";
             }
-            return item.tracking_info.some(t => t.status === 'Delivered');
+            return item.tracking_info.some((t) => t.status === "Delivered");
         },
-
 
         getLatestDeliveredDate(item) {
             if (!item.tracking_info || item.tracking_info.length === 0) {
                 // Fallback to old datedelivered field
-                if (item.datedelivered &&
-                    item.datedelivered !== '0000-00-00' &&
-                    item.datedelivered !== '0000-00-00 00:00:00') {
+                if (
+                    item.datedelivered &&
+                    item.datedelivered !== "0000-00-00" &&
+                    item.datedelivered !== "0000-00-00 00:00:00"
+                ) {
                     return item.datedelivered;
                 }
                 return null;
             }
 
             const dates = item.tracking_info
-                .filter(t => t.status === 'Delivered' && t.delivered_date &&
-                            t.delivered_date !== '0000-00-00' &&
-                            t.delivered_date !== '0000-00-00 00:00:00')
-                .map(t => t.delivered_date);
+                .filter(
+                    (t) =>
+                        t.status === "Delivered" &&
+                        t.delivered_date &&
+                        t.delivered_date !== "0000-00-00" &&
+                        t.delivered_date !== "0000-00-00 00:00:00",
+                )
+                .map((t) => t.delivered_date);
 
             if (dates.length === 0) return null;
 
@@ -1622,32 +1743,51 @@ export default {
             return dates.sort().pop();
         },
 
-
-            formatDeliveryDate(dateString) {
-                if (!dateString || dateString === "0000-00-00" || dateString === "0000-00-00 00:00:00") {
-                    return "N/A";
+        formatDeliveryDate(dateString) {
+            if (
+                !dateString ||
+                dateString === "0000-00-00" ||
+                dateString === "0000-00-00 00:00:00"
+            ) {
+                return "N/A";
+            }
+            try {
+                // DB stores LA time already — just extract date part, no conversion
+                if (
+                    !dateString.includes("T") &&
+                    !dateString.includes("+") &&
+                    !dateString.includes("Z")
+                ) {
+                    const datePart = dateString.split(" ")[0]; // "2026-02-18"
+                    const [year, month, day] = datePart.split("-");
+                    const months = [
+                        "Jan",
+                        "Feb",
+                        "Mar",
+                        "Apr",
+                        "May",
+                        "Jun",
+                        "Jul",
+                        "Aug",
+                        "Sep",
+                        "Oct",
+                        "Nov",
+                        "Dec",
+                    ];
+                    return `${months[parseInt(month) - 1]} ${parseInt(day)}, ${year}`;
                 }
-                try {
-                    // DB stores LA time already — just extract date part, no conversion
-                    if (!dateString.includes('T') && !dateString.includes('+') && !dateString.includes('Z')) {
-                        const datePart = dateString.split(' ')[0]; // "2026-02-18"
-                        const [year, month, day] = datePart.split('-');
-                        const months = ['Jan','Feb','Mar','Apr','May','Jun',
-                                        'Jul','Aug','Sep','Oct','Nov','Dec'];
-                        return `${months[parseInt(month) - 1]} ${parseInt(day)}, ${year}`;
-                    }
-                    // Has timezone info — safe to parse normally
-                    const date = new Date(dateString);
-                    return date.toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        timeZone: this.currentTimezone || "UTC",
-                    });
-                } catch (error) {
-                    return dateString;
-                }
-            },
+                // Has timezone info — safe to parse normally
+                const date = new Date(dateString);
+                return date.toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    timeZone: this.currentTimezone || "UTC",
+                });
+            } catch (error) {
+                return dateString;
+            }
+        },
         getDeliveryStatusSeverity(status) {
             const statusMap = {
                 Delivered: "success",
@@ -1670,27 +1810,36 @@ export default {
             this.showIncomingCounter = true;
         },
 
-convertToLocalDate(dateString) {
-    if (!dateString) return "";
-    try {
-        // DB stores LA time already — extract date part directly
-        if (!dateString.includes('T') && !dateString.includes('+') && !dateString.includes('Z')) {
-            return dateString.split(' ')[0]; // "2026-02-18"
-        }
-        // Has timezone info (ISO format) — convert normally
-        const date = new Date(dateString);
-        const formatter = new Intl.DateTimeFormat("en-CA", {
-            timeZone: this.currentTimezone,
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-        });
-        return formatter.format(date);
-    } catch (error) {
-        console.error("Error converting to local date:", error);
-        return dateString;
-    }
-},
+        convertToLocalDate(dateString) {
+            if (!dateString) return "";
+            try {
+                const isLATimezone =
+                    this.currentTimezone === "America/Los_Angeles";
+
+                // DB stores LA time — if user is in LA or no TZ info, extract date part directly
+                if (
+                    isLATimezone ||
+                    (!dateString.includes("T") &&
+                        !dateString.includes("+") &&
+                        !dateString.includes("Z"))
+                ) {
+                    return dateString.split(" ")[0]; // "2026-02-18"
+                }
+
+                // Has timezone info (ISO format) — convert to user's timezone
+                const date = new Date(dateString);
+                const formatter = new Intl.DateTimeFormat("en-CA", {
+                    timeZone: this.currentTimezone,
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                });
+                return formatter.format(date);
+            } catch (error) {
+                console.error("Error converting to local date:", error);
+                return dateString;
+            }
+        },
 
         convertFromLocalDate(localDateString) {
             if (!localDateString) return null;
@@ -2024,11 +2173,11 @@ convertToLocalDate(dateString) {
         font-size: 0.75rem;
         padding: 0.4rem 0.8rem;
     }
-    
+
     .zoom-indicator i {
         font-size: 0.875rem;
     }
-    
+
     .thumbnail-zoom-icon {
         display: none;
     }
