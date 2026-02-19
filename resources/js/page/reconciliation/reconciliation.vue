@@ -64,34 +64,16 @@
         </AnimateDiv>
 
         <!-- Pagination -->
-        <div class="pagination-container">
-            <div class="pagination-wrapper">
-                <div class="pagination">
-                    <Button
-                        @click="prevPage"
-                        :disabled="currentPage === 1"
-                        label="Back"
-                        icon="pi pi-angle-left"
-                        size="small"
-                        severity="info"
-                    />
-
-                    <span class="pagination-info">
-                        Page {{ currentPage }} of {{ totalPages }}
-                    </span>
-
-                    <Button
-                        @click="nextPage"
-                        :disabled="currentPage === totalPages"
-                        label="Next"
-                        icon="pi pi-angle-right"
-                        size="small"
-                        severity="info"
-                        iconPos="right"
-                    />
-                </div>
-            </div>
-        </div>
+        <Paginator
+            :first="first"
+            :rows="perPage"
+            :total-records="totalRecords"
+            :rows-per-page-options="[10, 20, 50]"
+            template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+            class="small-paginator"
+            @page="onPageChange"
+        />
 
         <!-- View Modal -->
         <ViewImageModal
@@ -108,7 +90,7 @@
 </template>
 
 <script>
-import { Button, ScrollTop } from "primevue";
+import { Button, ScrollTop, Paginator } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
@@ -129,14 +111,18 @@ export default {
         TableGallery,
         ViewImageModal,
         AnimateDiv,
+        Paginator
     },
 
     data() {
         return {
             inventory: [],
             loading: true,
+
             currentPage: 1,
-            totalPages: 1,
+            totalRecords: 1,
+            perPage: 10,
+            first: 0,
 
             showImageModal: false,
             selectedItem: null,
@@ -195,12 +181,13 @@ export default {
                     {
                         params: {
                             page: this.currentPage,
+                            per_page: this.perPage
                         },
                     }
                 );
 
                 this.inventory = response.data.data;
-                this.totalPages = response.data.last_page;
+                this.totalRecords = response.data.total;
             } catch (error) {
                 console.error("Error loading reconciliation data:", error);
             } finally {
@@ -208,18 +195,11 @@ export default {
             }
         },
 
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.fetchInventory();
-            }
-        },
-
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.fetchInventory();
-            }
+        onPageChange(event) {
+            this.first = event.first
+            this.currentPage = event.page + 1; // convert to 1-based
+            this.perPage     = event.rows;
+            this.fetchInventory();
         },
 
         openEditModal(item) {
