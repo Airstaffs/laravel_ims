@@ -19,9 +19,6 @@ export default {
         return {
             inventory: [],
             loading: true,
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 10, // Default rows per page
             selectAll: false,
             expandedRows: {},
             serialDropdowns: {}, // Added for serial number dropdowns
@@ -128,6 +125,12 @@ export default {
             isUnmerging: false,
 
             isMovingToLabeling: false,
+
+            //pagination
+            currentPage: 1,
+            totalRecords: 1,
+            perPage: 10, // Default rows per page
+            first: 0 //paginator internal state
         };
     },
     computed: {
@@ -905,7 +908,7 @@ export default {
                     this.inventory.length,
                 );
 
-                this.totalPages = response.data.last_page || 1;
+                this.totalRecords = response.data.total;
 
                 // IMPORTANT: Calculate inventory counts AFTER setting this.inventory
                 this.calculateInventoryCounts();
@@ -932,21 +935,12 @@ export default {
         },
 
         // Pagination methods
-        changePerPage() {
-            this.currentPage = 1;
+        
+        onPageChange(event) {
+            this.first = event.first
+            this.currentPage = event.page + 1; // convert to 1-based
+            this.perPage     = event.rows;
             this.fetchInventory();
-        },
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.fetchInventory();
-            }
-        },
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.fetchInventory();
-            }
         },
 
         // Inventory selection methods
@@ -2850,6 +2844,7 @@ export default {
     watch: {
         searchQuery() {
             this.currentPage = 1;
+            this.first = 0
             this.fetchInventory();
         },
         // Watch for changes to selectedItems to update location field

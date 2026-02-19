@@ -1120,30 +1120,44 @@ class ShippingLabelController extends Controller
 
                     if ($asin !== '') {
 
-                        // --- Normalize weight exactly like your shipment request ---
+                        // --- Store ASIN weight in POUNDS (white_value/white_unit) ---
                         $pkgWeightValue = isset($form['weight']) ? (float) $form['weight'] : null;
-                        $pkgWeightUnit = isset($form['weightUnit']) ? strtolower((string) $form['weightUnit']) : null;
+                        $pkgWeightUnit = isset($form['weightUnit']) ? strtolower(trim((string) $form['weightUnit'])) : null;
 
-                        if ($pkgWeightValue !== null) {
-                            if ($pkgWeightUnit === 'pound') {
-                                $pkgWeightValue *= 453.592;
-                                $pkgWeightUnit = 'grams';
-                            } elseif ($pkgWeightUnit === 'kilogram') {
-                                $pkgWeightValue *= 1000;
-                                $pkgWeightUnit = 'grams';
+                        if ($pkgWeightValue !== null && $pkgWeightUnit) {
+
+                            // Normalize common spellings
+                            $u = $pkgWeightUnit;
+                            if (in_array($u, ['lbs', 'lb', 'pounds'], true))
+                                $u = 'pound';
+                            if (in_array($u, ['kgs', 'kg', 'kilograms'], true))
+                                $u = 'kilogram';
+                            if (in_array($u, ['g', 'gram', 'grams'], true))
+                                $u = 'grams';
+                            if (in_array($u, ['oz', 'ounce', 'ounces'], true))
+                                $u = 'ounce';
+
+                            // Convert to pounds
+                            if ($u === 'kilogram') {
+                                $pkgWeightValue *= 2.2046226218;         // kg -> lb
+                            } elseif ($u === 'grams') {
+                                $pkgWeightValue *= 0.0022046226218;      // g -> lb
+                            } elseif ($u === 'ounce') {
+                                $pkgWeightValue /= 16;                   // oz -> lb
                             }
+
+                            // If your form weight is PER-ITEM, keep this. If it’s already total package weight, remove it.
+                            $totalQty = 0;
+                            foreach ((array) data_get($payload, 'ItemList', []) as $it2) {
+                                $totalQty += (int) (data_get($it2, 'Quantity') ?? 1);
+                            }
+                            if ($totalQty > 0) {
+                                $pkgWeightValue *= $totalQty;
+                            }
+
+                            $pkgWeightUnit = 'pound';
                         }
 
-                        // If your form weight is “per item”, multiply by total qty in this shipment payload
-                        $totalQty = 0;
-                        foreach ((array) data_get($payload, 'ItemList', []) as $it2) {
-                            $totalQty += (int) (data_get($it2, 'Quantity') ?? 1);
-                        }
-                        if ($totalQty > 0 && $pkgWeightValue !== null) {
-                            $pkgWeightValue = $pkgWeightValue * $totalQty;
-                        }
-
-                        // ✅ Update tblasin measurements (you can choose overwrite vs only-if-null)
                         DB::table('tblasin')
                             ->where('ASIN', $asin)
                             ->update([

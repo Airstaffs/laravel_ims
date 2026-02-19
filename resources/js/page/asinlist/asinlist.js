@@ -9,9 +9,6 @@ export default {
         return {
             asinData: [],
             loading: true,
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 15,
             expandedRows: {},
             sortColumn: "",
             sortOrder: "asc",
@@ -94,6 +91,11 @@ export default {
 
             // NEW: For dynamic image updates
             imageCacheBuster: {}, // Track cache busters per ASIN and image type
+
+            //pagination
+            currentPage: 1,
+            totalRecords: 0,
+            perPage: 10,
         };
     },
     computed: {
@@ -430,7 +432,7 @@ export default {
                 }));
 
                 this.asinData = asinItems;
-                this.totalPages = response.data.last_page || 1;
+                this.totalRecords = response.data.total || 1;
             } catch (error) {
                 console.error("Error fetching ASIN data:", error);
                 this.asinData = [];
@@ -440,23 +442,11 @@ export default {
         },
 
         // Pagination
-        changePerPage() {
-            this.currentPage = 1;
+        onPageChange(event) {
+            this.first = event.first
+            this.currentPage = event.page + 1; // convert to 1-based
+            this.perPage     = event.rows;
             this.fetchAsinData();
-        },
-
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.fetchAsinData();
-            }
-        },
-
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.fetchAsinData();
-            }
         },
 
         // UI
@@ -1568,6 +1558,7 @@ export default {
     watch: {
         searchQuery() {
             this.currentPage = 1;
+            this.first=0
             this.fetchAsinData();
         },
     },
