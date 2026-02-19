@@ -653,7 +653,8 @@ table tbody tr td {
     .p-dialog-header-icon,
     .p-dialog-close-button,
     button,
-    .btn {
+    .btn,
+    .no-print {
         display: none !important;
     }
 

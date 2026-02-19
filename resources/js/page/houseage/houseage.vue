@@ -142,8 +142,7 @@
                     </div>
                 </template>
             </XDataTable>
-        </AnimateDiv>
-
+                </AnimateDiv>
         <!-- Mobile Cards View -->
         <div class="mobile-view">
             <div class="mobile-cards">
@@ -329,10 +328,21 @@
                     </div>
                 </div>
             </div>
+
         </div>
 
+        <Paginator
+            :first="first"
+            :rows="perPage"
+            :total-records="totalRecords"
+            :rows-per-page-options="[10, 20, 50]"
+            template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+            class="small-paginator"
+            @page="onPageChange"
+        />
         <!-- Pagination with centered layout -->
-        <div class="pagination-container">
+        <!-- <div class="pagination-container">
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
@@ -371,7 +381,7 @@
                     />
                 </div>
             </div>
-        </div>
+        </div> -->
 
         <!-- Image Modal with Tabs -->
         <ViewImageGalleryModal
@@ -1262,6 +1272,7 @@ import {
     ScrollTop,
     Select,
     Textarea,
+    Paginator
 } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import Houseage from "./houseage.js";
@@ -1360,7 +1371,8 @@ export default {
         TitlePage,
         ViewImageGalleryModal,
         AnimateDiv,
-        ProductImageGallery
+        ProductImageGallery,
+        Paginator
     },
     data() {
         return {

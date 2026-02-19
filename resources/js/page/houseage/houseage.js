@@ -15,9 +15,6 @@ export default {
         return {
             currentUser: null,
             inventory: [],
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 10, // Default rows per page
             selectAll: false,
             expandedRows: {},
             sortColumn: "",
@@ -77,6 +74,12 @@ export default {
             currentCopyItem: null,
 
             serialErrors: {},
+
+            //pagination
+            totalRecords: 0,
+            currentPage: 1,
+            perPage: 10,
+            first: 0, //for prime vues pagination internal state
         };
     },
 
@@ -838,7 +841,6 @@ export default {
                 console.log("✅ Response received:", {
                     status: response.status,
                     dataCount: response.data?.data?.length,
-                    totalPages: response.data?.last_page,
                 });
 
                 // ✅ Validate response structure
@@ -850,23 +852,20 @@ export default {
                 if (Array.isArray(response.data)) {
                     // Direct array response
                     this.inventory = response.data;
-                    this.totalPages = 1;
                 } else if (
                     response.data.data &&
                     Array.isArray(response.data.data)
                 ) {
                     // Paginated response
                     this.inventory = response.data.data;
-                    this.totalPages = response.data.last_page || 1;
-                    this.currentPage =
-                        response.data.current_page || this.currentPage;
+                    this.totalRecords = response.data.total
+                    this.currentPage = response.data.current_page;
                 } else {
                     throw new Error("Invalid response structure");
                 }
 
                 console.log("✅ Inventory updated:", {
                     count: this.inventory.length,
-                    totalPages: this.totalPages,
                 });
 
                 // ✅ Force Vue to recognize the data change
@@ -901,23 +900,11 @@ export default {
             }
         },
 
-        changePerPage() {
-            this.currentPage = 1;
+        onPageChange(event) {
+            this.first = event.first
+            this.currentPage = event.page + 1; // convert to 1-based
+            this.perPage     = event.rows;
             this.fetchInventory();
-        },
-
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.fetchInventory();
-            }
-        },
-
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.fetchInventory();
-            }
         },
 
         toggleAll() {
@@ -1859,6 +1846,7 @@ export default {
     watch: {
         searchQuery() {
             this.currentPage = 1;
+            this.first = 0
             this.fetchInventory();
         },
 
