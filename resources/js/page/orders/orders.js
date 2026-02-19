@@ -11,9 +11,6 @@ export default {
     data() {
         return {
             inventory: [],
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 10, // Default rows per page
             selectAll: false,
             expandedRows: {},
             sortColumn: "",
@@ -53,6 +50,12 @@ export default {
             { label: 'Unknown', value: 'Unknown' },
             { label: 'Pending', value: 'Pending' },
           ],
+
+          //pagination
+           totalRecords: 0,
+            currentPage: 1,
+            perPage: 10,
+            first: 0, //for prime vues pagination internal state
         };
     },
     computed: {
@@ -1015,7 +1018,8 @@ export default {
                 );
 
                 this.inventory = response.data.data;
-                this.totalPages = response.data.last_page;
+                this.totalRecords = response.data.total
+                this.currentPage = response.data.current_page
 
                 console.log(this.inventory);
             } catch (error) {
@@ -1025,23 +1029,11 @@ export default {
             }
         },
 
-        changePerPage() {
-            this.currentPage = 1;
+         onPageChange(event) {
+            this.first = event.first
+            this.currentPage = event.page + 1; // convert to 1-based
+            this.perPage     = event.rows;
             this.fetchInventory();
-        },
-
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.fetchInventory();
-            }
-        },
-
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.fetchInventory();
-            }
         },
 
         toggleAll() {
@@ -1071,6 +1063,7 @@ export default {
     watch: {
         searchQuery() {
             this.currentPage = 1;
+            this.first = 0
             this.fetchInventory();
         },
 

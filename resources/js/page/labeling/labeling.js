@@ -22,9 +22,6 @@ export default {
             inventory: [],
             isProcessing: false,
             loading: true,
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 10, // Default rows per page
             selectAll: false,
             expandedRows: {},
             sortColumn: "",
@@ -76,18 +73,19 @@ export default {
             showCopyDetailsModal: false,
             currentCopyItem: null,
 
-            currentPage: 1,
-            pageSize: 5,
-            hasMorePages: false,
-            totalRecords: 0,
-            paginationInfo: {
-                from: 0,
-                to: 0,
-            },
-            hasMoreFnskuPages: false,
-            currentFnskuPage: 1,
+            //select fnsku pagination
+            fnskuCurrentPage: 1,
+            fnskuTotalData: 0,
+            fnskuPerPage: 10,
+            fnskuFirst: 0, //for prime vues pagination internal state
 
             serialErrors: {},
+
+            //pagination
+            currentPage: 1,
+            totalData: 0,
+            perPage: 10,
+            first: 0  //for prime vues pagination internal state
         };
     },
 
@@ -815,7 +813,7 @@ export default {
 
                 // Use data as-is from backend (no transformation needed)
                 this.inventory = response.data.data;
-                this.totalPages = response.data.last_page;
+                this.totalData = response.data.total;
 
                 console.log("Inventory loaded:", {
                     totalItems: this.inventory.length,
@@ -833,7 +831,6 @@ export default {
 
                 alert("Failed to fetch inventory data. Please try again.");
                 this.inventory = [];
-                this.totalPages = 0;
             } finally {
                 this.loading = false;
             }
@@ -850,24 +847,38 @@ export default {
             return fullPath;
         },
 
-        changePerPage() {
-            this.currentPage = 1;
+         onPageChange(event) {
+            this.first = event.first
+            this.currentPage = event.page + 1; // convert to 1-based
+            this.perPage     = event.rows;
             this.fetchInventory();
         },
 
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.fetchInventory();
-            }
+         onPageChangeFnsku(event) {
+            this.fnskuFirst = event.first
+            this.fnskuCurrentPage = event.page + 1; // convert to 1-based
+            this.fnskuPerPage     = event.rows;
+            this.filterFnskuList();
         },
 
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.fetchInventory();
-            }
-        },
+        // changePerPage() {
+        //     this.currentPage = 1;
+        //     this.fetchInventory();
+        // },
+
+        // prevPage() {
+        //     if (this.currentPage > 1) {
+        //         this.currentPage--;
+        //         this.fetchInventory();
+        //     }
+        // },
+
+        // nextPage() {
+        //     if (this.currentPage < this.totalPages) {
+        //         this.currentPage++;
+        //         this.fetchInventory();
+        //     }
+        // },
 
         toggleAll() {
             this.inventory.forEach((item) => (item.checked = this.selectAll));
@@ -924,7 +935,7 @@ export default {
                             store: this.selectedStore || "",
                             grading: this.selectedGrading || "",
                             fnsku: this.fnskuExact || "",
-                            limit: 5,
+                            limit: this.fnskuPerPage,
                             exclude_assigned: false, // SET TO FALSE FOR TESTING - this allows you to see used FNSKUs
                         },
                         withCredentials: true,
@@ -948,7 +959,8 @@ export default {
 
                     this.fnskuList = validFnskus;
                     this.filteredFnskuList = validFnskus;
-
+                    this.fnskuTotalData = response.data.total
+                    this.fnskuCurrentPage = response.data.current_page
                     console.log(
                         "FNSKU List loaded:",
                         this.fnskuList.length,
@@ -1014,8 +1026,8 @@ export default {
 
             try {
                 const params = {
-                    page: page,
-                    limit: this.pageSize,
+                    page: this.fnskuCurrentPage,
+                    limit: this.fnskuPerPage,
                     exclude_assigned: false, // Set to true if you want to exclude assigned FNSKUs
                 };
 
@@ -1047,13 +1059,9 @@ export default {
 
                 // Update data from response
                 this.fnskuList = response.data.data || [];
-                this.currentFnskuPage = response.data.current_page || page;
-                this.totalRecords = response.data.total || 0;
+                this.fnskuCurrentPage = response.data.current_page || page;
+                this.fnskuTotalData = response.data.total || 0;
                 this.hasMoreFnskuPages = response.data.has_more_pages || false;
-                this.paginationInfo = {
-                    from: response.data.from || 0,
-                    to: response.data.to || 0,
-                };
 
                 // Apply frontend sorting for ASIN priority (recommended ASIN appears first)
                 const asinPriority = this.currentItem?.ASINviewer;
@@ -1073,43 +1081,15 @@ export default {
                 }
 
                 console.log("✅ Filtered list updated:", {
-                    total: this.totalRecords,
-                    currentPage: this.currentFnskuPage,
                     displayedItems: this.filteredFnskuList.length,
                 });
             } catch (error) {
                 console.error("❌ Error filtering FNSKU list:", error);
                 this.fnskuList = [];
                 this.filteredFnskuList = [];
-                this.totalRecords = 0;
-                this.hasMoreFnskuPages = false;
-                this.paginationInfo = { from: 0, to: 0 };
             } finally {
                 this.isSearching = false;
             }
-        },
-
-        goToPage(page) {
-            if (page >= 1) {
-                this.filterFnskuList(page);
-            }
-        },
-
-        nextFnskuPage() {
-            if (this.hasMoreFnskuPages) {
-                this.goToPage(this.currentFnskuPage + 1);
-            }
-        },
-
-        prevFnskuPage() {
-            if (this.currentFnskuPage > 1) {
-                this.goToPage(this.currentFnskuPage - 1);
-            }
-        },
-
-        changeFnskuPageSize() {
-            this.currentFnskuPage = 1;
-            this.filterFnskuList(1);
         },
 
         // IMPROVED hideFnskuModal to ensure cleanup
@@ -1474,7 +1454,7 @@ export default {
                     store: this.selectedStore || "",
                     grading: this.selectedGrading || "",
                     fnsku: this.fnskuExact || "",
-                    limit: 100,
+                    limit: this.fnskuPerPage,
                     // NEW: Only exclude the current item's specific FNSKU
                     exclude_current_fnsku:
                         this.currentItem?.FNSKUviewer ||
@@ -2695,6 +2675,7 @@ export default {
     watch: {
         searchQuery() {
             this.currentPage = 1;
+            this.first = 0
             this.fetchInventory();
         },
 

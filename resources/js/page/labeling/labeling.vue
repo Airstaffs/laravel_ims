@@ -367,51 +367,17 @@
         </div>
 
         <!-- Pagination with centered layout -->
-        <div class="pagination-container">
-            <div class="pagination-wrapper">
-                <div class="per-page-selector">
-                    <span>Rows per page</span>
-                    <Select
-                        v-model="perPage"
-                        @change="changePerPage"
-                        size="small"
-                        :options="rowsPerPage"
-                        optionLabel="label"
-                        optionValue="value"
-                    />
-                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                            {{ option }}
-                        </option>
-                    </select> -->
-                </div>
+            <Paginator 
+            :first="first"
+            :rows="perPage"
+            :total-records="totalData"
+            :rows-per-page-options="[10, 20, 50]"
+            template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+            class="small-paginator"
+            @page="onPageChange"
+        />
 
-                <div class="pagination">
-                    <Button
-                        @click="prevPage"
-                        :disabled="currentPage === 1"
-                        class="pagination-button"
-                        label="Back"
-                        icon="pi pi-angle-left"
-                        size="small"
-                        severity="info"
-                    />
-                    <span class="pagination-info"
-                        >Page {{ currentPage }} of {{ totalPages }}</span
-                    >
-                    <Button
-                        @click="nextPage"
-                        :disabled="currentPage === totalPages"
-                        class="pagination-button"
-                        label="Next"
-                        icon="pi pi-angle-right"
-                        size="small"
-                        severity="info"
-                        iconPos="right"
-                    />
-                </div>
-            </div>
-        </div>
 
         <!-- Image Modal with Tabs -->
         <ViewImageGalleryModal
@@ -1458,80 +1424,18 @@
                         </div>
                     </div>
 
-                    <div
-                        class="d-flex justify-content-between align-items-center mt-3 p-3 bg-light flex-wrap"
-                    >
-                        <div>
-                            <span v-if="isInitialLoad || isSearching"
-                                >Loading...</span
-                            >
-                            <span
-                                v-else-if="
-                                    paginationInfo.from && paginationInfo.to
-                                "
-                            >
-                                Showing {{ paginationInfo.from }} to
-                                {{ paginationInfo.to }} entries of
-                                {{ totalRecords }}
-                            </span>
-                            <span v-else>No entries found</span>
-                        </div>
+                    <!---FNSKU TABLE PAGINATION--->
+                                <Paginator 
+                            :first="fnskuFirst"
+                            :rows="fnskuPerPage"
+                            :total-records="fnskuTotalData"
+                            :rows-per-page-options="[10, 20, 50]"
+                            template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+                            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+                            class="small-paginator"
+                            @page="onPageChangeFnsku"
+                        />
 
-                        <div class="d-flex align-items-center gap-3">
-                            <Select
-                                v-model="pageSize"
-                                @change="changeFnskuPageSize"
-                                :options="[
-                                    { label: '5', value: 5 },
-                                    ...rowsPerPage,
-                                ]"
-                                size="small"
-                                optionLabel="label"
-                                optionValue="value"
-                            />
-
-                            <nav>
-                                <ul class="pagination pagination-sm mb-0">
-                                    <li
-                                        class="page-item"
-                                        :class="{
-                                            disabled: currentFnskuPage === 1,
-                                        }"
-                                    >
-                                        <Button
-                                            @click="prevFnskuPage"
-                                            :disabled="currentFnskuPage === 1"
-                                            size="small"
-                                            label="Previous"
-                                            icon="pi pi-angle-left"
-                                            severity="info"
-                                        />
-                                    </li>
-
-                                    <li class="page-item active">
-                                        <span>Page {{ currentFnskuPage }}</span>
-                                    </li>
-
-                                    <li
-                                        class="page-item"
-                                        :class="{
-                                            disabled: !hasMoreFnskuPages,
-                                        }"
-                                    >
-                                        <Button
-                                            @click="nextFnskuPage"
-                                            :disabled="!hasMoreFnskuPages"
-                                            size="small"
-                                            severity="info"
-                                            label="Next"
-                                            icon="pi pi-angle-right"
-                                            iconPos="right"
-                                        />
-                                    </li>
-                                </ul>
-                            </nav>
-                        </div>
-                    </div>
                 </div>
             </div>
         </Dialog>
@@ -1683,6 +1587,7 @@ import {
     Textarea,
     ScrollTop,
     Tag,
+    Paginator
 } from "primevue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
@@ -1824,6 +1729,7 @@ export default {
         AnimateDiv,
         Tag,
         ProductImageGallery,
+        Paginator
     },
     data() {
         return {
