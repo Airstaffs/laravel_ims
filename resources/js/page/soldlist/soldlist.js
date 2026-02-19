@@ -12,9 +12,6 @@ export default {
         return {
             inventory: [],
             loading: true,
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 10,
             selectAll: false,
             expandedRows: {},
             sortColumn: "",
@@ -38,6 +35,12 @@ export default {
             error: null,
             ProductTitle: "",
             isLoadingImages: false,
+
+            //pagination
+            currentPage: 1,
+            totalRecords: 0,
+            perPage: 10,
+            first: 0 //paginator internal state
         };
     },
 
@@ -391,18 +394,18 @@ export default {
                 // Handle different response structures
                 if (Array.isArray(response.data)) {
                     this.inventory = response.data;
-                    this.totalPages = 1;
+                    this.totalRecords = response.data.total;
                 } else if (response.data.data) {
                     this.inventory = response.data.data || [];
-                    this.totalPages = response.data.last_page || 1;
-                    this.currentPage = response.data.current_page || 1;
+                    this.totalRecords = response.data.total;
+                    this.currentPage = response.data.current_page;
                 } else {
                     console.error(
                         "Unexpected response structure:",
                         response.data,
                     );
                     this.inventory = [];
-                    this.totalPages = 1;
+                    this.totalRecords = 0;
                 }
 
                 console.log(
@@ -443,23 +446,11 @@ export default {
             }
         },
 
-        changePerPage() {
-            this.currentPage = 1;
+        onPageChange(event) {
+            this.first = event.first
+            this.currentPage = event.page + 1; // convert to 1-based
+            this.perPage     = event.rows;
             this.fetchInventory();
-        },
-
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.fetchInventory();
-            }
-        },
-
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.fetchInventory();
-            }
         },
 
         toggleAll() {
@@ -567,6 +558,7 @@ export default {
     watch: {
         searchQuery() {
             this.currentPage = 1;
+            this.first = 0
             this.fetchInventory();
         },
     },

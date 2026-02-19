@@ -311,46 +311,16 @@
         </div>
 
         <!-- Pagination with centered layout -->
-        <div class="pagination-container">
-            <div class="pagination-wrapper">
-                <div class="per-page-selector">
-                    <span>Rows per page</span>
-                    <Select
-                        v-model="perPage"
-                        @change="changePerPage"
-                        :options="rowsPerPage"
-                        size="small"
-                        optionLabel="label"
-                        optionValue="value"
-                    />
-                </div>
-
-                <div class="pagination">
-                    <Button
-                        @click="prevPage"
-                        :disabled="currentPage === 1"
-                        class="pagination-button"
-                        label="Back"
-                        size="small"
-                        icon="pi pi-angle-left"
-                        severity="info"
-                    />
-                    <span class="pagination-info"
-                        >Page {{ currentPage }} of {{ totalPages }}</span
-                    >
-                    <Button
-                        @click="nextPage"
-                        :disabled="currentPage === totalPages"
-                        class="pagination-button"
-                        label="Next"
-                        size="small"
-                        icon="pi pi-angle-right"
-                        severity="info"
-                        iconPos="right"
-                    />
-                </div>
-            </div>
-        </div>
+       <Paginator
+            :first="first"
+            :rows="perPage"
+            :total-records="totalRecords"
+            :rows-per-page-options="[10, 20, 50]"
+            template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+            class="small-paginator"
+            @page="onPageChange"
+        />
 
         <!-- Image Modal with Tabs -->
         <ViewImageGalleryModal
@@ -625,7 +595,7 @@
 </template>
 
 <script>
-import { Button, Dialog, ScrollTop, Select } from "primevue";
+import { Button, Dialog, ScrollTop, Select, Paginator } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import Production from "./production.js";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
@@ -696,6 +666,7 @@ export default {
         ViewImageGalleryModal,
         AnimateDiv,
         Select,
+        Paginator
     },
     data() {
         return {

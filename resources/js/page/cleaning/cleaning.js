@@ -9,9 +9,6 @@ export default {
         return {
             inventory: [],
             loading: true,
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 10, // Default rows per page
             selectAll: false,
             expandedRows: {},
             sortColumn: "",
@@ -35,6 +32,12 @@ export default {
             basePath: "/images/thumbnails/",
             loading: false,
             error: null,
+
+            //pagination
+            currentPage: 1,
+            totalRecords: 1,
+            perPage: 10, // Default rows per page
+            first: 0 //paginator internal state
         };
     },
     computed: {
@@ -549,7 +552,7 @@ export default {
 
                 // Process the returned data
                 this.inventory = response.data.data;
-                this.totalPages = response.data.last_page;
+                this.totalRecords = response.data.total;
 
                 // Debug first item
                 if (this.inventory.length > 0) {
@@ -569,23 +572,11 @@ export default {
             }
         },
 
-        changePerPage() {
-            this.currentPage = 1;
+        onPageChange(event) {
+            this.first = event.first
+            this.currentPage = event.page + 1; // convert to 1-based
+            this.perPage     = event.rows;
             this.fetchInventory();
-        },
-
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.fetchInventory();
-            }
-        },
-
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.fetchInventory();
-            }
         },
 
         toggleAll() {
