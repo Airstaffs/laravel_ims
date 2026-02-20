@@ -1,7 +1,14 @@
 <template>
-    <Dialog v-model:visible="visibleProxy" modal :closable="true" :draggable="false" header="Amazon Listings"
-        style="width: 1200px; max-width: 95vw;" :contentStyle="{ padding: '0', maxHeight: '85vh', overflow: 'auto' }"
-        @hide="onClose">
+<Dialog
+  v-model:visible="visibleProxy"
+  modal
+  :closable="true"
+  :draggable="false"
+  header="Amazon Listings"
+  style="width: 95%; max-width: 95vw;"
+  :contentStyle="{ padding: '0', display: 'flex', flexDirection: 'column', height: '85vh' }"
+  @hide="onClose"
+>
         <!-- Toolbar (Amazon-ish) -->
         <div class="p-2 border-bottom-1 surface-border">
             <div class="grid align-items-center">
@@ -65,7 +72,7 @@
         </div>
 
         <!-- Table -->
-        <div class="p-0">
+        <div class="p-0 table-wrap">
             <DataTable :value="rows" :loading="loading" dataKey="sku" responsiveLayout="scroll" class="p-datatable-sm">
                 <Column header="Listing status" style="width: 180px;">
                     <template #body="{ data }">
@@ -557,5 +564,11 @@ export default {
     -webkit-line-clamp: 2;
     /* show at most 2 lines per issue */
     -webkit-box-orient: vertical;
+}
+
+.table-wrap {
+  flex: 1;              /* take remaining height */
+  min-height: 0;        /* IMPORTANT for flex scroll */
+  overflow: auto;       /* scroll only the table area */
 }
 </style>
