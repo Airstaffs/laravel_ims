@@ -277,7 +277,7 @@ export default {
             ];
         },
         pageSizeOptions() {
-            return [10, 20].map(n => ({ label: String(n), value: n }));
+            return [10, 20, 30, 50, 100, 200].map(n => ({ label: String(n), value: n }));
         },
         hasPendingChanges() {
             return this.rows.some(r => this.isValidInt(r.newQty) || this.isValidMoney(r.newPrice));
@@ -615,5 +615,42 @@ export default {
     flex: 1;
     min-height: 0;
     overflow: auto;
+}
+
+/* Compact PrimeVue dropdown */
+:deep(.p-dropdown) {
+  height: 34px !important;
+  min-height: 34px !important;
+  font-size: 13px;
+}
+
+:deep(.p-dropdown-label) {
+  padding: 6px 10px !important;
+  line-height: 20px;
+}
+
+:deep(.p-dropdown-trigger) {
+  width: 34px !important;
+}
+
+/* Compact input text */
+:deep(.p-inputtext) {
+  height: 34px !important;
+  padding: 6px 10px !important;
+  font-size: 13px;
+}
+
+/* Compact buttons */
+:deep(.p-button.p-button-sm) {
+  height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+/* Make labels smaller and tighter */
+.toolbar__label {
+  font-size: 11px;
+  margin-bottom: 4px;
+  color: var(--text-color-secondary);
 }
 </style>
