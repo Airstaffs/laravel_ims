@@ -1,6 +1,6 @@
 <template>
     <Dialog v-model:visible="visibleProxy" modal :closable="true" :draggable="false" header="Amazon Listings"
-        style="width: 95vw; max-width: 2000px;"
+        style="width: 95%; max-width: 2000px;"
         :contentStyle="{ padding: '0', display: 'flex', flexDirection: 'column', height: '85vh' }" @hide="onClose">
         <!-- Toolbar (Amazon-ish) -->
         <div class="toolbar">
