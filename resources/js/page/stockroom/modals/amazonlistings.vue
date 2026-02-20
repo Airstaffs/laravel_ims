@@ -230,20 +230,6 @@ import Tooltip from "primevue/tooltip";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || window.location.origin;
 
-// fulfillmentAvailability often: [{ fulfillmentChannelCode: "DEFAULT", quantity: 7 }]
-const fa = it?.fulfillmentAvailability || it?.attributes?.fulfillment_availability || [];
-const faArr = Array.isArray(fa) ? fa : [];
-
-const fbmEntry = faArr.find(x => x?.fulfillmentChannelCode === "DEFAULT");
-const currentQty = fbmEntry?.quantity ?? null;
-
-// FBA: anything that is NOT DEFAULT
-const fbaEntries = faArr.filter(x => x?.fulfillmentChannelCode && x?.fulfillmentChannelCode !== "DEFAULT");
-const fbaQty = fbaEntries.reduce((sum, x) => sum + (Number(x?.quantity) || 0), 0);
-
-const hasFBM = fbmEntry != null;
-const hasFBA = fbaEntries.length > 0;
-
 export default {
     name: "AmazonListingsModal",
     components: {
@@ -300,29 +286,6 @@ export default {
                     "productTypes",
                 ],
             },
-            currentQty,
-            fbaQty,
-            fbaQtyDisplay: hasFBA ? fbaQty : "—",
-            fbaChannels: fbaEntries.map(x => x.fulfillmentChannelCode).slice(0, 2),
-            hasFBM,
-            hasFBA,
-
-            // inputs
-            newQty: "",
-            newPrice: "",
-
-            // autosave state
-            _touchedQty: false,
-            _touchedPrice: false,
-            _savingQty: false,
-            _savingPrice: false,
-            _savedQty: false,
-            _savedPrice: false,
-            _errorQty: "",
-            _errorPrice: "",
-
-            // debounce handle
-            _saveTimer: null,
         };
     },
     computed: {
@@ -476,10 +439,14 @@ export default {
         mapSearchListingsResponse(raw) {
             // Amazon commonly returns: { items: [...], pagination: { nextToken } }
             const items = raw?.items || raw?.payload?.items || [];
-            const nextToken = raw?.pagination?.nextToken || raw?.payload?.pagination?.nextToken || null;
+            const nextToken =
+                raw?.pagination?.nextToken ||
+                raw?.payload?.pagination?.nextToken ||
+                null;
 
             const rows = (items || []).map((it) => {
                 const sku = it?.sku || it?.summaries?.[0]?.sku || null;
+
                 const asin =
                     it?.asin ||
                     it?.summaries?.[0]?.asin ||
@@ -515,8 +482,18 @@ export default {
 
                 // fulfillmentAvailability often: [{ fulfillmentChannelCode: "DEFAULT", quantity: 7 }]
                 const fa = it?.fulfillmentAvailability || it?.attributes?.fulfillment_availability || [];
-                const currentQty =
-                    Array.isArray(fa) ? (fa.find(x => x?.fulfillmentChannelCode === "DEFAULT")?.quantity ?? fa[0]?.quantity) : null;
+                const faArr = Array.isArray(fa) ? fa : [];
+
+                // FBM quantity (DEFAULT)
+                const fbmEntry = faArr.find(x => x?.fulfillmentChannelCode === "DEFAULT");
+                const currentQty = fbmEntry?.quantity ?? null;
+
+                // FBA quantity = sum of non-DEFAULT channels
+                const fbaEntries = faArr.filter(x => x?.fulfillmentChannelCode && x?.fulfillmentChannelCode !== "DEFAULT");
+                const fbaQty = fbaEntries.reduce((sum, x) => sum + (Number(x?.quantity) || 0), 0);
+
+                const hasFBM = !!fbmEntry;
+                const hasFBA = fbaEntries.length > 0;
 
                 // offers sometimes: [{ price: { amount, currencyCode } }]
                 const offers = it?.offers || [];
@@ -543,14 +520,35 @@ export default {
                     lastUpdatedDate,
                     conditionType,
 
-                    currentQty,
+                    // quantities
+                    currentQty,            // FBM qty
+                    fbaQty,                // total FBA qty
+                    fbaQtyDisplay: hasFBA ? fbaQty : "—",
+                    fbaChannels: fbaEntries.map(x => x.fulfillmentChannelCode).slice(0, 2),
+                    hasFBM,
+                    hasFBA,
+
+                    // pricing
                     currentPrice,
                     currency,
+
+                    // issues
                     issues,
 
-                    // inputs
+                    // inputs (autosave per row)
                     newQty: "",
                     newPrice: "",
+
+                    // autosave UI state
+                    _touchedQty: false,
+                    _touchedPrice: false,
+                    _savingQty: false,
+                    _savingPrice: false,
+                    _savedQty: false,
+                    _savedPrice: false,
+                    _errorQty: "",
+                    _errorPrice: "",
+                    _saveTimer: null,
                 };
             });
 
@@ -862,14 +860,14 @@ export default {
 }
 
 .row-status {
-  width: 20px;
-  text-align: right;
-  color: var(--text-color-secondary);
+    width: 20px;
+    text-align: right;
+    color: var(--text-color-secondary);
 }
 
 .compact-input {
-  height: 32px !important;
-  padding: 6px 10px !important;
-  font-size: 13px;
+    height: 32px !important;
+    padding: 6px 10px !important;
+    font-size: 13px;
 }
 </style>
