@@ -158,6 +158,7 @@
                     @click="openDs7Oos"
                     label="Open DS7 & OO"
                 />
+                  <Button label="Amazon Listings" icon="pi pi-amazon" @click="showAmazonListings = true" />
             </div>
 
             <div class="mobile-view w-100 ms-2">
@@ -1131,6 +1132,15 @@
             @close="showDs7Oos = false"
             @save="applyDsFilters"
         />
+
+        <AmazonListingsModal
+    v-model:visible="showAmazonListings"
+    :storeOptions="[
+      { label: 'Renovartech', value: 'Renovartech' },
+      { label: 'Allrenewed', value: 'Allrenewed' }
+    ]"
+    @applied="onAmazonListingApplied"
+  />
         <ScrollTop />
     </div>
 </template>
