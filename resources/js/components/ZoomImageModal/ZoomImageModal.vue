@@ -181,6 +181,8 @@ const wasDragging = ref(false);
 // Touch support
 const lastTouchDistance = ref(0);
 const lastTap = ref(0);
+const wasPinching = ref(false);
+
 
 const minScale = 0.5;
 const maxScale = 5;
@@ -268,9 +270,10 @@ const stopDrag = () => {
   isDragging.value = false;
 };
 
-// Touch
+// In handleTouchStart, set it when 2 fingers detected:
 const handleTouchStart = (event) => {
   if (event.touches.length === 1) {
+    wasPinching.value = false; // reset on single touch
     const touch = event.touches[0];
     if (scale.value > 1) {
       isDragging.value = true;
@@ -281,6 +284,7 @@ const handleTouchStart = (event) => {
   } else if (event.touches.length === 2) {
     event.preventDefault();
     isDragging.value = false;
+    wasPinching.value = true; // mark as pinch gesture
     const [t1, t2] = event.touches;
     lastTouchDistance.value = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
   }
@@ -306,7 +310,20 @@ const handleTouchMove = (event) => {
   }
 };
 
+// In handleTouchEnd, skip double-tap logic if it was a pinch:
 const handleTouchEnd = (event) => {
+  if (wasPinching.value) {
+    // Pinch ended — just clean up, don't run double-tap logic
+    isDragging.value = false;
+    lastTouchDistance.value = 0;
+    // Only clear wasPinching when ALL fingers are lifted
+    if (event.touches.length === 0) {
+      wasPinching.value = false;
+      lastTap.value = 0; // prevent a stale tap time from triggering double-tap
+    }
+    return;
+  }
+
   const now = Date.now();
   const timeSinceLastTap = now - lastTap.value;
   if (timeSinceLastTap < 300 && timeSinceLastTap > 0 && !wasDragging.value) {
