@@ -1,62 +1,65 @@
 <template>
     <Dialog v-model:visible="visibleProxy" modal :closable="true" :draggable="false" header="Amazon Listings"
-        style="width: 95%; max-width: 80%;"
+        style="width: 95vw; max-width: 1200px;"
         :contentStyle="{ padding: '0', display: 'flex', flexDirection: 'column', height: '85vh' }" @hide="onClose">
         <!-- Toolbar (Amazon-ish) -->
-        <div class="p-2 border-bottom-1 surface-border">
-            <div class="toolbar-row">
-                <div class="toolbar-field w-12 md:w-3">
-                    <label class="block text-sm mb-1">Store</label>
+        <div class="toolbar">
+            <!-- Row 1 -->
+            <div class="toolbar__row">
+                <div class="toolbar__field toolbar__field--store">
+                    <label class="toolbar__label">Store</label>
                     <Dropdown v-model="filters.store" :options="storeOptions" optionLabel="label" optionValue="value"
-                        placeholder="Select store" class="w-full p-inputtext-sm" />
+                        class="w-full p-inputtext-sm" />
                 </div>
 
-                <div class="toolbar-field w-12 md:w-2">
-                    <label class="block text-sm mb-1">Identifier Type</label>
+                <div class="toolbar__field toolbar__field--idtype">
+                    <label class="toolbar__label">Identifier</label>
                     <Dropdown v-model="filters.identifiersType" :options="identifierTypeOptions" optionLabel="label"
                         optionValue="value" class="w-full p-inputtext-sm" />
                 </div>
 
-                <div class="toolbar-field w-12 md:w-5">
-                    <label class="block text-sm mb-1">Search (comma / newline separated)</label>
+                <div class="toolbar__field toolbar__field--search">
+                    <label class="toolbar__label">Search</label>
                     <InputText v-model="filters.identifiersRaw" class="w-full p-inputtext-sm"
-                        placeholder="Search SKU, ASIN, FNSKU, UPC/EAN..." @keyup.enter="runSearch(true)" />
-                    <small class="text-500">Tip: paste multiple values separated by comma or new line</small>
+                        placeholder="SKU, ASIN, FNSKU… (comma/new line)" @keyup.enter="runSearch(true)" />
+                    <small class="toolbar__hint">Paste multiple values separated by comma or new line</small>
                 </div>
 
-                <div class="toolbar-actions w-12 md:w-2">
-                    <Button label="Search" class="p-button-sm" icon="pi pi-search" :loading="loading"
+                <div class="toolbar__actions">
+                    <Button label="Search" icon="pi pi-search" class="p-button-sm" :loading="loading"
                         @click="runSearch(true)" />
-                    <Button label="Reset" class="p-button-sm" icon="pi pi-refresh" severity="secondary"
+                    <Button label="Reset" icon="pi pi-refresh" class="p-button-sm" severity="secondary"
                         :disabled="loading" @click="resetFilters" />
                 </div>
             </div>
 
-            <!-- Secondary row: sort/page size -->
-            <div class="grid align-items-end mt-2">
-                <div class="col-6 md:col-2">
-                    <label class="block text-sm mb-1">Sort By</label>
+            <!-- Row 2 -->
+            <div class="toolbar__row toolbar__row--secondary">
+                <div class="toolbar__field toolbar__field--small">
+                    <label class="toolbar__label">Sort</label>
                     <Dropdown v-model="filters.sortBy" :options="sortByOptions" optionLabel="label" optionValue="value"
                         class="w-full p-inputtext-sm" />
                 </div>
 
-                <div class="col-6 md:col-2">
-                    <label class="block text-sm mb-1">Sort Order</label>
+                <div class="toolbar__field toolbar__field--small">
+                    <label class="toolbar__label">Order</label>
                     <Dropdown v-model="filters.sortOrder" :options="sortOrderOptions" optionLabel="label"
                         optionValue="value" class="w-full p-inputtext-sm" />
                 </div>
 
-                <div class="col-6 md:col-2">
-                    <label class="block text-sm mb-1">Page Size</label>
+                <div class="toolbar__field toolbar__field--small">
+                    <label class="toolbar__label">Page Size</label>
                     <Dropdown v-model="filters.pageSize" :options="pageSizeOptions" optionLabel="label"
                         optionValue="value" class="w-full p-inputtext-sm" />
                 </div>
 
-                <div class="col-12 md:col-6 flex justify-content-end gap-2">
-                    <Button label="Prev" icon="pi pi-angle-left" severity="secondary"
-                        :disabled="loading || !page.prevToken" @click="goPrev" class="p-button-sm" />
-                    <Button label="Next" iconPos="right" icon="pi pi-angle-right" severity="secondary"
-                        :disabled="loading || !page.nextToken" @click="goNext" class="p-button-sm" />
+                <div class="toolbar__spacer"></div>
+
+                <div class="toolbar__pager">
+                    <Button label="Prev" icon="pi pi-angle-left" class="p-button-sm" severity="secondary"
+                        :disabled="loading || !page.prevToken" @click="goPrev" />
+                    <Button label="Next" icon="pi pi-angle-right" iconPos="right" class="p-button-sm"
+                        severity="secondary" :disabled="loading || !page.nextToken" @click="goNext" />
                 </div>
             </div>
         </div>
@@ -509,80 +512,108 @@ export default {
 </script>
 
 <style scoped>
-.border-bottom-1 {
+.toolbar {
+    padding: 12px;
     border-bottom: 1px solid var(--surface-border);
 }
 
-.border-top-1 {
-    border-top: 1px solid var(--surface-border);
+.toolbar__row {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
 }
 
-.truncate {
+.toolbar__row--secondary {
+    margin-top: 10px;
+}
+
+.toolbar__label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-color-secondary);
+    margin-bottom: 6px;
+}
+
+.toolbar__hint {
+    display: block;
+    font-size: 11px;
+    color: var(--text-color-secondary);
+    margin-top: 6px;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 620px;
 }
 
-.status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    display: inline-block;
+.toolbar__field {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    /* IMPORTANT: lets flex children shrink instead of forcing wrap */
 }
 
-.status-active {
-    background: #22c55e;
+.toolbar__field--store {
+    width: 180px;
+    flex: 0 0 180px;
 }
 
-.status-other {
-    background: #f59e0b;
+.toolbar__field--idtype {
+    width: 140px;
+    flex: 0 0 140px;
 }
 
-/* Force the Issues column to never blow up the dialog width */
-.issue-wrap,
-.issue-wrap li {
-    max-width: 100%;
-    overflow: hidden;
-    word-break: break-word;
-    overflow-wrap: anywhere;
-    /* breaks long strings like Amazon error codes */
-    white-space: normal;
+/* Search flexes */
+.toolbar__field--search {
+    flex: 1 1 auto;
+    min-width: 260px;
 }
 
-/* Optional: clamp each issue line so it doesn’t get tall */
-.issue-wrap li {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    /* show at most 2 lines per issue */
-    -webkit-box-orient: vertical;
+.toolbar__actions {
+    display: flex;
+    gap: 8px;
+    flex: 0 0 auto;
+    align-items: flex-end;
 }
 
+/* Secondary row small fields */
+.toolbar__field--small {
+    width: 160px;
+    flex: 0 0 160px;
+}
+
+.toolbar__spacer {
+    flex: 1 1 auto;
+}
+
+.toolbar__pager {
+    display: flex;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+/* Mobile: stack cleanly */
+@media (max-width: 768px) {
+    .toolbar__row {
+        flex-wrap: wrap;
+    }
+
+    .toolbar__field--store,
+    .toolbar__field--idtype,
+    .toolbar__field--small {
+        width: 100%;
+        flex: 1 1 100%;
+    }
+
+    .toolbar__actions,
+    .toolbar__pager {
+        width: 100%;
+        justify-content: flex-end;
+    }
+}
+
+/* Your existing table scroll area */
 .table-wrap {
     flex: 1;
-    /* take remaining height */
     min-height: 0;
-    /* IMPORTANT for flex scroll */
     overflow: auto;
-    /* scroll only the table area */
-}
-
-.toolbar-row {
-  display: flex;
-  flex-wrap: wrap;      /* allows stacking on small screens */
-  gap: 12px;
-  align-items: flex-end;
-}
-
-.toolbar-field {
-  min-width: 220px;     /* prevents tiny squished dropdowns */
-}
-
-.toolbar-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  align-items: flex-end;
-  min-width: 220px;
 }
 </style>
