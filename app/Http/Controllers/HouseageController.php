@@ -1500,4 +1500,106 @@ private function attachImages($products)
             ], 500);
         }
     }
+
+    
+    public function deleteCapturedImagesBulk(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'productId'    => 'required|string|max:255',
+                'imageNumbers' => 'required|array|min:1',
+                'imageNumbers.*' => 'required|integer|min:1|max:12',
+                'imageType'    => 'required|string|in:tracking,captured,serial',
+            ]);
+
+            $productId    = $validated['productId'];
+            $imageNumbers = array_unique($validated['imageNumbers']);
+            $imageType    = $validated['imageType'];
+
+            // Validate count per type
+            foreach ($imageNumbers as $num) {
+                if (in_array($imageType, ['tracking', 'serial']) && $num > 2) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => ucfirst($imageType) . ' images only support img1 and img2',
+                    ], 422);
+                }
+            }
+
+            $record = DB::table('tblcapturedimages')
+                ->where('ProductID', $productId)
+                ->first();
+
+            if (! $record) {
+                return response()->json(['success' => false, 'message' => 'Product not found'], 404);
+            }
+
+            $successCount = 0;
+            $failCount    = 0;
+            $updates      = ['UpdatedAt' => now()];
+
+            foreach ($imageNumbers as $num) {
+                $columnName = $imageType . 'img' . $num;
+                $filename   = $record->{$columnName} ?? null;
+
+                if (! $filename) {
+                    $failCount++;
+                    continue;
+                }
+
+                // Delete file from filesystem
+                $filePath = public_path('images/product_images/Airstaffs/' . $filename);
+                if (file_exists($filePath) && is_file($filePath)) {
+                    if (! @unlink($filePath)) {
+                        Log::warning("Bulk delete: failed to delete file: {$filePath}");
+                    }
+                }
+
+                $updates[$columnName] = null;
+                $successCount++;
+            }
+
+            // Single DB update for all nullified columns
+            if (! empty($updates)) {
+                DB::table('tblcapturedimages')
+                    ->where('ProductID', $productId)
+                    ->update($updates);
+            }
+
+            Log::info('Bulk product image delete', [
+                'ProductID'    => $productId,
+                'imageType'    => $imageType,
+                'imageNumbers' => $imageNumbers,
+                'successCount' => $successCount,
+                'failCount'    => $failCount,
+            ]);
+
+            return response()->json([
+                'success'      => true,
+                'message'      => "{$successCount} image(s) deleted successfully",
+                'successCount' => $successCount,
+                'failCount'    => $failCount,
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\Throwable $th) {
+            Log::error('Bulk image delete error: ' . $th->getMessage(), [
+                'productId'    => $request->input('productId'),
+                'imageType'    => $request->input('imageType'),
+                'imageNumbers' => $request->input('imageNumbers'),
+                'trace'        => $th->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete images',
+                'error'   => config('app.debug') ? $th->getMessage() : 'Server error',
+            ], 500);
+        }
+    }
 }

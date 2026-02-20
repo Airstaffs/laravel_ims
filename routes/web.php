@@ -56,6 +56,7 @@ use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Middleware\PreventBackHistory;
+use App\Http\Controllers\SuppliesComponentsController;
 use App\Http\Models\Store;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -709,6 +710,15 @@ Route::prefix('api/shipments')->group(function () {
 Route::prefix('api/inventory-statistics')->group(function () {
     Route::get('/summary', [InventoryStatisticsController::class, 'getSummary']);
     Route::get('/asin-details', [InventoryStatisticsController::class, 'getAsinDetails']);
+});
+
+
+
+// Routes for Supplies & Components Module
+Route::prefix('api/supplies-components')->group(function () {
+    Route::get('/', [SuppliesComponentsController::class, 'index']);
+    Route::get('/stats', [SuppliesComponentsController::class, 'getStats']);
+    Route::post('/move-to-labeling', [SuppliesComponentsController::class, 'moveToLabeling']);
 });
 
 // Printer API routes

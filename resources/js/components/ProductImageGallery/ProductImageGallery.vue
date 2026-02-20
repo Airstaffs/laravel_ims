@@ -112,6 +112,36 @@
                 </div>
             </div>
 
+            <div class="dialog-toolbar">
+                <button
+                    class="toolbar-btn"
+                    :class="{ active: isSelectionMode }"
+                    @click="toggleSelectionMode"
+                >
+                    <i class="pi pi-check-square"></i>
+                    {{ isSelectionMode ? 'Cancel' : 'Select' }}
+                </button>
+
+                <template v-if="isSelectionMode">
+                    <button
+                        class="toolbar-btn select-all-btn"
+                        @click="toggleSelectAll"
+                    >
+                        <i :class="isAllSelected ? 'pi pi-minus-circle' : 'pi pi-check-circle'"></i>
+                        {{ isAllSelected ? 'Deselect All' : 'Select All' }}
+                    </button>
+
+                    <button
+                        class="toolbar-btn delete-selected-btn"
+                        :disabled="selectedIndices.length === 0"
+                        @click="confirmDeleteSelected"
+                    >
+                        <i class="pi pi-trash"></i>
+                        Delete ({{ selectedIndices.length }})
+                    </button>
+                </template>
+            </div>
+
             <!-- Force re-render with v-if -->
             <div v-if="dialogContentKey" :key="dialogContentKey" class="image-grid">
                 <!-- Existing Images -->
@@ -120,29 +150,36 @@
                     :key="`img-card-${index}-${image}-${dialogContentKey}`"
                     class="image-card"
                 >
-                    <div class="image-card-content">
+                    <div class="image-card-content"
+    :class="{ 'is-selected': isSelectionMode && selectedIndices.includes(index) }"
+    @click="isSelectionMode ? toggleImageSelection(index) : null">
+
+     <div v-if="isSelectionMode" class="selection-overlay">
+        <div class="selection-checkbox" :class="{ checked: selectedIndices.includes(index) }">
+            <i class="pi pi-check"></i>
+        </div>
+    </div>
                         <!-- Delete Button -->
-                        <button
-                            v-if="!isImageProcessing(index)"
-                            class="delete-btn"
-                            @click.stop="confirmDeleteImage(index, image)"
-                            type="button"
-                            title="Delete image"
-                        >
-                            <i class="pi pi-trash"></i>
-                        </button>
+                          <button
+        v-if="!isImageProcessing(index) && !isSelectionMode"
+        class="delete-btn"
+        @click.stop="confirmDeleteImage(index, image)"
+        type="button"
+        title="Delete image"
+    >
+        <i class="pi pi-trash"></i>
+    </button>
 
                         <!-- Zoom Button -->
-                        <button
-                            v-if="!isImageProcessing(index)"
-                            class="zoom-btn"
-                            @click.stop="openZoomModalWithImage(image)"
-                            type="button"
-                            title="View fullscreen"
-                        >
-                            <i class="pi pi-search-plus"></i>
-                        </button>
-
+                       <button
+        v-if="!isImageProcessing(index) && !isSelectionMode"
+        class="zoom-btn"
+        @click.stop="openZoomModalWithImage(image)"
+        type="button"
+        title="View fullscreen"
+    >
+        <i class="pi pi-search-plus"></i>
+    </button>
                         <!-- Image -->
                         <img
                             :src="getImageUrl(image)"
@@ -303,10 +340,16 @@ export default {
             uploadQueue: [],
             showZoomModal: false,
             zoomImagePath: "",
-            imagesWithPathList: []
+            imagesWithPathList: [],
+            isSelectionMode: false,
+            selectedIndices: [],
         };
     },
     computed: {
+        isAllSelected() {
+    return this.displayImageList.length > 0 &&
+        this.selectedIndices.length === this.displayImageList.length;
+},
         displayImageList() {
             const list = [...this.localImageList];
             console.log('🎨 displayImageList computed:', {
@@ -402,6 +445,114 @@ export default {
         window.removeEventListener('resize', this.checkMobile);
     },
     methods: {
+        toggleSelectionMode() {
+    this.isSelectionMode = !this.isSelectionMode;
+    this.selectedIndices = [];
+},
+
+toggleImageSelection(index) {
+    const pos = this.selectedIndices.indexOf(index);
+    if (pos === -1) {
+        this.selectedIndices.push(index);
+    } else {
+        this.selectedIndices.splice(pos, 1);
+    }
+},
+
+toggleSelectAll() {
+    if (this.isAllSelected) {
+        this.selectedIndices = [];
+    } else {
+        this.selectedIndices = this.displayImageList.map((_, i) => i);
+    }
+},
+async confirmDeleteSelected() {
+    const count = this.selectedIndices.length;
+    const result = await Swal.fire({
+        title: `Delete ${count} Image${count > 1 ? 's' : ''}?`,
+        text: `Are you sure you want to delete ${count} selected image${count > 1 ? 's' : ''}? This cannot be undone.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: `Yes, delete ${count}`,
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
+    });
+
+    if (result.isConfirmed) {
+        await this.deleteSelectedImages();
+    }
+},
+async deleteSelectedImages() {
+    // Build list of { index, imgNumber } sorted descending so splice doesn't shift indices
+    const targets = this.selectedIndices
+        .map(index => {
+            const image = this.localImageList[index];
+            const urlWithoutQuery = image.split('?')[0];
+            const imgNumber = parseInt(urlWithoutQuery.split('_').pop().match(/(\d+)/)?.[1] || (index + 1));
+            return { index, imgNumber };
+        })
+        .sort((a, b) => b.index - a.index); // descending
+
+    const imageNumbers = targets.map(t => t.imgNumber);
+
+    try {
+        // Set processing state on all selected
+        targets.forEach(({ index }) => this.setImageProcessing(index, 'Deleting...'));
+
+        const response = await axios.post(
+            '/api/houseage/delete-images-bulk',
+            {
+                productId: String(this.productId),
+                imageNumbers,
+                imageType: this.imageType,
+            },
+            { withCredentials: true }
+        );
+
+        if (response.data.success) {
+            // Remove from localImageList descending to preserve indices
+            targets.forEach(({ index }) => {
+                this.localImageList.splice(index, 1);
+            });
+
+            if (this.localActiveIndex >= this.localImageList.length) {
+                this.localActiveIndex = Math.max(0, this.localImageList.length - 1);
+            }
+
+            this.cacheBustTimestamp = Date.now();
+            this.isSelectionMode = false;
+            this.selectedIndices = [];
+            this.refreshDialogContent();
+
+            const { successCount, failCount } = response.data;
+            await Swal.fire({
+                title: failCount === 0 ? 'Deleted!' : 'Partial Success',
+                text: failCount === 0
+                    ? `${successCount} image${successCount > 1 ? 's' : ''} deleted successfully.`
+                    : `${successCount} deleted, ${failCount} failed.`,
+                icon: failCount === 0 ? 'success' : 'warning',
+                timer: 2000,
+                showConfirmButton: false,
+            });
+
+            this.$emit('request-refresh');
+        } else {
+            throw new Error(response.data.message || 'Bulk delete failed');
+        }
+    } catch (error) {
+        console.error('❌ Bulk delete error:', error);
+        await Swal.fire({
+            title: 'Error',
+            text: error.response?.data?.message || 'Failed to delete images',
+            icon: 'error',
+            confirmButtonColor: '#ef4444',
+        });
+    } finally {
+        targets.forEach(({ index }) => this.setImageProcessing(index, null));
+    }
+},
         openZoomModal(index) {
             this.zoomImagePath = this.activeImageUrl;
             this.showZoomModal = true;
@@ -1434,5 +1585,108 @@ export default {
         height: 45px;
         min-width: 60px;
     }
+}
+/* ── Dialog Toolbar ───────────────────────────────────── */
+.dialog-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.toolbar-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+}
+
+.toolbar-btn.active {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    color: #2563eb;
+}
+
+.toolbar-btn.select-all-btn {
+    color: #374151;
+}
+
+.toolbar-btn.delete-selected-btn {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #dc2626;
+    margin-left: auto;
+}
+
+.toolbar-btn.delete-selected-btn:hover:not(:disabled) {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: #fff;
+}
+
+.toolbar-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ── Selection Overlay on Image Card ─────────────────── */
+.image-card-content.is-selected {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px #3b82f6, 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
+.selection-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(59, 130, 246, 0.08);
+    z-index: 8;
+    cursor: pointer;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 8px;
+}
+
+.selection-checkbox {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+.selection-checkbox.checked {
+    background: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.selection-checkbox i {
+    font-size: 11px;
+    color: #fff;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.selection-checkbox.checked i {
+    opacity: 1;
 }
 </style>

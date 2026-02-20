@@ -54,6 +54,7 @@ class UserController extends Controller
                 'auxiliary',
                 'inventorystatistics',
                 'reconciliation',
+                'suppliescomponents',
             )
             ->where('id', $currentUserId)
             ->first();
@@ -221,6 +222,7 @@ class UserController extends Controller
                     'auxiliary' => (bool) $selectedUser->auxiliary,
                     'inventorystatistics' => (bool) $selectedUser->inventorystatistics,
                     'reconciliation' => (bool) $selectedUser->reconciliation,
+                    'suppliescomponents' => (bool) $selectedUser->suppliescomponents,
                 ],
                 'privileges_stores' => $storePrivileges, // Pass the processed store privileges
             ];
@@ -374,6 +376,7 @@ class UserController extends Controller
                 'Announcement' => 'announcement',
                 'Inventory Statistics' => 'inventorystatistics',
                 'Reconciliation' => 'reconciliation',
+                'Supplies & Components' => 'suppliescomponents',
             ];
 
             // Convert main module from display name to database column name
@@ -424,6 +427,7 @@ class UserController extends Controller
                 'announcement',
                 'inventorystatistics',
                 'reconciliation',
+                'suppliescomponents',
 
             ];
 
@@ -573,6 +577,7 @@ class UserController extends Controller
                 'auxiliary',
                 'inventorystatistics',
                 'reconciliation',
+                'suppliescomponents',
             ];
 
             // Get main module and ensure it's lowercase with no spaces
