@@ -427,12 +427,7 @@ const ASIN_COLUMNS = [
         slot: "modules",
         style: { minWidth: "300px" },
     },
-    {
-        field: "actions",
-        header: "Actions",
-        slot: "actions",
-        style: { textAlign: "center", width: "100px" },
-    },
+
 ];
 
 const DETAIL_COLUMNS = [

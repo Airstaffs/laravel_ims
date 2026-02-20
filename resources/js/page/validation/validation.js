@@ -11,9 +11,6 @@ export default {
         return {
             inventory: [],
             loading: true,
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 10, // Default rows per page
             selectAll: false,
             expandedRows: {},
             sortColumn: "",
@@ -72,6 +69,12 @@ export default {
             error: null,
 
             activeCapturedIndex: 0,
+
+            //pagination
+            currentPage: 1,
+            totalRecords: 0,
+            perPage: 10, // Default rows per page
+            first: 0 //paginator internal state
         };
     },
     computed: {
@@ -603,7 +606,7 @@ export default {
                 }
 
                 this.inventory = response.data.data;
-                this.totalPages = response.data.last_page;
+                this.totalRecords = response.data.total;
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
                 console.error("Error response:", error.response);
@@ -612,25 +615,12 @@ export default {
             }
         },
 
-        changePerPage() {
-            this.currentPage = 1;
+        onPageChange(event) {
+            this.first = event.first
+            this.currentPage = event.page + 1; // convert to 1-based
+            this.perPage     = event.rows;
             this.fetchInventory();
         },
-
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.fetchInventory();
-            }
-        },
-
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.fetchInventory();
-            }
-        },
-
         toggleAll() {
             this.inventory.forEach((item) => (item.checked = this.selectAll));
         },
@@ -1074,6 +1064,7 @@ export default {
     watch: {
         searchQuery() {
             this.currentPage = 1;
+            this.first = 0
             this.fetchInventory();
         },
     },

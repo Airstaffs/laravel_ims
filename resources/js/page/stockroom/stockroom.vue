@@ -633,51 +633,17 @@
         </div>
 
         <!-- Pagination -->
-        <div class="pagination-container">
-            <div class="pagination-wrapper">
-                <div class="per-page-selector">
-                    <span>Rows per page</span>
-                    <Select
-                        v-model="perPage"
-                        @change="changePerPage"
-                        :options="rowsPerPage"
-                        size="small"
-                        optionLabel="label"
-                        optionValue="value"
-                    />
-                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                            {{ option }}
-                        </option>
-                    </select> -->
-                </div>
-
-                <div class="pagination">
-                    <Button
-                        @click="prevPage"
-                        :disabled="currentPage === 1"
-                        class="pagination-button"
-                        label="Back"
-                        icon="pi pi-angle-left"
-                        size="small"
-                        severity="info"
-                    />
-                    <span class="pagination-info"
-                        >Page {{ currentPage }} of {{ totalPages }}</span
-                    >
-                    <Button
-                        @click="nextPage"
-                        :disabled="currentPage === totalPages"
-                        class="pagination-button"
-                        label="Next"
-                        icon="pi pi-angle-right"
-                        size="small"
-                        severity="info"
-                        iconPos="right"
-                    />
-                </div>
-            </div>
-        </div>
+     <!-- Pagination with centered layout -->
+        <Paginator
+            :first="first"
+            :rows="perPage"
+            :total-records="totalRecords"
+            :rows-per-page-options="[10, 20, 50]"
+            template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+            class="small-paginator"
+            @page="onPageChange"
+        />
 
         <!-- Process Items Modal (Replaces Move Items Modal) -->
         <Dialog
@@ -1162,6 +1128,7 @@ import {
     Select,
     Textarea,
     Panel,
+    Paginator
 } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
@@ -1275,6 +1242,7 @@ export default {
         Badge,
         AnimateDiv,
         Panel,
+        Paginator
     },
     data() {
         return {

@@ -1,0 +1,398 @@
+/* Shipment Module Styles */
+.shipment-module {
+    padding: 1rem;
+    min-height: 100vh;
+}
+
+/* Statistics Cards - Updated to match Stockroom */
+.stats-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border: 1px solid #dee2e6;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    flex: 1 1 auto;
+    min-width: 200px;
+    max-width: 250px;
+    background: white;
+}
+
+.stat-icon {
+    border-radius: 50%;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Light backgrounds */
+.bg-primary-light {
+    background: rgba(13, 110, 253, 0.1);
+}
+
+.bg-success-light {
+    background: rgba(25, 135, 84, 0.1);
+}
+
+.bg-info-light {
+    background: rgba(13, 202, 240, 0.1);
+}
+
+.bg-danger-light {
+    background: rgba(220, 53, 69, 0.12);
+}
+
+.bg-warning-light {
+    background: rgba(255, 193, 7, 0.15);
+}
+
+/* Solid backgrounds for icons */
+.bg-primary {
+    background-color: #0d6efd;
+}
+
+.bg-success {
+    background-color: #198754;
+}
+
+.bg-info {
+    background-color: #0dcaf0;
+}
+
+.bg-danger {
+    background-color: #dc3545;
+}
+
+.bg-warning {
+    background-color: #ffc107;
+}
+
+.text-white {
+    color: white;
+}
+
+/* Search Container */
+.search-container {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.search-container fieldset {
+    border: none;
+    padding: 0;
+    margin: 0;
+}
+
+.search-container label {
+    font-weight: 600;
+    color: #475569;
+    white-space: nowrap;
+}
+
+.select-form {
+    min-width: 180px;
+}
+
+/* Detail Item Container */
+.detail-item-container {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.detail-item-container > span:first-child {
+    color: #64748b;
+    font-weight: 500;
+}
+
+.detail-item-container > span:last-child {
+    color: #1e293b;
+    font-weight: 600;
+}
+
+.detail-item-container :deep(.p-tag) {
+    color: white !important;
+    font-weight: 600;
+    padding: 0.35rem 0.75rem;
+    border-radius: 4px;
+}
+
+/* Special case for DHL yellow - use dark text */
+.detail-item-container :deep(.p-tag[style*="#eab308"]) {
+    color: #1e293b !important;
+}
+
+/* Mobile View */
+.mobile-view {
+    display: none;
+}
+
+.mobile-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.mobile-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.mobile-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.mobile-id {
+    color: #6366f1;
+    font-size: 0.9rem;
+}
+
+.mobile-product-title {
+    font-size: 1rem;
+    color: #1e293b;
+}
+
+.mobile-section {
+    margin: 1rem 0;
+}
+
+.mobile-detail {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    font-size: 0.875rem;
+}
+
+.mobile-detail-label {
+    color: #64748b;
+    font-weight: 500;
+}
+
+.mobile-detail-value {
+    color: #1e293b;
+    font-weight: 600;
+}
+
+.loading-spinner-mobile,
+.no-data-mobile {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #64748b;
+}
+
+.loading-spinner-mobile i {
+    font-size: 2rem;
+    color: #6366f1;
+}
+
+/* Pagination */
+.pagination-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 2rem;
+    padding: 1rem;
+}
+
+.pagination-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    background: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.per-page-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.per-page-selector span {
+    font-size: 0.875rem;
+    color: #64748b;
+    white-space: nowrap;
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.pagination-info {
+    font-size: 0.875rem;
+    color: #475569;
+    font-weight: 500;
+    min-width: 120px;
+    text-align: center;
+}
+
+/* Details Modal */
+.details-modal-content {
+    padding: 1rem 0;
+}
+
+.details-section {
+    margin-bottom: 1.5rem;
+}
+
+.details-section h4 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #1e293b;
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+}
+
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.detail-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.detail-row .label {
+    font-size: 0.75rem;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.detail-row .value {
+    font-size: 0.95rem;
+    color: #1e293b;
+}
+
+/* Statistics Modal */
+.stats-modal-content {
+    padding: 1rem 0;
+}
+
+.chart-container {
+    margin-top: 1rem;
+}
+
+.stat-bar {
+    display: grid;
+    grid-template-columns: 120px 1fr 60px;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stat-bar-label {
+    font-size: 0.875rem;
+    color: #475569;
+    font-weight: 500;
+}
+
+.stat-bar-bg {
+    background: #e2e8f0;
+    height: 24px;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.stat-bar-fill {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.stat-bar-value {
+    text-align: right;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+/* Responsive Design */
+@media (max-width: 992px) {
+    .stat-card {
+        flex: 1 1 calc(50% - 0.5rem);
+        max-width: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .desktop-view {
+        display: none !important;
+    }
+
+    .mobile-view {
+        display: block;
+    }
+
+    .stats-container {
+        gap: 0.5rem;
+    }
+
+    .stat-card {
+        flex: 1 1 48%;
+        min-width: 0;
+        max-width: none;
+    }
+
+    .stat-icon {
+        display: none;
+    }
+
+    .search-container {
+        flex-direction: column;
+    }
+
+    .select-form {
+        width: 100%;
+    }
+
+    .pagination-wrapper {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .details-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-bar {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+
+    .stat-bar-value {
+        text-align: left;
+    }
+}
+
+@media (max-width: 480px) {
+    .shipment-module {
+        padding: 0.5rem;
+    }
+}

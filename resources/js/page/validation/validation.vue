@@ -27,6 +27,7 @@
                 tableClass="desktop-view"
                 selectionMode="multiple"
                 dataKey="ProductID"
+                :loading="loading"
             >
                 <template #gallery="{ data }">
                     <div
@@ -517,46 +518,16 @@
         </div>
 
         <!-- Pagination with centered layout -->
-        <div class="pagination-container">
-            <div class="pagination-wrapper">
-                <div class="per-page-selector">
-                    <span>Rows per page</span>
-                    <Select
-                        v-model="perPage"
-                        @change="changePerPage"
-                        :options="rowsPerPage"
-                        optionLabel="label"
-                        optionValue="value"
-                        size="small"
-                    />
-                </div>
-
-                <div class="pagination">
-                    <Button
-                        @click="prevPage"
-                        :disabled="currentPage === 1"
-                        class="pagination-button"
-                        label="Back"
-                        icon="pi pi-angle-left"
-                        size="small"
-                        severity="info"
-                    />
-                    <span class="pagination-info"
-                        >Page {{ currentPage }} of {{ totalPages }}</span
-                    >
-                    <Button
-                        @click="nextPage"
-                        :disabled="currentPage === totalPages"
-                        class="pagination-button"
-                        label="Next"
-                        icon="pi pi-angle-right"
-                        size="small"
-                        severity="info"
-                        iconPos="right"
-                    />
-                </div>
-            </div>
-        </div>
+        <Paginator
+            :first="first"
+            :rows="perPage"
+            :total-records="totalRecords"
+            :rows-per-page-options="[10, 20, 50]"
+            template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+            class="small-paginator"
+            @page="onPageChange"
+        />
 
         <!-- Image Modal with Tabs -->
         <ViewImageGalleryModal
@@ -628,25 +599,29 @@
                                 :class="{ 'preview-active': isCapturedPreviewActive }"
                                 v-show="capturedImageList.length"
                             >
-                                <div class="hover-overlay" @click="closeCapturedPreview"></div>
                                 
-                                <div class="main-image" @click="toggleCapturedPreview">
+                                <div class="main-image" @click="handleOpenZoomImage('captured')">
                                     <img
                                         :src="activeCapturedImageUrl"
                                         alt="Main Product Image"
                                         loading="lazy"
                                         @error="onImageErrorMain"
                                     />
+
+                                       <div class="zoom-indicator">
+                                            <i class="pi pi-search-plus"></i>
+                                            <span>Click to zoom</span>
+                                        </div>
                                 </div>
 
-                                <div class="captured-hover-preview">
+                                <!-- <div class="captured-hover-preview">
                                     <img
                                         :src="activeCapturedImageUrl"
                                         alt="Main Product Image"
                                         loading="lazy"
                                         @error="onImageErrorMain"
                                     />
-                                </div>
+                                </div> -->
 
                                 <div class="thumbnail-carousel">
                                     <div
@@ -694,7 +669,7 @@
                             >
                                 <div class="hover-overlay" @click="closePreview"></div>
                                 
-                                <div class="main-image" @click="togglePreview">
+                                <div class="main-image" @click="handleOpenZoomImage('asin')">
                                     <img
                                         :src="activeAsinImageUrl"
                                         alt="Main ASIN Image"
@@ -702,7 +677,7 @@
                                         @error="handleImageError"
                                     />
                                 </div>
-
+<!-- 
                                 <div class="asin-hover-preview">
                                     <img
                                         :src="activeAsinImageUrl"
@@ -710,7 +685,7 @@
                                         loading="lazy"
                                         @error="handleImageError"
                                     />
-                                </div>
+                                </div> -->
                             </div>
                             <p>
                                 <label>
@@ -1057,6 +1032,8 @@
             </div>
         </div>
         <!-- End of Validation Confirmation Modal -->
+
+        <ZoomImageModal v-model:visible="showZoomImageModal" :images="imageListToZoom" :initialIndex="initImageIndex" :title="imageTitleToZoom"/>
         <ScrollTop />
     </div>
 </template>
@@ -1078,6 +1055,7 @@ import {
     TabPanels,
     TabPanel,
     Galleria,
+    Paginator
 } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
@@ -1085,6 +1063,7 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
+import ZoomImageModal from "../../components/ZoomImageModal/ZoomImageModal.vue";
 // export default Validation;
 
 const TABLE_COLUMNS = [
@@ -1167,6 +1146,8 @@ export default {
         TabPanel,
         TabPanels,
         Galleria,
+        Paginator,
+        ZoomImageModal
     },
     data() {
         return {
@@ -1174,8 +1155,10 @@ export default {
             rowsPerPage: ROWS_PER_PAGE,
             currentTimezone: "UTC",
             timezoneLabel: "Loading...",
-            isPreviewActive: false, // for ASIN image
-            isCapturedPreviewActive: false, // for captured images
+            showZoomImageModal: false,
+            imageListToZoom: [],
+            initImageIndex: 0,
+            imageTitleToZoom: ""
         };
     },
     async mounted() {
@@ -1188,9 +1171,6 @@ export default {
                 this.isPreviewActive = !this.isPreviewActive;
             }
         },
-        closePreview() {
-            this.isPreviewActive = false;
-        },
         
         // For captured images
         toggleCapturedPreview() {
@@ -1198,9 +1178,16 @@ export default {
                 this.isCapturedPreviewActive = !this.isCapturedPreviewActive;
             }
         },
-        closeCapturedPreview() {
-            this.isCapturedPreviewActive = false;
+
+        handleOpenZoomImage(type) {
+            this.showZoomImageModal = true
+            this.imageListToZoom = type === 'captured' ? this.capturedImageList : [this.asinImageList[0]]
+            this.initImageIndex = type === 'captured' ? this.activeCapturedIndex : this.activeAsinIndex
+            this.imageTitleToZoom = type === 'captured' ? this.item.ProductTitle : this.getDisplayTitle(this.item)
+
+            console.log([this.asinImageList[0]])
         },
+
         convertToLocalDate(dateString) {
             if (!dateString) return "";
 

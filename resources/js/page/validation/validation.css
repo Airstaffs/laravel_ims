@@ -114,12 +114,46 @@ form.serialVerificationForm {
     padding-left: 15px;
 }
 
+.main-image {
+    position: relative;
+    cursor: pointer;
+    width: 250px;
+}
+
 .main-image img {
     width: 100%;
-    max-width: 400px;
-    height: auto;
+    height: 200px;
     object-fit: contain;
     border-radius: 8px;
+}
+
+/* Zoom Indicator */
+.zoom-indicator {
+    position: absolute;
+    bottom: 6rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+    z-index: 5;
+}
+
+.main-image:hover .zoom-indicator {
+    opacity: 1;
+}
+
+.zoom-indicator i {
+    font-size: 1rem;
 }
 
 .hover-image-container {
@@ -167,6 +201,12 @@ form.serialVerificationForm {
     display: block;
 }
 
+.image-container {
+    flex: 1;
+    text-align: center;
+    position: relative;
+}
+
 /* Desktop hover behavior - only on devices with hover capability */
 @media (hover: hover) and (min-width: 768px) {
     .hover-image-container:hover .captured-hover-preview {
@@ -183,13 +223,13 @@ form.serialVerificationForm {
 
     .image-container {
         display: flex;
-        gap: 10px; /* Optional: add spacing between images */
+        gap: 10px;
     }
 
     .asin-img-container,
     .captured-img-container {
         flex: 1;
-        min-width: 0; /* Prevents flex items from overflowing */
+        min-width: 0;
     }
 
     .main-image img {
@@ -198,6 +238,13 @@ form.serialVerificationForm {
         object-fit: cover;
         cursor: pointer;
     }
+
+    .main-image {
+    position: relative;
+    cursor: pointer;
+    width: 180px;
+}
+
 
     .preview-active .hover-overlay {
         position: fixed;
