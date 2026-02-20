@@ -569,7 +569,9 @@ import Returnedlist from "./page/returnlist/returnlist.vue";
 import AuxiliaryLabel from "./page/auxiliary/auxiliary.vue";
 import Reconciliation from "./page/reconciliation/reconciliation.vue";
 import InventoryStatistics from "./page/inventoryStatistics/inventoryStatistics.vue";
+import SuppliesComponents from "./page/suppliesComponents/suppliesComponents.vue";
 import FbaInboundShipment from "./components/Stockroom/fba_inbound/fba_inbound_shipment.vue";
+
 
 import Navbar from "./components/Navbar/Navbar.vue";
 import Login from "./components/Login/Login.vue";
@@ -638,6 +640,7 @@ const componentMapping = {
     "Auxiliary Label": "auxiliary",
     "Inventory Statistics": "inventorystatistics",
     "Reconciliation": "reconciliation",
+    "Supplies & Components": "suppliescomponents",
 };
 
 // ============================================
@@ -964,6 +967,7 @@ const app = createApp({
         auxiliary: AuxiliaryLabel,
         inventorystatistics: InventoryStatistics,
         reconciliation: Reconciliation,
+        suppliescomponents: SuppliesComponents,
     },
 });
 

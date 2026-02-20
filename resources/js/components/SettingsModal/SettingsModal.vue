@@ -2206,6 +2206,8 @@ export default {
                 { label: "Auxiliary Label", value: "auxiliary" },
                 { label: "Inventory Statistics", value: "inventorystatistics" },
                 { label: "Reconciliation", value: "reconciliation" },
+                {label: "Supplies & Components", value: "suppliescomponents"},
+
             ],
             subModules: [
                 { label: "Human Resource", value: "humanresource" },
@@ -2234,6 +2236,7 @@ export default {
                 { label: "Auxiliary Label", value: "auxiliary" },
                 { label: "Inventory Statistics", value: "inventorystatistics" },
                 { label: "Reconciliation", value: "reconciliation" },
+                {label: "Supplies & Components", value: "suppliescomponents"},
             ],
             userStores: [],
             isSavingPrivileges: false,
