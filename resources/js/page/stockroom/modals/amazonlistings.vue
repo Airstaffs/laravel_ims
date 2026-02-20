@@ -1,44 +1,34 @@
 <template>
-<Dialog
-  v-model:visible="visibleProxy"
-  modal
-  :closable="true"
-  :draggable="false"
-  header="Amazon Listings"
-  style="width: 95%; max-width: 95vw;"
-  :contentStyle="{ padding: '0', display: 'flex', flexDirection: 'column', height: '85vh' }"
-  @hide="onClose"
->
+    <Dialog v-model:visible="visibleProxy" modal :closable="true" :draggable="false" header="Amazon Listings"
+        style="width: 95%; max-width: 80%;"
+        :contentStyle="{ padding: '0', display: 'flex', flexDirection: 'column', height: '85vh' }" @hide="onClose">
         <!-- Toolbar (Amazon-ish) -->
         <div class="p-2 border-bottom-1 surface-border">
-            <div class="grid align-items-center">
-                <div class="col-12 md:col-3">
+            <div class="toolbar-row">
+                <div class="toolbar-field w-12 md:w-3">
                     <label class="block text-sm mb-1">Store</label>
                     <Dropdown v-model="filters.store" :options="storeOptions" optionLabel="label" optionValue="value"
                         placeholder="Select store" class="w-full p-inputtext-sm" />
                 </div>
 
-                <div class="col-12 md:col-2">
+                <div class="toolbar-field w-12 md:w-2">
                     <label class="block text-sm mb-1">Identifier Type</label>
                     <Dropdown v-model="filters.identifiersType" :options="identifierTypeOptions" optionLabel="label"
                         optionValue="value" class="w-full p-inputtext-sm" />
                 </div>
 
-                <div class="col-12 md:col-5">
-                    <label class="block text-sm mb-1">
-                        Search (comma / newline separated)
-                    </label>
+                <div class="toolbar-field w-12 md:w-5">
+                    <label class="block text-sm mb-1">Search (comma / newline separated)</label>
                     <InputText v-model="filters.identifiersRaw" class="w-full p-inputtext-sm"
                         placeholder="Search SKU, ASIN, FNSKU, UPC/EAN..." @keyup.enter="runSearch(true)" />
-                    <small class="text-500">
-                        Tip: paste multiple values separated by comma or new line
-                    </small>
+                    <small class="text-500">Tip: paste multiple values separated by comma or new line</small>
                 </div>
 
-                <div class="col-12 md:col-2 flex justify-content-end gap-2 mt-3 md:mt-0">
-                    <Button label="Search" class="p-button-sm" icon="pi pi-search" :loading="loading" @click="runSearch(true)" />
-                    <Button label="Reset" class="p-button-sm" icon="pi pi-refresh" severity="secondary" :disabled="loading"
-                        @click="resetFilters" />
+                <div class="toolbar-actions w-12 md:w-2">
+                    <Button label="Search" class="p-button-sm" icon="pi pi-search" :loading="loading"
+                        @click="runSearch(true)" />
+                    <Button label="Reset" class="p-button-sm" icon="pi pi-refresh" severity="secondary"
+                        :disabled="loading" @click="resetFilters" />
                 </div>
             </div>
 
@@ -118,9 +108,10 @@
                                 <span class="ml-2">{{ data.currentQty ?? '—' }}</span>
                             </div>
                             <div class="flex align-items-center gap-2">
-                                <InputText v-model="data.newQty" placeholder="Set qty" class="w-full p-inputtext-sm" style="width: 120px;" />
+                                <InputText v-model="data.newQty" placeholder="Set qty" class="w-full p-inputtext-sm"
+                                    style="width: 120px;" />
                                 <Button icon="pi pi-times" severity="secondary" text v-tooltip.top="'Clear'"
-                                    @click="data.newQty = ''" class="p-button-sm"/>
+                                    @click="data.newQty = ''" class="p-button-sm" />
                             </div>
                             <small class="text-500">Enter whole number (0 = out of stock)</small>
                         </div>
@@ -135,7 +126,8 @@
                                 <span class="ml-2">{{ data.currentPrice ?? '—' }}</span>
                             </div>
                             <div class="flex align-items-center gap-2">
-                                <InputText v-model="data.newPrice" placeholder="Set price" style="width: 120px;" class="w-full p-inputtext-sm" />
+                                <InputText v-model="data.newPrice" placeholder="Set price" style="width: 120px;"
+                                    class="w-full p-inputtext-sm" />
                                 <span class="text-500">{{ data.currency || 'USD' }}</span>
                                 <Button icon="pi pi-times" severity="secondary" text v-tooltip.top="'Clear'"
                                     @click="data.newPrice = ''" class="p-button-sm" />
@@ -567,8 +559,30 @@ export default {
 }
 
 .table-wrap {
-  flex: 1;              /* take remaining height */
-  min-height: 0;        /* IMPORTANT for flex scroll */
-  overflow: auto;       /* scroll only the table area */
+    flex: 1;
+    /* take remaining height */
+    min-height: 0;
+    /* IMPORTANT for flex scroll */
+    overflow: auto;
+    /* scroll only the table area */
+}
+
+.toolbar-row {
+  display: flex;
+  flex-wrap: wrap;      /* allows stacking on small screens */
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.toolbar-field {
+  min-width: 220px;     /* prevents tiny squished dropdowns */
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: flex-end;
+  min-width: 220px;
 }
 </style>
