@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Amzn\OutboundOrders\ShippingLabel;
+namespace App\Http\Controllers\Amzn\Listing;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -56,7 +56,7 @@ class ListingController extends Controller
         $expectedChecksum = $arrays['ProductType']['schema']['checksum'];
         $arrays['schema'] = $this->fetch_metaSchema($url, $method, $expectedChecksum);
     }
-    
+
     public function get_product_type(Request $request)
     {
 
@@ -254,6 +254,152 @@ class ListingController extends Controller
         ]);
     }
 
+    public function searchListings(Request $request)
+    {
+        $data = $request->validate([
+            'store' => ['required', 'string'], // Renovartech | Allrenewed
+            'marketplaceIds' => ['nullable', 'array'],
+            'marketplaceIds.*' => ['string'],
+
+            'includedData' => ['nullable', 'array'],
+            'includedData.*' => ['string'],
+
+            'identifiersType' => ['nullable', 'string'], // SKU, ASIN, etc
+            'identifiers' => ['nullable', 'array'],
+            'identifiers.*' => ['string'],
+
+            'variationParentSku' => ['nullable', 'string'],
+
+            'sortBy' => ['nullable', 'in:sku,createdDate,lastUpdatedDate'],
+            'sortOrder' => ['nullable', 'in:ASC,DESC'],
+
+            'pageSize' => ['nullable', 'integer', 'min:1', 'max:20'],
+            'pageToken' => ['nullable', 'string'],
+        ]);
+
+        $store = $data['store'];
+        $marketplaceIds = $data['marketplaceIds'] ?? ['ATVPDKIKX0DER'];
+
+        $includedData = $data['includedData'] ?? [
+            'summaries',
+            'attributes',
+            'issues',
+            'offers',
+            'fulfillmentAvailability',
+            'procurement',
+            'relationships',
+            'productTypes'
+        ];
+
+        $sortBy = $data['sortBy'] ?? 'lastUpdatedDate';
+        $sortOrder = $data['sortOrder'] ?? 'DESC';
+        $pageSize = $data['pageSize'] ?? 10;
+        $pageToken = $data['pageToken'] ?? null;
+
+        $identifiersType = $data['identifiersType'] ?? null;
+        $identifiers = $data['identifiers'] ?? [];
+        $variationParentSku = $data['variationParentSku'] ?? null;
+
+        // ✅ Amazon rule enforcement
+        if ($variationParentSku && (!empty($identifiers) || $identifiersType)) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'variationParentSku cannot be used with identifiers.'
+            ], 422);
+        }
+
+        if (!empty($identifiers) && !$identifiersType) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'identifiersType is required when identifiers is provided.'
+            ], 422);
+        }
+
+        $credentials = AWSCredentials($store);
+        if (!$credentials) {
+            return response()->json(['ok' => false, 'error' => 'Credentials not found'], 404);
+        }
+
+        $sellerId = $credentials['MerchantID'] ?? null;
+
+        if (!$sellerId) {
+            return response()->json(['ok' => false, 'error' => 'MerchantID missing in credentials'], 500);
+        }
+
+        $accessToken = fetchAccessToken($credentials, false);
+        if (!$accessToken) {
+            return response()->json(['ok' => false, 'error' => 'Failed to fetch access token'], 500);
+        }
+
+        $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+        $path = "/listings/2021-08-01/items/{$sellerId}";
+        $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
+
+        // Build query parameters
+        $query = [
+            'marketplaceIds' => implode(',', $marketplaceIds),
+            'includedData' => implode(',', $includedData),
+            'sortBy' => $sortBy,
+            'sortOrder' => $sortOrder,
+            'pageSize' => $pageSize,
+        ];
+
+        if ($pageToken) {
+            $query['pageToken'] = $pageToken;
+        }
+
+        if ($variationParentSku) {
+            $query['variationParentSku'] = $variationParentSku;
+        } elseif (!empty($identifiers)) {
+            $query['identifiersType'] = $identifiersType;
+            $query['identifiers'] = implode(',', $identifiers);
+        }
+
+        $headers = buildHeaders(
+            $credentials,
+            $accessToken,
+            'GET',
+            'execute-api',
+            'us-east-1',
+            $path,
+            null,
+            $query,
+            $endpoint,
+            $canonicalHeaders
+        );
+
+        $headers['accept'] = 'application/json';
+
+        $url = $endpoint . $path . '?' . http_build_query($query);
+
+        try {
+            $response = Http::timeout(50)->withHeaders($headers)->get($url);
+            $curlInfo = $response->handlerStats();
+
+            if ($response->successful()) {
+                return response()->json([
+                    'ok' => true,
+                    'data' => $response->json(),
+                    'logs' => $curlInfo,
+                ]);
+            }
+
+            return response()->json([
+                'ok' => false,
+                'status' => $response->status(),
+                'error' => $response->json(),
+                'logs' => $curlInfo,
+            ], 400);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'ok' => false,
+                'exception' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    // Supporting Functions
     protected function JsonCreation($action, $companydetails, $marketplaceID, $data_additionale)
     {
         $final_json_construct = [];

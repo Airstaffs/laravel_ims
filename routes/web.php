@@ -4,6 +4,7 @@ use App\Http\Controllers\Amzn\FBACartController;
 use App\Http\Controllers\Amzn\FBAShipmentController;
 use App\Http\Controllers\Amzn\Listing\CatalogController;
 use App\Http\Controllers\Amzn\OutboundOrders\ShippingLabel\ShippingLabelController;
+use App\Http\Controllers\Amzn\Listing\ListingController;
 use App\Http\Controllers\ASINlistController;
 use App\Http\Controllers\AsinMappingController;
 use App\Http\Controllers\AttendanceController;
@@ -1035,3 +1036,5 @@ Route::get('/history', function () {
 Route::prefix('api/reconciliation')->middleware(['auth'])->group(function () {
     Route::get('products', [ReconciliationController::class, 'index']);
 });
+
+Route::post('/amazon/search-listings', [ListingController::class, 'searchListings']);
