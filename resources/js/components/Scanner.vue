@@ -147,12 +147,24 @@
             </div>
             
             <!-- When camera is active, show the live camera feed here -->
-            <video
+            <!-- <video
               v-if="scannerCameraActive"
               id="scanner-camera-preview"
               autoplay
               playsinline
               @click="tapToFocus"
+            /> -->
+
+            <video
+              v-if="scannerCameraActive"
+              ref="videoElement"
+              id="scanner-camera-preview"
+              autoplay
+              playsinline
+              @click="tapToFocus"
+              @touchstart="handleTouchStart"
+              @touchmove="handleTouchMove"
+              @touchend="handleTouchEnd"
             />
 
             <!-- Camera restart overlay -->
@@ -167,26 +179,60 @@
               </button>
             </div>
             
+            <div v-if="scannerCameraActive" class="zoom-slider-vertical">
+              <i class="fas fa-search-plus zoom-icon-top"></i>
+              <input
+                type="range"
+                class="zoom-slider"
+                :min="minZoom"
+                :max="maxZoom"
+                :step="0.1"
+                :value="currentZoom"
+                @input="e => onZoomSlider(e)"
+                orient="vertical"
+              />
+              <span class="zoom-value">{{ currentZoom.toFixed(1) }}x</span>
+              <i class="fas fa-search-minus zoom-icon-bottom"></i>
+            </div>
+
+                <div v-if="scannerCameraActive" class="rotate-control">
+                  <!-- <button
+                    v-if="cameraRotation !== 0"
+                    @click="resetRotation"
+                    class="rotate-btn"
+                    title="Reset rotation"
+                  >
+                    <i class="fas fa-sync"></i>
+                  </button> -->
+                  <button
+                    @click="rotateCamera(90)"
+                    class="rotate-btn"
+                    title="Rotate 90°"
+                  >
+                    <i class="fas fa-redo"></i>
+                  </button>
+                </div>
+
             <div class="scanner-controls">
               <!-- Left side: Counter -->
               <div class="counter-area">
                 <div class="capture-count">{{ capturedImages.length }}/{{ maxImages }}</div>
               </div>
-              
-              <!-- Center: Single camera capture button -->
+
+              <!-- Center: Camera capture button -->
               <div class="camera-area">
                 <button class="camera-button" @click="captureFromScanner">
                   <i class="fas fa-camera"></i>
                 </button>
               </div>
-              
-              <!-- Right side: Compact toggle -->
+
+              <!-- Right side: Rotate + Compact toggle -->
               <div class="toggle-area">
                 <button class="compact-toggle" @click="toggleCompactMode">
                   {{ isCompactMode ? 'Expand' : 'Compact' }}
                 </button>
               </div>
-            </div>
+       </div>
           </div>
           
           <!-- Input Fields - Customizable via slots -->
@@ -373,7 +419,20 @@ export default {
       showProductImageModal: false,
       currentProductImageIndex: 0,
 
-      isCameraVisible: this.showCameraScreen
+      isCameraVisible: this.showCameraScreen,
+
+      zoomSupported: true, // Always true now
+      currentZoom: 1,
+      minZoom: 1,
+      maxZoom: 3, // Reasonable max for digital zoom
+      zoomStep: 0.1,
+      
+      // Pinch gesture tracking
+      lastPinchDistance: 0,
+      isPinching: false,
+
+      cameraRotation: 0, 
+       videoStream: null, 
     };
   },
   computed: {
@@ -437,6 +496,222 @@ export default {
     
   },
   methods: {
+
+    onZoomSlider(e) {
+  const val = parseFloat(e.target.value);
+  this.currentZoom = val;
+  // call your existing zoom apply logic here, e.g.:
+  this.applyZoom(val);
+},
+
+ rotateCamera(degrees) {
+    this.cameraRotation = (this.cameraRotation + degrees) % 360;
+    if (this.cameraRotation < 0) this.cameraRotation += 360;
+    this.applyTransform(); // ✅ Use unified method
+  },
+    
+   resetRotation() {
+    this.cameraRotation = 0;
+    this.applyTransform(); // ✅ Use unified method
+  },
+    
+      // ==========================================
+  // ✅ ZOOM METHODS - ADD THESE
+  // ==========================================
+  captureVideoWithZoom(video) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // ✅ Determine if we need to swap dimensions
+    const needsSwap = this.cameraRotation === 90 || this.cameraRotation === 270;
+    
+    // Set canvas size based on rotation
+    if (needsSwap) {
+      canvas.width = video.videoHeight;
+      canvas.height = video.videoWidth;
+    } else {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
+    
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    
+    // Save context
+    ctx.save();
+    
+    // Move to center
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    
+    // Apply rotation
+    ctx.rotate((this.cameraRotation * Math.PI) / 180);
+    
+    // Handle zoom
+    if (this.currentZoom > 1) {
+      const zoomFactor = this.currentZoom;
+      const sourceWidth = video.videoWidth / zoomFactor;
+      const sourceHeight = video.videoHeight / zoomFactor;
+      const sourceX = (video.videoWidth - sourceWidth) / 2;
+      const sourceY = (video.videoHeight - sourceHeight) / 2;
+      
+      ctx.drawImage(
+        video,
+        sourceX, sourceY, sourceWidth, sourceHeight,
+        -video.videoWidth / 2, -video.videoHeight / 2,
+        video.videoWidth, video.videoHeight
+      );
+    } else {
+      ctx.drawImage(
+        video,
+        -video.videoWidth / 2, -video.videoHeight / 2,
+        video.videoWidth, video.videoHeight
+      );
+    }
+    
+    ctx.restore();
+    return canvas;
+  },
+async initializeZoom() {
+    // Check if native zoom is supported
+    if (this.videoStream) {
+      try {
+        const videoTrack = this.videoStream.getVideoTracks()[0];
+        const capabilities = videoTrack.getCapabilities();
+        
+        if ('zoom' in capabilities) {
+          console.log('✅ Native zoom supported');
+          this.useNativeZoom = true;
+          this.minZoom = capabilities.zoom.min;
+          this.maxZoom = capabilities.zoom.max;
+          this.zoomStep = capabilities.zoom.step || 0.1;
+          const settings = videoTrack.getSettings();
+          this.currentZoom = settings.zoom || this.minZoom;
+        } else {
+          console.log('ℹ️ Using digital zoom fallback');
+          this.useNativeZoom = false;
+        }
+      } catch (error) {
+        console.log('ℹ️ Using digital zoom fallback');
+        this.useNativeZoom = false;
+      }
+    }
+    
+    // Digital zoom is always supported
+    this.zoomSupported = true;
+  },
+  
+ async applyZoom() {
+    const video = this.$refs.videoElement || document.getElementById('scanner-camera-preview');
+    if (!video) return;
+    
+    if (this.useNativeZoom && this.videoStream) {
+      // Use native camera zoom if available
+      try {
+        const videoTrack = this.videoStream.getVideoTracks()[0];
+        await videoTrack.applyConstraints({
+          advanced: [{ zoom: this.currentZoom }]
+        });
+        
+        // Still apply rotation even with native zoom
+        video.style.transform = `rotate(${this.cameraRotation}deg)`;
+        video.style.transformOrigin = 'center center';
+      } catch (error) {
+        console.error('Native zoom failed, using digital zoom');
+        this.useNativeZoom = false;
+        this.applyTransform(); // ✅ Fallback to digital
+      }
+    } else {
+      // Use digital zoom with rotation
+      this.applyTransform(); // ✅ Use unified method
+    }
+  },
+  
+  applyDigitalZoom(video) {
+    // Apply CSS transform for digital zoom
+    video.style.transform = `scale(${this.currentZoom})`;
+    video.style.transformOrigin = 'center center';
+  },
+  
+    zoomIn() {
+    if (this.currentZoom < this.maxZoom) {
+      this.currentZoom = Math.min(
+        this.currentZoom + this.zoomStep, 
+        this.maxZoom
+      );
+      this.currentZoom = Math.round(this.currentZoom * 10) / 10;
+      this.applyZoom();
+    }
+  },
+  
+   zoomOut() {
+    if (this.currentZoom > this.minZoom) {
+      this.currentZoom = Math.max(
+        this.currentZoom - this.zoomStep, 
+        this.minZoom
+      );
+      this.currentZoom = Math.round(this.currentZoom * 10) / 10;
+      this.applyZoom();
+    }
+  },
+  
+  resetZoom() {
+    this.currentZoom = this.minZoom;
+    this.applyZoom();
+  },
+  
+  // Pinch to zoom for mobile
+  handleTouchStart(event) {
+    if (event.touches.length === 2) {
+      this.isPinching = true;
+      this.lastPinchDistance = this.getTouchDistance(event.touches);
+      event.preventDefault();
+    }
+  },
+  
+  handleTouchMove(event) {
+    if (this.isPinching && event.touches.length === 2) {
+      event.preventDefault();
+      
+      const currentDistance = this.getTouchDistance(event.touches);
+      const pinchDelta = currentDistance - this.lastPinchDistance;
+      
+      const zoomChange = (pinchDelta / 200) * (this.maxZoom - this.minZoom);
+      const newZoom = this.currentZoom + zoomChange;
+      
+      this.currentZoom = Math.max(
+        this.minZoom,
+        Math.min(this.maxZoom, newZoom)
+      );
+      this.currentZoom = Math.round(this.currentZoom * 10) / 10;
+      
+      this.applyZoom();
+      this.lastPinchDistance = currentDistance;
+    }
+  },
+   handleTouchEnd(event) {
+    if (event.touches.length < 2) {
+      this.isPinching = false;
+      this.lastPinchDistance = 0;
+    }
+  },
+  
+  
+    getTouchDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  },
+
+    
+  applyTransform() {
+    const video = this.$refs.videoElement || document.getElementById('scanner-camera-preview');
+    if (!video) return;
+    
+    // Apply both zoom and rotation together
+    video.style.transform = `scale(${this.currentZoom}) rotate(${this.cameraRotation}deg)`;
+    video.style.transformOrigin = 'center center';
+    video.style.transition = 'transform 0.3s ease';
+  },
     openScannerModal() {
       this.showScannerModal = true;
       this.$emit('scanner-opened');
@@ -523,33 +798,28 @@ export default {
     // =========================
     // ✅ FREE CAPTURE (default)
     // =========================
-    async captureFree() {
-      const video = document.getElementById('scanner-camera-preview');
-      if (!video || !this.scannerCameraActive) return;
+ async captureFree() {
+  const video = document.getElementById('scanner-camera-preview') || this.$refs.videoElement;
+  if (!video || !this.scannerCameraActive) return;
 
-      // 🚫 Limit free capture to 12 images
-      if (this.capturedImages.length >= FREE_CAPTURE_LIMIT) {
-        this.showScanWarning(`Maximum of ${FREE_CAPTURE_LIMIT} images allowed.`);
-        return;
-      }
+  // 🚫 Limit free capture to 12 images
+  if (this.capturedImages.length >= FREE_CAPTURE_LIMIT) {
+    this.showScanWarning(`Maximum of ${FREE_CAPTURE_LIMIT} images allowed.`);
+    return;
+  }
 
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+  // ✅ Capture with zoom applied
+  const canvas = this.captureVideoWithZoom(video);
+  const timestamp = new Date().toLocaleTimeString();
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
 
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  this.capturedImages.push({
+    data: dataUrl,
+    timestamp
+  });
 
-      const timestamp = new Date().toLocaleTimeString();
-      const dataUrl = canvas.toDataURL('image/jpeg');
-
-      this.capturedImages.push({
-        data: dataUrl,
-        timestamp
-      });
-
-      this.showScanSuccess('Image captured.');
-    },
+  this.showScanSuccess('Image captured.');
+},
 
     // ===================================
     // ✅ OCR helper (used by Received only)
@@ -695,94 +965,96 @@ export default {
     // ✅ RECEIVED CAPTURE (restricted flow)
     // ==================================
     async captureReceived() {
-      const video = document.getElementById('scanner-camera-preview');
-      if (!video || !this.scannerCameraActive) return;
+  const video = document.getElementById('scanner-camera-preview') || this.$refs.videoElement;
+  if (!video || !this.scannerCameraActive) return;
 
-      const currentStep = this.$parent?.currentStep ?? 0;
+  const currentStep = this.$parent?.currentStep ?? 0;
 
-      // 🚫 Step 5+: Not allowed anymore
-      if (currentStep >= 5) {
-        this.showScanWarning('Capture is not allowed beyond Serial number detection.');
-        return;
-      }
+  // 🚫 Step 5+: Not allowed anymore
+  if (currentStep >= 5) {
+    this.showScanWarning('Capture is not allowed beyond Serial number detection.');
+    return;
+  }
 
-      // 🚫 STEP 1 — Tracking capture rules
-      if (currentStep === 1) {
+  // 🚫 STEP 1 — Tracking capture rules
+  if (currentStep === 1) {
+    // Must verify tracking first
+    if (!this.$parent?.trackingFound) {
+      this.showScanWarning('Please verify tracking number first.');
+      return;
+    }
 
-        // Must verify tracking first
-        if (!this.$parent?.trackingFound) {
-          this.showScanWarning('Please verify tracking number first.');
-          return;
-        }
+    // If tracking image already exists (reused from DB)
+    const hasReusedTracking = this.capturedImages.some(
+      img => img.step === 1 && img.reused === true
+    );
 
-        // If tracking image already exists (reused from DB)
-        const hasReusedTracking = this.capturedImages.some(
-          img => img.step === 1 && img.reused === true
-        );
+    if (hasReusedTracking) {
+      this.showScanWarning('Tracking image already exists. Reuse is enabled.');
+      return;
+    }
 
-        if (hasReusedTracking) {
-          this.showScanWarning('Tracking image already exists. Reuse is enabled.');
-          return;
-        }
+    // Allow only ONE tracking image
+    const trackingImages = this.capturedImages.filter(img => img.step === 1);
+    if (trackingImages.length >= 2) {
+      this.showScanWarning('Only one tracking image is allowed.');
+      return;
+    }
+  }
 
-        // Allow only ONE tracking image
-        const trackingImages = this.capturedImages.filter(img => img.step === 1);
-        if (trackingImages.length >= 2) {
-          this.showScanWarning('Only one tracking image is allowed.');
-          return;
-        }
-      }
+  // ✅ Step 2 limit
+  if (currentStep === 2 && this.capturedImages.length >= this.maxImages) {
+    this.showScanError(`Maximum of ${this.maxImages} product images allowed.`);
+    return;
+  }
 
-      // ✅ Step 2 limit
-      if (currentStep === 2 && this.capturedImages.length >= this.maxImages) {
-        this.showScanError(`Maximum of ${this.maxImages} product images allowed.`);
-        return;
-      }
+  // ✅ Step 3: only one
+  if (currentStep === 3 && this.capturedImages.some(img => img.step === 3)) {
+    this.showScanWarning('Only one image allowed for the first serial number.');
+    return;
+  }
 
-      // ✅ Step 3: only one
-      if (currentStep === 3 && this.capturedImages.some(img => img.step === 3)) {
-        this.showScanWarning('Only one image allowed for the first serial number.');
-        return;
-      }
+  // ✅ Step 4: only one
+  if (currentStep === 4 && this.capturedImages.some(img => img.step === 4)) {
+    this.showScanWarning('Only one image allowed for the second serial number.');
+    return;
+  }
 
-      // ✅ Step 4: only one
-      if (currentStep === 4 && this.capturedImages.some(img => img.step === 4)) {
-        this.showScanWarning('Only one image allowed for the second serial number.');
-        return;
-      }
+  // ✅✅✅ USE captureVideoWithZoom instead of creating new canvas
+  const canvas = this.captureVideoWithZoom(video);
+  const timestamp = new Date().toLocaleTimeString();
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
 
-      // ✅ Capture
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+  // Log to verify rotation/zoom applied
+  console.log('📸 Captured with:', {
+    zoom: this.currentZoom,
+    rotation: this.cameraRotation,
+    dimensions: `${canvas.width}x${canvas.height}`,
+    orientation: canvas.width > canvas.height ? 'Landscape' : 'Portrait'
+  });
 
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  this.capturedImages.push({ 
+    data: dataUrl, 
+    timestamp, 
+    step: currentStep 
+  });
+  
+  this.showScanSuccess(
+    `Image captured (${this.currentZoom.toFixed(1)}x zoom, ${this.cameraRotation}°)`
+  );
 
-      const timestamp = new Date().toLocaleTimeString();
-      const dataUrl = canvas.toDataURL('image/jpeg');
+  // ✅ Step 3–4 OCR (ONLY if AI enabled in parent)
+  if (
+    (currentStep === 3 || currentStep === 4) &&
+    this.$parent?.useAiDetection
+  ) {
+    await this.detectSerialFromCanvas(canvas, currentStep);
+  }
 
-      this.capturedImages.push({ data: dataUrl, timestamp, step: currentStep });
-      this.showScanSuccess('Image captured.');
-
-      // ✅ Step 3–4 OCR
-      // if (currentStep === 3 || currentStep === 4) {
-      //   await this.detectSerialFromCanvas(canvas, currentStep);
-      // }
-
-      // ✅ Step 3–4 OCR (ONLY if AI enabled in parent)
-      if (
-        (currentStep === 3 || currentStep === 4) &&
-        this.$parent?.useAiDetection
-      ) {
-        await this.detectSerialFromCanvas(canvas, currentStep);
-      }
-
-
-      setTimeout(() => {
-        this.showSuccessNotification = false;
-      }, 2000);
-    },
+  setTimeout(() => {
+    this.showSuccessNotification = false;
+  }, 2000);
+},
 
     deleteImageByRef(image) {
       const index = this.capturedImages.indexOf(image);
@@ -832,86 +1104,79 @@ export default {
     },
     
    //return scanner condition 
-  async captureReturnScanner() {
-    const video = document.getElementById('scanner-camera-preview');
-    if (!video || !this.scannerCameraActive) return;
+ async captureReturnScanner() {
+  const video = document.getElementById('scanner-camera-preview') || this.$refs.videoElement;
+  if (!video || !this.scannerCameraActive) return;
 
-    // Get the capture step from parent
-    const currentCaptureStep = this.$parent?.currentCaptureStep ?? 0;
-    
-    console.log('📸 Return Scanner Capture:', {
-        currentCaptureStep,
-        capturedImagesLength: this.capturedImages.length
-    });
+  const currentCaptureStep = this.$parent?.currentCaptureStep ?? 0;
+  
+  console.log('📸 Return Scanner Capture:', {
+    currentCaptureStep,
+    capturedImagesLength: this.capturedImages.length,
+    currentZoom: this.currentZoom
+  });
 
-    // Limit to 12 images per serial
-    if (this.capturedImages.length >= 12) {
-        this.showScanWarning('Maximum of 12 images per serial allowed.');
-        return;
+  // Limit to 12 images per serial
+  if (this.capturedImages.length >= 12) {
+    this.showScanWarning('Maximum of 12 images per serial allowed.');
+    return;
+  }
+
+  // ✅ Capture with zoom applied
+  const canvas = this.captureVideoWithZoom(video);
+  const timestamp = new Date().toLocaleTimeString();
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+
+  // Get serial data
+  let serialData = {
+    serial: null,
+    serialIndex: null
+  };
+
+  if (this.$parent) {
+    switch (currentCaptureStep) {
+      case 1:
+        serialData.serial = this.$parent.serialNumber || null;
+        serialData.serialIndex = 1;
+        break;
+      case 2:
+        serialData.serial = this.$parent.secondSerialNumber || null;
+        serialData.serialIndex = 2;
+        break;
+      case 3:
+        serialData.serial = this.$parent.thirdSerialNumber || null;
+        serialData.serialIndex = 3;
+        break;
+      case 4:
+        serialData.serial = this.$parent.fourthSerialNumber || null;
+        serialData.serialIndex = 4;
+        break;
     }
+  }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+  // Store captured image with all metadata
+  const captureData = {
+    data: dataUrl,
+    timestamp,
+    captureStep: currentCaptureStep,
+    serial: serialData.serial,
+    serialIndex: serialData.serialIndex
+  };
 
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  this.capturedImages.push(captureData);
 
-    const timestamp = new Date().toLocaleTimeString();
-    const dataUrl = canvas.toDataURL('image/jpeg');
+  console.log(`✅ Image captured with zoom ${this.currentZoom}x`, {
+    step: currentCaptureStep,
+    serial: serialData.serial,
+    serialIndex: serialData.serialIndex,
+    totalImages: this.capturedImages.length
+  });
 
-    // ✅ FIXED: Get serial data directly from parent at capture time
-    let serialData = {
-        serial: null,
-        serialIndex: null
-    };
+  this.showScanSuccess(`Image captured (${this.currentZoom.toFixed(1)}x zoom)`);
 
-    // Get the correct serial based on current capture step
-    if (this.$parent) {
-        switch (currentCaptureStep) {
-            case 1:
-                serialData.serial = this.$parent.serialNumber || null;
-                serialData.serialIndex = 1;
-                break;
-            case 2:
-                serialData.serial = this.$parent.secondSerialNumber || null;
-                serialData.serialIndex = 2;
-                break;
-            case 3:
-                serialData.serial = this.$parent.thirdSerialNumber || null;
-                serialData.serialIndex = 3;
-                break;
-            case 4:
-                serialData.serial = this.$parent.fourthSerialNumber || null;
-                serialData.serialIndex = 4;
-                break;
-            default:
-                console.warn('⚠️ Capture step is 0, image will not be associated with a serial');
-                break;
-        }
-    }
-
-    // Store captured image with all metadata
-    const captureData = {
-        data: dataUrl,
-        timestamp,
-        captureStep: currentCaptureStep,
-        serial: serialData.serial,
-        serialIndex: serialData.serialIndex
-    };
-
-    this.capturedImages.push(captureData);
-
-    console.log(`✅ Image captured for Return Scanner`, {
-        step: currentCaptureStep,
-        serial: serialData.serial,
-        serialIndex: serialData.serialIndex,
-        totalImages: this.capturedImages.length
-    });
-
-    setTimeout(() => {
-        this.showSuccessNotification = false;
-    }, 2000);
+  setTimeout(() => {
+    this.showSuccessNotification = false;
+  }, 2000);
 }
 
     
@@ -1288,7 +1553,7 @@ input:checked + .toggle-slider:before {
 .scanner-view {
   background-color: #000;
   width: 100%;
-  height: 200px;
+  height: 230px;
   position: relative;
   margin-bottom: 12px;
   border-radius: 4px;
@@ -1354,11 +1619,12 @@ input:checked + .toggle-slider:before {
   left: 0;
   right: 0;
   display: flex;
-  justify-content: space-between; /* This ensures good spacing */
+  justify-content: space-between;
   align-items: center;
-  padding: 0 10px; /* Add horizontal padding */
-  z-index: 5;
+  padding: 0 15px;
+  z-index: 10;
 }
+
 
 /* Left side controls - counter and camera button */
 .scanner-controls .capture-count {
@@ -2602,5 +2868,167 @@ input:checked + .toggle-slider:before {
   }
 }
 
+.rotate-control {
+  position: absolute;
+  right: 15px;
+  bottom: 14%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+/* Vertical zoom slider - positioned on the right side of scanner view */
+.zoom-slider-vertical{
+  position: absolute;
+  right: 12px;
+  top: 35%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.65);
+  padding: 10px 6px;
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
 
+.zoom-slider-vertical .zoom-icon-top,
+.zoom-slider-vertical .zoom-icon-bottom {
+  color: white;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* Vertical range input */
+.zoom-slider-vertical .zoom-slider {
+  -webkit-appearance: slider-vertical;
+  appearance: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 4px;
+  height: 70px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.3);
+  outline: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.zoom-slider-vertical .zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s;
+}
+
+.zoom-slider-vertical .zoom-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.zoom-slider-vertical .zoom-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.zoom-slider-vertical .zoom-value {
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Controls bar */
+.counter-area {
+  flex: 0 0 auto;
+}
+
+.camera-area {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.toggle-area {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .zoom-slider-vertical{
+  position: absolute;
+  right: 11px;
+  top: 45%;
+}
+.rotate-control {
+  position: absolute;
+  right: 11px;
+  bottom: 10%;
+}
+  .scanner-controls {
+    padding: 0 10px;
+  }
+
+  .zoom-slider-vertical {
+    right: 8px;
+  }
+
+  .zoom-slider-vertical .zoom-slider {
+    height: 150px;
+  }
+
+  .toggle-area {
+    gap: 8px;
+  }
+}
+
+/* Prevent text selection during pinch zoom */
+.scanner-view {
+  position: relative;
+  overflow: hidden;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  touch-action: pan-x pan-y pinch-zoom;
+}
+
+.rotate-btn {
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 11px;
+}
+
+.rotate-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+#scanner-camera-preview {
+  transition: transform 0.3s ease;
+}
 </style>
