@@ -367,7 +367,7 @@
         </div>
 
         <!-- Pagination with centered layout -->
-            <Paginator 
+        <Paginator
             :first="first"
             :rows="perPage"
             :total-records="totalData"
@@ -377,7 +377,6 @@
             class="small-paginator"
             @page="onPageChange"
         />
-
 
         <!-- Image Modal with Tabs -->
         <ViewImageGalleryModal
@@ -1033,7 +1032,10 @@
                             v-if="allProductImages.length"
                             class="image-display"
                         >
-                            <div class="hover-image-container" @click="handleOpenZoomModal">
+                            <div
+                                class="hover-image-container"
+                                @click="handleOpenZoomModal"
+                            >
                                 <img
                                     :src="selectedImage || mainImage"
                                     alt="Main Image"
@@ -1046,7 +1048,7 @@
                                     />
                                 </div> -->
 
-                                 <div class="zoom-indicator">
+                                <div class="zoom-indicator">
                                     <i class="pi pi-search-plus"></i>
                                     <span>Click to zoom</span>
                                 </div>
@@ -1062,7 +1064,9 @@
                                     :class="{
                                         active: selectedImage === img,
                                     }"
-                                    @click="selectProductImageToView(img, index)"
+                                    @click="
+                                        selectProductImageToView(img, index)
+                                    "
                                 />
                             </div>
                         </div>
@@ -1430,17 +1434,16 @@
                     </div>
 
                     <!---FNSKU TABLE PAGINATION--->
-                                <Paginator 
-                            :first="fnskuFirst"
-                            :rows="fnskuPerPage"
-                            :total-records="fnskuTotalData"
-                            :rows-per-page-options="[10, 20, 50]"
-                            template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
-                            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
-                            class="small-paginator"
-                            @page="onPageChangeFnsku"
-                        />
-
+                    <Paginator
+                        :first="fnskuFirst"
+                        :rows="fnskuPerPage"
+                        :total-records="fnskuTotalData"
+                        :rows-per-page-options="[10, 20, 50]"
+                        template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+                        currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+                        class="small-paginator"
+                        @page="onPageChangeFnsku"
+                    />
                 </div>
             </div>
         </Dialog>
@@ -1574,7 +1577,12 @@
             </template>
         </Dialog>
 
-        <ZoomImageModal v-model:visible="openZoomModal" :images="allProductImages" :initialIndex="activeIndex" :title=" getDisplayTitle(currentItem)"/>
+        <ZoomImageModal
+            v-model:visible="openZoomModal"
+            :images="allProductImages"
+            :initialIndex="activeIndex"
+            :title="getDisplayTitle(currentItem)"
+        />
         <ScrollTop />
     </div>
 </template>
@@ -1594,7 +1602,7 @@ import {
     Textarea,
     ScrollTop,
     Tag,
-    Paginator
+    Paginator,
 } from "primevue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
@@ -1738,7 +1746,7 @@ export default {
         Tag,
         ProductImageGallery,
         Paginator,
-        ZoomImageModal
+        ZoomImageModal,
     },
     data() {
         return {
@@ -1763,7 +1771,7 @@ export default {
             dialogContent: null,
 
             openZoomModal: false,
-            activeIndex: 0
+            activeIndex: 0,
         };
     },
     async mounted() {
@@ -1776,11 +1784,11 @@ export default {
     },
     methods: {
         selectProductImageToView(img, index) {
-            this.selectedImage = img
-            this.activeIndex = index
+            this.selectedImage = img;
+            this.activeIndex = index;
         },
         handleOpenZoomModal() {
-                        this.openZoomModal = true
+            this.openZoomModal = true;
         },
         refreshProductData(updatedProduct) {
             console.log("🔄 Images updated, refreshing parent data");
@@ -1867,21 +1875,47 @@ export default {
             if (!dateString) return "";
 
             try {
-                // Parse the date from database (assumed to be in UTC or server timezone)
-                const date = new Date(dateString);
+                const userTimezone = this.currentTimezone;
+                const isLATimezone =
+                    userTimezone === "America/Los_Angeles" ||
+                    userTimezone === "America/Pacific" ||
+                    !userTimezone;
 
-                // Format to YYYY-MM-DD for date input in user's timezone
-                const options = {
-                    timeZone: this.currentTimezone,
+                // DB stores time in LA timezone — if user is already in LA, just extract date directly
+                if (isLATimezone) {
+                    return dateString.split(" ")[0].split("T")[0];
+                }
+
+                // User is in a different timezone — convert LA time to user's local timezone
+                const isRawFormat =
+                    !dateString.includes("T") &&
+                    !dateString.includes("Z") &&
+                    !dateString.includes("+");
+
+                let date;
+                if (isRawFormat) {
+                    const isoLike = dateString.replace(" ", "T");
+                    const tempDate = new Date(isoLike);
+                    const laWallClock = new Date(
+                        new Date(isoLike).toLocaleString("en-US", {
+                            timeZone: "America/Los_Angeles",
+                        }),
+                    );
+                    const diff = tempDate - laWallClock;
+                    date = new Date(tempDate.getTime() + diff);
+                } else {
+                    date = new Date(dateString);
+                }
+
+                const formatter = new Intl.DateTimeFormat("en-CA", {
+                    timeZone: userTimezone,
                     year: "numeric",
                     month: "2-digit",
                     day: "2-digit",
-                };
+                });
 
-                const formatter = new Intl.DateTimeFormat("en-CA", options); // en-CA gives YYYY-MM-DD format
                 return formatter.format(date);
             } catch (error) {
-                console.error("Error converting to local date:", error);
                 return dateString;
             }
         },

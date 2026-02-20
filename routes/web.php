@@ -673,7 +673,7 @@ Route::prefix('api/houseage')->middleware('auth')->group(function () {
     Route::post('/delete-image', [HouseageController::class, 'deleteImage']);
 
     // Multiple image delete (Optional utility)
-    Route::post('/delete-images', [HouseageController::class, 'deleteMultipleImages']);
+    Route::post('/delete-images-bulk', [HouseageController::class, 'deleteCapturedImagesBulk']);
 });
 
 // Testing module routes
