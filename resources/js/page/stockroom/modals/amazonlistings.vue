@@ -325,7 +325,7 @@ export default {
 
             this.loading = true;
             try {
-                const res = await axios.post(`${API_BASE_URL}/api/amazon/search-listings`, payload);
+                const res = await axios.post(`${API_BASE_URL}/amazon/search-listings`, payload);
 
                 const raw = res?.data?.data || res?.data || {};
                 const mapped = this.mapSearchListingsResponse(raw);
