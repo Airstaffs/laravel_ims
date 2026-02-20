@@ -1,26 +1,27 @@
 <template>
     <Dialog v-model:visible="visibleProxy" modal :closable="true" :draggable="false" header="Amazon Listings"
-        style="width: 95%; max-width: 95vw;" :contentStyle="{ padding: '0' }" @hide="onClose">
+        style="width: 1200px; max-width: 95vw;" :contentStyle="{ padding: '0', maxHeight: '85vh', overflow: 'auto' }"
+        @hide="onClose">
         <!-- Toolbar (Amazon-ish) -->
-        <div class="p-3 border-bottom-1 surface-border">
+        <div class="p-2 border-bottom-1 surface-border">
             <div class="grid align-items-center">
                 <div class="col-12 md:col-3">
                     <label class="block text-sm mb-1">Store</label>
                     <Dropdown v-model="filters.store" :options="storeOptions" optionLabel="label" optionValue="value"
-                        placeholder="Select store" class="w-full" />
+                        placeholder="Select store" class="w-full p-inputtext-sm" />
                 </div>
 
                 <div class="col-12 md:col-2">
                     <label class="block text-sm mb-1">Identifier Type</label>
                     <Dropdown v-model="filters.identifiersType" :options="identifierTypeOptions" optionLabel="label"
-                        optionValue="value" class="w-full" />
+                        optionValue="value" class="w-full p-inputtext-sm" />
                 </div>
 
                 <div class="col-12 md:col-5">
                     <label class="block text-sm mb-1">
                         Search (comma / newline separated)
                     </label>
-                    <InputText v-model="filters.identifiersRaw" class="w-full"
+                    <InputText v-model="filters.identifiersRaw" class="w-full p-inputtext-sm"
                         placeholder="Search SKU, ASIN, FNSKU, UPC/EAN..." @keyup.enter="runSearch(true)" />
                     <small class="text-500">
                         Tip: paste multiple values separated by comma or new line
@@ -28,8 +29,8 @@
                 </div>
 
                 <div class="col-12 md:col-2 flex justify-content-end gap-2 mt-3 md:mt-0">
-                    <Button label="Search" icon="pi pi-search" :loading="loading" @click="runSearch(true)" />
-                    <Button label="Reset" icon="pi pi-refresh" severity="secondary" :disabled="loading"
+                    <Button label="Search" class="p-button-sm" icon="pi pi-search" :loading="loading" @click="runSearch(true)" />
+                    <Button label="Reset" class="p-button-sm" icon="pi pi-refresh" severity="secondary" :disabled="loading"
                         @click="resetFilters" />
                 </div>
             </div>
@@ -39,25 +40,26 @@
                 <div class="col-6 md:col-2">
                     <label class="block text-sm mb-1">Sort By</label>
                     <Dropdown v-model="filters.sortBy" :options="sortByOptions" optionLabel="label" optionValue="value"
-                        class="w-full" />
+                        class="w-full p-inputtext-sm" />
                 </div>
 
                 <div class="col-6 md:col-2">
                     <label class="block text-sm mb-1">Sort Order</label>
                     <Dropdown v-model="filters.sortOrder" :options="sortOrderOptions" optionLabel="label"
-                        optionValue="value" class="w-full" />
+                        optionValue="value" class="w-full p-inputtext-sm" />
                 </div>
 
                 <div class="col-6 md:col-2">
                     <label class="block text-sm mb-1">Page Size</label>
-                    <Dropdown v-model="filters.pageSize" :options="pageSizeOptions" class="w-full" />
+                    <Dropdown v-model="filters.pageSize" :options="pageSizeOptions" optionLabel="label"
+                        optionValue="value" class="w-full p-inputtext-sm" />
                 </div>
 
                 <div class="col-12 md:col-6 flex justify-content-end gap-2">
                     <Button label="Prev" icon="pi pi-angle-left" severity="secondary"
-                        :disabled="loading || !page.prevToken" @click="goPrev" />
+                        :disabled="loading || !page.prevToken" @click="goPrev" class="p-button-sm" />
                     <Button label="Next" iconPos="right" icon="pi pi-angle-right" severity="secondary"
-                        :disabled="loading || !page.nextToken" @click="goNext" />
+                        :disabled="loading || !page.nextToken" @click="goNext" class="p-button-sm" />
                 </div>
             </div>
         </div>
@@ -109,9 +111,9 @@
                                 <span class="ml-2">{{ data.currentQty ?? '—' }}</span>
                             </div>
                             <div class="flex align-items-center gap-2">
-                                <InputText v-model="data.newQty" placeholder="Set qty" style="width: 120px;" />
+                                <InputText v-model="data.newQty" placeholder="Set qty" class="w-full p-inputtext-sm" style="width: 120px;" />
                                 <Button icon="pi pi-times" severity="secondary" text v-tooltip.top="'Clear'"
-                                    @click="data.newQty = ''" />
+                                    @click="data.newQty = ''" class="p-button-sm"/>
                             </div>
                             <small class="text-500">Enter whole number (0 = out of stock)</small>
                         </div>
@@ -126,10 +128,10 @@
                                 <span class="ml-2">{{ data.currentPrice ?? '—' }}</span>
                             </div>
                             <div class="flex align-items-center gap-2">
-                                <InputText v-model="data.newPrice" placeholder="Set price" style="width: 120px;" />
+                                <InputText v-model="data.newPrice" placeholder="Set price" style="width: 120px;" class="w-full p-inputtext-sm" />
                                 <span class="text-500">{{ data.currency || 'USD' }}</span>
                                 <Button icon="pi pi-times" severity="secondary" text v-tooltip.top="'Clear'"
-                                    @click="data.newPrice = ''" />
+                                    @click="data.newPrice = ''" class="p-button-sm" />
                             </div>
                             <small class="text-500">No min/max fields (per your request)</small>
                         </div>
@@ -161,9 +163,9 @@
                 {{ rows.length }} item(s)
             </div>
             <div class="flex gap-2">
-                <Button label="Close" severity="secondary" @click="onClose" />
+                <Button label="Close" severity="secondary" @click="onClose" class="p-button-sm" />
                 <Button label="Apply Updates" icon="pi pi-upload" :disabled="!hasPendingChanges || loading"
-                    @click="applyUpdates" />
+                    @click="applyUpdates" class="p-button-sm" />
             </div>
         </div>
     </Dialog>
@@ -541,17 +543,19 @@ export default {
 /* Force the Issues column to never blow up the dialog width */
 .issue-wrap,
 .issue-wrap li {
-  max-width: 100%;
-  overflow: hidden;
-  word-break: break-word;
-  overflow-wrap: anywhere; /* breaks long strings like Amazon error codes */
-  white-space: normal;
+    max-width: 100%;
+    overflow: hidden;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    /* breaks long strings like Amazon error codes */
+    white-space: normal;
 }
 
 /* Optional: clamp each issue line so it doesn’t get tall */
 .issue-wrap li {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;      /* show at most 2 lines per issue */
-  -webkit-box-orient: vertical;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    /* show at most 2 lines per issue */
+    -webkit-box-orient: vertical;
 }
 </style>
