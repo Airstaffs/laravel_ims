@@ -1,6 +1,6 @@
 <template>
     <Dialog v-model:visible="visibleProxy" modal :closable="true" :draggable="false" header="Amazon Listings"
-        style="width: 1200px; max-width: 95vw;" :contentStyle="{ padding: '0' }" @hide="onClose">
+        style="width: 95%; max-width: 95vw;" :contentStyle="{ padding: '0' }" @hide="onClose">
         <!-- Toolbar (Amazon-ish) -->
         <div class="p-3 border-bottom-1 surface-border">
             <div class="grid align-items-center">
@@ -136,9 +136,9 @@
                     </template>
                 </Column>
 
-                <Column header="Issues" style="min-width: 240px;">
+                <Column header="Issues" style="width: 320px; max-width: 320px;">
                     <template #body="{ data }">
-                        <div v-if="data.issues?.length">
+                        <div class="issue-wrap" v-if="data.issues?.length">
                             <Tag severity="warning" :value="`${data.issues.length} issue(s)`" class="mb-2" />
                             <ul class="m-0 pl-3 text-sm text-700">
                                 <li v-for="(it, idx) in data.issues.slice(0, 2)" :key="idx">
@@ -536,5 +536,22 @@ export default {
 
 .status-other {
     background: #f59e0b;
+}
+
+/* Force the Issues column to never blow up the dialog width */
+.issue-wrap,
+.issue-wrap li {
+  max-width: 100%;
+  overflow: hidden;
+  word-break: break-word;
+  overflow-wrap: anywhere; /* breaks long strings like Amazon error codes */
+  white-space: normal;
+}
+
+/* Optional: clamp each issue line so it doesn’t get tall */
+.issue-wrap li {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;      /* show at most 2 lines per issue */
+  -webkit-box-orient: vertical;
 }
 </style>
