@@ -188,7 +188,7 @@
         </div>
 
         <!-- Pagination -->
-          <Paginator
+        <Paginator
             :first="first"
             :rows="perPage"
             :total-records="totalRecords"
@@ -598,7 +598,7 @@ export default {
         AnimateDiv,
         Select,
         ReceivedConditionModal,
-        Paginator
+        Paginator,
     },
     data() {
         return {
@@ -646,13 +646,8 @@ export default {
         },
 
         // ✅ ADD THESE COMPUTED PROPERTIES FOR DATE CONVERSION
-        localOrderDate: {
-            get() {
-                return this.convertToLocalDate(this.item.orderdate);
-            },
-            set(value) {
-                this.item.orderdate = this.convertFromLocalDate(value);
-            },
+        localOrderDate() {
+            return this.convertToLocalDate(this.item.orderdate);
         },
         localDeliveredDate: {
             get() {
@@ -861,21 +856,47 @@ export default {
             if (!dateString) return "";
 
             try {
-                // Parse the date from database (assumed to be in UTC or server timezone)
-                const date = new Date(dateString);
+                const userTimezone = this.currentTimezone;
+                const isLATimezone =
+                    userTimezone === "America/Los_Angeles" ||
+                    userTimezone === "America/Pacific" ||
+                    !userTimezone;
 
-                // Format to YYYY-MM-DD for date input in user's timezone
-                const options = {
-                    timeZone: this.currentTimezone,
+                // DB stores time in LA timezone — if user is already in LA, just extract date directly
+                if (isLATimezone) {
+                    return dateString.split(" ")[0].split("T")[0];
+                }
+
+                // User is in a different timezone — convert LA time to user's local timezone
+                const isRawFormat =
+                    !dateString.includes("T") &&
+                    !dateString.includes("Z") &&
+                    !dateString.includes("+");
+
+                let date;
+                if (isRawFormat) {
+                    const isoLike = dateString.replace(" ", "T");
+                    const tempDate = new Date(isoLike);
+                    const laWallClock = new Date(
+                        new Date(isoLike).toLocaleString("en-US", {
+                            timeZone: "America/Los_Angeles",
+                        }),
+                    );
+                    const diff = tempDate - laWallClock;
+                    date = new Date(tempDate.getTime() + diff);
+                } else {
+                    date = new Date(dateString);
+                }
+
+                const formatter = new Intl.DateTimeFormat("en-CA", {
+                    timeZone: userTimezone,
                     year: "numeric",
                     month: "2-digit",
                     day: "2-digit",
-                };
+                });
 
-                const formatter = new Intl.DateTimeFormat("en-CA", options); // en-CA gives YYYY-MM-DD format
                 return formatter.format(date);
             } catch (error) {
-                console.error("Error converting to local date:", error);
                 return dateString;
             }
         },
