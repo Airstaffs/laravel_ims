@@ -36,7 +36,6 @@
                     target="_blank"
                     rel="noopener"
                 />
-
             </div>
         </div>
 
@@ -94,9 +93,12 @@
             <template #input-fields>
                 <div
                     class="fw-bold text-dark quantity-info"
-                    :class="{ 'text-warning': remainingQuantity > 1, 'text-success': remainingQuantity === 1 }"
+                    :class="{
+                        'text-warning': remainingQuantity > 1,
+                        'text-success': remainingQuantity === 1,
+                    }"
                     v-if="trackingFound"
-                    >
+                >
                     Quantity: {{ remainingQuantity }}
                 </div>
                 <!-- Step 1: Tracking Number Input -->
@@ -121,7 +123,8 @@
 
                     <div v-if="currentStep === 1 && trackingFound" class="mt-4">
                         <p class="text-sm text-gray-500">
-                            📸 Capture 1–2 images of the tracking number to continue.
+                            📸 Capture 1–2 images of the tracking number to
+                            continue.
                         </p>
 
                         <button
@@ -162,7 +165,8 @@
 
                     <!-- Optional helper text -->
                     <p v-if="!scannerHasCapturedImage" class="text-sm mt-2">
-                        📸 Please capture at least 3 image before passing or failing.
+                        📸 Please capture at least 3 image before passing or
+                        failing.
                     </p>
 
                     <!-- ✅ Modal viewer for thumbnails -->
@@ -241,19 +245,22 @@
                     <div class="label-wrap">
                         <label>First Serial Number:</label>
                         <!-- AI Toggle Switch -->
-                        <div v-if="currentStep === 3 || currentStep === 4" class="ai-switch-container">
+                        <div
+                            v-if="currentStep === 3 || currentStep === 4"
+                            class="ai-switch-container"
+                        >
                             <span class="ai-label">AI Detection</span>
 
                             <label class="ai-switch">
                                 <input
-                                type="checkbox"
-                                v-model="useAiDetection"
+                                    type="checkbox"
+                                    v-model="useAiDetection"
                                 />
                                 <span class="ai-slider"></span>
                             </label>
 
                             <span class="ai-status">
-                                {{ useAiDetection ? 'ON' : 'OFF' }}
+                                {{ useAiDetection ? "ON" : "OFF" }}
                             </span>
                         </div>
                     </div>
@@ -341,7 +348,10 @@
                         </div>
                     </div>
                     <!-- Step 4: Choose Second Serial or Skip -->
-                    <div v-if="!showSecondSerialInput" class="button-group mt-4">
+                    <div
+                        v-if="!showSecondSerialInput"
+                        class="button-group mt-4"
+                    >
                         <button
                             class="scan-button"
                             @click="showSecondSerialInput = true"
@@ -349,67 +359,71 @@
                             Second Serial
                         </button>
 
-                        <button
-                            class="skip-button"
-                            @click="skipSecondSerial"
-                        >
+                        <button class="skip-button" @click="skipSecondSerial">
                             Skip
                         </button>
                     </div>
 
                     <!-- Step 4: Second Serial Input -->
-                    <div v-if="showSecondSerialInput" class="second-serial-input mt-4">
+                    <div
+                        v-if="showSecondSerialInput"
+                        class="second-serial-input mt-4"
+                    >
                         <div class="input-container">
                             <div class="label-wrap">
                                 <label>Second Serial Number:</label>
                                 <!-- AI Toggle Switch -->
-                                <div v-if="currentStep === 3 || currentStep === 4" class="ai-switch-container">
+                                <div
+                                    v-if="
+                                        currentStep === 3 || currentStep === 4
+                                    "
+                                    class="ai-switch-container"
+                                >
                                     <span class="ai-label">AI Detection</span>
 
                                     <label class="ai-switch">
                                         <input
-                                        type="checkbox"
-                                        v-model="useAiDetection"
+                                            type="checkbox"
+                                            v-model="useAiDetection"
                                         />
                                         <span class="ai-slider"></span>
                                     </label>
 
                                     <span class="ai-status">
-                                        {{ useAiDetection ? 'ON' : 'OFF' }}
+                                        {{ useAiDetection ? "ON" : "OFF" }}
                                     </span>
                                 </div>
                             </div>
 
                             <input
-                            type="text"
-                            v-model="secondSerialNumber"
-                            placeholder="Scan Second Serial Number..."
-                            @input="handleSecondSerialInput"
-                            @keyup.enter="processSecondSerial"
-                            ref="secondSerialInput"
+                                type="text"
+                                v-model="secondSerialNumber"
+                                placeholder="Scan Second Serial Number..."
+                                @input="handleSecondSerialInput"
+                                @keyup.enter="processSecondSerial"
+                                ref="secondSerialInput"
                             />
                         </div>
 
                         <div class="button-group mt-2">
                             <button
-                            v-if="showManualInput"
-                            @click="processSecondSerial"
-                            class="second-serial scan-button"
+                                v-if="showManualInput"
+                                @click="processSecondSerial"
+                                class="second-serial scan-button"
                             >
-                            Scan
+                                Scan
                             </button>
 
                             <!-- ✅ BACK BUTTON -->
                             <button
-                            @click="goBackToSecondSerialChoice"
-                            class="back-button"
-                            type="button"
+                                @click="goBackToSecondSerialChoice"
+                                class="back-button"
+                                type="button"
                             >
-                            Back
+                                Back
                             </button>
                         </div>
                     </div>
-
                 </div>
 
                 <!-- Step 5: PCN Input  -->
@@ -539,7 +553,7 @@
         </div>
 
         <!-- Pagination with centered layout -->
-             <Paginator 
+        <Paginator
             :first="first"
             :rows="perPage"
             :total-records="totalRecords"
@@ -549,7 +563,6 @@
             class="small-paginator"
             @page="onPageChange"
         />
-
 
         <!-- Image Modal -->
         <ViewImageModal
@@ -1126,7 +1139,15 @@
 </template>
 
 <script>
-import { Button, Dialog, Card, ScrollTop, Menu, Select, Paginator } from "primevue";
+import {
+    Button,
+    Dialog,
+    Card,
+    ScrollTop,
+    Menu,
+    Select,
+    Paginator,
+} from "primevue";
 import Received from "./receiving.js";
 import gallery from "../../components/Gallery/gallery.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
@@ -1202,7 +1223,7 @@ export default {
         AnimateDiv,
         Menu,
         Select,
-        Paginator
+        Paginator,
     },
     data() {
         return {
@@ -1249,21 +1270,47 @@ export default {
             if (!dateString) return "";
 
             try {
-                // Parse the date from database (assumed to be in UTC or server timezone)
-                const date = new Date(dateString);
+                const userTimezone = this.currentTimezone;
+                const isLATimezone =
+                    userTimezone === "America/Los_Angeles" ||
+                    userTimezone === "America/Pacific" ||
+                    !userTimezone;
 
-                // Format to YYYY-MM-DD for date input in user's timezone
-                const options = {
-                    timeZone: this.currentTimezone,
+                // DB stores time in LA timezone — if user is already in LA, just extract date directly
+                if (isLATimezone) {
+                    return dateString.split(" ")[0].split("T")[0];
+                }
+
+                // User is in a different timezone — convert LA time to user's local timezone
+                const isRawFormat =
+                    !dateString.includes("T") &&
+                    !dateString.includes("Z") &&
+                    !dateString.includes("+");
+
+                let date;
+                if (isRawFormat) {
+                    const isoLike = dateString.replace(" ", "T");
+                    const tempDate = new Date(isoLike);
+                    const laWallClock = new Date(
+                        new Date(isoLike).toLocaleString("en-US", {
+                            timeZone: "America/Los_Angeles",
+                        }),
+                    );
+                    const diff = tempDate - laWallClock;
+                    date = new Date(tempDate.getTime() + diff);
+                } else {
+                    date = new Date(dateString);
+                }
+
+                const formatter = new Intl.DateTimeFormat("en-CA", {
+                    timeZone: userTimezone,
                     year: "numeric",
                     month: "2-digit",
                     day: "2-digit",
-                };
+                });
 
-                const formatter = new Intl.DateTimeFormat("en-CA", options); // en-CA gives YYYY-MM-DD format
                 return formatter.format(date);
             } catch (error) {
-                console.error("Error converting to local date:", error);
                 return dateString;
             }
         },
@@ -1379,20 +1426,14 @@ export default {
             const images = this.$refs.scanner?.capturedImages || [];
 
             // ✅ Only count PRODUCT images (Step 2)
-            const productImages = images.filter(img => img.step === 2);
+            const productImages = images.filter((img) => img.step === 2);
 
             return productImages.length >= 3;
         },
 
-
         // ✅ ADD THESE COMPUTED PROPERTIES FOR DATE CONVERSION
-        localOrderDate: {
-            get() {
-                return this.convertToLocalDate(this.item.orderdate);
-            },
-            set(value) {
-                this.item.orderdate = this.convertFromLocalDate(value);
-            },
+        localOrderDate() {
+            return this.convertToLocalDate(this.item.orderdate);
         },
         localDeliveredDate: {
             get() {
@@ -1405,19 +1446,18 @@ export default {
         canProceedFromTracking() {
             const images = this.$refs.scanner?.capturedImages || [];
             return (
-            this.trackingFound &&
-            images.filter(img => img.step === 1).length >= 1
+                this.trackingFound &&
+                images.filter((img) => img.step === 1).length >= 1
             );
         },
         hasTrackingImages() {
             const images = this.$refs.scanner?.capturedImages || [];
 
             return (
-            this.trackingFound === true &&
-            images.filter(img => img.step === 1).length >= 1
+                this.trackingFound === true &&
+                images.filter((img) => img.step === 1).length >= 1
             );
         },
-
     },
 };
 </script>
@@ -1429,71 +1469,70 @@ export default {
     align-items: flex-end;
 }
 .ai-switch-container {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 10px 0;
-  font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 10px 0;
+    font-size: 14px;
 }
 
 .ai-label {
-  font-weight: 600;
-  color: #374151;
+    font-weight: 600;
+    color: #374151;
 }
 
 .ai-status {
-  font-weight: 600;
-  min-width: 35px;
+    font-weight: 600;
+    min-width: 35px;
 }
 
 /* Switch Wrapper */
 .ai-switch {
-  position: relative;
-  display: inline-block;
-  width: 46px;
-  height: 24px;
+    position: relative;
+    display: inline-block;
+    width: 46px;
+    height: 24px;
 }
 
 .ai-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
+    opacity: 0;
+    width: 0;
+    height: 0;
 }
 
 /* Slider */
 .ai-slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #9ca3af;
-  transition: 0.3s;
-  border-radius: 34px;
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #9ca3af;
+    transition: 0.3s;
+    border-radius: 34px;
 }
 
 .ai-slider:before {
-  position: absolute;
-  content: "";
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: 0.3s;
-  border-radius: 50%;
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
 }
 
 /* ON State */
 .ai-switch input:checked + .ai-slider {
-  background-color: #16a34a;
+    background-color: #16a34a;
 }
 
 .ai-switch input:checked + .ai-slider:before {
-  transform: translateX(22px);
+    transform: translateX(22px);
 }
-
 
 .uploader-area {
     border: 2px dashed #ccc;
@@ -1601,7 +1640,8 @@ button.scan-button {
     display: flex;
     gap: 10px;
 }
-.second-serial.scan-button, .first-serial.scan-button {
+.second-serial.scan-button,
+.first-serial.scan-button {
     border: none;
     border-radius: 4px;
     cursor: pointer;
@@ -1610,8 +1650,8 @@ button.scan-button {
     padding: 10px;
 }
 button.back-button {
-    width:100%;
-    padding:10px;
+    width: 100%;
+    padding: 10px;
     color: #fff;
     border: none;
     border-radius: 4px;
