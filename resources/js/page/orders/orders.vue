@@ -619,16 +619,22 @@
                                 >Ordered Date:</span
                             >
                             <span class="mobile-detal-value">
-                                {{ item.localOrderDate }}</span
-                            >
+                                {{ convertToLocalDate(item.orderdate) }}
+                            </span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label"
                                 >Delivered Date:</span
                             >
                             <span class="mobile-detal-value">
-                                {{ item.localDeliveredDate }}</span
-                            >
+                                {{
+                                    getLatestDeliveredDate(item)
+                                        ? convertToLocalDate(
+                                              getLatestDeliveredDate(item),
+                                          )
+                                        : "N/A"
+                                }}
+                            </span>
                         </div>
                     </div>
 
@@ -1528,13 +1534,9 @@ export default {
         },
 
         // ✅ ADD THESE COMPUTED PROPERTIES FOR DATE CONVERSION
-        localOrderDate: {
-            get() {
-                return this.convertToLocalDate(this.item.orderdate);
-            },
-            set(value) {
-                this.item.orderdate = this.convertFromLocalDate(value);
-            },
+
+        localOrderDate() {
+            return this.convertToLocalDate(this.item.orderdate);
         },
         localPaymentDate: {
             get() {
@@ -1681,6 +1683,18 @@ export default {
         },
 
         getLatestDeliveredDate(item) {
+            const userTimezone = this.currentTimezone;
+            const isLATimezone =
+                userTimezone === "America/Los_Angeles" ||
+                userTimezone === "America/Pacific" ||
+                !userTimezone;
+
+            console.log("=== getLatestDeliveredDate ===");
+            console.log("User Timezone        :", userTimezone);
+            console.log("Is LA Timezone?      :", isLATimezone);
+
+            let rawDate = null;
+
             if (!item.tracking_info || item.tracking_info.length === 0) {
                 // Fallback to old datedelivered field
                 if (
@@ -1688,25 +1702,94 @@ export default {
                     item.datedelivered !== "0000-00-00" &&
                     item.datedelivered !== "0000-00-00 00:00:00"
                 ) {
-                    return item.datedelivered;
+                    rawDate = item.datedelivered;
+                    console.log("Fallback datedelivered:", rawDate);
+                } else {
+                    console.log("No valid date found, returning null");
+                    return null;
                 }
-                return null;
+            } else {
+                const dates = item.tracking_info
+                    .filter(
+                        (t) =>
+                            t.status === "Delivered" &&
+                            t.delivered_date &&
+                            t.delivered_date !== "0000-00-00" &&
+                            t.delivered_date !== "0000-00-00 00:00:00",
+                    )
+                    .map((t) => t.delivered_date);
+
+                console.log("Filtered delivered dates:", dates);
+
+                if (dates.length === 0) {
+                    console.log("No delivered dates found, returning null");
+                    return null;
+                }
+
+                rawDate = dates.sort().pop();
+                console.log("Latest delivered date (raw):", rawDate);
             }
 
-            const dates = item.tracking_info
-                .filter(
-                    (t) =>
-                        t.status === "Delivered" &&
-                        t.delivered_date &&
-                        t.delivered_date !== "0000-00-00" &&
-                        t.delivered_date !== "0000-00-00 00:00:00",
-                )
-                .map((t) => t.delivered_date);
+            // LA user — no conversion needed, extract date part directly
+            if (isLATimezone) {
+                const result = rawDate.split(" ")[0].split("T")[0];
+                console.log(
+                    "LA Timezone — skipping conversion. Result:",
+                    result,
+                );
+                console.log("=============================");
+                return result;
+            }
 
-            if (dates.length === 0) return null;
+            // Non-LA user — convert from LA time to user's timezone
+            try {
+                const isRawFormat =
+                    !rawDate.includes("T") &&
+                    !rawDate.includes("Z") &&
+                    !rawDate.includes("+");
 
-            // Return the latest delivered date
-            return dates.sort().pop();
+                let date;
+                if (isRawFormat) {
+                    const isoLike = rawDate.replace(" ", "T");
+                    const tempDate = new Date(isoLike);
+                    const laWallClock = new Date(
+                        new Date(isoLike).toLocaleString("en-US", {
+                            timeZone: "America/Los_Angeles",
+                        }),
+                    );
+                    const diff = tempDate - laWallClock;
+                    date = new Date(tempDate.getTime() + diff);
+                    console.log(
+                        "Raw format — interpreted as LA:",
+                        laWallClock.toString(),
+                    );
+                    console.log(
+                        "Adjusted UTC date            :",
+                        date.toString(),
+                    );
+                } else {
+                    date = new Date(rawDate);
+                    console.log(
+                        "ISO format parsed            :",
+                        date.toString(),
+                    );
+                }
+
+                const formatter = new Intl.DateTimeFormat("en-CA", {
+                    timeZone: userTimezone,
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                });
+
+                const converted = formatter.format(date);
+                console.log("Converted to user TZ         :", converted);
+                console.log("=============================");
+                return converted;
+            } catch (error) {
+                console.error("Error converting delivered date:", error);
+                return rawDate;
+            }
         },
 
         formatDeliveryDate(dateString) {

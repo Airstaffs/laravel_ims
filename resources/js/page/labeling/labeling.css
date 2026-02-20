@@ -205,6 +205,10 @@ button.btn.btn-fnsku-select:hover {
     display: inline-block;
 }
 
+.hover-image-container:hover .zoom-indicator {
+    opacity: 1;
+}
+
 .hover-preview {
     display: none;
     position: absolute;
@@ -626,4 +630,33 @@ body:not(.modal-open) {
     color: #333;
     min-width: 20px;
     text-align: center;
+}
+
+/* Zoom Indicator */
+.zoom-indicator {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+    z-index: 5;
+}
+
+.main-image:hover .zoom-indicator {
+    opacity: 1;
+}
+
+.zoom-indicator i {
+    font-size: 1rem;
 }
