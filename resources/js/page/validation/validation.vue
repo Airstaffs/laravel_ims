@@ -594,13 +594,17 @@
                 <div class="col-md-2">
                     <div class="form-col-left image-container">
                         <div class="captured-img-container">
-                           <div
+                            <div
                                 class="image-section hover-image-container"
-                                :class="{ 'preview-active': isCapturedPreviewActive }"
+                                :class="{
+                                    'preview-active': isCapturedPreviewActive,
+                                }"
                                 v-show="capturedImageList.length"
                             >
-                                
-                                <div class="main-image" @click="handleOpenZoomImage('captured')">
+                                <div
+                                    class="main-image"
+                                    @click="handleOpenZoomImage('captured')"
+                                >
                                     <img
                                         :src="activeCapturedImageUrl"
                                         alt="Main Product Image"
@@ -608,10 +612,10 @@
                                         @error="onImageErrorMain"
                                     />
 
-                                       <div class="zoom-indicator">
-                                            <i class="pi pi-search-plus"></i>
-                                            <span>Click to zoom</span>
-                                        </div>
+                                    <div class="zoom-indicator">
+                                        <i class="pi pi-search-plus"></i>
+                                        <span>Click to zoom</span>
+                                    </div>
                                 </div>
 
                                 <!-- <div class="captured-hover-preview">
@@ -625,16 +629,22 @@
 
                                 <div class="thumbnail-carousel">
                                     <div
-                                        v-for="(img, index) in capturedImageList"
+                                        v-for="(
+                                            img, index
+                                        ) in capturedImageList"
                                         :key="index"
                                         :class="[
                                             'thumbnail',
                                             {
-                                                active: index === activeCapturedIndex,
+                                                active:
+                                                    index ===
+                                                    activeCapturedIndex,
                                             },
                                         ]"
                                         @click="activeCapturedIndex = index"
-                                        @mouseenter="activeCapturedIndex = index"
+                                        @mouseenter="
+                                            activeCapturedIndex = index
+                                        "
                                     >
                                         <img
                                             :src="img"
@@ -645,7 +655,6 @@
                                     </div>
                                 </div>
                             </div>
-                            
 
                             <p
                                 class="image-label text-center"
@@ -657,8 +666,8 @@
                             </p>
 
                             <p class="fw-semibold mb-2">
-                                        {{  item.ProductTitle  }}
-                                    </p>
+                                {{ item.ProductTitle }}
+                            </p>
                         </div>
 
                         <div class="asin-img-container">
@@ -667,9 +676,15 @@
                                 :class="{ 'preview-active': isPreviewActive }"
                                 v-if="ASIN && asinImageList.length"
                             >
-                                <div class="hover-overlay" @click="closePreview"></div>
-                                
-                                <div class="main-image" @click="handleOpenZoomImage('asin')">
+                                <div
+                                    class="hover-overlay"
+                                    @click="closePreview"
+                                ></div>
+
+                                <div
+                                    class="main-image"
+                                    @click="handleOpenZoomImage('asin')"
+                                >
                                     <img
                                         :src="activeAsinImageUrl"
                                         alt="Main ASIN Image"
@@ -677,7 +692,7 @@
                                         @error="handleImageError"
                                     />
                                 </div>
-<!-- 
+                                <!-- 
                                 <div class="asin-hover-preview">
                                     <img
                                         :src="activeAsinImageUrl"
@@ -1033,7 +1048,12 @@
         </div>
         <!-- End of Validation Confirmation Modal -->
 
-        <ZoomImageModal v-model:visible="showZoomImageModal" :images="imageListToZoom" :initialIndex="initImageIndex" :title="imageTitleToZoom"/>
+        <ZoomImageModal
+            v-model:visible="showZoomImageModal"
+            :images="imageListToZoom"
+            :initialIndex="initImageIndex"
+            :title="imageTitleToZoom"
+        />
         <ScrollTop />
     </div>
 </template>
@@ -1055,7 +1075,7 @@ import {
     TabPanels,
     TabPanel,
     Galleria,
-    Paginator
+    Paginator,
 } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
@@ -1147,7 +1167,7 @@ export default {
         TabPanels,
         Galleria,
         Paginator,
-        ZoomImageModal
+        ZoomImageModal,
     },
     data() {
         return {
@@ -1158,7 +1178,7 @@ export default {
             showZoomImageModal: false,
             imageListToZoom: [],
             initImageIndex: 0,
-            imageTitleToZoom: ""
+            imageTitleToZoom: "",
         };
     },
     async mounted() {
@@ -1171,7 +1191,7 @@ export default {
                 this.isPreviewActive = !this.isPreviewActive;
             }
         },
-        
+
         // For captured images
         toggleCapturedPreview() {
             if (window.innerWidth <= 767) {
@@ -1180,33 +1200,68 @@ export default {
         },
 
         handleOpenZoomImage(type) {
-            this.showZoomImageModal = true
-            this.imageListToZoom = type === 'captured' ? this.capturedImageList : [this.asinImageList[0]]
-            this.initImageIndex = type === 'captured' ? this.activeCapturedIndex : this.activeAsinIndex
-            this.imageTitleToZoom = type === 'captured' ? this.item.ProductTitle : this.getDisplayTitle(this.item)
+            this.showZoomImageModal = true;
+            this.imageListToZoom =
+                type === "captured"
+                    ? this.capturedImageList
+                    : [this.asinImageList[0]];
+            this.initImageIndex =
+                type === "captured"
+                    ? this.activeCapturedIndex
+                    : this.activeAsinIndex;
+            this.imageTitleToZoom =
+                type === "captured"
+                    ? this.item.ProductTitle
+                    : this.getDisplayTitle(this.item);
 
-            console.log([this.asinImageList[0]])
+            console.log([this.asinImageList[0]]);
         },
 
         convertToLocalDate(dateString) {
             if (!dateString) return "";
 
             try {
-                // Parse the date from database (assumed to be in UTC or server timezone)
-                const date = new Date(dateString);
+                const userTimezone = this.currentTimezone;
+                const isLATimezone =
+                    userTimezone === "America/Los_Angeles" ||
+                    userTimezone === "America/Pacific" ||
+                    !userTimezone;
 
-                // Format to YYYY-MM-DD for date input in user's timezone
-                const options = {
-                    timeZone: this.currentTimezone,
+                // DB stores time in LA timezone — if user is already in LA, just extract date directly
+                if (isLATimezone) {
+                    return dateString.split(" ")[0].split("T")[0];
+                }
+
+                // User is in a different timezone — convert LA time to user's local timezone
+                const isRawFormat =
+                    !dateString.includes("T") &&
+                    !dateString.includes("Z") &&
+                    !dateString.includes("+");
+
+                let date;
+                if (isRawFormat) {
+                    const isoLike = dateString.replace(" ", "T");
+                    const tempDate = new Date(isoLike);
+                    const laWallClock = new Date(
+                        new Date(isoLike).toLocaleString("en-US", {
+                            timeZone: "America/Los_Angeles",
+                        }),
+                    );
+                    const diff = tempDate - laWallClock;
+                    date = new Date(tempDate.getTime() + diff);
+                } else {
+                    date = new Date(dateString);
+                }
+
+                const formatter = new Intl.DateTimeFormat("en-CA", {
+                    timeZone: userTimezone,
                     year: "numeric",
                     month: "2-digit",
                     day: "2-digit",
-                };
+                });
 
-                const formatter = new Intl.DateTimeFormat("en-CA", options); // en-CA gives YYYY-MM-DD format
                 return formatter.format(date);
             } catch (error) {
-                console.error("Error converting to local date:", error);
                 return dateString;
             }
         },
@@ -1302,13 +1357,8 @@ export default {
         },
 
         // ✅ ADD THESE COMPUTED PROPERTIES FOR DATE CONVERSION
-        localOrderDate: {
-            get() {
-                return this.convertToLocalDate(this.item.orderdate);
-            },
-            set(value) {
-                this.item.orderdate = this.convertFromLocalDate(value);
-            },
+        localOrderDate() {
+            return this.convertToLocalDate(this.item.orderdate);
         },
         localPaymentDate: {
             get() {
