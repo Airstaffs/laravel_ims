@@ -158,7 +158,11 @@
                     @click="openDs7Oos"
                     label="Open DS7 & OO"
                 />
-                  <Button label="Amazon Listings" icon="pi pi-amazon" @click="showAmazonListings = true" />
+<Button
+  label="Amazon Listings"
+  icon="pi pi-amazon"
+  @click="() => { console.log('clicked', showAmazonListings); showAmazonListings = true; }"
+/>
             </div>
 
             <div class="mobile-view w-100 ms-2">

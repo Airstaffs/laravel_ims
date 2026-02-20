@@ -4,6 +4,7 @@ import NewScannedItemModal from "./modals/newScanneditem.vue";
 import { SoundService } from "../../components/Sound_service";
 import "../../../css/modules.css";
 import Ds7OosModal from "./modals/ds7oos.vue";
+import AmazonListingsModal from "./modals/amazonlistings.vue";
 
 // Fallback to current origin if VITE_API_URL is not set to avoid undefined requests
 const API_BASE_URL = import.meta.env.VITE_API_URL || window.location.origin;
@@ -14,6 +15,7 @@ export default {
         ScannerComponent,
         NewScannedItemModal,
         Ds7OosModal,
+        AmazonListingsModal,
     },
     data() {
         return {
@@ -126,11 +128,14 @@ export default {
 
             isMovingToLabeling: false,
 
+            // Amazon Listings
+            showAmazonListings: false,
+
             //pagination
             currentPage: 1,
             totalRecords: 1,
             perPage: 10, // Default rows per page
-            first: 0 //paginator internal state
+            first: 0, //paginator internal state
         };
     },
     computed: {
@@ -935,11 +940,11 @@ export default {
         },
 
         // Pagination methods
-        
+
         onPageChange(event) {
-            this.first = event.first
+            this.first = event.first;
             this.currentPage = event.page + 1; // convert to 1-based
-            this.perPage     = event.rows;
+            this.perPage = event.rows;
             this.fetchInventory();
         },
 
@@ -2581,9 +2586,9 @@ export default {
                     },
                 );
 
-                    if (response.data.success) {
+                if (response.data.success) {
                     alert("Items successfully posted to Amazon.");
-                    } else {
+                } else {
                     alert(
                         "Error: " + (response.data.message || "Unknown error."),
                     );
@@ -2840,11 +2845,19 @@ export default {
                 this.isMovingToLabeling = false;
             }
         },
+
+        // Amazon Listings
+        onAmazonListingApplied(payload) {
+            // payload = { store, marketplaceIds, updates: [{sku, quantity, price, currency, asin}] }
+            console.log("Pending Amazon updates:", payload);
+
+            // Next step: call backend PATCH endpoint to update qty/price
+        },
     },
     watch: {
         searchQuery() {
             this.currentPage = 1;
-            this.first = 0
+            this.first = 0;
             this.fetchInventory();
         },
         // Watch for changes to selectedItems to update location field
