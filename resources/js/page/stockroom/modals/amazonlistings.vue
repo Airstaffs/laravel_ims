@@ -185,17 +185,13 @@
                     </template>
                 </Column>
 
-                <Column header="Issues" style="width: 320px; max-width: 320px;">
+                <Column header="Issues" style="width: 220px;">
                     <template #body="{ data }">
-                        <div class="issue-wrap" v-if="data.issues?.length">
-                            <Tag severity="warning" :value="`${data.issues.length} issue(s)`" class="mb-2" />
-                            <ul class="m-0 pl-3 text-sm text-700">
-                                <li v-for="(it, idx) in data.issues.slice(0, 2)" :key="idx">
-                                    {{ it.message || it.code || 'Issue' }}
-                                </li>
-                            </ul>
-                            <div class="text-xs text-500 mt-1" v-if="data.issues.length > 2">
-                                +{{ data.issues.length - 2 }} more
+                        <div v-if="data.issues?.length" class="issues-cell">
+                            <Tag severity="success" :value="`${data.issues.length} issue(s)`" class="issues-tag"
+                                @click="openIssuesModal(data)" />
+                            <div class="text-xs text-500 mt-1 truncate-issue">
+                                {{ (data.issues?.[0]?.message || data.issues?.[0]?.code || 'Issue') }}
                             </div>
                         </div>
                         <div v-else class="text-500">—</div>
@@ -212,6 +208,54 @@
             <div class="flex gap-2">
                 <Button label="Close" severity="secondary" @click="onClose" class="p-button-sm" />
             </div>
+        </div>
+    </Dialog>
+
+    <Dialog v-model:visible="issuesModal.visible" modal :draggable="false" :closable="true" header="Listing Issues"
+        :style="{ width: '720px', maxWidth: '95vw' }" :contentStyle="{ padding: '0' }">
+        <!-- Header strip -->
+        <div class="issues-modal-head">
+            <div class="issues-modal-title">
+                <div class="font-medium">{{ issuesModal.title || '—' }}</div>
+                <div class="text-500 text-sm mt-1">
+                    <span class="mr-3"><b>SKU</b> {{ issuesModal.sku || '—' }}</span>
+                    <span><b>ASIN</b> {{ issuesModal.asin || '—' }}</span>
+                </div>
+            </div>
+
+            <Button label="Copy all" icon="pi pi-copy" severity="secondary" class="p-button-sm"
+                @click="copyIssuesToClipboard" />
+        </div>
+
+        <!-- Body -->
+        <div class="issues-modal-body">
+            <div v-if="issuesModal.issues?.length" class="issues-list">
+                <div v-for="(it, idx) in issuesModal.issues" :key="idx" class="issues-item">
+                    <div class="issues-item-top">
+                        <span class="issues-index">#{{ idx + 1 }}</span>
+                        <Tag v-if="it.severity" :value="String(it.severity)" severity="warning" class="ml-2" />
+                        <span v-if="it.code" class="issues-code ml-auto">{{ it.code }}</span>
+                    </div>
+
+                    <div class="issues-message">
+                        {{ it.message || it.summary || it.code || 'Issue' }}
+                    </div>
+
+                    <div v-if="it.attributeName || it.enforcements?.length" class="issues-meta">
+                        <span v-if="it.attributeName"><b>Field:</b> {{ it.attributeName }}</span>
+                        <span v-if="it.enforcements?.length" class="ml-3">
+                            <b>Enforcements:</b> {{ it.enforcements.length }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div v-else class="text-500 p-3">No issues.</div>
+        </div>
+
+        <!-- Footer -->
+        <div class="issues-modal-foot">
+            <Button label="Close" severity="secondary" class="p-button-sm" @click="issuesModal.visible = false" />
         </div>
     </Dialog>
 </template>
@@ -285,6 +329,15 @@ export default {
                     "relationships",
                     "productTypes",
                 ],
+            },
+
+            issuesModal: {
+                visible: false,
+                sku: null,
+                asin: null,
+                title: null,
+                issues: [],
+                raw: null,
             },
         };
     },
@@ -711,7 +764,33 @@ export default {
             }
         },
 
+        openIssuesModal(row) {
+            this.issuesModal = {
+                visible: true,
+                sku: row?.sku || null,
+                asin: row?.asin || null,
+                title: row?.title || null,
+                issues: Array.isArray(row?.issues) ? row.issues : [],
+                raw: row?.raw || null,
+            };
+        },
 
+        async copyIssuesToClipboard() {
+            try {
+                const lines = (this.issuesModal.issues || []).map((it, idx) => {
+                    const msg = it.message || it.summary || '';
+                    const code = it.code ? `(${it.code})` : '';
+                    return `#${idx + 1} ${code} ${msg}`.trim();
+                });
+
+                const header = `SKU: ${this.issuesModal.sku || '—'} | ASIN: ${this.issuesModal.asin || '—'}\n`;
+                const text = header + lines.join("\n");
+
+                await navigator.clipboard.writeText(text);
+            } catch (e) {
+                console.error("copyIssuesToClipboard failed:", e);
+            }
+        },
     },
 };
 </script>
@@ -869,5 +948,90 @@ export default {
     height: 32px !important;
     padding: 6px 10px !important;
     font-size: 13px;
+}
+
+.issues-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.issues-tag {
+  cursor: pointer;
+  user-select: none;
+}
+
+.truncate-issue {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Issues modal layout */
+.issues-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.issues-modal-body {
+  padding: 14px 16px;
+  max-height: 65vh;
+  overflow: auto;
+}
+
+.issues-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.issues-item {
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  padding: 12px;
+  background: var(--surface-0);
+}
+
+.issues-item-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.issues-index {
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.issues-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  color: var(--text-color-secondary);
+}
+
+.issues-message {
+  font-size: 14px;
+  line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.issues-meta {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-color-secondary);
+}
+
+.issues-modal-foot {
+  padding: 12px 16px;
+  border-top: 1px solid var(--surface-border);
+  display: flex;
+  justify-content: flex-end;
 }
 </style>
