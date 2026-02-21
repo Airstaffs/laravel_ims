@@ -399,6 +399,220 @@ class ListingController extends Controller
         }
     }
 
+    public function updateOne(Request $request)
+    {
+        $data = $request->validate([
+            'store' => ['required', 'string'],
+            'marketplaceIds' => ['required', 'array', 'min:1'],
+            'marketplaceIds.*' => ['string'],
+
+            'sku' => ['required', 'string'],
+
+            // optional but useful
+            'asin' => ['nullable', 'string'],
+            'productType' => ['nullable', 'string'],
+
+            // qty
+            'quantity' => ['nullable'],              // number|null
+            'quantityCleared' => ['nullable', 'boolean'],
+
+            // price
+            'price' => ['nullable'],                 // number|null
+            'priceCleared' => ['nullable', 'boolean'],
+            'currency' => ['nullable', 'string'],
+        ]);
+
+        $store = $data['store'];
+        $marketplaceId = $data['marketplaceIds'][0]; // your UI uses single marketplace anyway
+
+        // IMPORTANT: for patchListingsItem the sellerId is part of the URL.
+        // If you already store it in company details, pull it from there.
+        $companydetails = $this->fetchCompanyDetails($store);
+        if (!$companydetails) {
+            return response()->json(['message' => "Company not found for store: {$store}"], 404);
+        }
+
+        $sku = $data['sku'];
+
+        // Credentials + Access token
+        $credentials = AWSCredentials($store);
+
+                // Adjust this key to whatever you actually store as sellerId
+        $sellerId = $credentials['MerchantID'] ?? null;
+
+        if (!$sellerId) {
+            return response()->json([
+                'message' => 'Missing sellerId in company details. Add SellerId/seller_id for this store.',
+                'store' => $store,
+            ], 422);
+        }
+        if (!$credentials) {
+            return response()->json(['message' => "No credentials found for store: {$store}"], 422);
+        }
+
+        $accessToken = fetchAccessToken($credentials, false);
+        if (!$accessToken) {
+            return response()->json(['message' => "Failed to fetch access token for store: {$store}"], 422);
+        }
+
+        // Build patches based on what the Vue said was "touched"
+        $patches = [];
+
+        // ---------- QTY PATCH ----------
+        $qtyTouched = array_key_exists('quantity', $data) || array_key_exists('quantityCleared', $data);
+        if ($qtyTouched) {
+            $qtyCleared = (bool) ($data['quantityCleared'] ?? false);
+
+            if ($qtyCleared) {
+                // Clear qty attribute
+                $patches[] = [
+                    'op' => 'delete',
+                    'path' => '/attributes/fulfillment_availability',
+                ];
+            } else {
+                // Replace qty (DEFAULT = FBM)
+                // Structure matches common usage for Listings Items.
+                $patches[] = [
+                    'op' => 'replace',
+                    'path' => '/attributes/fulfillment_availability',
+                    'value' => [
+                        [
+                            'fulfillment_channel_code' => 'DEFAULT',
+                            'quantity' => (int) $data['quantity'],
+                        ]
+                    ],
+                ];
+            }
+        }
+
+        // ---------- PRICE PATCH ----------
+        $priceTouched = array_key_exists('price', $data) || array_key_exists('priceCleared', $data);
+        if ($priceTouched) {
+            $priceCleared = (bool) ($data['priceCleared'] ?? false);
+
+            if ($priceCleared) {
+                $patches[] = [
+                    'op' => 'delete',
+                    'path' => '/attributes/purchasable_offer',
+                ];
+            } else {
+                $currency = $data['currency'] ?? 'USD';
+                $priceVal = (float) $data['price'];
+
+                // Example format taken from patchListingsItem example that updates purchasable_offer
+                $patches[] = [
+                    'op' => 'replace',
+                    'path' => '/attributes/purchasable_offer',
+                    'value' => [
+                        [
+                            'currency' => $currency,
+                            'audience' => 'ALL',
+                            'our_price' => [
+                                [
+                                    'schedule' => [
+                                        [
+                                            'value_with_tax' => $priceVal,
+                                        ]
+                                    ],
+                                ]
+                            ],
+                            'marketplace_id' => $marketplaceId,
+                        ]
+                    ],
+                ];
+            }
+        }
+
+        if (empty($patches)) {
+            return response()->json(['message' => 'Nothing to patch (no qty/price fields provided).'], 422);
+        }
+
+        // productType required by patchListingsItem
+        // Best: pass it from search results (your includedData already requests productTypes)
+        $productType = $data['productType'] ?? 'PRODUCT';
+
+        $body = [
+            'productType' => $productType,
+            'patches' => $patches,
+        ];
+
+        // Call SP-API
+        $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+        $path = "/listings/2021-08-01/items/{$sellerId}/" . rawurlencode($sku);
+
+        // marketplaceIds must be in querystring
+        $queryString = '?marketplaceIds=' . rawurlencode($marketplaceId);
+
+        $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
+        $customParams = []; // not used here
+        $nextToken = null;  // not used here
+
+        try {
+            $headers = buildHeaders(
+                $credentials,
+                $accessToken,
+                'PATCH',
+                'execute-api',
+                'us-east-1',
+                $path,
+                $nextToken,
+                $customParams,
+                $endpoint,
+                $canonicalHeaders
+            );
+
+            // PATCH content type: Amazon may require json-patch media type
+            $headers['Content-Type'] = 'application/json-patch+json';
+            $headers['accept'] = 'application/json';
+
+            $url = "{$endpoint}{$path}{$queryString}";
+
+            $response = Http::timeout(50)
+                ->withHeaders($headers)
+                ->withBody(json_encode($body), 'application/json-patch+json')
+                ->send('PATCH', $url);
+
+            $curlInfo = method_exists($response, 'handlerStats') ? $response->handlerStats() : null;
+
+            if ($response->successful()) {
+                return response()->json([
+                    'success' => true,
+                    'sku' => $sku,
+                    'store' => $store,
+                    'marketplaceId' => $marketplaceId,
+                    'request' => $body,
+                    'response' => $response->json(),
+                    'logs' => $curlInfo,
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'sku' => $sku,
+                'store' => $store,
+                'marketplaceId' => $marketplaceId,
+                'request' => $body,
+                'status' => $response->status(),
+                'error' => $response->json(),
+                'logs' => $curlInfo,
+            ], 400);
+
+        } catch (\Throwable $e) {
+            Log::error('patchListingsItem exception', [
+                'sku' => $sku,
+                'store' => $store,
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'sku' => $sku,
+                'store' => $store,
+            ], 500);
+        }
+    }
+
     // Supporting Functions
     protected function JsonCreation($action, $companydetails, $marketplaceID, $data_additionale)
     {

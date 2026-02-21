@@ -1038,3 +1038,4 @@ Route::prefix('api/reconciliation')->middleware(['auth'])->group(function () {
 });
 
 Route::post('/amazon/search-listings', [ListingController::class, 'searchListings']);
+Route::post('/amazon/listings/update-one', [ListingController::class, 'updateOne']);
