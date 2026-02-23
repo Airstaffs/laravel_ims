@@ -16,9 +16,6 @@ export default {
             stores: [],
             loading: true,
             selectedStore: "",
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 10,
             sortColumn: "",
             sortOrder: "asc",
             showDetails: false,
@@ -97,6 +94,12 @@ export default {
             isProcessing: false,       // Flag to prevent multiple simultaneous scans
             lastScanTime: 0,           // Timestamp of last scan
             scanCooldown: 2000, 
+
+            //pagination
+            currentPage: 1,
+            totalRecords: 0,
+            perPage: 10,
+            first: 0 //paginator internal state
         
         };
     },
@@ -323,9 +326,13 @@ export default {
         
         async fetchStores() { this.loading = true; try { const r = await axios.get(`${API_BASE_URL}/api/returns/stores`, { withCredentials: true }); this.stores = r.data; } catch (e) { console.error(e); } finally { this.loading = false; } },
         changeStore() { this.currentPage = 1; this.fetchInventory(); },
-        changePerPage() { this.currentPage = 1; this.fetchInventory(); },
-        prevPage() { if (this.currentPage > 1) { this.currentPage--; this.fetchInventory(); } },
-        nextPage() { if (this.currentPage < this.totalPages) { this.currentPage++; this.fetchInventory(); } },
+          onPageChange(event) {
+            this.first = event.first
+            this.currentPage = event.page + 1; // convert to 1-based
+            this.perPage     = event.rows;
+            this.fetchInventory();
+        },
+
         
         getDisplayTitle(item) {
             if (!item) return "—";
@@ -352,19 +359,19 @@ async fetchInventory() {
             ...i, 
             capturedImages: i.capturedImages || {} 
         }));
-        this.totalPages = r.data.last_page;
+        this.totalRecords = r.data.total;
         
         console.log("✅ Inventory loaded:", {
             items: this.inventory.length,
             historyItems: this.returnHistory.length,
-            totalPages: this.totalPages
+            totalRecords: this.totalRecords
         });
         
     } catch (e) { 
         console.error("❌ Error loading inventory:", e); 
         this.inventory = []; 
         this.returnHistory = []; 
-        this.totalPages = 0; 
+        this.totalRecords = 0; 
     } finally { 
         this.loading = false; 
     }
@@ -963,7 +970,7 @@ async fetchInventory() {
         closeDropdownsOnClickOutside(e) { if (!e.target.closest(".serial-dropdown")) this.serialDropdowns = {}; },
     },
     watch: {
-        searchQuery() { this.currentPage = 1; this.fetchInventory(); },
+        searchQuery() { this.currentPage = 1; this.first = 0; this.fetchInventory(); },
     },
     mounted() {
         axios.defaults.baseURL = window.location.origin;

@@ -1829,6 +1829,37 @@ form#editPrinterForm {
         transform: translateY(0);
     }
 }
+/* Make paginator smaller overall */
+.small-paginator {
+    font-size: 0.75rem;  /* smaller text */
+}
+.small-paginator .p-paginator-page.p-paginator-page-selected {
+    color: white !important;
+    background-color: #007BFF !important;
+}
+
+/* Make page buttons smaller */
+.small-paginator .p-paginator-prev,
+.small-paginator .p-paginator-next,
+.small-paginator .p-paginator-page {
+    padding: 0.25rem 0.5rem; /* smaller buttons */
+}
+
+/* Make rows-per-page dropdown smaller */
+.small-paginator .p-paginator-rpp-options {
+    margin-left: 0.5rem;       /* optional spacing */
+}
+
+.small-paginator .p-paginator-rpp-options select {
+    font-size: 0.75rem;        /* smaller dropdown text */
+    padding: 0.15rem 0.3rem;   /* smaller padding inside dropdown */
+}
+
+/* Optional: make CurrentPageReport smaller */
+.small-paginator .p-paginator-current {
+    font-size: 0.7rem;
+    margin-left: 0.5rem;
+}
 
 @media (max-width: 767px) {
     .desktop {

@@ -47,13 +47,13 @@
                         ref="trackingInput"
                     />
                     <!-- Only show manual process button in Manual mode -->
-                    <button
+                    <Button
                         v-if="showManualInput"
                         @click="verifyAndProcessTracking"
                         class="verify-button"
                     >
                         Process Tracking
-                    </button>
+                    </Button>
                     <div class="scanner-info">
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i>
@@ -190,49 +190,16 @@
         </div>
 
         <!-- Pagination with centered layout -->
-        <div class="pagination-container">
-            <div class="pagination-wrapper">
-                <div class="per-page-selector">
-                    <span>Rows per page</span>
-                    <Select
-                        v-model="perPage"
-                        @change="changePerPage"
-                        :options="rowsPerPage"
-                        optionValue="value"
-                        optionLabel="label"
-                        size="small"
-                    />
-                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                            {{ option }}
-                        </option>
-                    </select> -->
-                </div>
-
-                <div class="pagination">
-                    <Button
-                        @click="prevPage"
-                        :disabled="currentPage === 1"
-                        label="Back"
-                        icon="pi pi-angle-left"
-                        size="small"
-                        severity="info"
-                    />
-                    <span class="pagination-info"
-                        >Page {{ currentPage }} of {{ totalPages }}</span
-                    >
-                    <Button
-                        @click="nextPage"
-                        :disabled="currentPage === totalPages"
-                        label="Next"
-                        icon="pi pi-angle-right"
-                        size="small"
-                        severity="info"
-                        iconPos="right"
-                    />
-                </div>
-            </div>
-        </div>
+        <Paginator
+            :first="first"
+            :rows="perPage"
+            :total-records="totalRecords"
+            :rows-per-page-options="[10, 20, 50]"
+            template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+            class="small-paginator"
+            @page="onPageChange"
+        />
 
         <!-- Image Modal -->
         <ViewImageModal
@@ -381,7 +348,7 @@
                                         <div class="info-item">
                                             <dt>Order Date:</dt>
                                             <dd>
-                                                {{ item.orderdate }}
+                                                {{ localOrderDate }}
                                             </dd>
                                         </div>
                                         <div class="info-item">
@@ -503,7 +470,7 @@
 </template>
 
 <script>
-import { Button, Dialog, Card, ScrollTop, Select } from "primevue";
+import { Button, Dialog, Card, ScrollTop, Select, Paginator } from "primevue";
 import Unreceived from "./unreceived.js";
 import gallery from "../../components/Gallery/gallery.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
@@ -571,6 +538,7 @@ export default {
         ViewImageModal,
         AnimateDiv,
         Select,
+        Paginator,
     },
     data() {
         return {
@@ -610,6 +578,10 @@ export default {
             });
         },
 
+        localOrderDate() {
+            return this.convertToLocalDate(this.item.orderdate);
+        },
+
         localDeliveredDate: {
             get() {
                 return this.convertToLocalDate(this.item.datedelivered);
@@ -624,21 +596,47 @@ export default {
             if (!dateString) return "";
 
             try {
-                // Parse the date from database (assumed to be in UTC or server timezone)
-                const date = new Date(dateString);
+                const userTimezone = this.currentTimezone;
+                const isLATimezone =
+                    userTimezone === "America/Los_Angeles" ||
+                    userTimezone === "America/Pacific" ||
+                    !userTimezone;
 
-                // Format to YYYY-MM-DD for date input in user's timezone
-                const options = {
-                    timeZone: this.currentTimezone,
+                // DB stores time in LA timezone — if user is already in LA, just extract date directly
+                if (isLATimezone) {
+                    return dateString.split(" ")[0].split("T")[0];
+                }
+
+                // User is in a different timezone — convert LA time to user's local timezone
+                const isRawFormat =
+                    !dateString.includes("T") &&
+                    !dateString.includes("Z") &&
+                    !dateString.includes("+");
+
+                let date;
+                if (isRawFormat) {
+                    const isoLike = dateString.replace(" ", "T");
+                    const tempDate = new Date(isoLike);
+                    const laWallClock = new Date(
+                        new Date(isoLike).toLocaleString("en-US", {
+                            timeZone: "America/Los_Angeles",
+                        }),
+                    );
+                    const diff = tempDate - laWallClock;
+                    date = new Date(tempDate.getTime() + diff);
+                } else {
+                    date = new Date(dateString);
+                }
+
+                const formatter = new Intl.DateTimeFormat("en-CA", {
+                    timeZone: userTimezone,
                     year: "numeric",
                     month: "2-digit",
                     day: "2-digit",
-                };
+                });
 
-                const formatter = new Intl.DateTimeFormat("en-CA", options); // en-CA gives YYYY-MM-DD format
                 return formatter.format(date);
             } catch (error) {
-                console.error("Error converting to local date:", error);
                 return dateString;
             }
         },

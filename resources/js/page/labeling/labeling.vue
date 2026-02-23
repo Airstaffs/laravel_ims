@@ -367,51 +367,16 @@
         </div>
 
         <!-- Pagination with centered layout -->
-        <div class="pagination-container">
-            <div class="pagination-wrapper">
-                <div class="per-page-selector">
-                    <span>Rows per page</span>
-                    <Select
-                        v-model="perPage"
-                        @change="changePerPage"
-                        size="small"
-                        :options="rowsPerPage"
-                        optionLabel="label"
-                        optionValue="value"
-                    />
-                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                            {{ option }}
-                        </option>
-                    </select> -->
-                </div>
-
-                <div class="pagination">
-                    <Button
-                        @click="prevPage"
-                        :disabled="currentPage === 1"
-                        class="pagination-button"
-                        label="Back"
-                        icon="pi pi-angle-left"
-                        size="small"
-                        severity="info"
-                    />
-                    <span class="pagination-info"
-                        >Page {{ currentPage }} of {{ totalPages }}</span
-                    >
-                    <Button
-                        @click="nextPage"
-                        :disabled="currentPage === totalPages"
-                        class="pagination-button"
-                        label="Next"
-                        icon="pi pi-angle-right"
-                        size="small"
-                        severity="info"
-                        iconPos="right"
-                    />
-                </div>
-            </div>
-        </div>
+        <Paginator
+            :first="first"
+            :rows="perPage"
+            :total-records="totalData"
+            :rows-per-page-options="[10, 20, 50]"
+            template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+            class="small-paginator"
+            @page="onPageChange"
+        />
 
         <!-- Image Modal with Tabs -->
         <ViewImageGalleryModal
@@ -1067,17 +1032,25 @@
                             v-if="allProductImages.length"
                             class="image-display"
                         >
-                            <div class="hover-image-container">
+                            <div
+                                class="hover-image-container"
+                                @click="handleOpenZoomModal"
+                            >
                                 <img
                                     :src="selectedImage || mainImage"
                                     alt="Main Image"
                                     class="preview-image"
                                 />
-                                <div class="hover-preview">
+                                <!-- <div class="hover-preview">
                                     <img
                                         :src="selectedImage || mainImage"
                                         alt="Zoomed Preview"
                                     />
+                                </div> -->
+
+                                <div class="zoom-indicator">
+                                    <i class="pi pi-search-plus"></i>
+                                    <span>Click to zoom</span>
                                 </div>
                             </div>
 
@@ -1091,7 +1064,9 @@
                                     :class="{
                                         active: selectedImage === img,
                                     }"
-                                    @click="selectedImage = img"
+                                    @click="
+                                        selectProductImageToView(img, index)
+                                    "
                                 />
                             </div>
                         </div>
@@ -1458,80 +1433,17 @@
                         </div>
                     </div>
 
-                    <div
-                        class="d-flex justify-content-between align-items-center mt-3 p-3 bg-light flex-wrap"
-                    >
-                        <div>
-                            <span v-if="isInitialLoad || isSearching"
-                                >Loading...</span
-                            >
-                            <span
-                                v-else-if="
-                                    paginationInfo.from && paginationInfo.to
-                                "
-                            >
-                                Showing {{ paginationInfo.from }} to
-                                {{ paginationInfo.to }} entries of
-                                {{ totalRecords }}
-                            </span>
-                            <span v-else>No entries found</span>
-                        </div>
-
-                        <div class="d-flex align-items-center gap-3">
-                            <Select
-                                v-model="pageSize"
-                                @change="changeFnskuPageSize"
-                                :options="[
-                                    { label: '5', value: 5 },
-                                    ...rowsPerPage,
-                                ]"
-                                size="small"
-                                optionLabel="label"
-                                optionValue="value"
-                            />
-
-                            <nav>
-                                <ul class="pagination pagination-sm mb-0">
-                                    <li
-                                        class="page-item"
-                                        :class="{
-                                            disabled: currentFnskuPage === 1,
-                                        }"
-                                    >
-                                        <Button
-                                            @click="prevFnskuPage"
-                                            :disabled="currentFnskuPage === 1"
-                                            size="small"
-                                            label="Previous"
-                                            icon="pi pi-angle-left"
-                                            severity="info"
-                                        />
-                                    </li>
-
-                                    <li class="page-item active">
-                                        <span>Page {{ currentFnskuPage }}</span>
-                                    </li>
-
-                                    <li
-                                        class="page-item"
-                                        :class="{
-                                            disabled: !hasMoreFnskuPages,
-                                        }"
-                                    >
-                                        <Button
-                                            @click="nextFnskuPage"
-                                            :disabled="!hasMoreFnskuPages"
-                                            size="small"
-                                            severity="info"
-                                            label="Next"
-                                            icon="pi pi-angle-right"
-                                            iconPos="right"
-                                        />
-                                    </li>
-                                </ul>
-                            </nav>
-                        </div>
-                    </div>
+                    <!---FNSKU TABLE PAGINATION--->
+                    <Paginator
+                        :first="fnskuFirst"
+                        :rows="fnskuPerPage"
+                        :total-records="fnskuTotalData"
+                        :rows-per-page-options="[10, 20, 50]"
+                        template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+                        currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+                        class="small-paginator"
+                        @page="onPageChangeFnsku"
+                    />
                 </div>
             </div>
         </Dialog>
@@ -1664,6 +1576,13 @@
                 >
             </template>
         </Dialog>
+
+        <ZoomImageModal
+            v-model:visible="openZoomModal"
+            :images="allProductImages"
+            :initialIndex="activeIndex"
+            :title="getDisplayTitle(currentItem)"
+        />
         <ScrollTop />
     </div>
 </template>
@@ -1683,6 +1602,7 @@ import {
     Textarea,
     ScrollTop,
     Tag,
+    Paginator,
 } from "primevue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
@@ -1691,6 +1611,7 @@ import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 import { showPricingForPH } from "../../utils/helpers.js";
 import ProductImageGallery from "../../components/ProductImageGallery/ProductImageGallery.vue";
+import ZoomImageModal from "../../components/ZoomImageModal/ZoomImageModal.vue";
 
 const TABLE_COLUMNS = [
     // {
@@ -1824,6 +1745,8 @@ export default {
         AnimateDiv,
         Tag,
         ProductImageGallery,
+        Paginator,
+        ZoomImageModal,
     },
     data() {
         return {
@@ -1846,6 +1769,9 @@ export default {
             showStickyTitle: false,
             isMobile: false,
             dialogContent: null,
+
+            openZoomModal: false,
+            activeIndex: 0,
         };
     },
     async mounted() {
@@ -1857,6 +1783,13 @@ export default {
         window.addEventListener("resize", this.checkMobile);
     },
     methods: {
+        selectProductImageToView(img, index) {
+            this.selectedImage = img;
+            this.activeIndex = index;
+        },
+        handleOpenZoomModal() {
+            this.openZoomModal = true;
+        },
         refreshProductData(updatedProduct) {
             console.log("🔄 Images updated, refreshing parent data");
 
@@ -1942,21 +1875,47 @@ export default {
             if (!dateString) return "";
 
             try {
-                // Parse the date from database (assumed to be in UTC or server timezone)
-                const date = new Date(dateString);
+                const userTimezone = this.currentTimezone;
+                const isLATimezone =
+                    userTimezone === "America/Los_Angeles" ||
+                    userTimezone === "America/Pacific" ||
+                    !userTimezone;
 
-                // Format to YYYY-MM-DD for date input in user's timezone
-                const options = {
-                    timeZone: this.currentTimezone,
+                // DB stores time in LA timezone — if user is already in LA, just extract date directly
+                if (isLATimezone) {
+                    return dateString.split(" ")[0].split("T")[0];
+                }
+
+                // User is in a different timezone — convert LA time to user's local timezone
+                const isRawFormat =
+                    !dateString.includes("T") &&
+                    !dateString.includes("Z") &&
+                    !dateString.includes("+");
+
+                let date;
+                if (isRawFormat) {
+                    const isoLike = dateString.replace(" ", "T");
+                    const tempDate = new Date(isoLike);
+                    const laWallClock = new Date(
+                        new Date(isoLike).toLocaleString("en-US", {
+                            timeZone: "America/Los_Angeles",
+                        }),
+                    );
+                    const diff = tempDate - laWallClock;
+                    date = new Date(tempDate.getTime() + diff);
+                } else {
+                    date = new Date(dateString);
+                }
+
+                const formatter = new Intl.DateTimeFormat("en-CA", {
+                    timeZone: userTimezone,
                     year: "numeric",
                     month: "2-digit",
                     day: "2-digit",
-                };
+                });
 
-                const formatter = new Intl.DateTimeFormat("en-CA", options); // en-CA gives YYYY-MM-DD format
                 return formatter.format(date);
             } catch (error) {
-                console.error("Error converting to local date:", error);
                 return dateString;
             }
         },

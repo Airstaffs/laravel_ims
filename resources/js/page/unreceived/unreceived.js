@@ -15,9 +15,6 @@ export default {
         return {
             inventory: [],
             loading: true,
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 10,
             selectAll: false,
             expandedRows: {},
             sortColumn: "",
@@ -67,6 +64,12 @@ export default {
             uploadProgress: 0,
             defaultSerialImage:
                 "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZWVlIj48L3JlY3Q+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ibW9ub3NwYWNlLCBzYW5zLXNlcmlmIiBmaWxsPSIjOTk5Ij5JbWFnZTwvdGV4dD48L3N2Zz4=", // <-- put your placeholder file here
+            
+                //pagination
+                currentPage: 1,
+                totalRecords: 0,
+                perPage: 10,
+                first: 0 //for prime vues pagination internal state
         };
     },
     computed: {
@@ -342,13 +345,15 @@ export default {
                         params: {
                             search: this.searchQuery,
                             page: this.currentPage,
+                            per_page: this.perPage,
                             location: "Orders",
                         },
                     }
                 );
 
                 this.inventory = response.data.data;
-                this.totalPages = response.data.last_page;
+                this.totalRecords = response.data.total;
+                this.currentPage = response.data.current_page 
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
                 SoundService.error();
@@ -362,7 +367,7 @@ export default {
             this.validateTrackingNumber();
 
             // Auto verify after short delay when typing
-            if (this.trackingNumberValid && this.trackingNumber.length >= 5) {
+            if (this.trackingNumberValid && this.trackingNumber.length >= 5 && !this.showManualInput) {
                 if (this.autoVerifyTimeout) {
                     clearTimeout(this.autoVerifyTimeout);
                 }
@@ -621,27 +626,35 @@ export default {
 
         handleModeChange(event) {
             this.showManualInput = event.manual;
+
+            this.$refs.trackingInput.focus();
         },
 
         // Pagination methods
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.fetchInventory();
-            }
-        },
-
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.fetchInventory();
-            }
-        },
-
-        changePerPage() {
-            this.currentPage = 1;
+         onPageChange(event) {
+            this.first = event.first
+            this.currentPage = event.page + 1; // convert to 1-based
+            this.perPage     = event.rows;
             this.fetchInventory();
         },
+        // prevPage() {
+        //     if (this.currentPage > 1) {
+        //         this.currentPage--;
+        //         this.fetchInventory();
+        //     }
+        // },
+
+        // nextPage() {
+        //     if (this.currentPage < this.totalPages) {
+        //         this.currentPage++;
+        //         this.fetchInventory();
+        //     }
+        // },
+
+        // changePerPage() {
+        //     this.currentPage = 1;
+        //     this.fetchInventory();
+        // },
 
         toggleAll() {
             this.inventory.forEach((item) => (item.checked = this.selectAll));
@@ -1136,6 +1149,7 @@ export default {
     watch: {
         searchQuery() {
             this.currentPage = 1;
+            this.first = 0;
             this.fetchInventory();
         },
 

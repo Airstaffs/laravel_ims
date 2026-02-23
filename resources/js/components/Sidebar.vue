@@ -156,6 +156,7 @@ const modules = ref({
     shipment: "Shipment",
     notfound: "Not Found",
     houseage: "Houseage",
+    suppliescomponents: "Supplies & Components",
     reconciliation: "Reconciliation",
     printer: "Printer",
     auxiliary: "Auxiliary Label",
@@ -187,6 +188,7 @@ const moduleIcons = {
     soldlist: "pi-chart-line",
     notfound: "pi-ban",
     houseage: "pi-home",
+    suppliescomponents:"pi-box",
     asinlist: "pi-list",
     fnsku: "pi-barcode",
     mskucreation: "pi-plus-circle",
@@ -194,6 +196,7 @@ const moduleIcons = {
     auxiliary: "pi-print",
     inventorystatistics: "pi-chart-bar",
     reconciliation:"pi-check",
+
 };
 
 // Get array of ASIN sub-item IDs

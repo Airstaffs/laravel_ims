@@ -11,9 +11,6 @@ export default {
     data() {
         return {
             inventory: [],
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 10, // Default rows per page
             selectAll: false,
             expandedRows: {},
             sortColumn: "",
@@ -39,20 +36,26 @@ export default {
             editingQuantity: null,
             tempQuantity: null,
 
-             trackingStatusOptions: [
-            { label: 'Delivered', value: 'Delivered' },
-            { label: 'Out for Delivery', value: 'Out for Delivery' },
-            { label: 'In Transit', value: 'In Transit' },
-            { label: 'Pickup', value: 'Pickup' },
-            { label: 'Info Received', value: 'InfoReceived' },
-            { label: 'Available for Pickup', value: 'AvailableForPickup' },
-            { label: 'Exception', value: 'Exception' },
-            { label: 'Failed Attempt', value: 'Failed Attempt' },
-            { label: 'Expired', value: 'Expired' },
-            { label: 'Not Found', value: 'NotFound' },
-            { label: 'Unknown', value: 'Unknown' },
-            { label: 'Pending', value: 'Pending' },
-          ],
+            trackingStatusOptions: [
+                { label: "Delivered", value: "Delivered" },
+                { label: "Out for Delivery", value: "Out for Delivery" },
+                { label: "In Transit", value: "In Transit" },
+                { label: "Pickup", value: "Pickup" },
+                { label: "Info Received", value: "InfoReceived" },
+                { label: "Available for Pickup", value: "AvailableForPickup" },
+                { label: "Exception", value: "Exception" },
+                { label: "Failed Attempt", value: "Failed Attempt" },
+                { label: "Expired", value: "Expired" },
+                { label: "Not Found", value: "NotFound" },
+                { label: "Unknown", value: "Unknown" },
+                { label: "Pending", value: "Pending" },
+            ],
+
+            //pagination
+            totalRecords: 0,
+            currentPage: 1,
+            perPage: 10,
+            first: 0, //for prime vues pagination internal state
         };
     },
     computed: {
@@ -175,7 +178,6 @@ export default {
         },
     },
     methods: {
-
         getTrackingStatusKey(index) {
             return `tracking${index}_status`;
         },
@@ -185,48 +187,53 @@ export default {
          */
         getTrackingDeliveredDateKey(index) {
             return `tracking${index}_delivered_date`;
-        }, 
+        },
 
-        getTrackingStatusSeverity(status, deliveredDate, estimatedDeliveryDate) {
+        getTrackingStatusSeverity(
+            status,
+            deliveredDate,
+            estimatedDeliveryDate,
+        ) {
             // If delivered, always show success
-            if (status === 'Delivered') {
-                return 'success';
+            if (status === "Delivered") {
+                return "success";
             }
 
             // Check if overdue based on estimated delivery date
             if (estimatedDeliveryDate && !deliveredDate) {
-                const daysOverdue = this.calculateDaysOverdue(estimatedDeliveryDate);
-                
+                const daysOverdue = this.calculateDaysOverdue(
+                    estimatedDeliveryDate,
+                );
+
                 if (daysOverdue > 0) {
                     // Overdue - return custom severity based on days
                     if (daysOverdue >= 1 && daysOverdue <= 3) {
-                        return 'warning'; // Yellow
+                        return "warning"; // Yellow
                     } else if (daysOverdue >= 4 && daysOverdue <= 7) {
-                        return 'warn-orange'; // Orange (custom)
+                        return "warn-orange"; // Orange (custom)
                     } else if (daysOverdue > 7) {
-                        return 'danger'; // Red
+                        return "danger"; // Red
                     }
                 }
             }
 
             // Default status map for non-overdue items
             const statusMap = {
-                'Out for Delivery': 'info',
-                'In Transit': 'info',
-                'Pickup': 'info',
-                'InfoReceived': 'secondary',
-                'Expired': 'warning',
-                'AvailableForPickup': 'info',
-                'Exception': 'danger',
-                'Failed Attempt': 'warning',
-                'NotFound': 'secondary',
-                'Unknown': 'secondary',
-                'Pending': 'warning',
+                "Out for Delivery": "info",
+                "In Transit": "info",
+                Pickup: "info",
+                InfoReceived: "secondary",
+                Expired: "warning",
+                AvailableForPickup: "info",
+                Exception: "danger",
+                "Failed Attempt": "warning",
+                NotFound: "secondary",
+                Unknown: "secondary",
+                Pending: "warning",
             };
 
-            return statusMap[status] || 'secondary';
+            return statusMap[status] || "secondary";
         },
-
 
         calculateDaysOverdue(estimatedDeliveryDate) {
             if (!estimatedDeliveryDate) return 0;
@@ -235,9 +242,11 @@ export default {
                 let compareDate;
 
                 // Handle date range format (e.g., "2024-01-15 to 2024-01-20")
-                if (estimatedDeliveryDate.includes(' to ')) {
+                if (estimatedDeliveryDate.includes(" to ")) {
                     // Use the END date of the range for overdue calculation
-                    const endDate = estimatedDeliveryDate.split(' to ')[1].trim();
+                    const endDate = estimatedDeliveryDate
+                        .split(" to ")[1]
+                        .trim();
                     compareDate = new Date(endDate);
                 } else {
                     compareDate = new Date(estimatedDeliveryDate);
@@ -256,16 +265,93 @@ export default {
 
                 return diffDays > 0 ? diffDays : 0;
             } catch (error) {
-                console.error('Error calculating days overdue:', error);
+                console.error("Error calculating days overdue:", error);
                 return 0;
             }
         },
 
         getOverdueText(estimatedDeliveryDate) {
-            const daysOverdue = this.calculateDaysOverdue(estimatedDeliveryDate);
-            
+            const userTimezone = this.currentTimezone;
+            const isLATimezone =
+                userTimezone === "America/Los_Angeles" ||
+                userTimezone === "America/Pacific" ||
+                !userTimezone;
+
+            console.log("=== getOverdueText ===");
+            console.log("Input estimatedDeliveryDate:", estimatedDeliveryDate);
+            console.log("User Timezone              :", userTimezone);
+            console.log("Is LA Timezone?            :", isLATimezone);
+
+            let convertedDate = estimatedDeliveryDate;
+
+            if (!isLATimezone) {
+                try {
+                    const isRawFormat =
+                        !estimatedDeliveryDate.includes("T") &&
+                        !estimatedDeliveryDate.includes("Z") &&
+                        !estimatedDeliveryDate.includes("+");
+
+                    let date;
+                    if (isRawFormat) {
+                        const isoLike = estimatedDeliveryDate.replace(" ", "T");
+                        const tempDate = new Date(isoLike);
+                        const laWallClock = new Date(
+                            new Date(isoLike).toLocaleString("en-US", {
+                                timeZone: "America/Los_Angeles",
+                            }),
+                        );
+                        const diff = tempDate - laWallClock;
+                        date = new Date(tempDate.getTime() + diff);
+                        console.log(
+                            "Raw format — interpreted as LA:",
+                            laWallClock.toString(),
+                        );
+                        console.log(
+                            "Adjusted UTC date            :",
+                            date.toString(),
+                        );
+                    } else {
+                        date = new Date(estimatedDeliveryDate);
+                        console.log(
+                            "ISO format parsed            :",
+                            date.toString(),
+                        );
+                    }
+
+                    const formatter = new Intl.DateTimeFormat("en-CA", {
+                        timeZone: userTimezone,
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                    });
+
+                    convertedDate = formatter.format(date);
+                    console.log(
+                        "Converted estimated date     :",
+                        convertedDate,
+                    );
+                } catch (error) {
+                    console.error(
+                        "Error converting estimated delivery date:",
+                        error,
+                    );
+                }
+            } else {
+                convertedDate = estimatedDeliveryDate
+                    .split(" ")[0]
+                    .split("T")[0];
+                console.log(
+                    "LA Timezone — skipping conversion. Date:",
+                    convertedDate,
+                );
+            }
+
+            const daysOverdue = this.calculateDaysOverdue(convertedDate);
+            console.log("Days Overdue               :", daysOverdue);
+            console.log("=====================");
+
             if (daysOverdue === 0) return null;
-            if (daysOverdue === 1) return '1 day overdue';
+            if (daysOverdue === 1) return "1 day overdue";
             return `${daysOverdue} days overdue`;
         },
 
@@ -273,56 +359,66 @@ export default {
          * Get CSS class for overdue badge styling
          */
         getOverdueBadgeClass(status, deliveredDate, estimatedDeliveryDate) {
-            if (status === 'Delivered' || deliveredDate) {
-                return '';
+            if (status === "Delivered" || deliveredDate) {
+                return "";
             }
 
-            const daysOverdue = this.calculateDaysOverdue(estimatedDeliveryDate);
-            
+            const daysOverdue = this.calculateDaysOverdue(
+                estimatedDeliveryDate,
+            );
+
             if (daysOverdue >= 1 && daysOverdue <= 3) {
-                return 'badge-overdue-warning';
+                return "badge-overdue-warning";
             } else if (daysOverdue >= 4 && daysOverdue <= 7) {
-                return 'badge-overdue-orange';
+                return "badge-overdue-orange";
             } else if (daysOverdue > 7) {
-                return 'badge-overdue-danger';
+                return "badge-overdue-danger";
             }
-            
-            return '';
+
+            return "";
         },
 
         /**
          * Get CSS class for overdue icon
          */
         getOverdueIconClass(estimatedDeliveryDate) {
-            const daysOverdue = this.calculateDaysOverdue(estimatedDeliveryDate);
-            
-            if (daysOverdue === 0) return 'text-info';
-            if (daysOverdue >= 1 && daysOverdue <= 3) return 'text-warning';
-            if (daysOverdue >= 4 && daysOverdue <= 7) return 'text-orange';
-            return 'text-danger';
+            const daysOverdue = this.calculateDaysOverdue(
+                estimatedDeliveryDate,
+            );
+
+            if (daysOverdue === 0) return "text-info";
+            if (daysOverdue >= 1 && daysOverdue <= 3) return "text-warning";
+            if (daysOverdue >= 4 && daysOverdue <= 7) return "text-orange";
+            return "text-danger";
         },
 
         /**
          * Get CSS class for overdue date text
          */
         getOverdueDateClass(estimatedDeliveryDate) {
-            const daysOverdue = this.calculateDaysOverdue(estimatedDeliveryDate);
-            
-            if (daysOverdue === 0) return 'text-info';
-            if (daysOverdue >= 1 && daysOverdue <= 3) return 'text-warning fw-semibold';
-            if (daysOverdue >= 4 && daysOverdue <= 7) return 'text-orange fw-semibold';
-            return 'text-danger fw-bold';
+            const daysOverdue = this.calculateDaysOverdue(
+                estimatedDeliveryDate,
+            );
+
+            if (daysOverdue === 0) return "text-info";
+            if (daysOverdue >= 1 && daysOverdue <= 3)
+                return "text-warning fw-semibold";
+            if (daysOverdue >= 4 && daysOverdue <= 7)
+                return "text-orange fw-semibold";
+            return "text-danger fw-bold";
         },
 
         /**
          * Get CSS class for overdue warning text
          */
         getOverdueTextClass(estimatedDeliveryDate) {
-            const daysOverdue = this.calculateDaysOverdue(estimatedDeliveryDate);
-            
-            if (daysOverdue >= 1 && daysOverdue <= 3) return 'text-warning';
-            if (daysOverdue >= 4 && daysOverdue <= 7) return 'text-orange';
-            return 'text-danger';
+            const daysOverdue = this.calculateDaysOverdue(
+                estimatedDeliveryDate,
+            );
+
+            if (daysOverdue >= 1 && daysOverdue <= 3) return "text-warning";
+            if (daysOverdue >= 4 && daysOverdue <= 7) return "text-orange";
+            return "text-danger";
         },
 
         /**
@@ -331,24 +427,29 @@ export default {
         getEarliestDeliveryDate(item) {
             if (!item.tracking_info || item.tracking_info.length === 0) {
                 // Fallback to old datedelivered field if exists
-                if (item.datedelivered && 
-                    item.datedelivered !== '0000-00-00' && 
-                    item.datedelivered !== '0000-00-00 00:00:00') {
+                if (
+                    item.datedelivered &&
+                    item.datedelivered !== "0000-00-00" &&
+                    item.datedelivered !== "0000-00-00 00:00:00"
+                ) {
                     return item.datedelivered;
                 }
                 return null;
             }
 
             const dates = item.tracking_info
-                .map(t => t.delivered_date)
-                .filter(d => d && d !== '0000-00-00' && d !== '0000-00-00 00:00:00')
-                .map(d => new Date(d))
-                .filter(d => !isNaN(d));
+                .map((t) => t.delivered_date)
+                .filter(
+                    (d) =>
+                        d && d !== "0000-00-00" && d !== "0000-00-00 00:00:00",
+                )
+                .map((d) => new Date(d))
+                .filter((d) => !isNaN(d));
 
             if (dates.length === 0) return null;
 
             const earliest = new Date(Math.min(...dates));
-            return earliest.toISOString().split('T')[0];
+            return earliest.toISOString().split("T")[0];
         },
 
         /**
@@ -360,8 +461,11 @@ export default {
             }
 
             const deliveredDates = item.tracking_info
-                .map(t => t.delivered_date)
-                .filter(d => d && d !== '0000-00-00' && d !== '0000-00-00 00:00:00');
+                .map((t) => t.delivered_date)
+                .filter(
+                    (d) =>
+                        d && d !== "0000-00-00" && d !== "0000-00-00 00:00:00",
+                );
 
             return deliveredDates.length > 1;
         },
@@ -370,7 +474,7 @@ export default {
          * Format last checked timestamp
          */
         formatLastChecked(timestamp) {
-            if (!timestamp) return '';
+            if (!timestamp) return "";
 
             try {
                 const date = new Date(timestamp);
@@ -380,18 +484,18 @@ export default {
                 const diffHours = Math.floor(diffMs / 3600000);
                 const diffDays = Math.floor(diffMs / 86400000);
 
-                if (diffMins < 1) return 'Just now';
+                if (diffMins < 1) return "Just now";
                 if (diffMins < 60) return `${diffMins}m ago`;
                 if (diffHours < 24) return `${diffHours}h ago`;
                 if (diffDays < 7) return `${diffDays}d ago`;
 
-                return date.toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    timeZone: this.currentTimezone || 'UTC',
+                return date.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    timeZone: this.currentTimezone || "UTC",
                 });
             } catch (error) {
-                console.error('Error formatting last checked:', error);
+                console.error("Error formatting last checked:", error);
                 return timestamp;
             }
         },
@@ -399,7 +503,12 @@ export default {
         /**
          * Update tracking status for a specific tracking number
          */
-        async updateTrackingStatus(productId, trackingIndex, status, deliveredDate = null) {
+        async updateTrackingStatus(
+            productId,
+            trackingIndex,
+            status,
+            deliveredDate = null,
+        ) {
             try {
                 this.loading = true;
 
@@ -411,28 +520,28 @@ export default {
                         delivered_date: deliveredDate,
                         _token: document
                             .querySelector('meta[name="csrf-token"]')
-                            .getAttribute('content'),
-                    }
+                            .getAttribute("content"),
+                    },
                 );
 
                 if (response.data.success) {
                     await Swal.fire({
-                        icon: 'success',
-                        title: 'Updated!',
-                        text: 'Tracking status has been updated successfully.',
-                        confirmButtonText: 'OK',
+                        icon: "success",
+                        title: "Updated!",
+                        text: "Tracking status has been updated successfully.",
+                        confirmButtonText: "OK",
                         timer: 2000,
                     });
 
                     await this.fetchInventory();
                 }
             } catch (error) {
-                console.error('Error updating tracking status:', error);
+                console.error("Error updating tracking status:", error);
                 Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Failed to update tracking status. Please try again.',
-                    confirmButtonText: 'OK',
+                    icon: "error",
+                    title: "Error",
+                    text: "Failed to update tracking status. Please try again.",
+                    confirmButtonText: "OK",
                 });
             } finally {
                 this.loading = false;
@@ -450,9 +559,11 @@ export default {
             }
 
             // Fallback to old delivery_sort_date field
-            if (item.delivery_sort_date &&
-                item.delivery_sort_date !== '0000-00-00' &&
-                item.delivery_sort_date !== '0000-00-00 00:00:00') {
+            if (
+                item.delivery_sort_date &&
+                item.delivery_sort_date !== "0000-00-00" &&
+                item.delivery_sort_date !== "0000-00-00 00:00:00"
+            ) {
                 return item.delivery_sort_date;
             }
 
@@ -460,10 +571,14 @@ export default {
             if (item.estimated_deliverydate) {
                 try {
                     // Extract first date from range format
-                    const match = item.estimated_deliverydate.match(/\d{4}-\d{2}-\d{2}/);
+                    const match =
+                        item.estimated_deliverydate.match(/\d{4}-\d{2}-\d{2}/);
                     if (match) return match[0];
                 } catch (error) {
-                    console.error('Error parsing estimated delivery date:', error);
+                    console.error(
+                        "Error parsing estimated delivery date:",
+                        error,
+                    );
                 }
             }
 
@@ -476,25 +591,26 @@ export default {
         autoResize() {
             this.$nextTick(() => {
                 const refNames = [
-                    'productTextarea',
-                    'descriptionarea',
-                    'supplierNotesarea',
-                    'employeeNotesarea',
+                    "productTextarea",
+                    "descriptionarea",
+                    "supplierNotesarea",
+                    "employeeNotesarea",
                 ];
 
                 refNames.forEach((refName) => {
                     const el = this.$refs[refName];
                     if (el && el.$el) {
                         // PrimeVue component
-                        const textarea = el.$el.querySelector('textarea');
+                        const textarea = el.$el.querySelector("textarea");
                         if (textarea) {
-                            textarea.style.height = 'auto';
-                            textarea.style.height = textarea.scrollHeight + 'px';
+                            textarea.style.height = "auto";
+                            textarea.style.height =
+                                textarea.scrollHeight + "px";
                         }
-                    } else if (el && el.tagName === 'TEXTAREA') {
+                    } else if (el && el.tagName === "TEXTAREA") {
                         // Native textarea
-                        el.style.height = 'auto';
-                        el.style.height = el.scrollHeight + 'px';
+                        el.style.height = "auto";
+                        el.style.height = el.scrollHeight + "px";
                     }
                 });
             });
@@ -692,10 +808,9 @@ export default {
             }
         },
 
-
-         startMaterialTypeEdit(item) {
+        startMaterialTypeEdit(item) {
             this.editingMaterialType = item.ProductID;
-            this.tempMaterialType = item.materialtype || '';
+            this.tempMaterialType = item.materialtype || "";
 
             // Focus the dropdown after Vue updates the DOM
             this.$nextTick(() => {
@@ -703,12 +818,15 @@ export default {
                 const select = this.$refs[refName];
 
                 if (select) {
-                    const selectElement = Array.isArray(select) ? select[0] : select;
-                    
+                    const selectElement = Array.isArray(select)
+                        ? select[0]
+                        : select;
+
                     // For PrimeVue Select component, focus the input
                     if (selectElement?.$el) {
-                        const input = selectElement.$el.querySelector('input') || 
-                                    selectElement.$el.querySelector('.p-select-label');
+                        const input =
+                            selectElement.$el.querySelector("input") ||
+                            selectElement.$el.querySelector(".p-select-label");
                         if (input) {
                             input.focus();
                         }
@@ -722,61 +840,60 @@ export default {
             this.tempMaterialType = null;
         },
 
- async saveMaterialType(item) {
-    // Don't save if nothing changed
-    if (this.tempMaterialType === item.materialtype) {
-        this.cancelMaterialTypeEdit();
-        return;
-    }
+        async saveMaterialType(item) {
+            // Don't save if nothing changed
+            if (this.tempMaterialType === item.materialtype) {
+                this.cancelMaterialTypeEdit();
+                return;
+            }
 
-    try {
-        const response = await axios.put(
-            `/api/orders/products/${item.ProductID}/materialtype`,
-            {
-                materialtype: this.tempMaterialType,
-                _token: document
-                    .querySelector('meta[name="csrf-token"]')
-                    .getAttribute("content"),
-            },
-        );
+            try {
+                const response = await axios.put(
+                    `/api/orders/products/${item.ProductID}/materialtype`,
+                    {
+                        materialtype: this.tempMaterialType,
+                        _token: document
+                            .querySelector('meta[name="csrf-token"]')
+                            .getAttribute("content"),
+                    },
+                );
 
-        if (response.data.success) {
-            // ✅ UPDATE: Refresh the entire inventory from server
-            await this.fetchInventory(); // This will get fresh data including the updated materialtype
-            
-            // Show success message (compact toast)
-            const Toast = Swal.mixin({
-                toast: true,
-                position: "top-end",
-                showConfirmButton: false,
-                timer: 1500,
-                timerProgressBar: true,
-                width: "300px",
-                padding: "0.75rem",
-                customClass: {
-                    popup: "compact-toast",
-                },
-            });
+                if (response.data.success) {
+                    // ✅ UPDATE: Refresh the entire inventory from server
+                    await this.fetchInventory(); // This will get fresh data including the updated materialtype
 
-            Toast.fire({
-                icon: "success",
-                title: "Material type updated",
-                text: "",
-            });
-        }
-    } catch (error) {
-        console.error("Error updating material type:", error);
-        Swal.fire({
-            icon: "error",
-            title: "Error",
-            text: "Failed to update material type. Please try again.",
-            confirmButtonText: "OK",
-        });
-    } finally {
-        this.cancelMaterialTypeEdit();
-    }
-},
-  
+                    // Show success message (compact toast)
+                    const Toast = Swal.mixin({
+                        toast: true,
+                        position: "top-end",
+                        showConfirmButton: false,
+                        timer: 1500,
+                        timerProgressBar: true,
+                        width: "300px",
+                        padding: "0.75rem",
+                        customClass: {
+                            popup: "compact-toast",
+                        },
+                    });
+
+                    Toast.fire({
+                        icon: "success",
+                        title: "Material type updated",
+                        text: "",
+                    });
+                }
+            } catch (error) {
+                console.error("Error updating material type:", error);
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: "Failed to update material type. Please try again.",
+                    confirmButtonText: "OK",
+                });
+            } finally {
+                this.cancelMaterialTypeEdit();
+            }
+        },
 
         handleImageError(event) {
             // If image fails to load, use an inline SVG placeholder
@@ -1015,7 +1132,8 @@ export default {
                 );
 
                 this.inventory = response.data.data;
-                this.totalPages = response.data.last_page;
+                this.totalRecords = response.data.total;
+                this.currentPage = response.data.current_page;
 
                 console.log(this.inventory);
             } catch (error) {
@@ -1025,23 +1143,11 @@ export default {
             }
         },
 
-        changePerPage() {
-            this.currentPage = 1;
+        onPageChange(event) {
+            this.first = event.first;
+            this.currentPage = event.page + 1; // convert to 1-based
+            this.perPage = event.rows;
             this.fetchInventory();
-        },
-
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.fetchInventory();
-            }
-        },
-
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.fetchInventory();
-            }
         },
 
         toggleAll() {
@@ -1071,6 +1177,7 @@ export default {
     watch: {
         searchQuery() {
             this.currentPage = 1;
+            this.first = 0;
             this.fetchInventory();
         },
 

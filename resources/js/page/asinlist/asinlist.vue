@@ -265,28 +265,16 @@
         </div>
 
         <!-- Pagination -->
-        <div class="pagination-container">
-            <div class="pagination-wrapper">
-                <div class="per-page-selector">
-                    <span>Rows per page</span>
-                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" size="small"
-                        optionLabel="label" optionValue="value" />
-                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                            {{ option }}
-                        </option>
-                    </select> -->
-                </div>
-
-                <div class="pagination">
-                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
-                        icon="pi pi-angle-left" size="small" severity="info" />
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
-                        label="Next" icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
-                </div>
-            </div>
-        </div>
+              <Paginator
+            :first="first"
+            :rows="perPage"
+            :total-records="totalRecords"
+            :rows-per-page-options="[10, 20, 50]"
+            template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+            class="small-paginator"
+            @page="onPageChange"
+        />
 
         <!-- ASIN Details Modal -->
         <Dialog v-model:visible="showAsinDetailsModal" header="ASIN Details" :style="{ width: '95%' }" modal :pt="{
@@ -1864,7 +1852,7 @@
 <script>
 import asinlist from "./asinlist.js";
 import XDataTable from "../../components/DataTable/XDataTable.vue"
-import { Button, Dialog, InputText, Select, Textarea, ScrollTop } from "primevue";
+import { Button, Dialog, InputText, Select, Textarea, ScrollTop, Paginator } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 
@@ -1954,7 +1942,8 @@ export default {
         Select,
         Textarea,
         ScrollTop,
-        TitlePage
+        TitlePage,
+        Paginator
     },
     data() {
         return {

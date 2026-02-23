@@ -392,6 +392,7 @@ class LoginController extends Controller
             'auxiliary',
             'inventorystatistics',
             'reconciliation',
+            'suppliescomponents',
         ];
 
         $activeSubModules = array_filter($subModules, function ($module) use ($user) {

@@ -212,49 +212,39 @@ export default {
     
     // Scanner camera controls
     async startScanner() {
-      if (!this.enableCamera) return;
-
-      this.scannerCameraActive = true;
-
       try {
+        // Request camera access
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: { ideal: 'environment' },
+            facingMode: 'environment',
             width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            focusMode: 'continuous' // hint for autofocus
+            height: { ideal: 1080 }
           }
         });
-
-        const video = document.getElementById('scanner-camera-preview');
+        
+        // ✅ CRITICAL: Store the stream
+        this.videoStream = stream;
+        this.scannerCameraActive = true;
+        
+        await this.$nextTick();
+        
+        // Get video element
+        const video = this.$refs.videoElement || document.getElementById('scanner-camera-preview');
+        
         if (video) {
           video.srcObject = stream;
-          await video.play();
+          
+          // ✅ Wait for video to be ready, then initialize zoom
+          video.onloadedmetadata = async () => {
+            console.log('📹 Video metadata loaded, initializing zoom...');
+            await this.initializeZoom();
+          };
         }
-
-        // 🎯 Apply autofocus if supported
-        const track = stream.getVideoTracks()[0];
-
-        if (track && track.getCapabilities) {
-          const capabilities = track.getCapabilities();
-
-          if (capabilities.focusMode) {
-            await track.applyConstraints({
-              advanced: [{ focusMode: 'continuous' }]
-            });
-          }
-
-          // 🔦 Optional: torch helps autofocus (Android only)
-          // if (capabilities.torch) {
-          //   await track.applyConstraints({
-          //     advanced: [{ torch: true }]
-          //   });
-          // }
-        }
+        
+        console.log('✅ Camera started successfully');
       } catch (error) {
-        console.error('Camera error:', error);
-        this.showScanError('Could not access camera');
-        this.scannerCameraActive = false;
+        console.error('❌ Camera error:', error);
+        this.showScanError('Failed to access camera');
       }
     },
 
@@ -304,15 +294,36 @@ export default {
         this.isCameraBeingReleased = false;
       }, 1000);
     },
+
+    async restartCamera() {
+  this.isCameraBeingReleased = true;
+  
+  // Stop existing stream
+  if (this.videoStream) {
+    this.videoStream.getTracks().forEach(track => track.stop());
+    this.videoStream = null;
+  }
+  
+  // Reset zoom
+  this.resetZoom();
+  this.zoomSupported = false;
+  
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  this.isCameraBeingReleased = false;
+  
+  // Restart camera
+  await this.startScanner();
+},
     
-    restartCamera() {
-      if (this.isCameraBeingReleased) return;
+    // restartCamera() {
+    //   if (this.isCameraBeingReleased) return;
       
-      this.stopScanner();
-      setTimeout(() => {
-        this.startScanner();
-      }, 500);
-    },
+    //   this.stopScanner();
+    //   setTimeout(() => {
+    //     this.startScanner();
+    //   }, 500);
+    // },
     
     // Toggle camera modal
     toggleCamera() {
@@ -356,44 +367,21 @@ export default {
     },
     
     // Capture image from camera modal
-    captureImage() {
+   async captureImage() {
       const video = document.getElementById('camera-preview');
       if (!video) return;
-      
-      // Check if we've reached the max images
-      if (this.capturedImages.length >= this.maxImages) {
-        this.showScanError(`Maximum of ${this.maxImages} images allowed`);
-        return;
-      }
-      
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      // Get current timestamp
-      const now = new Date();
-      const timestamp = now.toLocaleTimeString();
-      
-      // Add image to captured images
+
+      // ✅ Capture with zoom applied
+      const canvas = this.captureVideoWithZoom(video);
+      const timestamp = new Date().toLocaleTimeString();
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+
       this.capturedImages.push({
-        data: canvas.toDataURL('image/jpeg'),
-        timestamp: timestamp
+        data: dataUrl,
+        timestamp
       });
-      
-      // Show success notification
-      this.showSuccessNotification = true;
-      this.lastScannedItem = 'Image captured';
-      
-      setTimeout(() => {
-        this.showSuccessNotification = false;
-      }, 2000);
-      
-      // Close modal if we've reached the max
-      if (this.capturedImages.length >= this.maxImages) {
-        this.closeCameraModal();
-      }
+
+      this.showScanSuccess('Image captured.');
     },
     
     // Capture from the scanner camera

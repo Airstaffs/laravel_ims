@@ -331,47 +331,16 @@
             </div>
         </div>
 
-        <!-- Pagination with centered layout -->
-        <div class="pagination-container">
-            <div class="pagination-wrapper">
-                <div class="per-page-selector">
-                    <span>Rows per page</span>
-                    <Select
-                        v-model="perPage"
-                        @change="changePerPage"
-                        :options="rowsPerPage"
-                        size="small"
-                        optionLabel="label"
-                        optionValue="value"
-                    />
-                </div>
-
-                <div class="pagination">
-                    <Button
-                        @click="prevPage"
-                        :disabled="currentPage === 1"
-                        class="pagination-button"
-                        label="Back"
-                        icon="pi pi-angle-left"
-                        size="small"
-                        severity="info"
-                    />
-                    <span class="pagination-info"
-                        >Page {{ currentPage }} of {{ totalPages }}</span
-                    >
-                    <Button
-                        @click="nextPage"
-                        :disabled="currentPage === totalPages"
-                        class="pagination-button"
-                        label="Next"
-                        icon="pi pi-angle-right"
-                        size="small"
-                        severity="info"
-                        iconPos="right"
-                    />
-                </div>
-            </div>
-        </div>
+        <Paginator
+            :first="first"
+            :rows="perPage"
+            :total-records="totalRecords"
+            :rows-per-page-options="[10, 20, 50]"
+            template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
+            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
+            class="small-paginator"
+            @page="onPageChange"
+        />
 
         <!-- Image Modal with Tabs -->
         <ViewImageGalleryModal
@@ -397,8 +366,8 @@
                     <div class="form-grid-wrapper">
                         <!-- LEFT: IMAGE + GENERAL INFO -->
                         <div class="form-col-left">
-                          <ProductImageGallery 
-                                 label="Serial Images"
+                            <ProductImageGallery
+                                label="Serial Images"
                                 :imageList="serialImgList"
                                 :imageType="'serial'"
                                 :maxImages="2"
@@ -406,8 +375,8 @@
                                 :company="item.company"
                                 @request-refresh="fetchInventory()"
                             />
-                            <ProductImageGallery 
-                                 label="Product Images"
+                            <ProductImageGallery
+                                label="Product Images"
                                 :imageList="imageList"
                                 :imageType="'captured'"
                                 :maxImages="12"
@@ -416,8 +385,8 @@
                                 @request-refresh="fetchInventory()"
                             />
 
-                             <ProductImageGallery 
-                                 label="Tracking Images"
+                            <ProductImageGallery
+                                label="Tracking Images"
                                 :imageList="trackingImgList"
                                 :imageType="'tracking'"
                                 :maxImages="2"
@@ -483,7 +452,7 @@
                                                     type="text"
                                                     size="small"
                                                     fluid
-                                                    :value="item.ProductID"
+                                                    :value="item.rtcounter"
                                                     placeholder="RT Counter"
                                                 />
                                             </fieldset>
@@ -525,6 +494,14 @@
                                                 <h6 class="text-primary">
                                                     Dates
                                                 </h6>
+                                                <div>
+                                                    <Tag
+                                                        :value="timezoneLabel"
+                                                        severity="info"
+                                                        icon="pi pi-clock"
+                                                        class="timezone-badge"
+                                                    />
+                                                </div>
                                                 <Divider />
                                             </template>
                                             <template #content>
@@ -538,7 +515,7 @@
                                                         type="date"
                                                         size="small"
                                                         fluid
-                                                        v-model="item.orderdate"
+                                                        v-model="localOrderDate"
                                                     />
                                                 </fieldset>
                                                 <fieldset>
@@ -552,7 +529,7 @@
                                                         size="small"
                                                         fluid
                                                         v-model="
-                                                            item.paymentdate
+                                                            localPaymentDate
                                                         "
                                                     />
                                                 </fieldset>
@@ -566,7 +543,7 @@
                                                         type="date"
                                                         size="small"
                                                         fluid
-                                                        v-model="item.shipdate"
+                                                        v-model="localShipDate"
                                                     />
                                                 </fieldset>
                                                 <fieldset>
@@ -581,7 +558,7 @@
                                                         size="small"
                                                         fluid
                                                         v-model="
-                                                            item.datedelivered
+                                                            localDeliveredDate
                                                         "
                                                     />
                                                 </fieldset>
@@ -1216,7 +1193,9 @@
                         icon="pi pi-upload"
                         class="upload-button"
                         :loading="uploadingIndex === index"
-                        :disabled="uploadingIndex === index || deletingIndex === index"
+                        :disabled="
+                            uploadingIndex === index || deletingIndex === index
+                        "
                         @click="handleUploadClick(index, image)"
                     />
                 </div>
@@ -1262,6 +1241,7 @@ import {
     ScrollTop,
     Select,
     Textarea,
+    Paginator,
 } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import Houseage from "./houseage.js";
@@ -1302,7 +1282,7 @@ const TABLE_COLUMNS = [
         bodyStyle: { fontSize: "14px" },
     },
     {
-        field: "FNSKU",
+        field: "FNSKUviewer",
         header: "FNSKU",
         headerStyle: "font-size: 16px;",
         bodyStyle: { fontSize: "14px" },
@@ -1360,7 +1340,8 @@ export default {
         TitlePage,
         ViewImageGalleryModal,
         AnimateDiv,
-        ProductImageGallery
+        ProductImageGallery,
+        Paginator,
     },
     data() {
         return {
@@ -1397,10 +1378,139 @@ export default {
             ],
             rowsPerPage: ROWS_PER_PAGE,
             showPricingSection: showPricingForPH(),
-            openCapturedImageDialog: false
+            openCapturedImageDialog: false,
+
+            currentTimezone: "UTC",
+            timezoneLabel: "Loading...",
         };
     },
     methods: {
+        convertToLocalDate(dateString) {
+            if (!dateString) return "";
+
+            try {
+                const userTimezone = this.currentTimezone;
+                const isLATimezone =
+                    userTimezone === "America/Los_Angeles" ||
+                    userTimezone === "America/Pacific" ||
+                    !userTimezone;
+
+                // DB stores time in LA timezone — if user is already in LA, just extract date directly
+                if (isLATimezone) {
+                    return dateString.split(" ")[0].split("T")[0];
+                }
+
+                // User is in a different timezone — convert LA time to user's local timezone
+                const isRawFormat =
+                    !dateString.includes("T") &&
+                    !dateString.includes("Z") &&
+                    !dateString.includes("+");
+
+                let date;
+                if (isRawFormat) {
+                    const isoLike = dateString.replace(" ", "T");
+                    const tempDate = new Date(isoLike);
+                    const laWallClock = new Date(
+                        new Date(isoLike).toLocaleString("en-US", {
+                            timeZone: "America/Los_Angeles",
+                        }),
+                    );
+                    const diff = tempDate - laWallClock;
+                    date = new Date(tempDate.getTime() + diff);
+                } else {
+                    date = new Date(dateString);
+                }
+
+                const formatter = new Intl.DateTimeFormat("en-CA", {
+                    timeZone: userTimezone,
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                });
+
+                return formatter.format(date);
+            } catch (error) {
+                return dateString;
+            }
+        },
+
+        convertFromLocalDate(localDateString) {
+            if (!localDateString) return null;
+
+            try {
+                // The input gives us YYYY-MM-DD in user's timezone
+                // We need to convert it to a proper datetime for storage
+
+                // Create a date object at noon in the user's timezone to avoid day boundary issues
+                const [year, month, day] = localDateString.split("-");
+                const dateInUserTz = new Date(
+                    `${year}-${month}-${day}T12:00:00`,
+                );
+
+                // Format for database storage (ISO format)
+                return dateInUserTz.toISOString().split("T")[0]; // Returns YYYY-MM-DD
+            } catch (error) {
+                console.error("Error converting from local date:", error);
+                return localDateString;
+            }
+        },
+
+        async loadUserTimezone() {
+            try {
+                const response = await axios.get("/api/timezone/current");
+
+                if (response.data.success && response.data.usertimezone) {
+                    this.currentTimezone = response.data.usertimezone;
+
+                    // Format timezone for display
+                    const timezoneParts = this.currentTimezone.split("/");
+                    const location = timezoneParts[
+                        timezoneParts.length - 1
+                    ].replace("_", " ");
+
+                    // ✅ FIXED: Calculate GMT offset for the SELECTED timezone, not browser's
+                    const date = new Date();
+
+                    // Get the date in UTC
+                    const utcDate = new Date(
+                        date.toLocaleString("en-US", { timeZone: "UTC" }),
+                    );
+
+                    // Get the date in user's selected timezone
+                    const userTzDate = new Date(
+                        date.toLocaleString("en-US", {
+                            timeZone: this.currentTimezone,
+                        }),
+                    );
+
+                    // Calculate offset in hours
+                    const offsetMs = userTzDate - utcDate;
+                    const offsetHours = Math.round(offsetMs / (1000 * 60 * 60));
+                    const offsetSign = offsetHours >= 0 ? "+" : "-";
+                    const gmtOffset = `GMT${offsetSign}${Math.abs(
+                        offsetHours,
+                    )}`;
+
+                    this.timezoneLabel = `(${gmtOffset})`;
+                } else {
+                    // Fallback to browser timezone
+                    const browserTz =
+                        Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    this.currentTimezone = browserTz;
+                    const location = browserTz
+                        .split("/")
+                        .pop()
+                        .replace("_", " ");
+                    this.timezoneLabel = location;
+                }
+
+                console.log("📍 Timezone loaded:", this.timezoneLabel);
+            } catch (error) {
+                console.error("Error loading timezone:", error);
+                this.currentTimezone = "UTC";
+                this.timezoneLabel = "UTC";
+            }
+        },
     },
     computed: {
         courierOptions() {
@@ -1438,6 +1548,35 @@ export default {
         },
         updatePricingView() {
             this.showPricingSection = showPricingForPH();
+        },
+
+        // ✅ ADD THESE COMPUTED PROPERTIES FOR DATE CONVERSION
+        localOrderDate() {
+            return this.convertToLocalDate(this.item.orderdate);
+        },
+        localPaymentDate: {
+            get() {
+                return this.convertToLocalDate(this.item.paymentdate);
+            },
+            set(value) {
+                this.item.paymentdate = this.convertFromLocalDate(value);
+            },
+        },
+        localShipDate: {
+            get() {
+                return this.convertToLocalDate(this.item.shipdate);
+            },
+            set(value) {
+                this.item.shipdate = this.convertFromLocalDate(value);
+            },
+        },
+        localDeliveredDate: {
+            get() {
+                return this.convertToLocalDate(this.item.datedelivered);
+            },
+            set(value) {
+                this.item.datedelivered = this.convertFromLocalDate(value);
+            },
         },
     },
     mounted() {

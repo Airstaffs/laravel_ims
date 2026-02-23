@@ -4,6 +4,7 @@ use App\Http\Controllers\Amzn\FBACartController;
 use App\Http\Controllers\Amzn\FBAShipmentController;
 use App\Http\Controllers\Amzn\Listing\CatalogController;
 use App\Http\Controllers\Amzn\OutboundOrders\ShippingLabel\ShippingLabelController;
+use App\Http\Controllers\Amzn\Listing\ListingController;
 use App\Http\Controllers\ASINlistController;
 use App\Http\Controllers\AsinMappingController;
 use App\Http\Controllers\AttendanceController;
@@ -56,6 +57,7 @@ use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Middleware\PreventBackHistory;
+use App\Http\Controllers\SuppliesComponentsController;
 use App\Http\Models\Store;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -672,7 +674,7 @@ Route::prefix('api/houseage')->middleware('auth')->group(function () {
     Route::post('/delete-image', [HouseageController::class, 'deleteImage']);
 
     // Multiple image delete (Optional utility)
-    Route::post('/delete-images', [HouseageController::class, 'deleteMultipleImages']);
+    Route::post('/delete-images-bulk', [HouseageController::class, 'deleteCapturedImagesBulk']);
 });
 
 // Testing module routes
@@ -709,6 +711,15 @@ Route::prefix('api/shipments')->group(function () {
 Route::prefix('api/inventory-statistics')->group(function () {
     Route::get('/summary', [InventoryStatisticsController::class, 'getSummary']);
     Route::get('/asin-details', [InventoryStatisticsController::class, 'getAsinDetails']);
+});
+
+
+
+// Routes for Supplies & Components Module
+Route::prefix('api/supplies-components')->group(function () {
+    Route::get('/', [SuppliesComponentsController::class, 'index']);
+    Route::get('/stats', [SuppliesComponentsController::class, 'getStats']);
+    Route::post('/move-to-labeling', [SuppliesComponentsController::class, 'moveToLabeling']);
 });
 
 // Printer API routes
@@ -1027,3 +1038,6 @@ Route::prefix('api/reconciliation')->middleware(['auth'])->group(function () {
 });
 
 
+
+Route::post('/amazon/search-listings', [ListingController::class, 'searchListings']);
+Route::post('/amazon/listings/update-one', [ListingController::class, 'updateOne']);

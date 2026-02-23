@@ -18,9 +18,6 @@ export default {
         return {
             inventory: [],
             loading: true,
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 10,
             selectAll: false,
             expandedRows: {},
             sortColumn: "",
@@ -101,6 +98,7 @@ export default {
             imageUrl: null,
             croppedImage: null,
             isDragging: false,
+
         };
     },
     computed: {
@@ -395,13 +393,14 @@ export default {
                         params: {
                             search: this.searchQuery,
                             page: this.currentPage,
+                            per_page: this.perPage,
                             location: "Received",
                         },
                     }
                 );
 
                 this.inventory = response.data.data;
-                this.totalPages = response.data.last_page;
+                this.totalRecords = response.data.total;
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
                 SoundService.error();
@@ -1457,18 +1456,11 @@ export default {
             this.resetUploader();
         },
 
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.fetchInventory();
-            }
-        },
-
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.fetchInventory();
-            }
+        onPageChange(event) {
+            this.first = event.first
+            this.currentPage = event.page + 1; // convert to 1-based
+            this.perPage     = event.rows;
+            this.fetchInventory();
         },
 
         toggleAll() {
@@ -1490,11 +1482,6 @@ export default {
 
         toggleDetailsVisibility() {
             this.showDetails = !this.showDetails;
-        },
-
-        changePerPage() {
-            this.currentPage = 1;
-            this.fetchInventory();
         },
 
         resetUploader() {
@@ -1743,6 +1730,7 @@ export default {
     watch: {
         searchQuery() {
             this.currentPage = 1;
+            this.first = 0
             this.fetchInventory();
         },
         showSecondSerialInput(val) {

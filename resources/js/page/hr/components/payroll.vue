@@ -1037,6 +1037,51 @@
                 </div>
             </div>
 
+            <!-- Notes Section - NEW -->
+            <div
+                class="section mt-4 no-print"
+                v-if="
+                    viewingPayslip.notes && viewingPayslip.notes.trim() !== ''
+                "
+            >
+                <h6 class="section-title fw-bold mb-3">NOTES</h6>
+                <div class="card">
+                    <div class="card-body">
+                        <p
+                            class="mb-0"
+                            style="
+                                white-space: pre-wrap;
+                                word-break: break-word;
+                            "
+                        >
+                            {{ viewingPayslip.notes }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Notes Section (if deductions have descriptions) -->
+            <div
+                class="section mt-4"
+                v-if="deductionsWithNotes && deductionsWithNotes.length > 0"
+            >
+                <h6 class="section-title fw-bold mb-3">DEDUCTION NOTES</h6>
+                <div class="card">
+                    <div class="card-body">
+                        <div
+                            v-for="(deduction, index) in deductionsWithNotes"
+                            :key="index"
+                            class="mb-2"
+                        >
+                            <strong>{{ deduction.name }}:</strong>
+                            <p class="mb-1 text-muted small">
+                                {{ deduction.description }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Additional Notes Section (if deductions have descriptions) -->
             <div
                 class="section mt-4"

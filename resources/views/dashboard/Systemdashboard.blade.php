@@ -110,11 +110,13 @@
                     'notfound',
                     'asinoption',
                     'houseage',
+                    'suppliescomponents',
                     'reconciliation',
                     'asinlist',
                     'printer',
                     'auxiliary',
                     'inventorystatistics',
+                 
 
                 ];
 
@@ -157,10 +159,12 @@
                 'soldlist' => 'Sold Items',
                 'notfound' => 'Not Found',
                 'houseage' => 'Houseage',
+                'suppliescomponents' => 'Supplies & Components',
                 'printer' => 'Printer',
                 'auxiliary' => 'Auxiliary Label',
                 'inventorystatistics' => 'Inventory Statistics',
                 'reconciliation' => 'Reconciliation',
+             
             ];
 
             function hasAccess($module, $mainModule, $subModules): bool
