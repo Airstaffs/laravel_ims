@@ -22,7 +22,9 @@
             >
                 <!-- Gallery Column -->
                 <template #gallery="{ data }">
-                    <div class="d-flex justify-content-center align-items-center">
+                    <div
+                        class="d-flex justify-content-center align-items-center"
+                    >
                         <TableGallery
                             :data="data"
                             :openImageModal="openImageModal"
@@ -46,7 +48,7 @@
 
                 <!-- Date Column -->
                 <template #datedelivered="{ data }">
-                    {{ formatDate(data.datedelivered) }}
+                    {{ convertToLocalDate(data.datedelivered) }}
                 </template>
 
                 <!-- Actions -->
@@ -111,7 +113,7 @@ export default {
         TableGallery,
         ViewImageModal,
         AnimateDiv,
-        Paginator
+        Paginator,
     },
 
     data() {
@@ -151,8 +153,11 @@ export default {
                     field: "datedelivered",
                     header: "Date Delivered",
                     slot: "datedelivered",
-                }
+                },
             ],
+
+            currentTimezone: "UTC",
+            timezoneLabel: "Loading...",
         };
     },
 
@@ -165,9 +170,22 @@ export default {
                     (key) =>
                         key.startsWith("img") &&
                         this.selectedItem[key] &&
-                        this.selectedItem[key] !== "NULL"
+                        this.selectedItem[key] !== "NULL",
                 )
                 .map((key) => this.selectedItem[key]);
+        },
+
+        // ✅ ADD THESE COMPUTED PROPERTIES FOR DATE CONVERSION
+        localOrderDate() {
+            return this.convertToLocalDate(this.item.orderdate);
+        },
+        localDeliveredDate: {
+            get() {
+                return this.convertToLocalDate(this.item.datedelivered);
+            },
+            set(value) {
+                this.item.datedelivered = this.convertFromLocalDate(value);
+            },
         },
     },
 
@@ -181,9 +199,9 @@ export default {
                     {
                         params: {
                             page: this.currentPage,
-                            per_page: this.perPage
+                            per_page: this.perPage,
                         },
-                    }
+                    },
                 );
 
                 this.inventory = response.data.data;
@@ -196,9 +214,9 @@ export default {
         },
 
         onPageChange(event) {
-            this.first = event.first
+            this.first = event.first;
             this.currentPage = event.page + 1; // convert to 1-based
-            this.perPage     = event.rows;
+            this.perPage = event.rows;
             this.fetchInventory();
         },
 
@@ -232,6 +250,133 @@ export default {
         formatDate(date) {
             if (!date) return "";
             return new Date(date).toLocaleDateString();
+        },
+
+        convertToLocalDate(dateString) {
+            if (!dateString) return "";
+
+            try {
+                const userTimezone = this.currentTimezone;
+                const isLATimezone =
+                    userTimezone === "America/Los_Angeles" ||
+                    userTimezone === "America/Pacific" ||
+                    !userTimezone;
+
+                // DB stores time in LA timezone — if user is already in LA, just extract date directly
+                if (isLATimezone) {
+                    return dateString.split(" ")[0].split("T")[0];
+                }
+
+                // User is in a different timezone — convert LA time to user's local timezone
+                const isRawFormat =
+                    !dateString.includes("T") &&
+                    !dateString.includes("Z") &&
+                    !dateString.includes("+");
+
+                let date;
+                if (isRawFormat) {
+                    const isoLike = dateString.replace(" ", "T");
+                    const tempDate = new Date(isoLike);
+                    const laWallClock = new Date(
+                        new Date(isoLike).toLocaleString("en-US", {
+                            timeZone: "America/Los_Angeles",
+                        }),
+                    );
+                    const diff = tempDate - laWallClock;
+                    date = new Date(tempDate.getTime() + diff);
+                } else {
+                    date = new Date(dateString);
+                }
+
+                const formatter = new Intl.DateTimeFormat("en-CA", {
+                    timeZone: userTimezone,
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                });
+
+                return formatter.format(date);
+            } catch (error) {
+                return dateString;
+            }
+        },
+
+        convertFromLocalDate(localDateString) {
+            if (!localDateString) return null;
+
+            try {
+                // The input gives us YYYY-MM-DD in user's timezone
+                // We need to convert it to a proper datetime for storage
+
+                // Create a date object at noon in the user's timezone to avoid day boundary issues
+                const [year, month, day] = localDateString.split("-");
+                const dateInUserTz = new Date(
+                    `${year}-${month}-${day}T12:00:00`,
+                );
+
+                // Format for database storage (ISO format)
+                return dateInUserTz.toISOString().split("T")[0]; // Returns YYYY-MM-DD
+            } catch (error) {
+                console.error("Error converting from local date:", error);
+                return localDateString;
+            }
+        },
+
+        async loadUserTimezone() {
+            try {
+                const response = await axios.get("/api/timezone/current");
+
+                if (response.data.success && response.data.usertimezone) {
+                    this.currentTimezone = response.data.usertimezone;
+
+                    // Format timezone for display
+                    const timezoneParts = this.currentTimezone.split("/");
+                    const location = timezoneParts[
+                        timezoneParts.length - 1
+                    ].replace("_", " ");
+
+                    // ✅ FIXED: Calculate GMT offset for the SELECTED timezone, not browser's
+                    const date = new Date();
+
+                    // Get the date in UTC
+                    const utcDate = new Date(
+                        date.toLocaleString("en-US", { timeZone: "UTC" }),
+                    );
+
+                    // Get the date in user's selected timezone
+                    const userTzDate = new Date(
+                        date.toLocaleString("en-US", {
+                            timeZone: this.currentTimezone,
+                        }),
+                    );
+
+                    // Calculate offset in hours
+                    const offsetMs = userTzDate - utcDate;
+                    const offsetHours = Math.round(offsetMs / (1000 * 60 * 60));
+                    const offsetSign = offsetHours >= 0 ? "+" : "-";
+                    const gmtOffset = `GMT${offsetSign}${Math.abs(
+                        offsetHours,
+                    )}`;
+
+                    this.timezoneLabel = `(${gmtOffset})`;
+                } else {
+                    // Fallback to browser timezone
+                    const browserTz =
+                        Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    this.currentTimezone = browserTz;
+                    const location = browserTz
+                        .split("/")
+                        .pop()
+                        .replace("_", " ");
+                    this.timezoneLabel = location;
+                }
+
+                console.log("📍 Timezone loaded:", this.timezoneLabel);
+            } catch (error) {
+                console.error("Error loading timezone:", error);
+                this.currentTimezone = "UTC";
+                this.timezoneLabel = "UTC";
+            }
         },
     },
 
