@@ -1413,10 +1413,19 @@ public function processScan(Request $request)
                     ->where('ProductID', $originalItem->ProductID)
                     ->update($updateData);
 
-                if ($originalFnsku && $mskuToUse) {
+               if ($originalFnsku && $mskuToUse) {
                     $baseFnsku = $this->extractBaseFnsku($originalFnsku);
-                    $this->returnFnskuUnits($mskuToUse, $baseFnsku);
-                    Log::info("Restored units to original FNSKU {$baseFnsku}");
+                    
+                    // ✅ Only restore FNSKU units if item was in Stockroom or Shipment
+                    // Soldlist items already had their units restored when sold
+                    $originalLocation = $originalItem->ProductModuleLoc ?? null;
+                    
+                    if (in_array($originalLocation, ['Stockroom', 'Shipment'])) {
+                        $this->returnFnskuUnits($mskuToUse, $baseFnsku);
+                        Log::info("Restored units to original FNSKU {$baseFnsku} (item was in {$originalLocation})");
+                    } else {
+                        Log::info("Skipped FNSKU unit restore for {$baseFnsku} - item was in {$originalLocation}, units already restored previously");
+                    }
                 }
                 
                 DB::table('tbldoneshipping')
@@ -1777,7 +1786,7 @@ private function returnFnskuUnits($mskuViewer, $fnskuViewer)
 
         $asin = $fnskuRecord->ASIN;
         $grading = $fnskuRecord->grading;
-        $storename = $storename->storename;
+        $storename = $fnskuRecord->storename;
         
         //update fnsku limit status
         $this->updateFnskuLimitStatus($asin, $mskuViewer);
