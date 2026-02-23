@@ -746,6 +746,101 @@ export default {
             }, 5000); // 5 seconds
         },
 
+                async autoSaveRow(row) {
+            const touched = row._touchedQty || row._touchedPrice;
+            if (!touched) return;
+
+            // if we're closing, cancel autosave
+            if (this._suppressAutosave) return;
+
+            const qty = row._touchedQty ? this.parseQty(row.newQty) : null;
+            const price = row._touchedPrice ? this.parsePrice(row.newPrice) : null;
+
+            // client validation
+            if (qty?.invalid) { row._errorQty = "Invalid quantity"; return; }
+            if (price?.invalid) { row._errorPrice = "Invalid price"; return; }
+
+            // ---- NEW: skip "empty -> empty" ----
+            // qty cleared AND already null/empty in current display => do nothing, no errors
+            if (row._touchedQty && qty?.cleared && (row.currentQty === null || row.currentQty === undefined || row.currentQty === "")) {
+                row._touchedQty = false;
+                row._errorQty = "";
+                row.newQty = "";
+            }
+
+            // price cleared AND already null/empty => do nothing, no errors
+            if (row._touchedPrice && price?.cleared && (row.currentPrice === null || row.currentPrice === undefined || row.currentPrice === "")) {
+                row._touchedPrice = false;
+                row._errorPrice = "";
+                row.newPrice = "";
+            }
+
+            // After skipping no-op clears, if nothing is still touched, bail out.
+            if (!row._touchedQty && !row._touchedPrice) return;
+
+            // clear old states
+            row._errorQty = "";
+            row._errorPrice = "";
+            row._savedQty = false;
+            row._savedPrice = false;
+
+            if (row._touchedQty) row._savingQty = true;
+            if (row._touchedPrice) row._savingPrice = true;
+
+            try {
+                const payload = {
+                    store: this.filters.store,
+                    marketplaceIds: this.filters.marketplaceIds,
+                    sku: row.sku,
+                    asin: row.asin,
+
+                    ...(row._touchedQty ? { quantity: qty.value, quantityCleared: qty.cleared } : {}),
+                    ...(row._touchedPrice ? { price: price.value, priceCleared: price.cleared, currency: row.currency || "USD" } : {}),
+                };
+
+                await axios.post(`${API_BASE_URL}/amazon/listings/update-one`, payload);
+
+                // success UI updates...
+                if (row._touchedQty) {
+                    row._savedQty = true;
+                    row._touchedQty = false;
+                    row.currentQty = qty.cleared ? null : qty.value;
+                    row.newQty = "";
+                }
+                if (row._touchedPrice) {
+                    row._savedPrice = true;
+                    row._touchedPrice = false;
+                    row.currentPrice = price.cleared ? null : price.value;
+                    row.newPrice = "";
+                }
+
+                setTimeout(() => {
+                    row._savedQty = false;
+                    row._savedPrice = false;
+                }, 1200);
+
+            } catch (err) {
+                // ---- NEW: If cleared + amazon complains, don't show error (treat as no-op) ----
+                const isEmptyPatchError =
+                    err?.response?.data?.errors?.some(e => String(e?.message || "").toLowerCase().includes("invalid empty value"));
+
+                if (isEmptyPatchError && ((qty && qty.cleared) || (price && price.cleared))) {
+                    // silently cancel changes
+                    if (row._touchedQty && qty?.cleared) { row._touchedQty = false; row.newQty = ""; }
+                    if (row._touchedPrice && price?.cleared) { row._touchedPrice = false; row.newPrice = ""; }
+                    return;
+                }
+
+                const msg = err?.response?.data?.message || err?.response?.data?.error || "Save failed";
+                if (row._touchedQty) row._errorQty = msg;
+                if (row._touchedPrice) row._errorPrice = msg;
+
+            } finally {
+                row._savingQty = false;
+                row._savingPrice = false;
+            }
+        },
+
         openIssuesModal(row) {
             this.issuesModal = {
                 visible: true,
