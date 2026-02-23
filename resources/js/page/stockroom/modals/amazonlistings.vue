@@ -179,8 +179,9 @@
 
                             <small class="text-500">Auto-saves per item. Blank = clear.</small>
 
-                            <div v-if="data._errorPrice" class="text-xs text-red-500 mt-1">
-                                {{ data._errorPrice }}
+                            <div v-if="data._errorQty" class="error-chip" v-tooltip.top="data._errorQty">
+                                <i class="pi pi-exclamation-triangle mr-1"></i>
+                                Save failed
                             </div>
                         </div>
                     </template>
@@ -784,8 +785,14 @@ export default {
             row._savedQty = false;
             row._savedPrice = false;
 
-            if (row._touchedQty) row._savingQty = true;
-            if (row._touchedPrice) row._savingPrice = true;
+            if (row._touchedPrice) {
+                row._savedPrice = true;
+            }
+            if (row._touchedQty) {
+                row._savedQty = true;
+            }
+
+            this.resetRowStatus(row, row._touchedPrice ? "price" : "qty");
 
             try {
                 const payload = {
@@ -832,8 +839,15 @@ export default {
                 }
 
                 const msg = err?.response?.data?.message || err?.response?.data?.error || "Save failed";
-                if (row._touchedQty) row._errorQty = msg;
-                if (row._touchedPrice) row._errorPrice = msg;
+                if (row._touchedPrice) {
+                    row._errorPrice = msg;
+                    this.resetRowStatus(row, "price");
+                }
+
+                if (row._touchedQty) {
+                    row._errorQty = msg;
+                    this.resetRowStatus(row, "qty");
+                }
 
             } finally {
                 row._savingQty = false;
@@ -866,6 +880,31 @@ export default {
                 await navigator.clipboard.writeText(text);
             } catch (e) {
                 console.error("copyIssuesToClipboard failed:", e);
+            }
+        },
+
+        resetRowStatus(row, field) {
+            const isQty = field === "qty";
+
+            const savingKey = isQty ? "_savingQty" : "_savingPrice";
+            const savedKey = isQty ? "_savedQty" : "_savedPrice";
+            const errorKey = isQty ? "_errorQty" : "_errorPrice";
+
+            // stop spinner immediately
+            row[savingKey] = false;
+
+            // clear success after 1.5s
+            if (row[savedKey]) {
+                setTimeout(() => {
+                    row[savedKey] = false;
+                }, 1500);
+            }
+
+            // clear error after 5s
+            if (row[errorKey]) {
+                setTimeout(() => {
+                    row[errorKey] = "";
+                }, 5000);
             }
         },
     },
