@@ -339,6 +339,8 @@ export default {
                 issues: [],
                 raw: null,
             },
+
+            _suppressAutosave: false,
         };
     },
     computed: {
@@ -381,7 +383,32 @@ export default {
     },
     methods: {
         onClose() {
+            this._suppressAutosave = true;
+
+            // cancel any pending debounced saves & revert edits
+            (this.rows || []).forEach(r => {
+                if (r._saveTimer) clearTimeout(r._saveTimer);
+
+                // revert editing state (do NOT touch currentQty/currentPrice)
+                r.newQty = "";
+                r.newPrice = "";
+                r._touchedQty = false;
+                r._touchedPrice = false;
+
+                // clear UI statuses
+                r._savingQty = false;
+                r._savingPrice = false;
+                r._savedQty = false;
+                r._savedPrice = false;
+                r._errorQty = "";
+                r._errorPrice = "";
+            });
+
+            // close dialog
             this.visibleProxy = false;
+
+            // re-enable autosave for next open
+            setTimeout(() => { this._suppressAutosave = false; }, 0);
         },
 
         resetFilters() {
@@ -685,23 +712,36 @@ export default {
         },
 
         async autoSaveRow(row) {
-            // only save if user actually interacted
             const touched = row._touchedQty || row._touchedPrice;
             if (!touched) return;
 
-            // build payload with ONLY fields that were touched
+            // if we're closing, cancel autosave
+            if (this._suppressAutosave) return;
+
             const qty = row._touchedQty ? this.parseQty(row.newQty) : null;
             const price = row._touchedPrice ? this.parsePrice(row.newPrice) : null;
 
-            // client validation (don’t call API if invalid)
-            if (qty?.invalid) {
-                row._errorQty = "Invalid quantity";
-                return;
+            // client validation
+            if (qty?.invalid) { row._errorQty = "Invalid quantity"; return; }
+            if (price?.invalid) { row._errorPrice = "Invalid price"; return; }
+
+            // ---- NEW: skip "empty -> empty" ----
+            // qty cleared AND already null/empty in current display => do nothing, no errors
+            if (row._touchedQty && qty?.cleared && (row.currentQty === null || row.currentQty === undefined || row.currentQty === "")) {
+                row._touchedQty = false;
+                row._errorQty = "";
+                row.newQty = "";
             }
-            if (price?.invalid) {
-                row._errorPrice = "Invalid price";
-                return;
+
+            // price cleared AND already null/empty => do nothing, no errors
+            if (row._touchedPrice && price?.cleared && (row.currentPrice === null || row.currentPrice === undefined || row.currentPrice === "")) {
+                row._touchedPrice = false;
+                row._errorPrice = "";
+                row.newPrice = "";
             }
+
+            // After skipping no-op clears, if nothing is still touched, bail out.
+            if (!row._touchedQty && !row._touchedPrice) return;
 
             // clear old states
             row._errorQty = "";
@@ -709,31 +749,27 @@ export default {
             row._savedQty = false;
             row._savedPrice = false;
 
-            // show spinners for the touched fields
             if (row._touchedQty) row._savingQty = true;
             if (row._touchedPrice) row._savingPrice = true;
 
             try {
-                // IMPORTANT: set your endpoint here
-                // Suggestion: one endpoint that accepts sku + optional qty/price
                 const payload = {
                     store: this.filters.store,
                     marketplaceIds: this.filters.marketplaceIds,
                     sku: row.sku,
                     asin: row.asin,
 
-                    // only include if touched
                     ...(row._touchedQty ? { quantity: qty.value, quantityCleared: qty.cleared } : {}),
                     ...(row._touchedPrice ? { price: price.value, priceCleared: price.cleared, currency: row.currency || "USD" } : {}),
                 };
 
                 await axios.post(`${API_BASE_URL}/amazon/listings/update-one`, payload);
 
-                // update UI states
+                // success UI updates...
                 if (row._touchedQty) {
                     row._savedQty = true;
                     row._touchedQty = false;
-                    row.currentQty = qty.cleared ? null : qty.value; // reflect new value in UI
+                    row.currentQty = qty.cleared ? null : qty.value;
                     row.newQty = "";
                 }
                 if (row._touchedPrice) {
@@ -743,18 +779,24 @@ export default {
                     row.newPrice = "";
                 }
 
-                // hide check after a moment (optional)
                 setTimeout(() => {
                     row._savedQty = false;
                     row._savedPrice = false;
                 }, 1200);
 
             } catch (err) {
-                const msg =
-                    err?.response?.data?.message ||
-                    err?.response?.data?.error ||
-                    "Save failed";
+                // ---- NEW: If cleared + amazon complains, don't show error (treat as no-op) ----
+                const isEmptyPatchError =
+                    err?.response?.data?.errors?.some(e => String(e?.message || "").toLowerCase().includes("invalid empty value"));
 
+                if (isEmptyPatchError && ((qty && qty.cleared) || (price && price.cleared))) {
+                    // silently cancel changes
+                    if (row._touchedQty && qty?.cleared) { row._touchedQty = false; row.newQty = ""; }
+                    if (row._touchedPrice && price?.cleared) { row._touchedPrice = false; row.newPrice = ""; }
+                    return;
+                }
+
+                const msg = err?.response?.data?.message || err?.response?.data?.error || "Save failed";
                 if (row._touchedQty) row._errorQty = msg;
                 if (row._touchedPrice) row._errorPrice = msg;
 
@@ -951,87 +993,87 @@ export default {
 }
 
 .issues-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .issues-tag {
-  cursor: pointer;
-  user-select: none;
+    cursor: pointer;
+    user-select: none;
 }
 
 .truncate-issue {
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Issues modal layout */
 .issues-modal-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--surface-border);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--surface-border);
 }
 
 .issues-modal-body {
-  padding: 14px 16px;
-  max-height: 65vh;
-  overflow: auto;
+    padding: 14px 16px;
+    max-height: 65vh;
+    overflow: auto;
 }
 
 .issues-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .issues-item {
-  border: 1px solid var(--surface-border);
-  border-radius: 10px;
-  padding: 12px;
-  background: var(--surface-0);
+    border: 1px solid var(--surface-border);
+    border-radius: 10px;
+    padding: 12px;
+    background: var(--surface-0);
 }
 
 .issues-item-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
 }
 
 .issues-index {
-  font-weight: 600;
-  color: var(--text-color);
+    font-weight: 600;
+    color: var(--text-color);
 }
 
 .issues-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 12px;
-  color: var(--text-color-secondary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 12px;
+    color: var(--text-color-secondary);
 }
 
 .issues-message {
-  font-size: 14px;
-  line-height: 1.4;
-  word-break: break-word;
-  overflow-wrap: anywhere;
+    font-size: 14px;
+    line-height: 1.4;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .issues-meta {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--text-color-secondary);
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-color-secondary);
 }
 
 .issues-modal-foot {
-  padding: 12px 16px;
-  border-top: 1px solid var(--surface-border);
-  display: flex;
-  justify-content: flex-end;
+    padding: 12px 16px;
+    border-top: 1px solid var(--surface-border);
+    display: flex;
+    justify-content: flex-end;
 }
 </style>

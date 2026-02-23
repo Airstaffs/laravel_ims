@@ -460,29 +460,27 @@ class ListingController extends Controller
         $patches = [];
 
         // ---------- QTY PATCH ----------
-        $qtyTouched = array_key_exists('quantity', $data) || array_key_exists('quantityCleared', $data);
+        $qtyTouched = $request->has('quantity') || $request->has('quantityCleared');
         if ($qtyTouched) {
-            $qtyCleared = (bool) ($data['quantityCleared'] ?? false);
+            $qtyCleared = (bool) $request->input('quantityCleared', false);
 
             if ($qtyCleared) {
-                // Clear qty attribute
-                $patches[] = [
-                    'op' => 'delete',
-                    'path' => '/attributes/fulfillment_availability',
-                ];
+                // only delete if you actually intend to clear
+                $patches[] = ['op' => 'delete', 'path' => '/attributes/fulfillment_availability'];
             } else {
-                // Replace qty (DEFAULT = FBM)
-                // Structure matches common usage for Listings Items.
-                $patches[] = [
-                    'op' => 'replace',
-                    'path' => '/attributes/fulfillment_availability',
-                    'value' => [
-                        [
-                            'fulfillment_channel_code' => 'DEFAULT',
-                            'quantity' => (int) $data['quantity'],
-                        ]
-                    ],
-                ];
+                $qtyVal = $request->input('quantity', null);
+                if ($qtyVal !== null) {
+                    $patches[] = [
+                        'op' => 'replace',
+                        'path' => '/attributes/fulfillment_availability',
+                        'value' => [
+                            [
+                                'fulfillment_channel_code' => 'DEFAULT',
+                                'quantity' => (int) $qtyVal,
+                            ]
+                        ],
+                    ];
+                }
             }
         }
 
