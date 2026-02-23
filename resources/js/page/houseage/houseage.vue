@@ -452,7 +452,7 @@
                                                     type="text"
                                                     size="small"
                                                     fluid
-                                                    :value="item.ProductID"
+                                                    :value="item.rtcounter"
                                                     placeholder="RT Counter"
                                                 />
                                             </fieldset>
@@ -1282,7 +1282,7 @@ const TABLE_COLUMNS = [
         bodyStyle: { fontSize: "14px" },
     },
     {
-        field: "FNSKU",
+        field: "FNSKUviewer",
         header: "FNSKU",
         headerStyle: "font-size: 16px;",
         bodyStyle: { fontSize: "14px" },
