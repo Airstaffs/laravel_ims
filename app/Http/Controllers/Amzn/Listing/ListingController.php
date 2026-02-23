@@ -425,20 +425,21 @@ class ListingController extends Controller
         $store = $data['store'];
         $marketplaceId = $data['marketplaceIds'][0]; // your UI uses single marketplace anyway
 
-        // IMPORTANT: for patchListingsItem the sellerId is part of the URL.
-        // If you already store it in company details, pull it from there.
-        $companydetails = $this->fetchCompanyDetails($store);
-        if (!$companydetails) {
-            return response()->json(['message' => "Company not found for store: {$store}"], 404);
-        }
+
 
         $sku = $data['sku'];
 
         // Credentials + Access token
         $credentials = AWSCredentials($store);
 
-                // Adjust this key to whatever you actually store as sellerId
+        // Adjust this key to whatever you actually store as sellerId
         $sellerId = $credentials['MerchantID'] ?? null;
+
+        // IMPORTANT: for patchListingsItem the sellerId is part of the URL.
+        // If you already store it in company details, pull it from there.
+        if (!$sellerId) {
+            return response()->json(['message' => "Company not found for store: {$store}"], 404);
+        }
 
         if (!$sellerId) {
             return response()->json([
