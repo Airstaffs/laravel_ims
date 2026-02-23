@@ -561,11 +561,7 @@ class ReceivedController extends BasetablesController
 
                 $newItemData['ProductModuleLoc'] = 'Labeling';
 
-                $newItemData['serialnumber']  = $serial1;
-                $newItemData['serialnumberb'] = $serial2;
-                $newItemData['serialnumberc'] = $serial3;
-                $newItemData['serialnumberd'] = $serial4;
-                $newItemData['serialnumbere'] = $serial5;
+                $newItemData = array_merge($newItemData, $serialCols);
 
                 $newItemData['PCN'] = $request->pcnNumber;
                 $newItemData['basketnumber'] = $request->basketNumber;
@@ -693,17 +689,12 @@ class ReceivedController extends BasetablesController
 
                     $moduleLocation = $materialTypeMap[$originalProduct->materialtype] ?? null;
                     // Process successfully received item (quantity = 1, no split needed)
-                    $updateData = [
-                        'serialnumber'  => $serial1,
-                        'serialnumberb' => $serial2,
-                        'serialnumberc' => $serial3,
-                        'serialnumberd' => $serial4,
-                        'serialnumbere' => $serial5,
+                    $updateData = array_merge([
                         'PCN' => $request->pcnNumber,
                         'basketnumber' => $request->basketNumber,
                         'ProductModuleLoc' => $moduleLocation,
                         'Username' => $user,
-                    ];
+                    ], $serialCols);
 
                     // Update the product
                     $updateResult = DB::table($this->productTable)
