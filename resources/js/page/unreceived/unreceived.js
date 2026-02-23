@@ -367,7 +367,7 @@ export default {
             this.validateTrackingNumber();
 
             // Auto verify after short delay when typing
-            if (this.trackingNumberValid && this.trackingNumber.length >= 5) {
+            if (this.trackingNumberValid && this.trackingNumber.length >= 5 && !this.showManualInput) {
                 if (this.autoVerifyTimeout) {
                     clearTimeout(this.autoVerifyTimeout);
                 }
@@ -626,6 +626,8 @@ export default {
 
         handleModeChange(event) {
             this.showManualInput = event.manual;
+
+            this.$refs.trackingInput.focus();
         },
 
         // Pagination methods

@@ -47,13 +47,13 @@
                         ref="trackingInput"
                     />
                     <!-- Only show manual process button in Manual mode -->
-                    <button
+                    <Button
                         v-if="showManualInput"
                         @click="verifyAndProcessTracking"
                         class="verify-button"
                     >
                         Process Tracking
-                    </button>
+                    </Button>
                     <div class="scanner-info">
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i>
