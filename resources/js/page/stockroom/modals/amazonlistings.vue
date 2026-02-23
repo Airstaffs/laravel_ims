@@ -746,7 +746,7 @@ export default {
             }, 5000); // 5 seconds
         },
 
-                async autoSaveRow(row) {
+        async autoSaveRow(row) {
             const touched = row._touchedQty || row._touchedPrice;
             if (!touched) return;
 
