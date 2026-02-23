@@ -145,8 +145,9 @@
 
                             <small class="text-500">Auto-saves per item. 0 = out of stock. Blank = clear.</small>
 
-                            <div v-if="data._errorQty" class="text-xs text-red-500 mt-1">
-                                {{ data._errorQty }}
+                            <div v-if="data._errorQty" class="error-chip" v-tooltip.top="data._errorQty">
+                                <i class="pi pi-exclamation-triangle mr-1"></i>
+                                Save failed
                             </div>
                         </div>
                     </template>
@@ -711,99 +712,38 @@ export default {
             return { value: n, cleared: false };
         },
 
-        async autoSaveRow(row) {
-            const touched = row._touchedQty || row._touchedPrice;
-            if (!touched) return;
+        catch(err) {
+            const msg =
+                err?.response?.data?.message ||
+                err?.response?.data?.error ||
+                err?.response?.data?.errors?.[0]?.message ||
+                "Save failed";
 
-            // if we're closing, cancel autosave
-            if (this._suppressAutosave) return;
-
-            const qty = row._touchedQty ? this.parseQty(row.newQty) : null;
-            const price = row._touchedPrice ? this.parsePrice(row.newPrice) : null;
-
-            // client validation
-            if (qty?.invalid) { row._errorQty = "Invalid quantity"; return; }
-            if (price?.invalid) { row._errorPrice = "Invalid price"; return; }
-
-            // ---- NEW: skip "empty -> empty" ----
-            // qty cleared AND already null/empty in current display => do nothing, no errors
-            if (row._touchedQty && qty?.cleared && (row.currentQty === null || row.currentQty === undefined || row.currentQty === "")) {
-                row._touchedQty = false;
-                row._errorQty = "";
-                row.newQty = "";
+            if (row._touchedQty) {
+                row._errorQty = msg;
+                this.autoDismissError(row, "qty");
             }
 
-            // price cleared AND already null/empty => do nothing, no errors
-            if (row._touchedPrice && price?.cleared && (row.currentPrice === null || row.currentPrice === undefined || row.currentPrice === "")) {
-                row._touchedPrice = false;
-                row._errorPrice = "";
-                row.newPrice = "";
+            if (row._touchedPrice) {
+                row._errorPrice = msg;
+                this.autoDismissError(row, "price");
+            }
+        },
+
+        autoDismissError(row, field) {
+            const key = field === "qty" ? "_errorQty" : "_errorPrice";
+
+            if (!row[key]) return;
+
+            // clear any existing timer
+            if (!row._errorTimer) row._errorTimer = {};
+            if (row._errorTimer[field]) {
+                clearTimeout(row._errorTimer[field]);
             }
 
-            // After skipping no-op clears, if nothing is still touched, bail out.
-            if (!row._touchedQty && !row._touchedPrice) return;
-
-            // clear old states
-            row._errorQty = "";
-            row._errorPrice = "";
-            row._savedQty = false;
-            row._savedPrice = false;
-
-            if (row._touchedQty) row._savingQty = true;
-            if (row._touchedPrice) row._savingPrice = true;
-
-            try {
-                const payload = {
-                    store: this.filters.store,
-                    marketplaceIds: this.filters.marketplaceIds,
-                    sku: row.sku,
-                    asin: row.asin,
-
-                    ...(row._touchedQty ? { quantity: qty.value, quantityCleared: qty.cleared } : {}),
-                    ...(row._touchedPrice ? { price: price.value, priceCleared: price.cleared, currency: row.currency || "USD" } : {}),
-                };
-
-                await axios.post(`${API_BASE_URL}/amazon/listings/update-one`, payload);
-
-                // success UI updates...
-                if (row._touchedQty) {
-                    row._savedQty = true;
-                    row._touchedQty = false;
-                    row.currentQty = qty.cleared ? null : qty.value;
-                    row.newQty = "";
-                }
-                if (row._touchedPrice) {
-                    row._savedPrice = true;
-                    row._touchedPrice = false;
-                    row.currentPrice = price.cleared ? null : price.value;
-                    row.newPrice = "";
-                }
-
-                setTimeout(() => {
-                    row._savedQty = false;
-                    row._savedPrice = false;
-                }, 1200);
-
-            } catch (err) {
-                // ---- NEW: If cleared + amazon complains, don't show error (treat as no-op) ----
-                const isEmptyPatchError =
-                    err?.response?.data?.errors?.some(e => String(e?.message || "").toLowerCase().includes("invalid empty value"));
-
-                if (isEmptyPatchError && ((qty && qty.cleared) || (price && price.cleared))) {
-                    // silently cancel changes
-                    if (row._touchedQty && qty?.cleared) { row._touchedQty = false; row.newQty = ""; }
-                    if (row._touchedPrice && price?.cleared) { row._touchedPrice = false; row.newPrice = ""; }
-                    return;
-                }
-
-                const msg = err?.response?.data?.message || err?.response?.data?.error || "Save failed";
-                if (row._touchedQty) row._errorQty = msg;
-                if (row._touchedPrice) row._errorPrice = msg;
-
-            } finally {
-                row._savingQty = false;
-                row._savingPrice = false;
-            }
+            row._errorTimer[field] = setTimeout(() => {
+                row[key] = "";
+            }, 5000); // 5 seconds
         },
 
         openIssuesModal(row) {
@@ -1075,5 +1015,35 @@ export default {
     border-top: 1px solid var(--surface-border);
     display: flex;
     justify-content: flex-end;
+}
+
+/* Prevent table content from stretching layout */
+:deep(.p-datatable td) {
+    vertical-align: top;
+    max-width: 320px;
+    overflow: hidden;
+}
+
+:deep(.p-datatable td .error-chip) {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #fff4f4;
+    color: #c0392b;
+    border: 1px solid #f5c6cb;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Hard truncate any unexpected long text */
+.text-red-500 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 </style>
