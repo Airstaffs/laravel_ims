@@ -1025,3 +1025,5 @@ Route::get('/history', function () {
 Route::prefix('api/reconciliation')->middleware(['auth'])->group(function () {
     Route::get('products', [ReconciliationController::class, 'index']);
 });
+
+

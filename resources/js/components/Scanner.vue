@@ -580,33 +580,29 @@ export default {
 
         // Ensure parent container exists
         if (this.$parent) {
+          const serialIndex = currentStep - 2; // 3→1, 4→2, 5→3...
+
           if (!this.$parent.apiResult) {
-            this.$parent.apiResult = { step3: null, step4: null };
+            this.$parent.apiResult = {};
           }
 
-          if (currentStep === 3) {
-            this.$parent.apiResult.step3 = result;
-          } else if (currentStep === 4) {
-            this.$parent.apiResult.step4 = result;
+          this.$parent.apiResult[`step${currentStep}`] = result;
+
+          const detectedSerial = result?.serials?.[0]?.text || result?.serials?.[0];
+
+          if (detectedSerial) {
+            if (Array.isArray(this.$parent.serialNumbers)) {
+              this.$parent.serialNumbers[serialIndex - 1] = detectedSerial;
+            }
+
+            this.showScanSuccess(
+              `✅ Serial #${serialIndex} detected: ${detectedSerial}`
+            );
+          } else {
+            this.showScanWarning('⚠️ No serial detected.');
           }
         }
 
-        const detectedSerial = result?.serials?.[0];
-
-        if (detectedSerial) {
-          if (this.$parent) {
-            if (currentStep === 3) this.$parent.firstSerialNumber = detectedSerial;
-            if (currentStep === 4) this.$parent.secondSerialNumber = detectedSerial;
-          }
-
-          this.showScanSuccess(
-            currentStep === 3
-              ? `✅ Serial #1 detected: ${detectedSerial}`
-              : `✅ Serial #2 detected: ${detectedSerial}`
-          );
-        } else {
-          this.showScanWarning('⚠️ No serial detected.');
-        }
       } catch (err) {
         console.error('OCR API error:', err);
         this.showScanError('❌ Serial detection failed.');
@@ -700,11 +696,12 @@ export default {
 
       const currentStep = this.$parent?.currentStep ?? 0;
 
-      // 🚫 Step 5+: Not allowed anymore
-      if (currentStep >= 5) {
-        this.showScanWarning('Capture is not allowed beyond Serial number detection.');
+      // 🚫 Only allow capture for steps 1–7
+      if (currentStep < 1 || currentStep > 7) {
+        this.showScanWarning('Capture not allowed at this step.');
         return;
       }
+
 
       // 🚫 STEP 1 — Tracking capture rules
       if (currentStep === 1) {
@@ -725,30 +722,35 @@ export default {
           return;
         }
 
-        // Allow only ONE tracking image
+        // Allow only 2 tracking images
         const trackingImages = this.capturedImages.filter(img => img.step === 1);
         if (trackingImages.length >= 2) {
-          this.showScanWarning('Only one tracking image is allowed.');
+          this.showScanWarning('Only 2 tracking images is allowed.');
           return;
         }
       }
 
       // ✅ Step 2 limit
-      if (currentStep === 2 && this.capturedImages.length >= this.maxImages) {
-        this.showScanError(`Maximum of ${this.maxImages} product images allowed.`);
-        return;
+      if (currentStep === 2) {
+        const step2Images = this.capturedImages.filter(i => i.step === 2);
+        if (step2Images.length >= this.maxImages) {
+          this.showScanError(`Maximum of ${this.maxImages} product images allowed.`);
+          return;
+        }
       }
 
-      // ✅ Step 3: only one
-      if (currentStep === 3 && this.capturedImages.some(img => img.step === 3)) {
-        this.showScanWarning('Only one image allowed for the first serial number.');
-        return;
-      }
+      // ✅ Serial steps (3–7) → only 1 image per serial
+      if (currentStep >= 3 && currentStep <= 7) {
+        const serialImages = this.capturedImages.filter(
+          img => img.step === currentStep
+        );
 
-      // ✅ Step 4: only one
-      if (currentStep === 4 && this.capturedImages.some(img => img.step === 4)) {
-        this.showScanWarning('Only one image allowed for the second serial number.');
-        return;
+        if (serialImages.length >= 1) {
+          this.showScanWarning(
+            `Only one image allowed for Serial #${currentStep - 2}.`
+          );
+          return;
+        }
       }
 
       // ✅ Capture
@@ -765,16 +767,13 @@ export default {
       this.capturedImages.push({ data: dataUrl, timestamp, step: currentStep });
       this.showScanSuccess('Image captured.');
 
-      // ✅ Step 3–4 OCR
-      // if (currentStep === 3 || currentStep === 4) {
-      //   await this.detectSerialFromCanvas(canvas, currentStep);
-      // }
-
       // ✅ Step 3–4 OCR (ONLY if AI enabled in parent)
       if (
-        (currentStep === 3 || currentStep === 4) &&
+        currentStep >= 3 &&
+        currentStep <= 7 &&
         this.$parent?.useAiDetection
-      ) {
+      )
+      {
         await this.detectSerialFromCanvas(canvas, currentStep);
       }
 
@@ -804,17 +803,10 @@ export default {
       }
 
       // 🚫 Do not allow capture beyond serial steps
-      if (currentStep >= 5) {
+      // 🚫 Only allow capture for steps 1–7
+      if (currentStep > 7) {
         return false;
       }
-
-      // ✅ Step 1: Tracking images (max 2)
-      // if (currentStep === 1) {
-      //   const trackingImages = this.capturedImages.filter(
-      //     img => img.step === 1
-      //   );
-      //   return trackingImages.length < 2;
-      // }
 
       // Step 1 handled directly in captureReceived()
       if (currentStep === 1) {

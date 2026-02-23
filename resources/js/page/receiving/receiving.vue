@@ -75,8 +75,7 @@
             :enable-camera="currentStep >= 1"
             :display-fields="[
                 'Trackingnumber',
-                'FirstSN',
-                'SecondSN',
+                'Serials',
                 'PCN',
                 'Basket',
             ]"
@@ -162,17 +161,31 @@
 
                     <!-- Optional helper text -->
                     <p v-if="!scannerHasCapturedImage" class="text-sm mt-2">
-                        📸 Please capture at least 3 image before passing or failing.
+                        📸 Please capture at least 3 images before passing or failing.
                     </p>
 
                     <!-- ✅ Modal viewer for thumbnails -->
                 </div>
 
-                <!-- Step 3: First Serial Number Input -->
-                <div class="input-group" v-if="currentStep === 3">
+                <!-- ✅ Steps 3–7: Serial Inputs (max 5) -->
+                <div class="input-group" v-if="currentStep >= 3 && currentStep <= 7">
+                    <div class="label-wrap">
+                        <label>Serial Number {{ currentSerialIndex + 1 }}:</label>
+
+                        <div class="ai-switch-container">
+                        <span class="ai-label">AI Detection</span>
+                        <label class="ai-switch">
+                            <input type="checkbox" v-model="useAiDetection" />
+                            <span class="ai-slider"></span>
+                        </label>
+                        <span class="ai-status">{{ useAiDetection ? "ON" : "OFF" }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Upload area only if AI ON -->
                     <div
+                        v-if="useAiDetection"
                         class="border-dashed uploader-area"
-                        v-show="true"
                         @dragover.prevent
                         @dragenter.prevent="isDragging = true"
                         @dragleave.prevent="isDragging = false"
@@ -181,239 +194,82 @@
                         :class="{ 'is-dragging': isDragging }"
                     >
                         <p>
-                            Drag & drop an image here, or
-                            <span class="text-highlight">click to select</span>
+                        Drag & drop an image here, or
+                        <span class="text-highlight">click to select</span>
                         </p>
                         <input
-                            ref="fileInput"
-                            type="file"
-                            accept="image/*"
-                            class="hidden"
-                            @change="onFileChange"
-                            :disabled="loading"
+                        ref="fileInput"
+                        type="file"
+                        accept="image/*"
+                        class="hidden"
+                        @change="onFileChange"
+                        :disabled="loading"
                         />
                     </div>
 
-                    <!-- 👇 Optional small preview (after upload) -->
                     <div v-if="imageUrl" class="uploaded-preview">
                         <img :src="imageUrl" alt="Uploaded preview" />
-                        <button class="clear-upload" @click="imageUrl = null">
-                            ×
-                        </button>
+                        <button class="clear-upload" @click="imageUrl = null">×</button>
                     </div>
 
-                    <!-- OCR Detected Serials (show for step 3 & 4 only) -->
+                    <!-- OCR Results for current step -->
                     <div
                         v-if="
-                            apiResult.step3 &&
-                            apiResult.step3.serials &&
-                            apiResult.step3.serials.length
+                        apiResult['step' + currentStep] &&
+                        apiResult['step' + currentStep].serials &&
+                        apiResult['step' + currentStep].serials.length
                         "
                         class="serial-results-wrapper-main"
                     >
-                        <p class="text-sm text-gray-500 mb-1">
-                            Detected Serials:
-                        </p>
+                        <p class="text-sm text-gray-500 mb-1">Detected Serials:</p>
+
                         <div
-                            v-for="(serial, index) in apiResult.step3.serials"
-                            :key="index"
-                            class="mb-3 serial-results-wrapper"
+                        v-for="(serial, idx) in apiResult['step' + currentStep].serials"
+                        :key="idx"
+                        class="mb-3 serial-results-wrapper"
                         >
-                            <div
-                                class="flex items-center gap-2 serial-result-wrap"
+                        <div class="flex items-center gap-2 serial-result-wrap">
+                            <div class="font-mono serial-result">{{ serial.text }}</div>
+                            <button
+                            class="px-2 py-1 bg-green-500 text-white rounded serial-btn"
+                            @click="saveSerial(serial.text)"
                             >
-                                <div class="font-mono serial-result">
-                                    {{ serial.text }}
-                                </div>
-                                <button
-                                    class="px-2 py-1 bg-green-500 text-white rounded serial-btn"
-                                    @click="saveSerial(serial.text, index)"
-                                >
-                                    Save
-                                </button>
-                            </div>
+                            Save
+                            </button>
                         </div>
-                    </div>
-
-                    <p class="instruction-text">
-                        Please picture the first serial number.
-                    </p>
-                    <div class="label-wrap">
-                        <label>First Serial Number:</label>
-                        <!-- AI Toggle Switch -->
-                        <div v-if="currentStep === 3 || currentStep === 4" class="ai-switch-container">
-                            <span class="ai-label">AI Detection</span>
-
-                            <label class="ai-switch">
-                                <input
-                                type="checkbox"
-                                v-model="useAiDetection"
-                                />
-                                <span class="ai-slider"></span>
-                            </label>
-
-                            <span class="ai-status">
-                                {{ useAiDetection ? 'ON' : 'OFF' }}
-                            </span>
                         </div>
                     </div>
 
                     <input
-                        type="text"
-                        v-model="firstSerialNumber"
-                        placeholder="Scan First Serial Number..."
-                        @input="handleFirstSerialInput"
-                        @keyup.enter="processFirstSerial"
-                        ref="firstSerialInput"
+                    type="text"
+                    v-model="serialNumbers[currentSerialIndex]"
+                    :placeholder="`Scan Serial #${currentSerialIndex + 1}...`"
+                    @input="handleSerialTyping"
+                    :ref="`serialInput${currentSerialIndex + 1}`"
                     />
-                    <button
-                        v-if="showManualInput"
-                        @click="processFirstSerial"
-                        class="first-serial scan-button"
-                    >
-                        Scan
-                    </button>
-                </div>
 
-                <!-- Step 4: Second Serial Number Input (with Skip option) -->
-                <div class="input-group" v-if="currentStep === 4">
-                    <div
-                        class="border-dashed uploader-area"
-                        v-show="true"
-                        @dragover.prevent
-                        @dragenter.prevent="isDragging = true"
-                        @dragleave.prevent="isDragging = false"
-                        @drop.prevent="handleDrop"
-                        @click="triggerFileInput"
-                        :class="{ 'is-dragging': isDragging }"
-                    >
-                        <p>
-                            Drag & drop an image here, or
-                            <span class="text-highlight">click to select</span>
-                        </p>
-                        <input
-                            ref="fileInput"
-                            type="file"
-                            accept="image/*"
-                            class="hidden"
-                            @change="onFileChange"
-                            :disabled="loading"
-                        />
-                    </div>
-
-                    <!-- 👇 Optional small preview (after upload) -->
-                    <div v-if="imageUrl" class="uploaded-preview">
-                        <img :src="imageUrl" alt="Uploaded preview" />
-                        <button class="clear-upload" @click="imageUrl = null">
-                            ×
-                        </button>
-                    </div>
-
-                    <div
-                        v-if="
-                            apiResult.step4 &&
-                            apiResult.step4.serials &&
-                            apiResult.step4.serials.length
-                        "
-                        class="serial-results-wrapper-main"
-                    >
-                        <p class="text-sm text-gray-500 mb-1">
-                            Detected Serials:
-                        </p>
-                        <div
-                            v-for="(serial, index) in apiResult.step4.serials"
-                            :key="index"
-                            class="mb-3 serial-results-wrapper"
-                        >
-                            <div
-                                class="flex items-center gap-2 serial-result-wrap"
-                            >
-                                <div class="font-mono serial-result">
-                                    {{ serial.text }}
-                                </div>
-                                <button
-                                    class="px-2 py-1 bg-green-500 text-white rounded serial-btn"
-                                    @click="saveSerial(serial.text, index)"
-                                >
-                                    Save
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Step 4: Choose Second Serial or Skip -->
-                    <div v-if="!showSecondSerialInput" class="button-group mt-4">
-                        <button
-                            class="scan-button"
-                            @click="showSecondSerialInput = true"
-                        >
-                            Second Serial
+                    <div class="process-buttons">
+                        <button v-if="showManualInput" @click="processSerial" class="scan-button">
+                            Save Serial
                         </button>
 
+                        <!-- Skip only optional serials -->
                         <button
+                            v-if="currentStep >= 4 && currentStep <= 7"
                             class="skip-button"
-                            @click="skipSecondSerial"
+                            type="button"
+                            @click="skipSerialStep"
                         >
                             Skip
                         </button>
                     </div>
-
-                    <!-- Step 4: Second Serial Input -->
-                    <div v-if="showSecondSerialInput" class="second-serial-input mt-4">
-                        <div class="input-container">
-                            <div class="label-wrap">
-                                <label>Second Serial Number:</label>
-                                <!-- AI Toggle Switch -->
-                                <div v-if="currentStep === 3 || currentStep === 4" class="ai-switch-container">
-                                    <span class="ai-label">AI Detection</span>
-
-                                    <label class="ai-switch">
-                                        <input
-                                        type="checkbox"
-                                        v-model="useAiDetection"
-                                        />
-                                        <span class="ai-slider"></span>
-                                    </label>
-
-                                    <span class="ai-status">
-                                        {{ useAiDetection ? 'ON' : 'OFF' }}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <input
-                            type="text"
-                            v-model="secondSerialNumber"
-                            placeholder="Scan Second Serial Number..."
-                            @input="handleSecondSerialInput"
-                            @keyup.enter="processSecondSerial"
-                            ref="secondSerialInput"
-                            />
-                        </div>
-
-                        <div class="button-group mt-2">
-                            <button
-                            v-if="showManualInput"
-                            @click="processSecondSerial"
-                            class="second-serial scan-button"
-                            >
-                            Scan
-                            </button>
-
-                            <!-- ✅ BACK BUTTON -->
-                            <button
-                            @click="goBackToSecondSerialChoice"
-                            class="back-button"
-                            type="button"
-                            >
-                            Back
-                            </button>
-                        </div>
-                    </div>
-
+                    <p class="instruction-text">
+                        📸 Capture the serial image for Serial #{{ currentSerialIndex + 1 }} before continuing.
+                    </p>
                 </div>
 
                 <!-- Step 5: PCN Input  -->
-                <div class="input-group" v-if="currentStep === 5">
+                <div class="input-group" v-if="currentStep === 8">
                     <label>PCN (Product Control Number):</label>
                     <input
                         type="text"
@@ -437,7 +293,7 @@
                 </div>
 
                 <!-- Step 6: Basket Number Input (now step 6) -->
-                <div class="input-group" v-if="currentStep === 6">
+                <div class="input-group" v-if="currentStep === 9">
                     <label>Basket/Container Number:</label>
                     <input
                         type="text"
@@ -1377,6 +1233,51 @@ export default {
         updatePricingView() {
             this.showPricingSection = showPricingForPH();
         },
+        handleAutoSerial() {
+            // Let v-model update first
+            this.$nextTick(() => {
+                this.processSerial();
+            });
+        },
+        handleSerialAutoInput(event) {
+            const value = event.target.value?.trim();
+
+            // Do nothing if empty
+            if (!value) return;
+
+            // If scanner typed fast (length threshold)
+            // Adjust minimum length to your serial format
+            if (value.length >= 5) {
+                // Delay slightly to allow full scan string
+                clearTimeout(this._serialTimer);
+
+                this._serialTimer = setTimeout(() => {
+                this.processSerial();
+                }, 150); // 150ms debounce for scanner
+            }
+        },
+        handleSerialTyping(event) {
+            const value = event.target.value?.trim();
+            const idx = this.currentStep - 3;
+
+            // Clear previous timer
+            clearTimeout(this._serialTypingTimer);
+
+            // If empty, do nothing
+            if (!value) return;
+
+            // Wait until user stops typing
+            this._serialTypingTimer = setTimeout(() => {
+
+                // Only auto proceed if still on same step
+                if (this.currentStep === idx + 3) {
+                this.processSerial();
+                }
+
+            }, 300); // 🔥 300ms pause = considered "finished typing"
+        }
+
+
     },
     beforeUnmount() {
         window.removeEventListener("resize", this.updatePricingView);
@@ -1445,12 +1346,21 @@ export default {
             images.filter(img => img.step === 1).length >= 1
             );
         },
+        currentSerialIndex() {
+            return Math.max(0, Math.min(4, (this.currentStep || 3) - 3));
+        },
+
 
     },
 };
 </script>
 
 <style scoped>
+.process-buttons {
+    display: flex;
+    gap: 5px;
+    flex-direction: row;
+}
 .label-wrap {
     display: flex;
     justify-content: space-between;
@@ -1607,19 +1517,23 @@ button.skip-button {
     flex: 1;
     color: #fff;
     border: none;
-    border-radius: 4px;
+    border-radius: 4px !important;
     cursor: pointer;
     font-weight: bold;
     background-color: #f44336;
+    padding: 10px;
+    height: 45px;
 }
 button.scan-button {
     flex: 1;
     color: #fff;
     border: none;
-    border-radius: 4px;
+    border-radius: 4px !important;
     cursor: pointer;
     font-weight: bold;
     background-color: #0d6efd;
+    padding: 10px;
+    height: 45px;
 }
 .input-container {
     display: flex;

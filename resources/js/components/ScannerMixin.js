@@ -151,15 +151,18 @@ export default {
 
           // 🔄 3. Reset serials and OCR results on parent (if exist)
           if (this.$parent) {
-            // 🧹 Reset serial OCR results per step
-            this.$parent.apiResult = {
-              step3: null,
-              step4: null,
-            };
+            // Clear all OCR results dynamically
+            this.$parent.apiResult = {};
 
-            // 🧼 Reset serial numbers
-            this.$parent.firstSerialNumber = '';
-            this.$parent.secondSerialNumber = '';
+            // Clear dynamic serial array if exists
+            if (Array.isArray(this.$parent.serialNumbers)) {
+              this.$parent.serialNumbers = ["", "", "", "", ""];
+            }
+
+            // Reset serial counter
+            if (typeof this.$parent.serialCount === "number") {
+              this.$parent.serialCount = 1;
+            }
           }
 
           // 💾 4. Save scans to local storage (if needed)
@@ -431,8 +434,11 @@ export default {
       });
 
       // 🔥 Trigger parent OCR only if AI enabled
-      if (this.$parent?.useAiDetection &&
-          (this.$parent.currentStep === 3 || this.$parent.currentStep === 4)) {
+      if (
+        this.$parent?.useAiDetection &&
+        this.$parent.currentStep >= 3 &&
+        this.$parent.currentStep <= 7
+      ) {
 
           this.$parent.handleImageUploadFromCamera?.(
               this.capturedImages[this.capturedImages.length - 1].data
