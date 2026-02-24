@@ -381,8 +381,9 @@ export default {
       const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
 
       this.capturedImages.push({
-        data: dataUrl,
-        timestamp
+        data: canvas.toDataURL('image/jpeg'),
+        timestamp,
+        step: this.$parent?.currentStep ?? 1, // ✅ important
       });
 
       this.showScanSuccess('Image captured.');
@@ -422,7 +423,8 @@ export default {
 
       this.capturedImages.push({
         data: canvas.toDataURL('image/jpeg'),
-        timestamp
+        timestamp,
+        step: this.$parent?.currentStep ?? 1, // ✅ important
       });
 
       // 🔥 Trigger parent OCR only if AI enabled

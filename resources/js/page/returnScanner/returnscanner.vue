@@ -6,7 +6,11 @@
             <Button class="mx-4" @click="openScannerModal" severity="secondary" outlined label="Scan Items" size="small" icon="pi pi-barcode" />
         </div>
 
-        <scanner-component scanner-title="Return Scanner" storage-prefix="returnscanner" :enable-camera="true"
+        <scanner-component 
+            scanner-title="Return Scanner" 
+            storage-prefix="returnscanner" 
+            :enable-camera="true"
+            :disableImagePreview="true"
             module="returnscanner" :display-fields="['ReturnID', 'Serial', 'Location']"
             :api-endpoint="'/api/returns/process-scan'" :hide-button="true" @process-scan="handleScanProcess"
             @hardware-scan="handleHardwareScan" @scanner-opened="handleScannerOpened"

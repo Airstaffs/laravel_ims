@@ -99,6 +99,12 @@ export default {
             croppedImage: null,
             isDragging: false,
 
+            //pagination
+            currentPage: 1,
+            perPage: 10,
+            totalRecords: 0,
+            first: 0,
+
         };
     },
     computed: {
