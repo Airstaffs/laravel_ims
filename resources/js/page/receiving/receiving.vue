@@ -112,13 +112,13 @@
                         ref="trackingInput"
                     />
                     <!-- Only show Verify Tracking button in Manual mode -->
-                    <button
+                    <Button
                         v-if="showManualInput"
                         @click="verifyTrackingNumber"
                         class="verify-button"
                     >
                         Verify Tracking
-                    </button>
+                    </Button>
 
                     <div v-if="currentStep === 1 && trackingFound" class="mt-4">
                         <p class="text-sm text-gray-500">
