@@ -370,7 +370,7 @@
                                 label="Serial Images"
                                 :imageList="serialImgList"
                                 :imageType="'serial'"
-                                :maxImages="2"
+                                :maxImages="5"
                                 :productId="item.ProductID"
                                 :company="item.company"
                                 @request-refresh="fetchInventory()"
