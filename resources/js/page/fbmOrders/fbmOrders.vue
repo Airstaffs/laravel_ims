@@ -257,7 +257,7 @@
                                 <div class="detail-item-container">
                                     <span>
                                         Unit Total:</span>
-                                    <span>${{ (Number(item.unit_tax) + Number(item.unit_price)).toFixed(2) }}</span>
+                                    <span>${{ (Number(subdata.unit_tax) + Number(subdata.unit_price)).toFixed(2) }}</span>
                                 </div>
                                 <!-- Enhanced dispensed products display for multiple quantities -->
                                 <Panel v-if="isItemDispensed(subdata)"
