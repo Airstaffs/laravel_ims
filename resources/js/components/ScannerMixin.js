@@ -26,7 +26,11 @@ export default {
     initialMode: {
       type: String,
       default: 'auto' // 'auto' or 'manual'
-    }
+    },
+    disableImagePreview: {
+      type: Boolean,
+      default: false
+    },
   },
   data() {
     return {
