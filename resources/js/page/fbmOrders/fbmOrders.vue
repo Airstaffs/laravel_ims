@@ -53,23 +53,14 @@
             </div>
         </div> -->
 
-        <scanner-component 
-            scanner-title="Matching Serials Scanner"
-            storage-prefix="matchSerials"
-            :enable-camera="true"
-            :display-fields="['Message', 'Status']"
-            :hide-button="true"
-            :show-camera-screen="false"
-            @scanner-opened="handleMatchSerialScannerOpened"
-            @scanner-closed="handleMatchSerialScannerClosed"
-            @hardware-scan="handleHardwareScan"
-            @mode-changed="handleModeChange"
-            @scanner-reset="handleScannerReset"
-            ref="scanner"
-        >
+        <scanner-component scanner-title="Matching Serials Scanner" storage-prefix="matchSerials" :enable-camera="true"
+            :display-fields="['Message', 'Status']" :hide-button="true" :show-camera-screen="false"
+            @scanner-opened="handleMatchSerialScannerOpened" @scanner-closed="handleMatchSerialScannerClosed"
+            @hardware-scan="handleHardwareScan" @mode-changed="handleModeChange" @scanner-reset="handleScannerReset"
+            ref="scanner">
             <template #input-fields>
                 <div>
-                   <div class="location-scanner-container">
+                    <div class="location-scanner-container">
                         <h4>Location: {{ productLocationScanner }}</h4>
 
                         <div class="scanner-details">
@@ -83,25 +74,20 @@
                             <div class="info-group">
                                 <h6>Looking for tracking number:</h6>
                                 <div v-for="(item, index) in serialsAndTracking" :key="'track-' + index">
-                                    {{ item.tracking}}
+                                    {{ item.tracking }}
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="input-group">
-                    <label>Match {{ scanMode === 'serial' ? 'Serial' : 'Tracking' }} Number:</label>
-                    <input 
-                        v-model="scanInput" 
-                        type="text" 
-                        :placeholder="`Enter ${scanMode === 'serial' ? 'serial' : 'tracking'} number`"
-                        @input="handleSerialInput"
-                         @keyup.enter="processMatchSerialNumber"
-                        ref="scanInputRef"
-                    >
-                    <button class="switch-scan-mode" @click="handleChangeScanMode">
-                        Switch to {{ scanMode === 'serial' ? 'Tracking' : 'Serial' }}
-                    </button>
-                </div>
+                        <label>Match {{ scanMode === 'serial' ? 'Serial' : 'Tracking' }} Number:</label>
+                        <input v-model="scanInput" type="text"
+                            :placeholder="`Enter ${scanMode === 'serial' ? 'serial' : 'tracking'} number`"
+                            @input="handleSerialInput" @keyup.enter="processMatchSerialNumber" ref="scanInputRef">
+                        <button class="switch-scan-mode" @click="handleChangeScanMode">
+                            Switch to {{ scanMode === 'serial' ? 'Tracking' : 'Serial' }}
+                        </button>
+                    </div>
                 </div>
             </template>
         </scanner-component>
@@ -112,7 +98,7 @@
                 <i class="fas fa-check-square"></i>
                 <span>{{ persistentSelectedOrderIds.length }} order{{
                     persistentSelectedOrderIds.length > 1 ? "s" : ""
-                    }}
+                }}
                     selected across all pages</span>
                 <button class="btn-clear-selection" @click="clearAllSelections">
                     <i class="fas fa-times"></i> Clear Selection
@@ -193,7 +179,7 @@
                             <span>Fulfillment Channel: </span>
                             <span class="text-danger fw-bolder">{{
                                 data.FulfillmentChannel
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="detail-item-container">
                             <span>Amazon Order: </span>
@@ -268,6 +254,11 @@
                                     }}
                                     </span>
                                 </div>
+                                <div class="detail-item-container">
+                                    <span>
+                                        Unit Total:</span>
+                                    <span>${{ (Number(subdata.unit_tax) + Number(subdata.unit_price)).toFixed(2) }}</span>
+                                </div>
                                 <!-- Enhanced dispensed products display for multiple quantities -->
                                 <Panel v-if="isItemDispensed(subdata)"
                                     :header="`Dispensed Products (${getDispensedProductCount(subdata)}/${subdata.quantity_ordered})`"
@@ -327,7 +318,7 @@
                                                 <i class="fas fa-exclamation-triangle"></i>
                                                 Not Found
                                             </button>
-                                            <button class="btn-matching-serials" 
+                                            <button class="btn-matching-serials"
                                                 @click="openMatchSerialScannerModal(subdata, dpIndex)">
                                                 <i class="fas fa-copy"></i>
                                                 Matching Serials
@@ -439,7 +430,7 @@
                         <div class="detail-item-container">
                             <span>Delivered by Date: </span>
                             <span> {{ formatDeliveryDate(data.delivery_date)
-                                }}</span>
+                            }}</span>
                         </div>
                         <div v-if="hasTrackingNumber(data)">
                             <span>Tracking Status:</span>
@@ -447,37 +438,37 @@
                         </div>
                     </div>
                 </template>
-<template #orderStatus="{ data }">
-    <div class="d-flex flex-column gap-2">
-        <div class="detail-item-container">
-            <span>Order Status: </span>
-            <Badge :style="{ backgroundColor: getStatusColor(data.order_status) }"
-                :value="data.order_status" />
-        </div>
-        <div class="detail-item-container">
-            <span>Ship Status: </span>
-            <span>{{ getShipStatus(data) }}</span>
-        </div>
-        <div class="detail-item-container">
-            <span>Store Name: </span>
-            <span>{{ data.storename || "N/A" }}</span>
-        </div>
-        
-        <!-- ✅ ADD THESE 3 LINES -->
-        <div class="detail-item-container">
-            <span>Tracking #: </span>
-            <span>{{ getTrackingNumber(data) }}</span>
-        </div>
-        <div class="detail-item-container">
-            <span>Tracking Status: </span>
-            <span>{{ getTrackingStatusFromItems(data) }}</span>
-        </div>
-        <div class="detail-item-container">
-            <span>Carrier: </span>
-            <span>{{ getCarrierInfo(data) }}</span>
-        </div>
-    </div>
-</template>
+                <template #orderStatus="{ data }">
+                    <div class="d-flex flex-column gap-2">
+                        <div class="detail-item-container">
+                            <span>Order Status: </span>
+                            <Badge :style="{ backgroundColor: getStatusColor(data.order_status) }"
+                                :value="data.order_status" />
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Ship Status: </span>
+                            <span>{{ getShipStatus(data) }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Store Name: </span>
+                            <span>{{ data.storename || "N/A" }}</span>
+                        </div>
+
+                        <!-- ✅ ADD THESE 3 LINES -->
+                        <div class="detail-item-container">
+                            <span>Tracking #: </span>
+                            <span>{{ getTrackingNumber(data) }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Tracking Status: </span>
+                            <span>{{ getTrackingStatusFromItems(data) }}</span>
+                        </div>
+                        <div class="detail-item-container">
+                            <span>Carrier: </span>
+                            <span>{{ getCarrierInfo(data) }}</span>
+                        </div>
+                    </div>
+                </template>
                 <template #actions="{ data }">
                     <div class="d-flex flex-column align-items-start gap-2">
                         <Select optionLabel="label" optionValue="value" :options="[
@@ -579,7 +570,7 @@
                                 <span class="mobile-detail-label">Condition: </span>
                                 <span class="mobile-detail-value">{{ item.condition }} | Price: ${{
                                     parseFloat(item.unit_price || 0).toFixed(2)
-                                    }}</span>
+                                }}</span>
                             </div>
 
                             <!-- Enhanced mobile dispensed products display -->
@@ -638,74 +629,75 @@ dispensedProduct, dpIndex
                                     </div>
                                 </div>
                             </div> -->
-                            <Panel v-if="isItemDispensed(item)" toggleable :collapsed="true" 
-                            class="dispensed-item-details dispensed-panel" :header="`Dispensed Products (${getDispensedProductCount(item)}/${item.quantity_ordered})`">
+                            <Panel v-if="isItemDispensed(item)" toggleable :collapsed="true"
+                                class="dispensed-item-details dispensed-panel"
+                                :header="`Dispensed Products (${getDispensedProductCount(item)}/${item.quantity_ordered})`">
                                 <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)"
-                                        :key="'dp-' + dpIndex" class="dispensed-product-item">
-                                        <div class="dispensed-detail">
-                                            <strong>Title:</strong>
-                                            {{ dispensedProduct.title || 'N/A' }}
-                                        </div>
-
-                                        <div class="dispensed-detail">
-                                            <strong>ASIN:</strong>
-                                            {{ dispensedProduct.asin || 'N/A' }}
-                                        </div>
-
-                                        <div class="dispensed-detail">
-                                            <strong>Location:</strong>
-                                            {{ dispensedProduct.warehouseLocation || 'N/A' }}
-                                        </div>
-
-                                        <div v-if="dispensedProduct.serialNumber" class="dispensed-detail">
-                                            <strong>Serial #1:</strong>
-                                            {{ dispensedProduct.serialNumber }}
-                                        </div>
-
-                                        <div v-if="dispensedProduct.serialNumberb" class="dispensed-detail">
-                                            <strong>Serial #2:</strong>
-                                            {{ dispensedProduct.serialNumberb }}
-                                        </div>
-
-                                        <div v-if="dispensedProduct.serialNumberc" class="dispensed-detail">
-                                            <strong>Serial #3:</strong>
-                                            {{ dispensedProduct.serialNumberc }}
-                                        </div>
-
-                                        <div v-if="dispensedProduct.serialNumberd" class="dispensed-detail">
-                                            <strong>Serial #4:</strong>
-                                            {{ dispensedProduct.serialNumberd }}
-                                        </div>
-
-                                        <div v-if="dispensedProduct.rtCounter" class="dispensed-detail">
-                                            <strong>RT Counter:</strong>
-                                            {{ dispensedProduct.rtCounter }}
-                                        </div>
-
-                                        <div v-if="dispensedProduct.FNSKU" class="dispensed-detail">
-                                            <strong>FNSKU:</strong>
-                                            {{ dispensedProduct.FNSKU }}
-                                        </div>
-
-                                        <div class="dispensed-actions">
-                                            <button class="btn-not-found"
-                                                @click="markProductNotFound(dispensedProduct.product_id, item)"
-                                                title="Mark product as not found and auto-select replacement">
-                                                <i class="fas fa-exclamation-triangle"></i>
-                                                Not Found
-                                            </button>
-                                            <button class="btn-matching-serials" 
-                                                @click="openMatchSerialScannerModal(item, dpIndex)">
-                                                <i class="fas fa-copy"></i>
-                                                Matching Serials
-                                            </button>
-                                        </div>
-
-                                        <hr v-if="dpIndex < getDispensedProductsDisplay(item).length - 1"
-                                            class="dispensed-separator" />
+                                    :key="'dp-' + dpIndex" class="dispensed-product-item">
+                                    <div class="dispensed-detail">
+                                        <strong>Title:</strong>
+                                        {{ dispensedProduct.title || 'N/A' }}
                                     </div>
+
+                                    <div class="dispensed-detail">
+                                        <strong>ASIN:</strong>
+                                        {{ dispensedProduct.asin || 'N/A' }}
+                                    </div>
+
+                                    <div class="dispensed-detail">
+                                        <strong>Location:</strong>
+                                        {{ dispensedProduct.warehouseLocation || 'N/A' }}
+                                    </div>
+
+                                    <div v-if="dispensedProduct.serialNumber" class="dispensed-detail">
+                                        <strong>Serial #1:</strong>
+                                        {{ dispensedProduct.serialNumber }}
+                                    </div>
+
+                                    <div v-if="dispensedProduct.serialNumberb" class="dispensed-detail">
+                                        <strong>Serial #2:</strong>
+                                        {{ dispensedProduct.serialNumberb }}
+                                    </div>
+
+                                    <div v-if="dispensedProduct.serialNumberc" class="dispensed-detail">
+                                        <strong>Serial #3:</strong>
+                                        {{ dispensedProduct.serialNumberc }}
+                                    </div>
+
+                                    <div v-if="dispensedProduct.serialNumberd" class="dispensed-detail">
+                                        <strong>Serial #4:</strong>
+                                        {{ dispensedProduct.serialNumberd }}
+                                    </div>
+
+                                    <div v-if="dispensedProduct.rtCounter" class="dispensed-detail">
+                                        <strong>RT Counter:</strong>
+                                        {{ dispensedProduct.rtCounter }}
+                                    </div>
+
+                                    <div v-if="dispensedProduct.FNSKU" class="dispensed-detail">
+                                        <strong>FNSKU:</strong>
+                                        {{ dispensedProduct.FNSKU }}
+                                    </div>
+
+                                    <div class="dispensed-actions">
+                                        <button class="btn-not-found"
+                                            @click="markProductNotFound(dispensedProduct.product_id, item)"
+                                            title="Mark product as not found and auto-select replacement">
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                            Not Found
+                                        </button>
+                                        <button class="btn-matching-serials"
+                                            @click="openMatchSerialScannerModal(item, dpIndex)">
+                                            <i class="fas fa-copy"></i>
+                                            Matching Serials
+                                        </button>
+                                    </div>
+
+                                    <hr v-if="dpIndex < getDispensedProductsDisplay(item).length - 1"
+                                        class="dispensed-separator" />
+                                </div>
                             </Panel>
-                        
+
                         </div>
                     </div>
 
@@ -716,19 +708,19 @@ dispensedProduct, dpIndex
                             <span class="mobile-detail-label">Purchase Date: </span>
                             <span class="mobile-detail-value">{{
                                 formatDate(order.purchase_date)
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="mobile-detail">
                             <span class="mobile-detail-label">Order Type: </span>
                             <span class="mobile-detail-value">{{
                                 order.order_type
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="mobile-detail">
                             <span class="mobile-detail-label">Shipment: </span>
                             <span class="mobile-detail-value">{{
                                 order.shipment_service
-                                }}</span>
+                            }}</span>
                         </div>
                     </div>
 
@@ -758,16 +750,10 @@ dispensedProduct, dpIndex
         </div>
 
         <!-- Pagination with centered layout -->
-        <Paginator
-            :first="first"
-            :rows="perPage"
-            :total-records="totalRecords"
-            :rows-per-page-options="[10, 20, 50]"
+        <Paginator :first="first" :rows="perPage" :total-records="totalRecords" :rows-per-page-options="[10, 20, 50]"
             template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
-            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
-            class="small-paginator"
-            @page="onPageChange"
-        />
+            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}" class="small-paginator"
+            @page="onPageChange" />
 
         <!-- Order Details Modal -->
         <div v-if="showOrderDetailsModal" class="order-details-modal">
@@ -946,12 +932,12 @@ dispensedProduct, dpIndex
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Title:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.title || 'N/A'
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">ASIN:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.asin || 'N/A'
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Location:</span>
@@ -962,17 +948,17 @@ dispensedProduct, dpIndex
                                                     <div v-if="dispensedProduct.serialNumber" class="dispensed-row">
                                                         <span class="dispensed-label">Serial #:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.serialNumber
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.rtCounter" class="dispensed-row">
                                                         <span class="dispensed-label">RT Counter:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.rtCounter
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.FNSKU" class="dispensed-row">
                                                         <span class="dispensed-label">FNSKU:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.FNSKU
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Action:</span>
@@ -1009,172 +995,173 @@ dispensedProduct, dpIndex
         </div>
 
         <!-- Process Order Modal with Integrated Auto Dispense -->
-           <Dialog v-model:visible="showProcessModal"
-        :header="`Process Order: ${currentProcessOrder ? currentProcessOrder.platform_order_id : ''}`" 
-        modal 
-        :pt="{
-            root: { class: 'mobile-fullscreen-dialog process-order-modal' }
-        }" 
-        :style="{ width: '95%', maxWidth: '1600px' }">
-        
-        <div class="process-modal-body">
-            <!-- Order Summary Banner -->
-            <div class="info-banner">
-                <div class="info-grid">
-                    <div class="info-col">
-                        <span class="info-label">Order ID</span>
-                        <span class="info-value">{{ currentProcessOrder?.platform_order_id }}</span>
-                    </div>
-                    <div class="info-col">
-                        <span class="info-label">Customer</span>
-                        <span class="info-value">{{ currentProcessOrder?.buyer_name || 'N/A' }}</span>
-                    </div>
-                    <div class="info-col">
-                        <span class="info-label">Store</span>
-                        <span class="info-value">{{ currentProcessOrder?.storename || 'N/A' }}</span>
-                    </div>
-                    <div class="info-col">
-                        <span class="info-label">Order Type</span>
-                        <span class="info-value">{{ currentProcessOrder?.order_type || 'Standard' }}</span>
-                    </div>
-                    <div class="info-col">
-                        <span class="info-label">Total Items</span>
-                        <div class="progress-tags">
-                            <Tag :value="`${currentProcessOrder?.items?.length || 0} items`" severity="info" />
+        <Dialog v-model:visible="showProcessModal"
+            :header="`Process Order: ${currentProcessOrder ? currentProcessOrder.platform_order_id : ''}`" modal :pt="{
+                root: { class: 'mobile-fullscreen-dialog process-order-modal' }
+            }" :style="{ width: '95%', maxWidth: '1600px' }">
+
+            <div class="process-modal-body">
+                <!-- Order Summary Banner -->
+                <div class="info-banner">
+                    <div class="info-grid">
+                        <div class="info-col">
+                            <span class="info-label">Order ID</span>
+                            <span class="info-value">{{ currentProcessOrder?.platform_order_id }}</span>
+                        </div>
+                        <div class="info-col">
+                            <span class="info-label">Customer</span>
+                            <span class="info-value">{{ currentProcessOrder?.buyer_name || 'N/A' }}</span>
+                        </div>
+                        <div class="info-col">
+                            <span class="info-label">Store</span>
+                            <span class="info-value">{{ currentProcessOrder?.storename || 'N/A' }}</span>
+                        </div>
+                        <div class="info-col">
+                            <span class="info-label">Order Type</span>
+                            <span class="info-value">{{ currentProcessOrder?.order_type || 'Standard' }}</span>
+                        </div>
+                        <div class="info-col">
+                            <span class="info-label">Total Items</span>
+                            <div class="progress-tags">
+                                <Tag :value="`${currentProcessOrder?.items?.length || 0} items`" severity="info" />
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Auto Dispense Section -->
-            <div v-if="processingAutoDispense" class="auto-dispense-section">
-                <div v-if="loadingDispenseProducts" class="state-container">
-                    <i class="pi pi-spin pi-spinner" style="font-size: 3rem; color: #6366f1;"></i>
-                    <p class="state-text">Searching for matching products...</p>
-                </div>
+                <!-- Auto Dispense Section -->
+                <div v-if="processingAutoDispense" class="auto-dispense-section">
+                    <div v-if="loadingDispenseProducts" class="state-container">
+                        <i class="pi pi-spin pi-spinner" style="font-size: 3rem; color: #6366f1;"></i>
+                        <p class="state-text">Searching for matching products...</p>
+                    </div>
 
-                <div v-else-if="dispenseProducts.length === 0" class="state-container">
-                    <i class="pi pi-inbox" style="font-size: 4rem; color: #94a3b8;"></i>
-                    <p class="state-text">No matching products found in your inventory.</p>
-                </div>
+                    <div v-else-if="dispenseProducts.length === 0" class="state-container">
+                        <i class="pi pi-inbox" style="font-size: 4rem; color: #94a3b8;"></i>
+                        <p class="state-text">No matching products found in your inventory.</p>
+                    </div>
 
-                <div v-else class="dispense-products-container">
-                    <div class="dispense-products-grid">
-                        <div v-for="(dispenseItem, index) in dispenseProducts" :key="'dispense-' + index"
-                            class="dispense-item-card">
-                            
-                            <!-- Ordered Item Header -->
-                            <div class="dispense-card-header">
-                                <h4 class="dispense-item-title">
-                                    <i class="pi pi-box"></i>
-                                    {{ dispenseItem.ordered_item.platform_title }}
-                                </h4>
-                                <Tag :value="`Qty: ${dispenseItem.quantity_ordered} (${dispenseItem.quantity_dispensed} dispensed, ${dispenseItem.quantity_remaining} remaining)`"
-                                    severity="info" />
-                            </div>
+                    <div v-else class="dispense-products-container">
+                        <div class="dispense-products-grid">
+                            <div v-for="(dispenseItem, index) in dispenseProducts" :key="'dispense-' + index"
+                                class="dispense-item-card">
 
-                            <!-- Ordered Item Details -->
-                            <div class="ordered-item-details">
-                                <div class="detail-row">
-                                    <i class="pi pi-tag"></i>
-                                    <span class="label">ASIN:</span>
-                                    <span class="value">{{ dispenseItem.ordered_item.platform_asin }}</span>
+                                <!-- Ordered Item Header -->
+                                <div class="dispense-card-header">
+                                    <h4 class="dispense-item-title">
+                                        <i class="pi pi-box"></i>
+                                        {{ dispenseItem.ordered_item.platform_title }}
+                                    </h4>
+                                    <Tag :value="`Qty: ${dispenseItem.quantity_ordered} (${dispenseItem.quantity_dispensed} dispensed, ${dispenseItem.quantity_remaining} remaining)`"
+                                        severity="info" />
                                 </div>
-                                <div class="detail-row">
-                                    <i class="pi pi-barcode"></i>
-                                    <span class="label">SKU:</span>
-                                    <span class="value">{{ dispenseItem.ordered_item.platform_sku }}</span>
+
+                                <!-- Ordered Item Details -->
+                                <div class="ordered-item-details">
+                                    <div class="detail-row">
+                                        <i class="pi pi-tag"></i>
+                                        <span class="label">ASIN:</span>
+                                        <span class="value">{{ dispenseItem.ordered_item.platform_asin }}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <i class="pi pi-barcode"></i>
+                                        <span class="label">SKU:</span>
+                                        <span class="value">{{ dispenseItem.ordered_item.platform_sku }}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <i class="pi pi-star"></i>
+                                        <span class="label">Condition:</span>
+                                        <span class="value">{{ getConditionDisplay(dispenseItem.ordered_item) }}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <i class="pi pi-hashtag"></i>
+                                        <span class="label">Order Item ID:</span>
+                                        <span class="value">{{ dispenseItem.ordered_item.platform_order_item_id
+                                            }}</span>
+                                    </div>
                                 </div>
-                                <div class="detail-row">
-                                    <i class="pi pi-star"></i>
-                                    <span class="label">Condition:</span>
-                                    <span class="value">{{ getConditionDisplay(dispenseItem.ordered_item) }}</span>
+
+                                <!-- Already Dispensed Products -->
+                                <div v-if="dispenseItem.quantity_dispensed > 0" class="already-dispensed-section">
+                                    <h5 class="section-subtitle">
+                                        <i class="pi pi-check-circle"></i>
+                                        Already Dispensed ({{ dispenseItem.quantity_dispensed }})
+                                    </h5>
+                                    <div class="dispensed-tags">
+                                        <Tag v-for="(productId, idx) in dispenseItem.already_dispensed_products"
+                                            :key="'dispensed-' + idx" :value="`Product ID: ${productId}`"
+                                            severity="success" />
+                                    </div>
                                 </div>
-                                <div class="detail-row">
-                                    <i class="pi pi-hashtag"></i>
-                                    <span class="label">Order Item ID:</span>
-                                    <span class="value">{{ dispenseItem.ordered_item.platform_order_item_id }}</span>
-                                </div>
-                            </div>
 
-                            <!-- Already Dispensed Products -->
-                            <div v-if="dispenseItem.quantity_dispensed > 0" class="already-dispensed-section">
-                                <h5 class="section-subtitle">
-                                    <i class="pi pi-check-circle"></i>
-                                    Already Dispensed ({{ dispenseItem.quantity_dispensed }})
-                                </h5>
-                                <div class="dispensed-tags">
-                                    <Tag v-for="(productId, idx) in dispenseItem.already_dispensed_products"
-                                        :key="'dispensed-' + idx" 
-                                        :value="`Product ID: ${productId}`"
-                                        severity="success" />
-                                </div>
-                            </div>
+                                <!-- Product Selection -->
+                                <div v-if="dispenseItem.quantity_remaining > 0" class="product-selection-section">
+                                    <h5 class="section-subtitle">
+                                        <i class="pi pi-plus-circle"></i>
+                                        Select {{ dispenseItem.quantity_remaining }} More Product{{
+                                            dispenseItem.quantity_remaining > 1 ? 's' : '' }}
+                                    </h5>
 
-                            <!-- Product Selection -->
-                            <div v-if="dispenseItem.quantity_remaining > 0" class="product-selection-section">
-                                <h5 class="section-subtitle">
-                                    <i class="pi pi-plus-circle"></i>
-                                    Select {{ dispenseItem.quantity_remaining }} More Product{{ dispenseItem.quantity_remaining > 1 ? 's' : '' }}
-                                </h5>
-                                
-                                <Message severity="info" :closable="false" class="mb-3">
-                                    <i class="pi pi-info-circle"></i> Products are sorted by stockroom date (oldest first)
-                                </Message>
+                                    <Message severity="info" :closable="false" class="mb-3">
+                                        <i class="pi pi-info-circle"></i> Products are sorted by stockroom date (oldest
+                                        first)
+                                    </Message>
 
-                                <Message v-if="dispenseItem.matching_products.length === 0" 
-                                    severity="warning" :closable="false">
-                                    No matching products for this item
-                                </Message>
+                                    <Message v-if="dispenseItem.matching_products.length === 0" severity="warning"
+                                        :closable="false">
+                                        No matching products for this item
+                                    </Message>
 
-                                <!-- Product Slots -->
-                                <div v-else class="product-slots">
-                                    <div v-for="slot in dispenseItem.quantity_remaining" :key="'slot-' + slot"
-                                        class="product-slot">
-                                        <div class="slot-header">
-                                            <i class="pi pi-box"></i>
-                                            <span>Selection {{ slot }}</span>
-                                        </div>
-                                        
-                                        <!-- Product Options -->
-                                        <div class="product-options">
-                                            <div v-for="(product, prodIndex) in dispenseItem.matching_products"
-                                                :key="'product-' + prodIndex"
-                                                @click="selectDispenseProduct(dispenseItem.item_id, slot - 1, product)"
-                                                :class="['product-option-card', {
-                                                    'selected': selectedDispenseProducts[`${dispenseItem.item_id}-${slot - 1}`] &&
-                                                        selectedDispenseProducts[`${dispenseItem.item_id}-${slot - 1}`].ProductID === product.ProductID
-                                                }]">
-                                                
-                                                <!-- Selection Badge -->
-                                                <div class="selection-badge-small">
-                                                    <i :class="selectedDispenseProducts[`${dispenseItem.item_id}-${slot - 1}`] &&
-                                                        selectedDispenseProducts[`${dispenseItem.item_id}-${slot - 1}`].ProductID === product.ProductID 
-                                                        ? 'pi pi-check-circle' : 'pi pi-circle'"></i>
-                                                </div>
+                                    <!-- Product Slots -->
+                                    <div v-else class="product-slots">
+                                        <div v-for="slot in dispenseItem.quantity_remaining" :key="'slot-' + slot"
+                                            class="product-slot">
+                                            <div class="slot-header">
+                                                <i class="pi pi-box"></i>
+                                                <span>Selection {{ slot }}</span>
+                                            </div>
 
-                                                <div class="product-option-content">
-                                                    <div class="product-option-header">
-                                                        <span class="product-title">{{ product.title }}</span>
-                                                        <span class="product-id-badge">ID: {{ product.ProductID }}</span>
+                                            <!-- Product Options -->
+                                            <div class="product-options">
+                                                <div v-for="(product, prodIndex) in dispenseItem.matching_products"
+                                                    :key="'product-' + prodIndex"
+                                                    @click="selectDispenseProduct(dispenseItem.item_id, slot - 1, product)"
+                                                    :class="['product-option-card', {
+                                                        'selected': selectedDispenseProducts[`${dispenseItem.item_id}-${slot - 1}`] &&
+                                                            selectedDispenseProducts[`${dispenseItem.item_id}-${slot - 1}`].ProductID === product.ProductID
+                                                    }]">
+
+                                                    <!-- Selection Badge -->
+                                                    <div class="selection-badge-small">
+                                                        <i :class="selectedDispenseProducts[`${dispenseItem.item_id}-${slot - 1}`] &&
+                                                            selectedDispenseProducts[`${dispenseItem.item_id}-${slot - 1}`].ProductID === product.ProductID
+                                                            ? 'pi pi-check-circle' : 'pi pi-circle'"></i>
                                                     </div>
-                                                    
-                                                    <div class="product-option-details">
-                                                        <div class="detail-mini">
-                                                            <i class="pi pi-tag"></i>
-                                                            <span>{{ product.asin }}</span>
+
+                                                    <div class="product-option-content">
+                                                        <div class="product-option-header">
+                                                            <span class="product-title">{{ product.title }}</span>
+                                                            <span class="product-id-badge">ID: {{ product.ProductID
+                                                                }}</span>
                                                         </div>
-                                                        <div class="detail-mini">
-                                                            <i class="pi pi-barcode"></i>
-                                                            <span>{{ product.msku }}</span>
-                                                        </div>
-                                                        <div class="detail-mini highlight">
-                                                            <i class="pi pi-map-marker"></i>
-                                                            <span>{{ product.warehouseLocation }}</span>
-                                                        </div>
-                                                        <div class="detail-mini">
-                                                            <i class="pi pi-star"></i>
-                                                            <span>{{ product.condition }}</span>
+
+                                                        <div class="product-option-details">
+                                                            <div class="detail-mini">
+                                                                <i class="pi pi-tag"></i>
+                                                                <span>{{ product.asin }}</span>
+                                                            </div>
+                                                            <div class="detail-mini">
+                                                                <i class="pi pi-barcode"></i>
+                                                                <span>{{ product.msku }}</span>
+                                                            </div>
+                                                            <div class="detail-mini highlight">
+                                                                <i class="pi pi-map-marker"></i>
+                                                                <span>{{ product.warehouseLocation }}</span>
+                                                            </div>
+                                                            <div class="detail-mini">
+                                                                <i class="pi pi-star"></i>
+                                                                <span>{{ product.condition }}</span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1182,203 +1169,172 @@ dispensedProduct, dpIndex
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div v-else class="fully-dispensed">
-                                <i class="pi pi-check-circle"></i>
-                                <span>This item is fully dispensed</span>
+                                <div v-else class="fully-dispensed">
+                                    <i class="pi pi-check-circle"></i>
+                                    <span>This item is fully dispensed</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Regular Process Section -->
-            <div v-else class="regular-process-section">
-                <h3 class="section-title">
-                    <i class="pi pi-list"></i>
-                    Order Items
-                </h3>
-                <Divider />
-                
-                <div class="order-items-grid">
-                    <div v-for="(item, idx) in (currentProcessOrder && currentProcessOrder.items ? currentProcessOrder.items : [])"
-                        :key="idx" 
-                        class="order-item-card">
+                <!-- Regular Process Section -->
+                <div v-else class="regular-process-section">
+                    <h3 class="section-title">
+                        <i class="pi pi-list"></i>
+                        Order Items
+                    </h3>
+                    <Divider />
 
-                        <!-- Item Header -->
-                        <div class="item-card-header">
-                            <div class="item-title-section">
-                                <h4 class="item-title">{{ item.platform_title }}</h4>
-                                <div class="item-meta">
-                                    <span class="item-meta-item">
-                                        <i class="pi pi-tag"></i>
-                                        ASIN: {{ item.platform_asin }}
-                                    </span>
-                                    <span class="item-meta-item">
-                                        <i class="pi pi-barcode"></i>
-                                        SKU: {{ item.platform_sku }}
-                                    </span>
-                                    <span class="item-meta-item">
-                                        <i class="pi pi-box"></i>
-                                        Qty: {{ item.quantity_ordered }}
-                                    </span>
-                                </div>
-                            </div>
+                    <div class="order-items-grid">
+                        <div v-for="(item, idx) in (currentProcessOrder && currentProcessOrder.items ? currentProcessOrder.items : [])"
+                            :key="idx" class="order-item-card">
 
-                            <!-- Status & Actions -->
-                            <div class="item-status-actions">
-                                <Tag v-if="isItemDispensed(item)"
-                                    :value="`${getDispensedProductCount(item)}/${item.quantity_ordered} dispensed`"
-                                    severity="success" />
-                                <Tag v-else value="Not dispensed" severity="warning" />
-
-                                <Button v-if="itemNeedsMoreProducts(item)" 
-                                    label="Manual Dispense"
-                                    icon="pi pi-plus-circle" 
-                                    severity="info" 
-                                    size="small"
-                                    outlined
-                                    @click="openManualDispenseForItem(item)" />
-                            </div>
-                        </div>
-
-                        <!-- Item Details -->
-                        <div class="item-details-grid">
-                            <div class="detail-row">
-                                <i class="pi pi-hashtag"></i>
-                                <span class="label">Order Item ID:</span>
-                                <span class="value">{{ item.platform_order_item_id }}</span>
-                            </div>
-                            <div class="detail-row">
-                                <i class="pi pi-star"></i>
-                                <span class="label">Condition:</span>
-                                <span class="value">{{ getConditionDisplay(item) }}</span>
-                            </div>
-                        </div>
-
-                        <!-- Dispensed Products Display -->
-                        <div v-if="isItemDispensed(item)" class="dispensed-products-section">
-                            <h5 class="section-subtitle">
-                                <i class="pi pi-check-circle"></i>
-                                Dispensed Products ({{ getDispensedProductCount(item) }})
-                            </h5>
-                            
-                            <div class="dispensed-products-list">
-                                <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)"
-                                    :key="'process-dp-' + dpIndex" 
-                                    class="dispensed-product-card">
-                                    
-                                    <div class="dispensed-product-info">
-                                        <div class="detail-row">
-                                            <i class="pi pi-box"></i>
-                                            <span class="label">Title:</span>
-                                            <span class="value">{{ dispensedProduct.title || 'N/A' }}</span>
-                                        </div>
-                                        <div class="detail-row">
+                            <!-- Item Header -->
+                            <div class="item-card-header">
+                                <div class="item-title-section">
+                                    <h4 class="item-title">{{ item.platform_title }}</h4>
+                                    <div class="item-meta">
+                                        <span class="item-meta-item">
                                             <i class="pi pi-tag"></i>
-                                            <span class="label">ASIN:</span>
-                                            <span class="value">{{ dispensedProduct.asin || 'N/A' }}</span>
-                                        </div>
-                                        <div class="detail-row highlight">
-                                            <i class="pi pi-map-marker"></i>
-                                            <span class="label">Location:</span>
-                                            <span class="value">{{ dispensedProduct.warehouseLocation || 'N/A' }}</span>
-                                        </div>
-                                        <div v-if="dispensedProduct.serialNumber" class="detail-row">
-                                            <i class="pi pi-hashtag"></i>
-                                            <span class="label">Serial #:</span>
-                                            <span class="value">{{ dispensedProduct.serialNumber }}</span>
-                                        </div>
-                                        <div v-if="dispensedProduct.rtCounter" class="detail-row">
-                                            <i class="pi pi-hashtag"></i>
-                                            <span class="label">RT Counter:</span>
-                                            <span class="value">{{ dispensedProduct.rtCounter }}</span>
-                                        </div>
-                                        <div v-if="dispensedProduct.FNSKU" class="detail-row">
+                                            ASIN: {{ item.platform_asin }}
+                                        </span>
+                                        <span class="item-meta-item">
                                             <i class="pi pi-barcode"></i>
-                                            <span class="label">FNSKU:</span>
-                                            <span class="value">{{ dispensedProduct.FNSKU }}</span>
+                                            SKU: {{ item.platform_sku }}
+                                        </span>
+                                        <span class="item-meta-item">
+                                            <i class="pi pi-box"></i>
+                                            Qty: {{ item.quantity_ordered }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Status & Actions -->
+                                <div class="item-status-actions">
+                                    <Tag v-if="isItemDispensed(item)"
+                                        :value="`${getDispensedProductCount(item)}/${item.quantity_ordered} dispensed`"
+                                        severity="success" />
+                                    <Tag v-else value="Not dispensed" severity="warning" />
+
+                                    <Button v-if="itemNeedsMoreProducts(item)" label="Manual Dispense"
+                                        icon="pi pi-plus-circle" severity="info" size="small" outlined
+                                        @click="openManualDispenseForItem(item)" />
+                                </div>
+                            </div>
+
+                            <!-- Item Details -->
+                            <div class="item-details-grid">
+                                <div class="detail-row">
+                                    <i class="pi pi-hashtag"></i>
+                                    <span class="label">Order Item ID:</span>
+                                    <span class="value">{{ item.platform_order_item_id }}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <i class="pi pi-star"></i>
+                                    <span class="label">Condition:</span>
+                                    <span class="value">{{ getConditionDisplay(item) }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Dispensed Products Display -->
+                            <div v-if="isItemDispensed(item)" class="dispensed-products-section">
+                                <h5 class="section-subtitle">
+                                    <i class="pi pi-check-circle"></i>
+                                    Dispensed Products ({{ getDispensedProductCount(item) }})
+                                </h5>
+
+                                <div class="dispensed-products-list">
+                                    <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)"
+                                        :key="'process-dp-' + dpIndex" class="dispensed-product-card">
+
+                                        <div class="dispensed-product-info">
+                                            <div class="detail-row">
+                                                <i class="pi pi-box"></i>
+                                                <span class="label">Title:</span>
+                                                <span class="value">{{ dispensedProduct.title || 'N/A' }}</span>
+                                            </div>
+                                            <div class="detail-row">
+                                                <i class="pi pi-tag"></i>
+                                                <span class="label">ASIN:</span>
+                                                <span class="value">{{ dispensedProduct.asin || 'N/A' }}</span>
+                                            </div>
+                                            <div class="detail-row highlight">
+                                                <i class="pi pi-map-marker"></i>
+                                                <span class="label">Location:</span>
+                                                <span class="value">{{ dispensedProduct.warehouseLocation || 'N/A'
+                                                    }}</span>
+                                            </div>
+                                            <div v-if="dispensedProduct.serialNumber" class="detail-row">
+                                                <i class="pi pi-hashtag"></i>
+                                                <span class="label">Serial #:</span>
+                                                <span class="value">{{ dispensedProduct.serialNumber }}</span>
+                                            </div>
+                                            <div v-if="dispensedProduct.rtCounter" class="detail-row">
+                                                <i class="pi pi-hashtag"></i>
+                                                <span class="label">RT Counter:</span>
+                                                <span class="value">{{ dispensedProduct.rtCounter }}</span>
+                                            </div>
+                                            <div v-if="dispensedProduct.FNSKU" class="detail-row">
+                                                <i class="pi pi-barcode"></i>
+                                                <span class="label">FNSKU:</span>
+                                                <span class="value">{{ dispensedProduct.FNSKU }}</span>
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    <div class="dispensed-product-actions">
-                                        <Button label="Not Found" 
-                                            icon="pi pi-exclamation-triangle" 
-                                            severity="warning"
-                                            size="small" 
-                                            text
-                                            @click="markProductNotFound(dispensedProduct.product_id, item)" />
-                                        <Button label="Cancel This Dispense" 
-                                            icon="pi pi-times" 
-                                            severity="danger"
-                                            size="small" 
-                                            text
-                                            @click="cancelSingleDispensedProduct(dispensedProduct.product_id, item)" />
-                                    </div>
+                                        <div class="dispensed-product-actions">
+                                            <Button label="Not Found" icon="pi pi-exclamation-triangle"
+                                                severity="warning" size="small" text
+                                                @click="markProductNotFound(dispensedProduct.product_id, item)" />
+                                            <Button label="Cancel This Dispense" icon="pi pi-times" severity="danger"
+                                                size="small" text
+                                                @click="cancelSingleDispensedProduct(dispensedProduct.product_id, item)" />
+                                        </div>
 
-                                    <Divider v-if="dpIndex < getDispensedProductsDisplay(item).length - 1" class="my-2" />
+                                        <Divider v-if="dpIndex < getDispensedProductsDisplay(item).length - 1"
+                                            class="my-2" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Footer Buttons -->
-        <template #footer>
-            <div class="footer-content">
-                <div class="footer-info">
-                    <span v-if="processingAutoDispense && canConfirmDispense">
-                        <i class="pi pi-info-circle" style="color: #6366f1;"></i>
-                        {{ Object.keys(selectedDispenseProducts).length }} product(s) selected
-                    </span>
+            <!-- Footer Buttons -->
+            <template #footer>
+                <div class="footer-content">
+                    <div class="footer-info">
+                        <span v-if="processingAutoDispense && canConfirmDispense">
+                            <i class="pi pi-info-circle" style="color: #6366f1;"></i>
+                            {{ Object.keys(selectedDispenseProducts).length }} product(s) selected
+                        </span>
+                    </div>
+                    <div class="footer-actions">
+                        <Button label="Close" icon="pi pi-times" size="small" severity="secondary" outlined
+                            @click="closeProcessModal" />
+
+                        <!-- Auto Dispense Mode Buttons -->
+                        <template v-if="processingAutoDispense">
+                            <Button label="Back" icon="pi pi-arrow-left" severity="secondary" size="small" outlined
+                                @click="cancelAutoDispenseProcess" />
+                            <Button label="Confirm Dispense" icon="pi pi-check" severity="success" size="small"
+                                :disabled="!canConfirmDispense" @click="confirmAutoDispenseInProcess" />
+                        </template>
+
+                        <!-- Regular Process Mode Buttons -->
+                        <template v-else>
+                            <Button v-if="hasDispensedItems(currentProcessOrder)" label="Cancel Dispense"
+                                icon="pi pi-times" severity="danger" size="small" outlined
+                                @click="cancelDispense(currentProcessOrder)" />
+                            <Button v-if="currentOrderHasUnassignedItems" label="Auto Dispense Items" icon="pi pi-inbox"
+                                severity="info" size="small" @click="startAutoDispenseInProcess" />
+                        </template>
+                    </div>
                 </div>
-                <div class="footer-actions">
-                    <Button label="Close" 
-                        icon="pi pi-times" 
-                        size="small" 
-                        severity="secondary"
-                        outlined
-                        @click="closeProcessModal" />
-
-                    <!-- Auto Dispense Mode Buttons -->
-                    <template v-if="processingAutoDispense">
-                        <Button label="Back" 
-                            icon="pi pi-arrow-left" 
-                            severity="secondary"
-                            size="small"
-                            outlined
-                            @click="cancelAutoDispenseProcess" />
-                        <Button label="Confirm Dispense" 
-                            icon="pi pi-check" 
-                            severity="success"
-                            size="small"
-                            :disabled="!canConfirmDispense" 
-                            @click="confirmAutoDispenseInProcess" />
-                    </template>
-
-                    <!-- Regular Process Mode Buttons -->
-                    <template v-else>
-                        <Button v-if="hasDispensedItems(currentProcessOrder)" 
-                            label="Cancel Dispense" 
-                            icon="pi pi-times"
-                            severity="danger" 
-                            size="small"
-                            outlined
-                            @click="cancelDispense(currentProcessOrder)" />
-                        <Button v-if="currentOrderHasUnassignedItems" 
-                            label="Auto Dispense Items" 
-                            icon="pi pi-inbox"
-                            severity="info" 
-                            size="small"
-                            @click="startAutoDispenseInProcess" />
-                    </template>
-                </div>
-            </div>
-        </template>
-    </Dialog>
+            </template>
+        </Dialog>
 
         <!-- Shipment Label Modal -->
         <div v-if="showShipmentLabelModal" class="modal shipmentLabel">
@@ -1398,6 +1354,9 @@ dispensedProduct, dpIndex
                                     <li>
                                         <p><strong>Amazon Order Id: </strong>{{ order.platform_order_id }}</p>
                                         <p><strong>Customer Name: </strong>{{ order.BuyerName }}</p>
+                                        <p><strong>Order Type: {{ order.OrderType }}</strong></p>
+                                        <p><strong>Shipping Service: {{ order.ShipmentServiceLevelCategory }}</strong>
+                                        </p>
                                         <p><strong>Address: </strong>
                                         <ul class="list-unstyled m-0 d-flex flex-column align-items-end">
                                             <li>{{ order.address_line1 }},</li>
@@ -1427,6 +1386,10 @@ dispensedProduct, dpIndex
                                                         {{ item.ConditionId }}</strong></li>
                                                 <li>Unit Price: <strong>${{ item.unit_price }}</strong></li>
                                                 <li>Unit Tax: <strong>${{ item.unit_tax }}</strong></li>
+                                                <li>
+                                                    Unit Total: <strong>${{ (Number(item.unit_tax) +
+                                                        Number(item.unit_price)).toFixed(2)}}</strong>
+                                                </li>
                                             </ul>
                                         </div>
                                     </li>
@@ -1639,7 +1602,7 @@ dispensedProduct, dpIndex
                         <!-- Search -->
                         <fieldset class="filter-field">
                             <label>Total Orders: <span class="text-primary">{{ workHistoryStats.totalOrders
-                            }}</span></label>
+                                    }}</span></label>
                             <InputText type="text" size="small" placeholder="Search Order ID or ..."
                                 v-model="workHistoryFilters.searchQuery" class="search-input" fluid
                                 @input="fetchWorkHistory" />
@@ -1714,7 +1677,7 @@ dispensedProduct, dpIndex
                                     <li>
                                         <strong>{{
                                             item.Title
-                                        }}</strong>
+                                            }}</strong>
                                     </li>
                                     <li>{{ item.ASIN }}</li>
                                     <li>{{ item.MSKU }}</li>
@@ -2250,7 +2213,7 @@ export default {
 
 
         getStatusColor(status) {
-           switch (status) {
+            switch (status) {
                 case 'Pending':
                     return "#037CA6"  // Blue
                 case 'Unshipped':
@@ -2732,7 +2695,7 @@ export default {
 
 .scanner-details {
     display: flex;
-    gap: 20px; 
+    gap: 20px;
 }
 
 .info-group h6 {
@@ -2746,37 +2709,37 @@ export default {
     .info-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .product-options {
         grid-template-columns: 1fr;
     }
-    
+
     .item-card-header {
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .item-status-actions {
         align-items: stretch;
     }
-    
+
     .item-details-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .dispensed-product-info {
         grid-template-columns: 1fr;
     }
-    
+
     .footer-content {
         flex-direction: column;
         align-items: stretch;
     }
-    
+
     .footer-actions {
         width: 100%;
     }
-    
+
     .footer-actions button {
         flex: 1;
     }

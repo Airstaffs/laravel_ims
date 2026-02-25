@@ -136,6 +136,8 @@ export default {
             totalRecords: 1,
             perPage: 10, // Default rows per page
             first: 0, //paginator internal state
+
+            isFnskuAvailable: false
         };
     },
     computed: {
@@ -1756,6 +1758,7 @@ export default {
                     this.showFnskuField = false; // Hide FNSKU field
                     this.fnsku = ""; // Clear FNSKU input
                     this.serialCheckMessage = `✓ Item found in ${response.data.location}`;
+                    this.focusNextField("locationInput");
 
                     console.log("✅ Serial exists - hiding FNSKU field");
                 } else {
@@ -1773,6 +1776,10 @@ export default {
                 this.serialCheckMessage = "";
             } finally {
                 this.checkingSerial = false;
+                
+                if(this.showManualInput) {
+                    this.focusNextField("fnskuInput")
+                }
             }
         },
 
@@ -1862,10 +1869,12 @@ export default {
                     if (isAvailable) {
                         // Play success sound if FNSKU is valid and available
                         SoundService.success();
-
+                        
+                        this.isFnskuAvailable = true;
                         // Focus on location field
                         this.focusNextField("locationInput");
                     } else {
+                        this.isFnskuAvailable = false;
                         // Show appropriate error message based on status
                         let errorMessage = "Unknown FNSKU status";
 
@@ -2053,6 +2062,9 @@ export default {
                     });
 
                     this.$refs.scanner.capturedImages = [];
+
+                    //BACK TO SERIAL INPUT
+                    this.focusNextField("serialNumberInput");
 
                     // Real-time updates
                     console.log("🎯 Scan successful - triggering updates...");
@@ -2461,6 +2473,24 @@ export default {
 
         handleModeChange(event) {
             this.showManualInput = event.manual;
+
+            // Determine the next field to focus based on current state
+            let nextField = null;
+
+            if (!this.serialNumber) {
+                nextField = "serialNumberInput";
+            } else if (this.serialExists) {
+                nextField = "locationInput";
+            } else if (this.isFnskuAvailable) {
+                nextField = "locationInput";
+            } else {
+                nextField = "fnskuInput";
+            }
+
+            // Focus the determined field
+            if (nextField) {
+                this.focusNextField(nextField);
+            }
         },
 
         handleScannerOpened() {

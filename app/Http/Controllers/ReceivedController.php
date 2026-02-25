@@ -157,14 +157,6 @@ class ReceivedController extends BasetablesController
         // -------------------------------------------------
         if ($receivedProduct) {
 
-            // $hasTrackingImages = DB::table($this->capturedImagesTable)
-            //     ->where('ProductID', $receivedProduct->ProductID)
-            //     ->where(function ($q) {
-            //         $q->whereNotNull('trackingimg1')
-            //         ->orWhereNotNull('trackingimg2');
-            //     })
-            //     ->exists();
-
             $trackingImageData = $this->getTrackingImagesByTrackingNumber(
                 $receivedProduct->trackingnumber
             );
@@ -223,6 +215,33 @@ class ReceivedController extends BasetablesController
         ]);
     }
 
+    public function validateSerial(Request $request)
+    {
+        $serial = trim($request->input('serial'));
+
+        if (!$serial) {
+            return response()->json([
+                'valid' => false,
+                'message' => 'Serial is required.'
+            ], 400);
+        }
+
+        $exists = DB::table($this->productTable)
+            ->where(function ($q) use ($serial) {
+                $q->where('serialnumber', $serial)
+                ->orWhere('serialnumberb', $serial)
+                ->orWhere('serialnumberc', $serial)
+                ->orWhere('serialnumberd', $serial)
+                ->orWhere('serialnumbere', $serial);
+            })
+            ->exists();
+
+        return response()->json([
+            'valid' => !$exists,
+            'alreadyUsed' => $exists
+        ]);
+    }
+
     private function getTrackingImagesByTrackingNumber(string $trackingNumber)
     {
         $last12Digits = substr($trackingNumber, -12);
@@ -259,7 +278,6 @@ class ReceivedController extends BasetablesController
             ]
         ];
     }
-
 
     private function copyTrackingImagesToProduct(string $trackingNumber, int $targetProductId)
     {
@@ -378,7 +396,7 @@ class ReceivedController extends BasetablesController
                 $request->validate([
                     'trackingNumber' => 'required',
                     'status' => 'required|in:fail',
-                     'basketNumber' => ['required', 'regex:/^(BKT\d+|S[I-Z]\d+|ENV\d+)$/i'],
+                    'basketNumber' => ['required', 'regex:/^(BKT\d+|S[I-Z]\d+|ENV\d+)$/i'],
                     'pcnNumber' => ['required', 'regex:/^PCN\d+$/i'],
                     'productId' => $isReconciliation ? 'nullable' : 'required',
                     'rtcounter' => 'required',
@@ -389,14 +407,35 @@ class ReceivedController extends BasetablesController
                 $request->validate([
                     'trackingNumber' => 'required',
                     'status' => 'required|in:pass',
-                    'firstSerialNumber' => ['required', 'regex:/^[A-Z0-9]+$/i'],
-                    'secondSerialNumber' => ['required', 'regex:/^(N\/A|[A-Z0-9]+)$/i'],
+
+                    'serialNumbers' => 'required|array|min:1|max:5',
+
+                    // ✅ Serial #1 REQUIRED
+                    'serialNumbers.0' => ['required', 'regex:/^[A-Z0-9]+$/i'],
+
+                    // ✅ Serial #2–#5 OPTIONAL (if present must match regex)
+                    'serialNumbers.1' => ['nullable', 'regex:/^[A-Z0-9]+$/i'],
+                    'serialNumbers.2' => ['nullable', 'regex:/^[A-Z0-9]+$/i'],
+                    'serialNumbers.3' => ['nullable', 'regex:/^[A-Z0-9]+$/i'],
+                    'serialNumbers.4' => ['nullable', 'regex:/^[A-Z0-9]+$/i'],
+
                     'pcnNumber' => ['required', 'regex:/^PCN\d+$/i'],
                     'basketNumber' => ['required', 'regex:/^(BKT\d+|S[I-Z]\d+|ENV\d+)$/i'],
                     'productId' => $isReconciliation ? 'nullable' : 'required',
                     'rtcounter' => 'required',
                 ]);
+
             }
+
+            $serialCols = ($request->status === 'pass')
+                ? $this->mapSerials($request->input('serialNumbers', []))
+                : [
+                    'serialnumber' => null,
+                    'serialnumberb' => null,
+                    'serialnumberc' => null,
+                    'serialnumberd' => null,
+                    'serialnumbere' => null,
+                ];
 
 
             DB::beginTransaction();
@@ -433,8 +472,7 @@ class ReceivedController extends BasetablesController
                 $data['rtcounter'] = $newRt;
 
                 // Directly process into Labeling
-                $data['serialnumber']   = $request->firstSerialNumber;
-                $data['serialnumberb']  = $request->secondSerialNumber;
+                $data = array_merge($data, $serialCols);
                 $data['PCN']            = $request->pcnNumber;
                 $data['basketnumber']   = $request->basketNumber;
                 $data['ProductModuleLoc'] = 'Labeling';
@@ -523,8 +561,8 @@ class ReceivedController extends BasetablesController
 
                 $newItemData['ProductModuleLoc'] = 'Labeling';
 
-                $newItemData['serialnumber'] = $request->firstSerialNumber;
-                $newItemData['serialnumberb'] = $request->secondSerialNumber;
+                $newItemData = array_merge($newItemData, $serialCols);
+
                 $newItemData['PCN'] = $request->pcnNumber;
                 $newItemData['basketnumber'] = $request->basketNumber;
 
@@ -542,15 +580,6 @@ class ReceivedController extends BasetablesController
                 if (! $newProductId) {
                     throw new \Exception("Failed to create new item with RT: $newRt");
                 }
-
-                // âœ… Get the actual inserted ProductID
-                // $newProductId = DB::getPdo()->lastInsertId();
-
-                // ✅ COPY tracking images to the new split product
-                // $this->copyTrackingImagesToProduct(
-                //     $originalProduct->trackingnumber,
-                //     $newProductId
-                // );
 
                 Log::info('Split item created', [
                     'newProductId' => $newProductId,
@@ -660,14 +689,12 @@ class ReceivedController extends BasetablesController
 
                     $moduleLocation = $materialTypeMap[$originalProduct->materialtype] ?? null;
                     // Process successfully received item (quantity = 1, no split needed)
-                    $updateData = [
-                        'serialnumber' => $request->firstSerialNumber,
-                        'serialnumberb' => $request->secondSerialNumber,
+                    $updateData = array_merge([
                         'PCN' => $request->pcnNumber,
                         'basketnumber' => $request->basketNumber,
                         'ProductModuleLoc' => $moduleLocation,
                         'Username' => $user,
-                    ];
+                    ], $serialCols);
 
                     // Update the product
                     $updateResult = DB::table($this->productTable)
@@ -689,13 +716,10 @@ class ReceivedController extends BasetablesController
                         'Received',
                         "RT#{$request->rtcounter} | Tracking: {$fullTrackingNumber}",
                         'Received',
-                        'Labeling',
+                        $moduleLocation,
                         $employeeName
                     );
 
-                    // DB::table($this->productTable)
-                    //     ->where('ProductID', $request->productId)
-                    //     ->delete();
 
                     DB::commit();
                     Log::info('Transaction committed successfully');
@@ -752,6 +776,12 @@ class ReceivedController extends BasetablesController
 
             // ❌ Remove primary key
             unset($baseData['ProductID']);
+            // ❌ Clear serials when moving remaining units
+            $baseData['serialnumber']  = null;
+            $baseData['serialnumberb'] = null;
+            $baseData['serialnumberc'] = null;
+            $baseData['serialnumberd'] = null;
+            $baseData['serialnumbere'] = null;
 
             // ✅ Override ONLY what must change
             $baseData['quantity'] = 1;
@@ -774,5 +804,22 @@ class ReceivedController extends BasetablesController
 
             return $inserted;
         }
+        private function mapSerials(array $serialNumbers): array
+        {
+            // keep only non-empty strings
+            $serials = array_values(array_filter($serialNumbers, function ($s) {
+                return is_string($s) && trim($s) !== '';
+            }));
 
+            // pad to 5
+            $serials = array_pad($serials, 5, null);
+
+            return [
+                'serialnumber'  => $serials[0],
+                'serialnumberb' => $serials[1],
+                'serialnumberc' => $serials[2],
+                'serialnumberd' => $serials[3],
+                'serialnumbere' => $serials[4],
+            ];
+        }
 }

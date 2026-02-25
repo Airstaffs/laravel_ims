@@ -166,6 +166,15 @@ export default {
             if (this.item.capturedImages?.serialimg2) {
                 images.push(this.item.capturedImages.serialimg2);
             }
+              if (this.item.capturedImages?.serialimg3) {
+                images.push(this.item.capturedImages.serialimg3);
+            }
+              if (this.item.capturedImages?.serialimg4) {
+                images.push(this.item.capturedImages.serialimg4);
+            }
+              if (this.item.capturedImages?.serialimg5) {
+                images.push(this.item.capturedImages.serialimg5);
+            }
 
             return images;
         },

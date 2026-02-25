@@ -110,13 +110,22 @@
                     </template>
                 </Column>
 
+                <!-- NEW: IMS Qty column -->
+                <Column header="IMS Qty" style="width: 140px;">
+                    <template #body="{ data }">
+                        <span class="text-sm font-medium">{{ data.imsQtyDisplay }}</span>
+                        <!--
+                        <div class="text-xs text-500" v-if="data.imsMatchedBy">
+                            {{ data.imsMatchedBy }}
+                        </div>
+                        -->
+                    </template>
+                </Column>
+
                 <!-- NEW: FBA Qty column -->
                 <Column header="FBA Qty" style="width: 140px;">
                     <template #body="{ data }">
                         <span class="text-sm font-medium">{{ data.fbaQtyDisplay }}</span>
-                        <div class="text-xs text-500" v-if="data.fbaChannels?.length">
-                            {{ data.fbaChannels.join(", ") }}
-                        </div>
                     </template>
                 </Column>
 
@@ -591,6 +600,9 @@ export default {
 
                 const issues = it?.issues || [];
 
+                const imsQty = it?.ims?.count ?? null;
+                const imsMatchedBy = it?.ims?.matchedBy ?? null;
+
                 return {
                     raw: it,
 
@@ -602,9 +614,14 @@ export default {
                     lastUpdatedDate,
                     conditionType,
 
+                    // IMS qty
+                    imsQty,
+                    imsQtyDisplay: (imsQty === null || imsQty === undefined) ? "—" : imsQty,
+                    imsMatchedBy,
+
                     // quantities
-                    currentQty,            // FBM qty
-                    fbaQty,                // total FBA qty
+                    currentQty,
+                    fbaQty,
                     fbaQtyDisplay: hasFBA ? fbaQty : "—",
                     fbaChannels: fbaEntries.map(x => x.fulfillmentChannelCode).slice(0, 2),
                     hasFBM,
@@ -614,14 +631,11 @@ export default {
                     currentPrice,
                     currency,
 
-                    // issues
                     issues,
 
-                    // inputs (autosave per row)
                     newQty: "",
                     newPrice: "",
 
-                    // autosave UI state
                     _touchedQty: false,
                     _touchedPrice: false,
                     _savingQty: false,

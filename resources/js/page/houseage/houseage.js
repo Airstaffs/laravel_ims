@@ -211,7 +211,7 @@ export default {
             const companyFolder = this.item.company || "Airstaffs";
 
             // Check both locations for serial images
-            for (let i = 1; i <= 2; i++) {
+            for (let i = 1; i <= 5; i++) {
                 const fieldName = `serialimg${i}`;
                 let imageFilename = null;
 
@@ -421,6 +421,9 @@ export default {
     },
 
     methods: {
+        goToSuppliersList() {
+            window.loadContent('suppliersList');
+        },
         addCacheBuster(url, timestamp = null) {
             if (!url) return url;
 

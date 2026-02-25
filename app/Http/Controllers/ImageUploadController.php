@@ -82,40 +82,35 @@ class ImageUploadController extends BasetablesController
                 // Simplified filename calculation
                 $imageNumber = $imageIndex + 1;
 
-                // ­ЪДа Detect if this upload is for serial images
-                $isSerial = $request->input('isSerial', false);
+                // Detect serial upload strongly (step 3–7 are always serial steps)
+                $isSerial = filter_var($request->input('isSerial'), FILTER_VALIDATE_BOOLEAN);
                 $serialIndex = (int) $request->input('serialIndex', 0);
 
-                Log::info('Image type detection', [
-                    'isSerial' => $isSerial,
-                    'serialIndex' => $serialIndex,
-                    'imageNumber' => $imageNumber
-                ]);
+                // ✅ If step is 3–7, force serial mode even if isSerial is missing/false
+                if ($step >= 3 && $step <= 7) {
+                    $isSerial = true;
+                    if ($serialIndex <= 0) {
+                        // step 3→serial1, 4→serial2, ...
+                        $serialIndex = $step - 2;
+                    }
+                }
 
                 if ($step === 1) {
-                    // ✅ Tracking images (max 2)
                     $trackingIndex = min($imageIndex + 1, 2);
                     $capturedImgColumn = 'trackingimg' . $trackingIndex;
                     $filename = "{$productId}_tracking{$trackingIndex}.jpg";
 
                 } elseif ($step === 2) {
-                    // ✅ Product images (max 12)
                     $productIndex = min($imageIndex + 1, 12);
                     $capturedImgColumn = 'capturedimg' . $productIndex;
                     $filename = "{$productId}_img{$productIndex}.jpg";
 
-                } elseif ($step === 3) {
-                    // ✅ First serial
-                    $capturedImgColumn = 'serialimg1';
-                    $filename = "{$productId}_serial1.jpg";
-
-                } elseif ($step === 4) {
-                    // ✅ Second serial
-                    $capturedImgColumn = 'serialimg2';
-                    $filename = "{$productId}_serial2.jpg";
+                } elseif ($isSerial && $serialIndex >= 1 && $serialIndex <= 5) {
+                    $capturedImgColumn = 'serialimg' . $serialIndex;
+                    $filename = "{$productId}_serial{$serialIndex}.jpg";
 
                 } else {
-                    throw new \Exception('Invalid capture step: ' . $step);
+                    throw new \Exception("Invalid capture step: {$step}");
                 }
 
                 $path = $directory . '/' . $filename;

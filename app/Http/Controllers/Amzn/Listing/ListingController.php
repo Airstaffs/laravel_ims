@@ -321,7 +321,6 @@ class ListingController extends Controller
         }
 
         $sellerId = $credentials['MerchantID'] ?? null;
-
         if (!$sellerId) {
             return response()->json(['ok' => false, 'error' => 'MerchantID missing in credentials'], 500);
         }
@@ -369,27 +368,102 @@ class ListingController extends Controller
         );
 
         $headers['accept'] = 'application/json';
-
         $url = $endpoint . $path . '?' . http_build_query($query);
 
         try {
             $response = Http::timeout(50)->withHeaders($headers)->get($url);
             $curlInfo = $response->handlerStats();
 
-            if ($response->successful()) {
+            if (!$response->successful()) {
                 return response()->json([
-                    'ok' => true,
-                    'data' => $response->json(),
+                    'ok' => false,
+                    'status' => $response->status(),
+                    'error' => $response->json(),
                     'logs' => $curlInfo,
-                ]);
+                ], 400);
+            }
+
+            $payload = $response->json();
+            $items = $payload['items'] ?? [];
+
+            // ----------------------------
+            // STRICT IMS MATCHING: MSKU + ASIN (AND)
+            // If no strict match -> ims.count = 0
+            // ----------------------------
+
+            // Build strict pairs from Amazon items (must have BOTH sku and asin)
+            $pairs = [];
+            foreach ($items as $it) {
+                $sku = $it['sku'] ?? ($it['summaries'][0]['sku'] ?? null);
+                $asin = $it['asin'] ?? ($it['summaries'][0]['asin'] ?? null);
+
+                if ($sku && $asin) {
+                    $pairs[] = ['sku' => $sku, 'asin' => $asin];
+                }
+            }
+
+            // De-dupe pairs
+            $seen = [];
+            $pairs = array_values(array_filter($pairs, function ($p) use (&$seen) {
+                $k = $p['sku'] . '|' . $p['asin'];
+                if (isset($seen[$k]))
+                    return false;
+                $seen[$k] = true;
+                return true;
+            }));
+
+            $rows = collect();
+            if (!empty($pairs)) {
+                $rows = DB::table('tblproduct')
+                    ->where('ProductModuleLoc', 'Stockroom')
+                    ->where(function ($q) use ($pairs) {
+                        foreach ($pairs as $p) {
+                            $q->orWhere(function ($qq) use ($p) {
+                                $qq->where('MSKUviewer', $p['sku'])
+                                    ->where('ASINviewer', $p['asin']);
+                            });
+                        }
+                    })
+                    ->selectRaw('MSKUviewer, ASINviewer, COUNT(*) as imsCount')
+                    ->groupBy('MSKUviewer', 'ASINviewer')
+                    ->get();
+            }
+
+            // Build fast map by "sku|asin"
+            $byPair = [];
+            foreach ($rows as $r) {
+                $k = ($r->MSKUviewer ?? '') . '|' . ($r->ASINviewer ?? '');
+                $byPair[$k] = (int) $r->imsCount;
+            }
+
+            // Attach ims per item (strict match only)
+            foreach ($payload['items'] as $i => $it) {
+                $sku = $it['sku'] ?? ($it['summaries'][0]['sku'] ?? null);
+                $asin = $it['asin'] ?? ($it['summaries'][0]['asin'] ?? null);
+
+                $count = 0;
+                $matchedBy = null;
+
+                if ($sku && $asin) {
+                    $k = $sku . '|' . $asin;
+                    if (isset($byPair[$k])) {
+                        $count = (int) $byPair[$k];
+                        $matchedBy = 'MSKUviewer+ASINviewer';
+                    }
+                }
+
+                $payload['items'][$i]['ims'] = [
+                    'module' => 'Stockroom',
+                    'count' => $count,          // ✅ default 0
+                    'matchedBy' => $matchedBy,  // null when not matched
+                ];
             }
 
             return response()->json([
-                'ok' => false,
-                'status' => $response->status(),
-                'error' => $response->json(),
+                'ok' => true,
+                'data' => $payload,
                 'logs' => $curlInfo,
-            ], 400);
+            ]);
 
         } catch (\Exception $e) {
             return response()->json([
