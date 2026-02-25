@@ -32,7 +32,7 @@ class SoldListImport1 extends Command
         }
 
         // ---------- Load template captured row (id=16) ----------
-        $templateRow = DB::table('tblcaptured')->where('id', self::TEMPLATE_CAPTURED_ID)->first();
+        $templateRow = DB::table('tblcapturedimages')->where('id', self::TEMPLATE_CAPTURED_ID)->first();
         if (!$templateRow) {
             $this->error("Template tblcaptured row (id=" . self::TEMPLATE_CAPTURED_ID . ") not found.");
             return self::FAILURE;
