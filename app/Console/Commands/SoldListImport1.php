@@ -293,7 +293,7 @@ class SoldListImport1 extends Command
                     $imgIndex++;
                 }
 
-                DB::table('tblcaptured')->insert($capturedData);
+                DB::table('tblcapturedimages')->insert($capturedData);
 
                 DB::commit();
                 $inserted++;
