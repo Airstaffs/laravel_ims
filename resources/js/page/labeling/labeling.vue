@@ -259,7 +259,7 @@
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">ASIN:</span>
                             <span class="mobile-detal-value">
-                                {{ item.ASIN }}</span
+                                {{ item.ASINviewer }}</span
                             >
                         </div>
                         <div class="mobile-detail-row mb-2">
@@ -435,7 +435,7 @@
                                 label="Serial Images"
                                 :imageList="serialImageList"
                                 :imageType="'serial'"
-                                :maxImages="2"
+                                :maxImages="5"
                                 :productId="item.ProductID"
                                 :company="item.company"
                                 @request-refresh="fetchInventory()"
@@ -1335,7 +1335,7 @@
                                             >ASIN:</span
                                         >
                                         <span class="mobile-detal-value">
-                                            {{ item.ASIN }}</span
+                                            {{ item.ASINviewer }}</span
                                         >
                                     </div>
 
@@ -1642,7 +1642,7 @@ const TABLE_COLUMNS = [
         headerStyle: "font-size: 16px;",
     },
     {
-        field: "ASIN",
+        field: "ASINviewer",
         header: "ASIN",
         sortable: true,
         headerStyle: "font-size: 16px;",

@@ -99,6 +99,12 @@ export default {
             croppedImage: null,
             isDragging: false,
 
+            //pagination
+            currentPage: 1,
+            perPage: 10,
+            totalRecords: 0,
+            first: 0,
+
         };
     },
     computed: {
@@ -1436,6 +1442,33 @@ export default {
 
         handleModeChange(event) {
             this.showManualInput = event.manual;
+
+            // Determine the appropriate input field to focus based on current step
+            let refName = null;
+            
+            switch (this.currentStep) {
+                case 1:
+                    refName = 'trackingInput';
+                    break;
+                case 3:
+                case 4:
+                case 5:
+                case 6:
+                case 7:
+                    refName = `serialInput${this.currentStep - 2}`;
+                    break;
+                case 8:
+                    refName = 'pcnInput';
+                    break;
+                case 9:
+                    refName = 'basketInput';
+                    break;
+            }
+
+            // Focus the determined field if it exists
+            if (refName && this.$refs[refName]) {
+                this.$refs[refName].focus();
+            }
         },
 
         handleScannerOpened() {

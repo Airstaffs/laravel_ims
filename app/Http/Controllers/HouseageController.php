@@ -195,8 +195,8 @@ private function attachImages($products)
                     }
                 }
 
-                // Serial images 1-2
-                for ($i = 1; $i <= 2; $i++) {
+                // Serial images 1-5
+                for ($i = 1; $i <= 5; $i++) {
                     $field = "serialimg{$i}";
                     if (!empty($capturedImg->$field) && $capturedImg->$field !== 'NULL') {
                         $capturedImagesObj[$field] = $capturedImg->$field;
@@ -364,6 +364,9 @@ private function attachImages($products)
                     'ci.capturedimg12',
                     'ci.serialimg1',
                     'ci.serialimg2',
+                    'ci.serialimg3',
+                    'ci.serialimg4',
+                    'ci.serialimg5',
                 ])
                 ->first();
 
@@ -384,6 +387,15 @@ private function attachImages($products)
 
                 if (! empty($createdProduct->serialimg2)) {
                     $capturedImages['serialimg2'] = $createdProduct->serialimg2;
+                }
+                 if (! empty($createdProduct->serialimg3)) {
+                    $capturedImages['serialimg3'] = $createdProduct->serialimg3;
+                }
+                 if (! empty($createdProduct->serialimg4)) {
+                    $capturedImages['serialimg4'] = $createdProduct->serialimg4;
+                }
+                 if (! empty($createdProduct->serialimg5)) {
+                    $capturedImages['serialimg5'] = $createdProduct->serialimg5;
                 }
 
                 $createdProduct->capturedImages = (object) $capturedImages;
@@ -890,6 +902,15 @@ private function attachImages($products)
                 elseif (empty($capturedImage->serialimg2)) {
                     $serialNumber = 2;
                 }
+                   elseif (empty($capturedImage->serialimg3)) {
+                    $serialNumber = 3;
+                }
+                   elseif (empty($capturedImage->serialimg4)) {
+                    $serialNumber = 4;
+                }
+                   elseif (empty($capturedImage->serialimg5)) {
+                    $serialNumber = 5;
+                }
                 // If both exist, replace serial1
                 else {
                     $serialNumber = 1;
@@ -1303,7 +1324,7 @@ private function attachImages($products)
     {
         return match ($imageType) {
             'tracking' => 2,
-            'serial' => 2,
+            'serial' => 5,
             'captured' => 12,
             default => 12,
         };

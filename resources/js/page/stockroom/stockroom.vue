@@ -67,6 +67,13 @@
                         "
                         ref="fnskuInput"
                     />
+                    <!-- ✅ Show checking indicator -->
+                    <div
+                        v-if="fnskuChecking"
+                        class="serial-check-status checking"
+                    >
+                        <i class="pi pi-spin pi-spinner"></i> Checking FNSKU...
+                    </div>
                     <div class="fnsku-hint">⚠️ Required for new items</div>
                 </div>
 
