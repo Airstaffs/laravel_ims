@@ -12,7 +12,7 @@ class SoldListImport1 extends Command
     protected $description = 'Import SoldList CSV into tblproduct (continue rtcounter, ProductID auto-increment)';
 
     // tblcaptured template row ID to copy images from
-    const TEMPLATE_CAPTURED_ID = 16;
+    const TEMPLATE_CAPTURED_ID = 326;
 
     // Number of capturedimg columns in tblcaptured
     const MAX_CAPTURED_IMGS = 12;
@@ -252,16 +252,15 @@ class SoldListImport1 extends Command
                 // Insert tblproduct (ProductID is auto-increment, returned below)
                 $newProductId = DB::table('tblproduct')->insertGetId($data);
 
-                // Now build img1–img15 values based on real ProductID
+                // img1–img15: ALWAYS fixed constant filenames, hardcoded as 17060
+                // img1 = 17060.jpg, img2 = 17060_1.jpg ... img15 = 17060_14.jpg
+                $tplPid = 17060;
                 $imgUpdates = [];
                 for ($i = 1; $i <= self::MAX_PRODUCT_IMGS; $i++) {
                     $col = 'img' . $i;
-                    if ($i === 1) {
-                        $imgUpdates[$col] = "{$newProductId}.jpg";
-                    } else {
-                        $suffix = $i - 1; // img2 → _1, img3 → _2 ...
-                        $imgUpdates[$col] = "{$newProductId}_{$suffix}.jpg";
-                    }
+                    $imgUpdates[$col] = $i === 1
+                        ? "{$tplPid}.jpg"
+                        : "{$tplPid}_" . ($i - 1) . ".jpg";
                 }
                 DB::table('tblproduct')->where('ProductID', $newProductId)->update($imgUpdates);
 
@@ -278,7 +277,7 @@ class SoldListImport1 extends Command
                     $srcPath = $imgDir . '/' . $srcFilename;
 
                     // New filename for this product
-                    $newFilename = "{$newProductId}_img{$imgIndex}.jpg";
+                    $newFilename = "{$newProductId}_img{$imgIndex}.jpeg";
                     $destPath    = $imgDir . '/' . $newFilename;
 
                     // Physically copy the file if source exists
