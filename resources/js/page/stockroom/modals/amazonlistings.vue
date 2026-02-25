@@ -114,9 +114,11 @@
                 <Column header="IMS Qty" style="width: 140px;">
                     <template #body="{ data }">
                         <span class="text-sm font-medium">{{ data.imsQtyDisplay }}</span>
+                        <!--
                         <div class="text-xs text-500" v-if="data.imsMatchedBy">
                             {{ data.imsMatchedBy }}
                         </div>
+                        -->
                     </template>
                 </Column>
 
@@ -124,9 +126,6 @@
                 <Column header="FBA Qty" style="width: 140px;">
                     <template #body="{ data }">
                         <span class="text-sm font-medium">{{ data.fbaQtyDisplay }}</span>
-                        <div class="text-xs text-500" v-if="data.fbaChannels?.length">
-                            {{ data.fbaChannels.join(", ") }}
-                        </div>
                     </template>
                 </Column>
 
