@@ -5,6 +5,7 @@ import Employee from "./components/employee.vue";
 import TimeRecord from "./components/timerecord.vue";
 import Violations from "./components/violations.vue";
 import Payroll from "./components/payroll.vue";
+import EWH from "./components/EWH.vue";
 
 import HolidayModal from "./components/holidaymodal.vue";
 import bootstrap from "bootstrap/dist/js/bootstrap.bundle.min.js";
@@ -281,6 +282,7 @@ export default {
         scheduling,
         History,
         Payroll,
+        EWH,
         Menu,
         Select,
         Button,
@@ -326,15 +328,15 @@ export default {
                     icon: PrimeIcons.CALENDAR,
                     command: () => this.setView("Scheduling"),
                 },
-                // {
-                //     label: "EWH",
-                //     icon: PrimeIcons.FILE_CHECK,
-                //     command: () => this.setView("EWH"),
-                // },
                 {
                     label: "Payroll",
                     icon: PrimeIcons.MONEY_BILL,
                     command: () => this.setView("Payroll"),
+                },
+                {
+                    label: "EWH",
+                    icon: PrimeIcons.FILE_CHECK,
+                    command: () => this.setView("EWH"),
                 },
             ],
             tabs: [
