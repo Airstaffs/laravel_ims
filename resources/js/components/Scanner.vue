@@ -479,27 +479,43 @@ export default {
 
     imagesForCurrentStep() {
       const parentStep = this.$parent?.currentStep;
+      const parentCaptureStep = this.$parent?.currentCaptureStep;
 
-      // ✅ If no step workflow (Global Scanner)
-      if (!parentStep) {
-        return this.capturedImages;
-      }
+      return this.capturedImages.filter(img => {
+        // Receiving module (step-based)
+        if (parentStep !== undefined) {
+          return img.step === parentStep;
+        }
 
-      // ✅ Step-based workflow (Receiving)
-      return this.capturedImages.filter(
-        img => img.step === parentStep
-      );
+        // Return scanner (captureStep-based)
+        if (parentCaptureStep !== undefined) {
+          return img.captureStep === parentCaptureStep;
+        }
+
+        // Fallback: show all
+        return true;
+      });
     },
 
     maxImagesForCurrentStep() {
-      // Step 1: Tracking images
-      if (this.currentStep === 1) return 2;
+      const parentStep = this.$parent?.currentStep;
+      const parentCaptureStep = this.$parent?.currentCaptureStep;
 
-      // Step 2: Product images
-      if (this.currentStep === 2) return this.maxImages;
+      // ✅ RETURN SCANNER MODE (uses captureStep)
+      if (parentCaptureStep !== undefined) {
+        return 12;
+      }
 
-      // Default (serials etc.)
-      return 1;
+      // ✅ RECEIVING WORKFLOW MODE
+      if (parentStep !== undefined) {
+        if (parentStep === 3) return 1; // First Serial
+        if (parentStep === 4) return 1; // Second Serial
+        if (parentStep === 2) return 5; // Product images (example)
+        return this.maxImages;
+      }
+
+      // ✅ FALLBACK
+      return this.maxImages;
     }
     
   },
