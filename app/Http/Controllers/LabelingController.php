@@ -85,6 +85,9 @@ class LabelingController extends BasetablesController
                     'img.capturedimg12',
                     'img.serialimg1',
                     'img.serialimg2',
+                    'img.serialimg3',
+                    'img.serialimg4',
+                    'img.serialimg5',
                     'img.trackingimg1',
                     'img.trackingimg2',
                 ]);
@@ -165,6 +168,18 @@ class LabelingController extends BasetablesController
                         $capturedImages->serialimg2 = $product->serialimg2;
                     }
 
+                     if (! empty($product->serialimg3)) {
+                        $capturedImages->serialimg3 = $product->serialimg3;
+                    }
+
+                     if (! empty($product->serialimg4)) {
+                        $capturedImages->serialimg4 = $product->serialimg4;
+                    }
+
+                     if (! empty($product->serialimg5)) {
+                        $capturedImages->serialimg5 = $product->serialimg5;
+                    }
+
                     
                     if (! empty($product->trackingimg1)) {
                         $capturedImages->trackingimg1 = $product->trackingimg1;
@@ -177,6 +192,9 @@ class LabelingController extends BasetablesController
 
                     unset($product->serialimg1);
                     unset($product->serialimg2);
+                    unset($product->serialimg3);
+                    unset($product->serialimg4);
+                    unset($product->serialimg5);
                     unset($product->trackingimg1);
                     unset($product->trackingimg2);
 

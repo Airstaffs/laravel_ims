@@ -65,7 +65,7 @@
           </div>
           
           <!-- Captured Images Preview - only if camera is enabled -->
-          <div v-if="enableCamera && capturedImages.length > 0" class="captured-images-container">
+          <div v-if="enableCamera && imagesForCurrentStep.length > 0" class="captured-images-container">
             <div class="images-header" @click="toggleImagePreview">
               <!-- <h3>Images ({{ capturedImages.length }}/{{ maxImages }})</h3> -->
               <h3>
@@ -478,8 +478,16 @@ export default {
     },
 
     imagesForCurrentStep() {
+      const parentStep = this.$parent?.currentStep;
+
+      // ✅ If no step workflow (Global Scanner)
+      if (!parentStep) {
+        return this.capturedImages;
+      }
+
+      // ✅ Step-based workflow (Receiving)
       return this.capturedImages.filter(
-        img => img.step === this.currentStep
+        img => img.step === parentStep
       );
     },
 

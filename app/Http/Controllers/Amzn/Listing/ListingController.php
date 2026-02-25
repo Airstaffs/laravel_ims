@@ -377,9 +377,76 @@ class ListingController extends Controller
             $curlInfo = $response->handlerStats();
 
             if ($response->successful()) {
+                $payload = $response->json();
+
+                $items = $payload['items'] ?? [];
+
+                // Build lookup keys
+                $skus = [];
+                $asins = [];
+
+                foreach ($items as $it) {
+                    $sku = $it['sku'] ?? ($it['summaries'][0]['sku'] ?? null);
+                    $asin = $it['asin'] ?? ($it['summaries'][0]['asin'] ?? null);
+
+                    if ($sku)
+                        $skus[] = $sku;
+                    if ($asin)
+                        $asins[] = $asin;
+                }
+
+                $skus = array_values(array_unique(array_filter($skus)));
+                $asins = array_values(array_unique(array_filter($asins)));
+
+                // Query IMS Stockroom rows grouped by MSKUviewer / ASINviewer
+                $rows = DB::table('tblproduct')
+                    ->where('ProductModuleLoc', 'Stockroom')
+                    ->when(!empty($skus), function ($q) use ($skus) {
+                        $q->whereIn('MSKUviewer', $skus);
+                    })
+                    ->when(!empty($asins), function ($q) use ($asins) {
+                        // OR whereIn ASINviewer
+                        $q->orWhereIn('ASINviewer', $asins);
+                    })
+                    ->selectRaw('MSKUviewer, ASINviewer, COUNT(*) as imsCount')
+                    ->groupBy('MSKUviewer', 'ASINviewer')
+                    ->get();
+
+                // Build fast maps
+                $bySku = [];
+                $byAsin = [];
+
+                foreach ($rows as $r) {
+                    if (!empty($r->MSKUviewer))
+                        $bySku[$r->MSKUviewer] = ($bySku[$r->MSKUviewer] ?? 0) + (int) $r->imsCount;
+                    if (!empty($r->ASINviewer))
+                        $byAsin[$r->ASINviewer] = ($byAsin[$r->ASINviewer] ?? 0) + (int) $r->imsCount;
+                }
+
+                // Attach imsStockroomCount per item
+                foreach ($payload['items'] as $i => $it) {
+                    $sku = $it['sku'] ?? ($it['summaries'][0]['sku'] ?? null);
+                    $asin = $it['asin'] ?? ($it['summaries'][0]['asin'] ?? null);
+
+                    $count = 0;
+
+                    // Prefer SKU match; fallback to ASIN match
+                    if ($sku && isset($bySku[$sku])) {
+                        $count = (int) $bySku[$sku];
+                    } elseif ($asin && isset($byAsin[$asin])) {
+                        $count = (int) $byAsin[$asin];
+                    }
+
+                    $payload['items'][$i]['ims'] = [
+                        'module' => 'Stockroom',
+                        'count' => $count,
+                        'matchedBy' => ($sku && isset($bySku[$sku])) ? 'MSKUviewer' : (($asin && isset($byAsin[$asin])) ? 'ASINviewer' : null),
+                    ];
+                }
+
                 return response()->json([
                     'ok' => true,
-                    'data' => $response->json(),
+                    'data' => $payload,
                     'logs' => $curlInfo,
                 ]);
             }
