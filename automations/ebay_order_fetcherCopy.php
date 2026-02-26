@@ -347,7 +347,6 @@ function processOrdersWithResume($pageOrders, $currentPage) {
     $totalProcessed = $progress['total_processed'];
     $pageOrderIndex = 0;
     
-    // Resume logic
     if ($currentPage == $progress['current_page'] && !$progress['page_completed']) {
         $pageOrderIndex = $progress['page_order_index'];
         echo "Resuming page $currentPage from order index $pageOrderIndex<br>";
@@ -358,21 +357,17 @@ function processOrdersWithResume($pageOrders, $currentPage) {
     echo "=== PROCESSING PAGE $currentPage ===<br>";
     echo "Total orders on this page: " . count($pageOrders) . "<br>";
     echo "Starting from index: $pageOrderIndex<br>";
-    echo "MODE: SMART PROCESSING - Prevent duplicates, Smart update for Orders module<br>";
+    echo "MODE: SMART PROCESSING - Insert new, Update existing (NO tracking status updates)<br>";
     echo "====================================<br><br>";
     
     $currentProcessed = 0;
     $skippedCount = 0;
     $errorCount = 0;
-    $trackingUpdatedCount = 0;
     $newRecordsCount = 0;
     $existingRecordsUpdated = 0;
-    $smartUpdatedCount = 0;
     $preventedDuplicates = 0;
     
-    // Process orders starting from the correct index within the page
     for ($i = $pageOrderIndex; $i < count($pageOrders); $i++) {
-        // CRITICAL: Check database connection at the start of each loop iteration
         checkDatabaseConnection();
         
         $order = $pageOrders[$i];
@@ -387,7 +382,6 @@ function processOrdersWithResume($pageOrders, $currentPage) {
         }
         
         try {
-            // Process each item in the order
             foreach ($order['items'] as $itemIndex => $item) {
                 $itemID = $item['item_id'];
                 
@@ -406,17 +400,12 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                 echo "📊 Status: {$orderStatus}<br>";
                 echo "<br>";
 
-                // ============================================
-                // CRITICAL: Check for existing record FIRST
-                // ============================================
-                echo "<strong style='color: #0056b3;'>🔎 CHECKING DATABASE FOR EXISTING RECORD...</strong><br>";
-                
+                // Check for existing record
                 checkDatabaseConnection();
                 $checkStmt = $mysqli->prepare("
                     SELECT ProductID, ProductModuleLoc, rtid, itemnumber,
-                           trackingnumber, trackingnumber2, trackingnumber3, 
-                           trackingnumber4, trackingnumber5, carrier, shipdate,
-                           listedcondition, itemstatus
+                           trackingnumber, trackingnumber2, trackingnumber3, trackingnumber4,
+                           carrier, shipdate, listedcondition, itemstatus
                     FROM tblproduct 
                     WHERE rtid = ? AND itemnumber = ?
                     LIMIT 1
@@ -427,7 +416,6 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                 }
                 
                 $checkStmt->bind_param("ss", $orderID, $itemID);
-                echo "   Searching: rtid='{$orderID}' AND itemnumber='{$itemID}'<br>";
                 
                 if (!$checkStmt->execute()) {
                     throw new Exception("Failed to execute check: " . $checkStmt->error);
@@ -437,11 +425,8 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                 $existingRecord = $result->fetch_assoc();
                 $checkStmt->close();
 
-                // ============================================
-                // DECISION POINT: Existing vs New Record
-                // ============================================
                 if ($existingRecord) {
-                    // EXISTING RECORD FOUND
+                    // EXISTING RECORD
                     echo "<div style='background: #fff3cd; padding: 8px; border-left: 4px solid #ffc107;'>";
                     echo "<strong>✅ EXISTING RECORD FOUND</strong><br>";
                     echo "   ProductID: {$existingRecord['ProductID']}<br>";
@@ -454,14 +439,13 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                     // Only update if in Orders module
                     if ($existingRecord['ProductModuleLoc'] === 'Orders') {
                         echo "<div style='background: #d1ecf1; padding: 8px; margin-top: 5px;'>";
-                        echo "<strong>📝 Orders Module - Applying Smart Updates</strong><br>";
+                        echo "<strong>📝 Orders Module - Applying Updates</strong><br>";
                         
-                        // Extract tracking data from current order
+                        // Extract data from current order
                         $newTrackingNumber1 = !empty($order['tracking_number1']) ? trim($order['tracking_number1']) : '';
                         $newTrackingNumber2 = !empty($order['tracking_number2']) ? trim($order['tracking_number2']) : '';
                         $newTrackingNumber3 = !empty($order['tracking_number3']) ? trim($order['tracking_number3']) : '';
                         $newTrackingNumber4 = !empty($order['tracking_number4']) ? trim($order['tracking_number4']) : '';
-                        $newTrackingNumber5 = !empty($order['tracking_number5']) ? trim($order['tracking_number5']) : '';
                         $newCarrier = !empty($order['shipping_carrier']) ? trim($order['shipping_carrier']) : '';
                         $newShipDate = isset($order['shipped_time']) ? date('Y-m-d H:i:s', strtotime($order['shipped_time'])) : null;
                         $sellerLocation = isset($order['locationdetails']) && $order['locationdetails'] !== 'N/A' ? $order['locationdetails'] : 'N/A';
@@ -470,7 +454,7 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                         $updateValues = [];
                         $updateTypes = "";
                         
-                        // Build update fields
+                        // Update tracking numbers
                         if (!empty($newTrackingNumber1)) {
                             $updateFields[] = "trackingnumber = ?";
                             $updateValues[] = $newTrackingNumber1;
@@ -499,13 +483,6 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                             echo "   → Tracking4: '{$newTrackingNumber4}'<br>";
                         }
                         
-                        if (!empty($newTrackingNumber5)) {
-                            $updateFields[] = "trackingnumber5 = ?";
-                            $updateValues[] = $newTrackingNumber5;
-                            $updateTypes .= "s";
-                            echo "   → Tracking5: '{$newTrackingNumber5}'<br>";
-                        }
-                        
                         if (!empty($newCarrier)) {
                             $updateFields[] = "carrier = ?";
                             $updateValues[] = $newCarrier;
@@ -520,15 +497,20 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                             echo "   → ShipDate: '{$newShipDate}'<br>";
                         }
                         
+                        // ✅ REMOVED: ALL delivery_status and datedelivered update logic
+                        
+                        // Update estimated delivery date
+                        $newEstimatedDate = isset($order['estimated_deliverydate']) ? $order['estimated_deliverydate'] : null;
+                        
+                        if (!empty($newEstimatedDate)) {
+                            $updateFields[] = "estimated_deliverydate = ?";
+                            $updateValues[] = $newEstimatedDate;
+                            $updateTypes .= "s";
+                            echo "   → 📅 Estimated Delivery: '{$newEstimatedDate}'<br>";
+                        }
+                        
                         // Other order fields
                         $paymentDate = isset($order['paid_time']) ? date('Y-m-d H:i:s', strtotime($order['paid_time'])) : null;
-                        $deliveredDate = null;
-                        if (!empty($order['estimatedDeliveryTime'])) {
-                            $timestamp = strtotime($order['estimatedDeliveryTime']);
-                            if ($timestamp !== false) {
-                                $deliveredDate = date('Y-m-d H:i:s', $timestamp);
-                            }
-                        }
                         $paymentMethod = 'eBay';
                         $sellerName = $order['seller_user_id'] ?? 'N/A';
                         $createdTime = isset($order['created_time']) ? date('Y-m-d H:i:s', strtotime($order['created_time'])) : null;
@@ -536,12 +518,6 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                         if ($paymentDate) {
                             $updateFields[] = "paymentdate = ?";
                             $updateValues[] = $paymentDate;
-                            $updateTypes .= "s";
-                        }
-                        
-                        if ($deliveredDate) {
-                            $updateFields[] = "datedelivered = ?";
-                            $updateValues[] = $deliveredDate;
                             $updateTypes .= "s";
                         }
                         
@@ -629,9 +605,6 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                                 
                                 $existingProductID = $existingRecord['ProductID'];
                                 smartImageUpdateForExistingRecord($existingProductID, $itemID);
-                                
-                                $trackingUpdatedCount++;
-                                $smartUpdatedCount++;
                             } else {
                                 throw new Exception("Update failed: " . $updateStmt->error);
                             }
@@ -640,21 +613,19 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                             echo "   ℹ️ No fields to update<br>";
                         }
                         
-                        echo "</div>"; // End Orders module update div
-                        
+                        echo "</div>";
                         $existingRecordsUpdated++;
                         
                     } else {
                         // NON-ORDERS MODULE
                         echo "<div style='background: #f8d7da; padding: 8px; margin-top: 5px;'>";
                         echo "<strong>⏭️ Non-Orders Module ('{$existingRecord['ProductModuleLoc']}') - NO UPDATES</strong><br>";
-                        echo "   Record exists in different module, skipping all operations<br>";
                         echo "</div>";
                         $skippedCount++;
                     }
                     
                 } else {
-                    // NO EXISTING RECORD - Safe to insert
+                    // NO EXISTING RECORD
                     echo "<div style='background: #d4edda; padding: 8px; border-left: 4px solid #28a745;'>";
                     echo "<strong>🆕 NO EXISTING RECORD FOUND</strong><br>";
                     
@@ -668,28 +639,25 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                         echo "   🆕 Proceeding with INSERT...<br>";
                         echo "</div>";
                         
-                        // Insert new record
                         insertNewRecord($order, $item, $orderID, $itemID, $title);
                         echo "<strong style='color: #28a745;'>✅ INSERT COMPLETED</strong><br>";
                         $newRecordsCount++;
                     }
                 }
                 
-                echo "</div>"; // End item div
+                echo "</div>";
                 echo "<br>";
             }
             
             $currentProcessed++;
             $totalProcessed++;
             
-            // Save progress with page index every few items
             if ($currentProcessed % 5 == 0) {
                 saveProgress($orderID, isset($itemID) ? $itemID : null, $currentPage, $totalProcessed, $i + 1, false);
                 echo "💾 <strong>CHECKPOINT SAVED</strong><br><br>";
             }
             
-            // Small delay between items
-            usleep(100000); // 0.1 second delay
+            usleep(100000);
             
         } catch (Exception $e) {
             $errorCount++;
@@ -697,7 +665,6 @@ function processOrdersWithResume($pageOrders, $currentPage) {
             echo "<strong>❌ ERROR:</strong> " . $e->getMessage() . "<br>";
             echo "</div>";
             
-            // If it's a MySQL error, force reconnection
             if (strpos($e->getMessage(), 'MySQL') !== false || 
                 strpos($e->getMessage(), 'gone away') !== false ||
                 strpos($e->getMessage(), 'Lost connection') !== false) {
@@ -707,15 +674,11 @@ function processOrdersWithResume($pageOrders, $currentPage) {
             
             $currentProcessed++;
             $totalProcessed++;
-            
-            // Still save progress even on error
             saveProgress($orderID, isset($itemID) ? $itemID : null, $currentPage, $totalProcessed, $i + 1, false);
-            
             continue;
         }
     }
     
-    // Mark this page as completed and move to next page
     echo "<hr>";
     echo "✅ Page $currentPage processing completed<br>";
     saveProgress(null, null, $currentPage + 1, $totalProcessed, 0, true);
@@ -723,7 +686,7 @@ function processOrdersWithResume($pageOrders, $currentPage) {
     echo "<br><div style='background: #e7f3ff; padding: 15px; border: 2px solid #007bff;'>";
     echo "<strong>=== PAGE $currentPage SUMMARY ===</strong><br>";
     echo "📊 Orders processed: <strong>{$currentProcessed}</strong><br>";
-    echo "✅ Smart updates: <strong>{$smartUpdatedCount}</strong><br>";
+    echo "✅ Existing updated: <strong>{$existingRecordsUpdated}</strong><br>";
     echo "🆕 New records: <strong>{$newRecordsCount}</strong><br>";
     echo "🚫 Prevented duplicates: <strong style='color: #dc3545;'>{$preventedDuplicates}</strong><br>";
     echo "⏭️ Skipped: <strong>{$skippedCount}</strong><br>";
@@ -796,37 +759,41 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
     $createdTime = $order['created_time'] ? date('Y-m-d H:i:s', strtotime($order['created_time'])) : null;
     $shippedTime = $order['shipped_time'] ? date('Y-m-d H:i:s', strtotime($order['shipped_time'])) : null;
     $paymentDate = $order['paid_time'] ? date('Y-m-d H:i:s', strtotime($order['paid_time'])) : null;
-    $DeliverDate = null;
-
-    // FIXED: Format delivery date properly - check both possible locations
-    echo "DEBUG: estimatedDeliveryTime value: '" . ($order['estimatedDeliveryTime'] ?? 'NOT SET') . "'<br>";
     
-    if (!empty($order['estimatedDeliveryTime'])) {
-        $deliveryValue = $order['estimatedDeliveryTime'];
-        echo "DEBUG: Attempting to parse delivery date: '$deliveryValue'<br>";
-        
-        // Try different date formats
-        $timestamp = strtotime($deliveryValue);
-        if ($timestamp !== false && $timestamp > 0) {
-            $DeliverDate = date('Y-m-d H:i:s', $timestamp);
-            echo "DEBUG: ✓ Delivery date parsed successfully: $DeliverDate<br>";
-        } else {
-            // Try alternative format (just date)
-            $datePart = substr($deliveryValue, 0, 10);
-            $timestamp = strtotime($datePart);
-            if ($timestamp !== false && $timestamp > 0) {
-                $DeliverDate = date('Y-m-d H:i:s', $timestamp);
-                echo "DEBUG: ✓ Delivery date parsed from date part: $DeliverDate<br>";
-            } else {
-                echo "DEBUG: ✗ Failed to parse delivery date from: '$deliveryValue'<br>";
-            }
-        }
+    // Get delivery status first
+    $deliveryStatus = $order['delivery_status'] ?? 'Unknown';
+    
+    // ========================================
+    // ✅ CRITICAL FIX: Only set datedelivered if status is "Delivered"
+    // ========================================
+    $actualDeliveredDate = null;
+    
+    // Check if status is actually "Delivered" (handle variations)
+    $isDelivered = (
+        $deliveryStatus === 'Delivered' || 
+        stripos($deliveryStatus, 'Delivered') !== false
+    );
+    
+    if ($isDelivered && !empty($order['actual_delivered_date'])) {
+        $actualDeliveredDate = $order['actual_delivered_date'];
+        echo "DEBUG: Status is '{$deliveryStatus}' - Setting ACTUAL delivered date: $actualDeliveredDate<br>";
     } else {
-        echo "DEBUG: estimatedDeliveryTime is empty or not set<br>";
+        if (!empty($order['actual_delivered_date'])) {
+            echo "DEBUG: Status is '{$deliveryStatus}' (NOT Delivered) - SKIPPING actual delivered date (was: {$order['actual_delivered_date']})<br>";
+        } else {
+            echo "DEBUG: Status is '{$deliveryStatus}' - No actual delivered date available<br>";
+        }
     }
     
-    echo "DEBUG: Final DeliverDate value: '" . ($DeliverDate ?? 'NULL') . "'<br>";
-    
+    // ========================================
+    // ESTIMATED delivery date (from eBay) - always store if available
+    // ========================================
+    $estimatedDeliveryDate = null;
+    if (!empty($order['estimated_deliverydate'])) {
+        $estimatedDeliveryDate = $order['estimated_deliverydate'];
+        echo "DEBUG: Using ESTIMATED delivery range from eBay: $estimatedDeliveryDate<br>";
+    }
+
     $total = $order['total'] ?? 0.00;
     $sellerName = $order['seller_user_id'];
     $moduleLoc = 'Orders';
@@ -846,8 +813,7 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
     $sellerNotes = '';
     $locationdetails = $order['locationdetails'];
 
-
-    // Enhanced condition detection from V1
+    // Enhanced condition detection
     $conditionDisplay = 'N/A';
     if (isset($item['item_details']['Item']['ConditionDisplayName'])) {
         $conditionDisplay = $item['item_details']['Item']['ConditionDisplayName'];
@@ -867,7 +833,7 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
         $sellerNotes = str_replace(["'", '"'], "", $item['item_details']['Item']['ConditionDescription']);
     }
 
-    // Enhanced item status logic from V1
+    // Enhanced item status logic
     $keywords = db_fetch_all("SELECT descriptionStatus FROM tblItemstatus");
     $itemStatus = 'Working';
     $appliedCondition = '';
@@ -914,16 +880,14 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
 
     $rtcounter = fetchRtCounter();
     
-    $stmt = $mysqli->prepare("INSERT INTO tblproduct (rtid, itemnumber, ProductTitle, orderdate, total, quantity, price, Discount, priceshipping, tax, trackingnumber, trackingnumber2, trackingnumber3, trackingnumber4, carrier, listedcondition, seller, shipdate, paymentdate, rtcounter, description, notes, paymentmethod, datedelivered, itemstatus, conditionStatusApplied, fetchStatus, ProductModuleLoc, materialtype, Ebay_seller_location)
+    $stmt = $mysqli->prepare("INSERT INTO tblproduct (rtid, itemnumber, ProductTitle, orderdate, total, quantity, price, Discount, priceshipping, tax, trackingnumber, trackingnumber2, trackingnumber3, trackingnumber4, carrier, listedcondition, seller, shipdate, paymentdate, rtcounter, description, notes, paymentmethod, estimated_deliverydate, itemstatus, conditionStatusApplied, fetchStatus, ProductModuleLoc, materialtype, Ebay_seller_location)
                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     
     if (!$stmt) {
         throw new Exception("Failed to prepare insert statement: " . $mysqli->error);
     }
     
-    // Type string: 30 parameters (validation is hardcoded as '')
-    // Count: s s s s d i d d d d s s s s s s s s s i s s s s s s s s s s s = 31 chars
-    $stmt->bind_param("ssssdiddddsssssssssisssssssssss", 
+    $stmt->bind_param("ssssdiddddsssssssssissssssssss", 
         $orderID,              // 1  - s - rtid
         $itemID,               // 2  - s - itemnumber
         $title,                // 3  - s - ProductTitle
@@ -947,20 +911,28 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
         $itemDescription,      // 21 - s - description
         $sellerNotes,          // 22 - s - notes
         $PaymentMethod,        // 23 - s - paymentmethod
-        $DeliverDate,          // 24 - s - datedelivered
+        $estimatedDeliveryDate,// 24 - s - estimated_deliverydate (always store)
         $itemStatus,           // 25 - s - itemstatus
         $appliedCondition,     // 26 - s - conditionStatusApplied
         $fetchStatus,          // 27 - s - fetchStatus
         $moduleLoc,            // 28 - s - ProductModuleLoc
         $materialType,         // 29 - s - materialtype
         $locationdetails,      // 30 - s - Ebay_seller_location
-     
     );
 
     if ($stmt->execute()) {
         $productID = $mysqli->insert_id;
         echo "✅ Inserted Order ID: $orderID (Item ID: $itemID) - ProductID: $productID<br>";
-        echo "✅ Item Status: $itemStatus ($appliedCondition)<br>";
+        echo "   📦 Delivery Status: <strong>$deliveryStatus</strong><br>";
+        echo "   📅 Estimated Delivery: " . ($estimatedDeliveryDate ?? 'N/A') . "<br>";
+        
+        if ($actualDeliveredDate) {
+            echo "   ✅ Actual Delivered: <strong style='color: #28a745;'>$actualDeliveredDate</strong><br>";
+        } else {
+            echo "   📅 Actual Delivered: N/A (status is '$deliveryStatus', not 'Delivered')<br>";
+        }
+        
+        echo "   ✅ Item Status: $itemStatus ($appliedCondition)<br>";
         
         // Process images for new records
         if (isset($item['item_details']['Item']['PictureDetails']['PictureURL'])) {
@@ -1020,6 +992,7 @@ function sendEbayRequest($accessToken, $pageNumber)
         <OutputSelector>OrderArray.Order.TransactionArray.Transaction.ShippingDetails.ShipmentTrackingDetails.ShipmentTrackingNumber</OutputSelector>
         <OutputSelector>OrderArray.Order.TransactionArray.Transaction.ShippingDetails.ShipmentTrackingDetails.ShippingCarrierUsed</OutputSelector>
         <OutputSelector>OrderArray.Order.TransactionArray.Transaction.Item.ConditionDisplayName</OutputSelector>
+        <OutputSelector>OrderArray.Order.TransactionArray.Transaction.ShippingServiceSelected.ShippingPackageInfo.EstimatedDeliveryTimeMin</OutputSelector>
         <OutputSelector>OrderArray.Order.TransactionArray.Transaction.ShippingServiceSelected.ShippingPackageInfo.EstimatedDeliveryTimeMax</OutputSelector>
         <OutputSelector>OrderArray.Order.CheckoutStatus.PaymentMethod</OutputSelector>
     </GetOrdersRequest>';
@@ -1111,60 +1084,109 @@ function sendRequest($requestBody, $apiCallName)
 
 function processOrders($response, $accessToken)
 {
+    global $mysqli;
+    
     if (empty($response['OrderArray']['Order'])) {
         return [];
     }
 
     $orders = $response['OrderArray']['Order'];
+    
+    if (isset($orders['OrderID'])) {
+        $orders = [$orders];
+    }
+    
     $processedOrders = [];
     $exchangeRates = fetchExchangeRates('f5d29ab775a644eca3f13e4c');
 
-    foreach ($orders as $order) {
+    echo "<br><div style='background: #e7f3ff; padding: 15px; border: 2px solid #007bff;'>";
+    echo "<strong>=== PROCESSING EBAY ORDER DATA ===</strong><br>";
+    echo "Total orders from eBay: " . count($orders) . "<br>";
+    echo "</div><br>";
+    
+    foreach ($orders as $orderIdx => $order) {
+        $orderId = $order['OrderID'] ?? 'UNKNOWN';
+        echo "📦 Processing eBay order: <strong>{$orderId}</strong><br>";
+        
         $currency = $order['AmountPaid']['@currencyID'] ?? 'USD';
-        $ebayorderid = $order['OrderID'] ?? null;
         $amountPaid = $order['AmountPaid'] ?? 0;
         $amountPaidInUSD = convertToUSD($amountPaid, $currency, $exchangeRates);
 
         $preshippingServiceCost = $order['ShippingServiceSelected']['ShippingServiceCost'] ?? 0;
-        
-        // FIXED: Get delivery date from the correct path in Transaction array
-        $deliveredDate = null;
-        if (isset($order['TransactionArray']['Transaction']['ShippingServiceSelected']['ShippingPackageInfo']['EstimatedDeliveryTimeMax'])) {
-            $deliveredDate = $order['TransactionArray']['Transaction']['ShippingServiceSelected']['ShippingPackageInfo']['EstimatedDeliveryTimeMax'];
-            echo "DEBUG processOrders: Found EstimatedDeliveryTimeMax = '$deliveredDate' for Order: {$order['OrderID']}<br>";
-        } else {
-            echo "DEBUG processOrders: No EstimatedDeliveryTimeMax found for Order: {$order['OrderID']}<br>";
-        }
-        
         $shipping_currency = $currency;
         $shippingServiceCost = convertToUSD($preshippingServiceCost, $shipping_currency, $exchangeRates);
 
-        $trackingNumber1 = $trackingNumber2 = $trackingNumber3 = $trackingNumber4 = $trackingNumber5 = '';
+        // Extract ESTIMATED delivery range from eBay
+        $estimatedDeliveryMin = null;
+        $estimatedDeliveryMax = null;
+        $estimatedDeliveryRange = null;
+        
+        if (isset($order['TransactionArray']['Transaction']['ShippingServiceSelected']['ShippingPackageInfo']['EstimatedDeliveryTimeMin'])) {
+            $estimatedDeliveryMin = $order['TransactionArray']['Transaction']['ShippingServiceSelected']['ShippingPackageInfo']['EstimatedDeliveryTimeMin'];
+        }
+        
+        if (isset($order['TransactionArray']['Transaction']['ShippingServiceSelected']['ShippingPackageInfo']['EstimatedDeliveryTimeMax'])) {
+            $estimatedDeliveryMax = $order['TransactionArray']['Transaction']['ShippingServiceSelected']['ShippingPackageInfo']['EstimatedDeliveryTimeMax'];
+        }
+        
+        if ($estimatedDeliveryMin && $estimatedDeliveryMax) {
+            try {
+                $minDate = new DateTime($estimatedDeliveryMin);
+                $maxDate = new DateTime($estimatedDeliveryMax);
+                
+                $minFormatted = $minDate->format('Y-m-d');
+                $maxFormatted = $maxDate->format('Y-m-d');
+                
+                if ($minFormatted === $maxFormatted) {
+                    $estimatedDeliveryRange = $minFormatted;
+                } else {
+                    $estimatedDeliveryRange = $minFormatted . ' to ' . $maxFormatted;
+                }
+                
+                echo "   📅 Estimated delivery: {$estimatedDeliveryRange}<br>";
+            } catch (Exception $e) {
+                // Ignore
+            }
+        } elseif ($estimatedDeliveryMax) {
+            try {
+                $maxDate = new DateTime($estimatedDeliveryMax);
+                $estimatedDeliveryRange = $maxDate->format('Y-m-d');
+                echo "   📅 Estimated delivery (MAX): {$estimatedDeliveryRange}<br>";
+            } catch (Exception $e) {}
+        }
+
+        // Collect ALL tracking numbers (1-4)
+        $trackingNumber1 = $trackingNumber2 = $trackingNumber3 = $trackingNumber4 = '';
         $shippingCarrier = '';
         $items = [];
+        $locationDetails = 'N/A';
 
-        // Tracking Details
         if (isset($order['TransactionArray']['Transaction']['ShippingDetails']['ShipmentTrackingDetails'])) {
             $trackingDetails = $order['TransactionArray']['Transaction']['ShippingDetails']['ShipmentTrackingDetails'];
             $isArray = isset($trackingDetails[0]);
 
-            for ($i = 0; $i <= 4; $i++) {
-                $numField = 'trackingNumber' . ($i + 1);
+            for ($i = 0; $i <= 3; $i++) {
+                $trackingVar = 'trackingNumber' . ($i + 1);
+                
                 if ($isArray && isset($trackingDetails[$i]['ShipmentTrackingNumber'])) {
-                    ${$numField} = $trackingDetails[$i]['ShipmentTrackingNumber'];
+                    ${$trackingVar} = trim($trackingDetails[$i]['ShipmentTrackingNumber']);
+                    echo "   🔢 Tracking" . ($i + 1) . ": " . ${$trackingVar} . "<br>";
                 } elseif (!$isArray && $i === 0 && isset($trackingDetails['ShipmentTrackingNumber'])) {
-                    $trackingNumber1 = $trackingDetails['ShipmentTrackingNumber'];
+                    $trackingNumber1 = trim($trackingDetails['ShipmentTrackingNumber']);
+                    echo "   🔢 Tracking1: {$trackingNumber1}<br>";
                 }
             }
 
             if ($isArray && isset($trackingDetails[0]['ShippingCarrierUsed'])) {
                 $shippingCarrier = $trackingDetails[0]['ShippingCarrierUsed'];
+                echo "   🚚 Carrier: {$shippingCarrier}<br>";
             } elseif (!$isArray && isset($trackingDetails['ShippingCarrierUsed'])) {
                 $shippingCarrier = $trackingDetails['ShippingCarrierUsed'];
+                echo "   🚚 Carrier: {$shippingCarrier}<br>";
             }
         }
 
-        // Transactions
+        // Process transactions
         if (!empty($order['TransactionArray']['Transaction'])) {
             $transactions = $order['TransactionArray']['Transaction'];
             if (!isset($transactions[0]))
@@ -1193,6 +1215,7 @@ function processOrders($response, $accessToken)
             }
         }
 
+        // Build processed order
         $processedOrder = [
             'order_id' => $order['OrderID'] ?? null,
             'order_status' => $order['OrderStatus'] ?? null,
@@ -1210,15 +1233,19 @@ function processOrders($response, $accessToken)
             'tracking_number2' => $trackingNumber2,
             'tracking_number3' => $trackingNumber3,
             'tracking_number4' => $trackingNumber4,
-            'tracking_number5' => $trackingNumber5,
             'shipping_carrier' => $shippingCarrier,
             'items' => $items,
             'locationdetails' => $locationDetails,
-            'estimatedDeliveryTime' => $deliveredDate, // Pass the raw value to be formatted later
+            'estimated_deliverydate' => $estimatedDeliveryRange,
         ];
 
         $processedOrders[] = $processedOrder;
+        echo "<br>";
     }
+
+    echo "<div style='background: #d4edda; padding: 15px; border: 2px solid #28a745;'>";
+    echo "<strong>✅ Order processing complete: " . count($processedOrders) . " orders ready</strong><br>";
+    echo "</div><br>";
 
     return $processedOrders;
 }
@@ -1687,9 +1714,6 @@ function getItemLocation($itemId, $accessToken)
         ? "$itemLocation, $itemCountry"
         : $itemLocation;
 }
-
-
- 
 
 function fetchExchangeRates($apiKey)
 {
