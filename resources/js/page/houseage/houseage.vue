@@ -1,9 +1,17 @@
 <template>
     <div class="vue-container houseage-module">
-        <TitlePage
-            title="Houseage Module"
-            subtitle="Manage all products in the internal processing flow, including grading, return status, and next module assignment."
-        />
+         <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
+            <TitlePage
+                title="Houseage Module"
+                subtitle="Manage all products in the internal processing flow, including grading, return status, and next module assignment."
+            />
+
+            <div class="d-flex justify-content-center gap-2 mx-4 flex-wrap">
+                 <Button severity="secondary" size="small" outlined @click="goToSuppliersList"
+                    label="Suppliers List" icon="pi pi-list" />
+            </div>
+         </div>
+        
 
         <!-- Desktop Table Container -->
         <AnimateDiv :delay="200" class="px-4">
