@@ -481,20 +481,21 @@ export default {
       const parentStep = this.$parent?.currentStep;
       const parentCaptureStep = this.$parent?.currentCaptureStep;
 
-      return this.capturedImages.filter(img => {
-        // Receiving module (step-based)
-        if (parentStep !== undefined) {
-          return img.step === parentStep;
-        }
+      // Receiving workflow
+      if (parentStep !== undefined) {
+        return this.capturedImages.filter(
+          img => img.step === parentStep
+        );
+      }
 
-        // Return scanner (captureStep-based)
-        if (parentCaptureStep !== undefined) {
-          return img.captureStep === parentCaptureStep;
-        }
+      // Return scanner workflow
+      if (parentCaptureStep !== undefined) {
+        return this.capturedImages.filter(
+          img => img.captureStep === parentCaptureStep
+        );
+      }
 
-        // Fallback: show all
-        return true;
-      });
+      return this.capturedImages;
     },
 
     maxImagesForCurrentStep() {
@@ -1111,82 +1112,33 @@ async initializeZoom() {
     },
     
    //return scanner condition 
- async captureReturnScanner() {
-  const video = document.getElementById('scanner-camera-preview') || this.$refs.videoElement;
-  if (!video || !this.scannerCameraActive) return;
+    async captureReturnScanner() {
+      const video =
+        document.getElementById('scanner-camera-preview') ||
+        this.$refs.videoElement;
 
-  const currentCaptureStep = this.$parent?.currentCaptureStep ?? 0;
-  
-  console.log('📸 Return Scanner Capture:', {
-    currentCaptureStep,
-    capturedImagesLength: this.capturedImages.length,
-    currentZoom: this.currentZoom
-  });
+      if (!video || !this.scannerCameraActive) return;
 
-  // Limit to 12 images per serial
-  if (this.capturedImages.length >= 12) {
-    this.showScanWarning('Maximum of 12 images per serial allowed.');
-    return;
-  }
+      if (this.capturedImages.length >= 12) {
+        this.showScanWarning('Maximum of 12 images per serial allowed.');
+        return;
+      }
 
-  // ✅ Capture with zoom applied
-  const canvas = this.captureVideoWithZoom(video);
-  const timestamp = new Date().toLocaleTimeString();
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      const canvas = this.captureVideoWithZoom(video);
+      const timestamp = new Date().toLocaleTimeString();
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
 
-  // Get serial data
-  let serialData = {
-    serial: null,
-    serialIndex: null
-  };
+      // 🔥 Keep SAME property names as working version
+      this.capturedImages.push({
+        data: dataUrl,
+        timestamp,
+        captureStep: this.$parent?.currentCaptureStep || 2
+      });
 
-  if (this.$parent) {
-    switch (currentCaptureStep) {
-      case 1:
-        serialData.serial = this.$parent.serialNumber || null;
-        serialData.serialIndex = 1;
-        break;
-      case 2:
-        serialData.serial = this.$parent.secondSerialNumber || null;
-        serialData.serialIndex = 2;
-        break;
-      case 3:
-        serialData.serial = this.$parent.thirdSerialNumber || null;
-        serialData.serialIndex = 3;
-        break;
-      case 4:
-        serialData.serial = this.$parent.fourthSerialNumber || null;
-        serialData.serialIndex = 4;
-        break;
-    }
-  }
-
-  // Store captured image with all metadata
-  const captureData = {
-    data: dataUrl,
-    timestamp,
-    captureStep: currentCaptureStep,
-    serial: serialData.serial,
-    serialIndex: serialData.serialIndex
-  };
-
-  this.capturedImages.push(captureData);
-
-  console.log(`✅ Image captured with zoom ${this.currentZoom}x`, {
-    step: currentCaptureStep,
-    serial: serialData.serial,
-    serialIndex: serialData.serialIndex,
-    totalImages: this.capturedImages.length
-  });
-
-  this.showScanSuccess(`Image captured (${this.currentZoom.toFixed(1)}x zoom)`);
-
-  setTimeout(() => {
-    this.showSuccessNotification = false;
-  }, 2000);
-}
-
-    
+      this.showScanSuccess(
+        `Image captured (${this.currentZoom.toFixed(1)}x zoom)`
+      );
+    },
   }
 };
 </script>

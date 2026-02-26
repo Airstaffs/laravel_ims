@@ -914,23 +914,32 @@ async fetchInventory() {
             },
         async uploadImagesToProducts(items, imageData) {
             const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+
             for (const item of items) {
                 const imgs = imageData.filter(i => i.serial === item.serial);
+
                 for (let i = 0; i < Math.min(imgs.length, 12); i++) {
                     try {
                         await axios.post(`${API_BASE_URL}/api/images/upload`, { 
-                            _token: csrf, 
-                            productId: item.id, 
-                            imageIndex: i, 
-                            imageData: imgs[i].data, 
-                            isSerial: false, 
-                            serialIndex: 0 
+                            _token: csrf,
+                            productId: item.id,
+                            imageIndex: i,
+                            imageData: imgs[i].data,
+
+                            step: 2,          // 🔥🔥🔥 ADD THIS
+                            isSerial: false,
+                            serialIndex: 0
+
                         }, { 
-                            withCredentials: true, 
-                            headers: { "Content-Type": "application/json", "X-CSRF-TOKEN": csrf } 
+                            withCredentials: true,
+                            headers: {
+                                "Content-Type": "application/json",
+                                "X-CSRF-TOKEN": csrf
+                            }
                         });
-                    } catch (e) { 
-                        console.error(`Image upload failed for ${item.serial}`, e); 
+
+                    } catch (e) {
+                        console.error(`Image upload failed for ${item.serial}`, e.response?.data || e.message);
                     }
                 }
             }
