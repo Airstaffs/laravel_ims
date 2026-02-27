@@ -1301,7 +1301,7 @@ export default {
 
             a.saving = true;
             try {
-                const res = await axios.post(`${API_BASE_URL}/amazon/paa/save`, payload);
+                const res = await axios.post(`${API_BASE_URL}/amazon/automation/save`, payload);
 
                 // if created, update current id + reload list
                 const automationId = res?.data?.automation_id;
