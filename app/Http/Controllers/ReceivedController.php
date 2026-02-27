@@ -13,28 +13,39 @@ class ReceivedController extends BasetablesController
 {
     use TracksHistory;
 
-    public function index(Request $request)
-    {
-        $perPage = $request->input('per_page', 10);
-        $search = $request->input('search', '');
-        $location = $request->input('location', 'Received');
 
-        $products = DB::table($this->productTable)
-            ->where('ProductModuleLoc', $location)
-            ->when($search, function ($query) use ($search) {
-                return $query->where(function ($q) use ($search) {
-                    $q->where('ProductTitle', 'like', "%{$search}%")
-                        ->orWhere('rtid', 'like', "%{$search}%")
-                        ->orWhere('itemnumber', 'like', "%{$search}%")
-                        ->orWhere('rtcounter', 'like', "%{$search}%")
-                        // âœ… FIXED: Search tracking by last 12 digits
-                        ->orWhere('trackingnumber', 'like', '%'.substr($search, -12).'%');
-                });
-            })
-            ->paginate($perPage);
+public function index(Request $request)
+{
+    $perPage  = $request->input('per_page', 10);
+    $search   = $request->input('search', '');
+    $location = $request->input('location', 'Received');
 
-        return response()->json($products);
-    }
+    $products = DB::table($this->productTable.' as prod')
+        // ✅ Join eBay images table
+        ->leftJoin('tblEbayOrderImages as ebayimgs', 'prod.ProductID', '=', 'ebayimgs.ProductID')
+        ->select([
+            'prod.*',
+            // ✅ Pull images from tblEbayOrderImages (overrides prod.* img columns)
+            'ebayimgs.img1',  'ebayimgs.img2',  'ebayimgs.img3',
+            'ebayimgs.img4',  'ebayimgs.img5',  'ebayimgs.img6',
+            'ebayimgs.img7',  'ebayimgs.img8',  'ebayimgs.img9',
+            'ebayimgs.img10', 'ebayimgs.img11', 'ebayimgs.img12',
+            'ebayimgs.img13', 'ebayimgs.img14', 'ebayimgs.img15',
+        ])
+        ->where('prod.ProductModuleLoc', $location)
+        ->when($search, function ($query) use ($search) {
+            return $query->where(function ($q) use ($search) {
+                $q->where('prod.ProductTitle',    'like', "%{$search}%")
+                  ->orWhere('prod.rtid',          'like', "%{$search}%")
+                  ->orWhere('prod.itemnumber',    'like', "%{$search}%")
+                  ->orWhere('prod.rtcounter',     'like', "%{$search}%")
+                  ->orWhere('prod.trackingnumber','like', '%'.substr($search, -12).'%');
+            });
+        })
+        ->paginate($perPage);
+
+    return response()->json($products);
+}
 
     public function verifyTracking(Request $request)
     {

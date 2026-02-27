@@ -699,29 +699,32 @@ function processOrdersWithResume($pageOrders, $currentPage) {
 // === ENHANCED IMAGE PROCESSING FROM V1 ===
 function shouldFetchImagesForUpdate($productID) {
     global $mysqli;
-    
-    // Check connection before query
+
     checkDatabaseConnection();
-    
-    $checkStmt = $mysqli->prepare("
-        SELECT img1, img2, img3, img4, img5 
-        FROM tblproduct 
-        WHERE ProductID = ? 
+
+    $stmt = $mysqli->prepare("
+        SELECT img1,  img2,  img3,  img4,  img5,
+               img6,  img7,  img8,  img9,  img10,
+               img11, img12, img13, img14, img15
+        FROM tblEbayOrderImages
+        WHERE ProductID = ?
         LIMIT 1
     ");
-    
-    $checkStmt->bind_param("i", $productID);
-    $checkStmt->execute();
-    $result = $checkStmt->get_result();
-    $row = $result->fetch_assoc();
-    $checkStmt->close();
-    
-    // If no images exist, we should fetch
-    if (!$row || (empty($row['img1']) && empty($row['img2']) && empty($row['img3']) && empty($row['img4']) && empty($row['img5']))) {
-        return true;
+    $stmt->bind_param("i", $productID);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row    = $result->fetch_assoc();
+    $stmt->close();
+
+    // No row at all → fetch
+    if (!$row) return true;
+
+    // Has at least one image → skip fetch
+    foreach ($row as $val) {
+        if (!empty($val)) return false;
     }
-    
-    return false; // Already has images, skip fetching
+
+    return true; // All 15 slots empty → fetch
 }
 
 function smartImageUpdateForExistingRecord($existingProductID, $itemID) {
@@ -1364,18 +1367,16 @@ function clearProgress() {
     }
 }
 
-function saveEbayImages($productID, $imageUrls)
-{
+function saveEbayImages($productID, $imageUrls) {
     global $mysqli;
 
-    // Check connection before image processing
     checkDatabaseConnection();
 
     if (!is_array($imageUrls)) {
         $imageUrls = [$imageUrls];
     }
 
-    $imageUrls = array_slice($imageUrls, 0, 5); // Limit to 5
+    $imageUrls = array_slice($imageUrls, 0, 15); // max 15
 
     $imageDir = '/home/imsv2/public_html/laravel_ims/public/images/thumbnails';
     if (!file_exists($imageDir)) {
@@ -1387,8 +1388,9 @@ function saveEbayImages($productID, $imageUrls)
         return false;
     }
 
+    $savedImages  = [];   // index => filename  (only successfully saved)
     $successCount = 0;
-    $totalCount = count($imageUrls);
+    $totalCount   = count($imageUrls);
 
     foreach ($imageUrls as $index => $imageUrl) {
         try {
@@ -1396,17 +1398,17 @@ function saveEbayImages($productID, $imageUrls)
                 echo "Invalid image URL at index $index: $imageUrl<br>";
                 continue;
             }
-            
-            $imageName = $productID . ($index > 0 ? "_$index" : "") . ".jpg";
-            $imagePath = $imageDir . '/' . $imageName;
+
+            $imageName    = $productID . ($index > 0 ? "_$index" : "") . ".jpg";
+            $imagePath    = $imageDir . '/' . $imageName;
 
             $imageContent = downloadImageWithRetry($imageUrl, 2);
-            
+
             if ($imageContent === false) {
                 echo "Failed to download image from: $imageUrl<br>";
                 continue;
             }
-            
+
             if (strlen($imageContent) < 100) {
                 echo "Downloaded image too small (likely error page): $imageUrl<br>";
                 continue;
@@ -1416,51 +1418,98 @@ function saveEbayImages($productID, $imageUrls)
                 echo "Error writing image file at: $imagePath<br>";
                 continue;
             }
-            
+
             if (!file_exists($imagePath) || filesize($imagePath) == 0) {
                 echo "Image file not properly saved: $imagePath<br>";
-                if (file_exists($imagePath)) {
-                    unlink($imagePath);
-                }
+                if (file_exists($imagePath)) unlink($imagePath);
                 continue;
             }
-            
-            $imageInfo = getimagesize($imagePath);
-            if ($imageInfo === false) {
+
+            if (getimagesize($imagePath) === false) {
                 echo "Downloaded file is not a valid image: $imagePath<br>";
                 unlink($imagePath);
                 continue;
             }
 
-            // Check connection before image update
-            checkDatabaseConnection();
-
-            $imgField = "img" . ($index + 1);
-            $stmt = $mysqli->prepare("UPDATE tblproduct SET $imgField = ? WHERE ProductID = ?");
-            
-            if ($stmt === false) {
-                echo "Error preparing image update statement: " . $mysqli->error . "<br>";
-                continue;
-            }
-            
-            $stmt->bind_param("si", $imageName, $productID);
-            
-            if (!$stmt->execute()) {
-                echo "Error updating image field {$imgField}: " . $stmt->error . "<br>";
-                $stmt->close();
-                continue;
-            }
-            
-            $stmt->close();
+            $savedImages[$index] = $imageName;
             $successCount++;
             echo "📷 Saved image $imageName for ProductID: $productID<br>";
 
         } catch (Exception $e) {
             echo "Exception while processing image $index for ProductID $productID: " . $e->getMessage() . "<br>";
-            continue;
         }
     }
-    
+
+    // --------------------------------------------------
+    // Persist to tblEbayOrderImages (UPSERT)
+    // --------------------------------------------------
+    if ($successCount > 0) {
+        checkDatabaseConnection();
+
+        // Build named slots — use saved filename or NULL
+        $img1  = $savedImages[0]  ?? null;
+        $img2  = $savedImages[1]  ?? null;
+        $img3  = $savedImages[2]  ?? null;
+        $img4  = $savedImages[3]  ?? null;
+        $img5  = $savedImages[4]  ?? null;
+        $img6  = $savedImages[5]  ?? null;
+        $img7  = $savedImages[6]  ?? null;
+        $img8  = $savedImages[7]  ?? null;
+        $img9  = $savedImages[8]  ?? null;
+        $img10 = $savedImages[9]  ?? null;
+        $img11 = $savedImages[10] ?? null;
+        $img12 = $savedImages[11] ?? null;
+        $img13 = $savedImages[12] ?? null;
+        $img14 = $savedImages[13] ?? null;
+        $img15 = $savedImages[14] ?? null;
+
+        // INSERT … ON DUPLICATE KEY UPDATE handles both new and existing rows
+        // (relies on the UNIQUE KEY on ProductID)
+        $stmt = $mysqli->prepare("
+            INSERT INTO tblEbayOrderImages
+                (ProductID, img1, img2, img3, img4, img5, img6, img7, img8, img9, img10, img11, img12, img13, img14, img15)
+            VALUES
+                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                img1  = COALESCE(VALUES(img1),  img1),
+                img2  = COALESCE(VALUES(img2),  img2),
+                img3  = COALESCE(VALUES(img3),  img3),
+                img4  = COALESCE(VALUES(img4),  img4),
+                img5  = COALESCE(VALUES(img5),  img5),
+                img6  = COALESCE(VALUES(img6),  img6),
+                img7  = COALESCE(VALUES(img7),  img7),
+                img8  = COALESCE(VALUES(img8),  img8),
+                img9  = COALESCE(VALUES(img9),  img9),
+                img10 = COALESCE(VALUES(img10), img10),
+                img11 = COALESCE(VALUES(img11), img11),
+                img12 = COALESCE(VALUES(img12), img12),
+                img13 = COALESCE(VALUES(img13), img13),
+                img14 = COALESCE(VALUES(img14), img14),
+                img15 = COALESCE(VALUES(img15), img15),
+                updated_at = CURRENT_TIMESTAMP
+        ");
+
+        if (!$stmt) {
+            echo "Error preparing image upsert: " . $mysqli->error . "<br>";
+            return false;
+        }
+
+        $stmt->bind_param("isssssssssssssss",
+            $productID,
+            $img1, $img2, $img3, $img4, $img5,
+            $img6, $img7, $img8, $img9, $img10,
+            $img11, $img12, $img13, $img14, $img15
+        );
+
+        if ($stmt->execute()) {
+            echo "✅ tblEbayOrderImages updated for ProductID: $productID<br>";
+        } else {
+            echo "Error upserting into tblEbayOrderImages: " . $stmt->error . "<br>";
+        }
+
+        $stmt->close();
+    }
+
     echo "Image processing complete for ProductID $productID: $successCount/$totalCount images saved successfully<br>";
     return $successCount > 0;
 }
