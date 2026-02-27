@@ -3,8 +3,8 @@
 use App\Http\Controllers\Amzn\FBACartController;
 use App\Http\Controllers\Amzn\FBAShipmentController;
 use App\Http\Controllers\Amzn\Listing\CatalogController;
-use App\Http\Controllers\Amzn\OutboundOrders\ShippingLabel\ShippingLabelController;
 use App\Http\Controllers\Amzn\Listing\ListingController;
+use App\Http\Controllers\Amzn\OutboundOrders\ShippingLabel\ShippingLabelController;
 use App\Http\Controllers\ASINlistController;
 use App\Http\Controllers\AsinMappingController;
 use App\Http\Controllers\AttendanceController;
@@ -21,6 +21,7 @@ use App\Http\Controllers\Fbmorders\WorkhistoryController;
 use App\Http\Controllers\FnskuController;
 use App\Http\Controllers\HistoryTrackingController;
 use App\Http\Controllers\HouseageController;
+use App\Http\Controllers\HR\EwhController;
 use App\Http\Controllers\HrController;
 use App\Http\Controllers\InventoryStatisticsController;
 use App\Http\Controllers\KanbanActivityLogController;
@@ -45,6 +46,7 @@ use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\SoldlistController;
 use App\Http\Controllers\StockroomController;
 use App\Http\Controllers\StoreController;
+use App\Http\Controllers\SuppliesComponentsController;
 use App\Http\Controllers\SystemDesignController;
 use App\Http\Controllers\tblproductController;
 use App\Http\Controllers\TestingController;
@@ -57,7 +59,7 @@ use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Middleware\PreventBackHistory;
-use App\Http\Controllers\SuppliesComponentsController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Models\Store;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -707,13 +709,18 @@ Route::prefix('api/shipments')->group(function () {
     Route::post('/manual-deliver', [ShipmentController::class, 'manualDeliver']);
 });
 
+// Supplier module routes
+Route::prefix('api/suppliers')->group(function () {
+    Route::get('/', [SupplierController::class, 'index']);
+    Route::post('/update-supplier', [SupplierController::class, 'updateSupplier']);
+});
+
+
 // Inventory Statistics Routes
 Route::prefix('api/inventory-statistics')->group(function () {
     Route::get('/summary', [InventoryStatisticsController::class, 'getSummary']);
     Route::get('/asin-details', [InventoryStatisticsController::class, 'getAsinDetails']);
 });
-
-
 
 // Routes for Supplies & Components Module
 Route::prefix('api/supplies-components')->group(function () {
@@ -1006,6 +1013,11 @@ Route::prefix('hr')->group(function () {
     Route::delete('/payslips/{id}', [HrController::class, 'deletePayslip']);
 
     Route::get('/holidays', [HrController::class, 'getHolidays']);
+
+    Route::get('/ewh', [EwhController::class, 'index']);
+    Route::post('/ewh', [EwhController::class, 'store']);
+    Route::get('/ewh/{id}', [EwhController::class, 'show']);
+    Route::delete('/ewh/{id}', [EwhController::class, 'destroy']);
 });
 
 Route::get('/schedule/month', [AttendanceController::class, 'month']);

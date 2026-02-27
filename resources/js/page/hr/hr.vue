@@ -73,6 +73,8 @@
             <scheduling v-if="currentView === 'Scheduling'" :ctx="hrContext" />
 
             <Payroll v-if="currentView === 'Payroll'" />
+
+            <EWH v-if="currentView === 'EWH'" />
         </div>
     </div>
 </template>

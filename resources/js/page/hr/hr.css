@@ -584,7 +584,8 @@ table tbody tr td {
 }
 
 /* Payslip */
-.payroll-header {
+.payroll-header,
+.ewh-header {
     display: flex;
     justify-content: space-between;
     align-items: center;

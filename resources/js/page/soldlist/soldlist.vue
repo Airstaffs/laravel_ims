@@ -242,7 +242,7 @@
         <!-- Image Modal -->
         <ViewImageModal
             v-model:visible="showImageModal"
-            :title="ProductTitle"
+            :title="item.internal"
             :imageList="imageList"
             :basePath="basePath"
             :onImageErrorMain="onImageErrorMain"
@@ -254,7 +254,7 @@
             class="view-modal"
             v-model:visible="showEditModal"
             modal
-            :header="`RT # ${item.ProductID} ${item.ProductTitle}`"
+            :header="`RT # ${item.ProductID} ${item.internal}`"
             style="width: 110rem"
             :pt="{
                 root: { class: 'mobile-fullscreen-dialog' },

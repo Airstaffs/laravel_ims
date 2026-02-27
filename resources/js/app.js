@@ -611,6 +611,7 @@ const asyncComponentMap = {
     mskucreation: () =>
         import("./page/asinoption/fnskucreation/creation_msku.vue"),
     scheduling: () => import("./page/hr/components/scheduling.vue"),
+    supplierslist: () => import("./page/suppliersList/suppliersList.vue"),
 };
 
 window.asyncComponentMap = asyncComponentMap;
@@ -641,6 +642,7 @@ const componentMapping = {
     "Inventory Statistics": "inventorystatistics",
     "Reconciliation": "reconciliation",
     "Supplies & Components": "suppliescomponents",
+    "Suppliers List": "supplierslist"
 };
 
 // ============================================
@@ -723,6 +725,12 @@ const app = createApp({
                 const componentName = this.mapToComponentName(navName);
                 this.safeComponentUpdate(componentName, navName);
                 getKanbanNotif();
+                return;
+            }
+
+              if (navName === "supplierslist") {
+                const componentName = this.mapToComponentName(navName);
+                this.safeComponentUpdate(componentName, navName);
                 return;
             }
 
