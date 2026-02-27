@@ -2279,9 +2279,9 @@ input:checked + .toggle-slider:before {
 }
 
 @media (max-width: 360px) {
-  .scanner-view {
+  /* .scanner-view {
     height: 150px;
-  }
+  } */
   
   .scanner-view.compact-view {
     height: 70px;
@@ -2927,7 +2927,11 @@ input:checked + .toggle-slider:before {
   align-items: center;
   gap: 10px;
 }
-
+/* @media (max-width: 1024px) {
+  .scanner-view {
+      height: 380px;
+  }
+} */
 /* Mobile adjustments */
 @media (max-width: 768px) {
   .zoom-slider-vertical{
