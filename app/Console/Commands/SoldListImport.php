@@ -96,7 +96,7 @@ class SoldListImport extends Command
             if (in_array($v, $bad, true))
                 return null;
 
-            // Also guard empty-ish patterns
+            // Also guard empty-ish patterns    
             if (preg_match('/^0{1,2}[\/\-]0{1,2}[\/\-]0{2,4}$/', $v))
                 return null;
 

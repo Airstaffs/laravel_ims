@@ -686,6 +686,111 @@ class ListingController extends Controller
         }
     }
 
+    public function fnskuSearch(Request $request)
+    {
+        $data = $request->validate([
+            'store' => ['required', 'string'],
+            'q' => ['nullable', 'string'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'pageSize' => ['nullable', 'integer', 'min:1', 'max:200'],
+        ]);
+
+        $store = $data['store'];
+        $q = trim($data['q'] ?? '');
+        $page = (int) ($data['page'] ?? 1);
+        $pageSize = (int) ($data['pageSize'] ?? 20);
+
+        $query = DB::table('tblfnsku')
+            ->select('FNSKUID', 'FNSKU', 'MSKU', 'ASIN', 'Units', 'grading', 'storename', 'fnsku_status')
+            ->where('storename', $store);
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('MSKU', 'like', "%{$q}%")
+                    ->orWhere('FNSKU', 'like', "%{$q}%")
+                    ->orWhere('ASIN', 'like', "%{$q}%");
+            });
+        }
+
+        // pagination (simple)
+        $offset = ($page - 1) * $pageSize;
+
+        $rows = $query
+            ->orderByDesc('FNSKUID')
+            ->offset($offset)
+            ->limit($pageSize + 1)
+            ->get();
+
+        $hasMore = $rows->count() > $pageSize;
+        if ($hasMore) {
+            $rows = $rows->slice(0, $pageSize)->values();
+        }
+
+        return response()->json([
+            'ok' => true,
+            'rows' => $rows,
+            'hasMore' => $hasMore,
+            'page' => $page,
+            'pageSize' => $pageSize,
+        ]);
+    }
+
+    public function save(Request $request)
+    {
+        $data = $request->validate([
+            'store' => ['required', 'string'],
+            'name' => ['required', 'string', 'max:255'],
+            'minPrice' => ['nullable', 'numeric', 'min:0'],
+            'maxPrice' => ['nullable', 'numeric', 'min:0'],
+            'runEveryMinutes' => ['required', 'integer', 'min:1', 'max:1440'],
+            'isActive' => ['required', 'in:0,1'],
+
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.FNSKUID' => ['nullable', 'integer'],
+            'items.*.MSKU' => ['nullable', 'string', 'max:50'],
+            'items.*.FNSKU' => ['nullable', 'string', 'max:50'],
+            'items.*.ASIN' => ['nullable', 'string', 'max:20'],
+            'items.*.storename' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        // NOTE: this assumes you create the 2 tables below.
+        // If you already have your own tables, tell me the names/columns and I’ll adapt.
+
+        return DB::transaction(function () use ($data) {
+            $automationId = DB::table('tbl_amzn_pricing_automation')->insertGetId([
+                'storename' => $data['store'],
+                'name' => $data['name'],
+                'min_price' => $data['minPrice'],
+                'max_price' => $data['maxPrice'],
+                'run_every_minutes' => $data['runEveryMinutes'],
+                'is_active' => (int) $data['isActive'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $items = [];
+            foreach ($data['items'] as $it) {
+                $items[] = [
+                    'automation_id' => $automationId,
+                    'storename' => $data['store'],
+                    'FNSKUID' => $it['FNSKUID'] ?? null,
+                    'MSKU' => $it['MSKU'] ?? null,
+                    'FNSKU' => $it['FNSKU'] ?? null,
+                    'ASIN' => $it['ASIN'] ?? null,
+                    'created_at' => now(),
+                ];
+            }
+
+            DB::table('tbl_amzn_pricing_automation_items')->insert($items);
+
+            return response()->json([
+                'ok' => true,
+                'automationId' => $automationId,
+                'itemsInserted' => count($items),
+            ]);
+        });
+    }
+
     // Supporting Functions
     protected function JsonCreation($action, $companydetails, $marketplaceID, $data_additionale)
     {
