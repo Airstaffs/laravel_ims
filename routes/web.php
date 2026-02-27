@@ -59,6 +59,8 @@ use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Middleware\PreventBackHistory;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\PaaAutomationController;
 use App\Http\Models\Store;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -708,6 +710,13 @@ Route::prefix('api/shipments')->group(function () {
     Route::post('/manual-deliver', [ShipmentController::class, 'manualDeliver']);
 });
 
+// Supplier module routes
+Route::prefix('api/suppliers')->group(function () {
+    Route::get('/', [SupplierController::class, 'index']);
+    Route::post('/update-supplier', [SupplierController::class, 'updateSupplier']);
+});
+
+
 // Inventory Statistics Routes
 Route::prefix('api/inventory-statistics')->group(function () {
     Route::get('/summary', [InventoryStatisticsController::class, 'getSummary']);
@@ -1045,3 +1054,9 @@ Route::prefix('api/reconciliation')->middleware(['auth'])->group(function () {
 
 Route::post('/amazon/search-listings', [ListingController::class, 'searchListings']);
 Route::post('/amazon/listings/update-one', [ListingController::class, 'updateOne']);
+
+Route::post('/amazon/automation/fnsku-search', [PaaAutomationController::class, 'fnskuSearch']);
+Route::post('/amazon/automation/save', [PaaAutomationController::class, 'save']);
+Route::get('/amazon/paa/automations', [PaaAutomationController::class, 'index']);
+Route::get('/amazon/paa/automation/{id}', [PaaAutomationController::class, 'show']);
+Route::delete('/amazon/paa/automation/{id}', [PaaAutomationController::class, 'destroy']);

@@ -34,40 +34,55 @@ class HouseageController extends BasetablesController
         return $fnsku; // Return as-is if not prefixed
     }
 
-    public function index(Request $request)
+
+public function index(Request $request)
 {
     try {
-        $perPage = $request->input('per_page', 10);
-        $search = $request->input('search', '');
+        $perPage       = $request->input('per_page', 10);
+        $search        = $request->input('search', '');
         $includeImages = $request->boolean('include_images', false);
+
+        // eBay image columns — reused in both branches
+        $ebayImgColumns = [
+            'ebayimgs.img1',  'ebayimgs.img2',  'ebayimgs.img3',
+            'ebayimgs.img4',  'ebayimgs.img5',  'ebayimgs.img6',
+            'ebayimgs.img7',  'ebayimgs.img8',  'ebayimgs.img9',
+            'ebayimgs.img10', 'ebayimgs.img11', 'ebayimgs.img12',
+            'ebayimgs.img13', 'ebayimgs.img14', 'ebayimgs.img15',
+        ];
 
         // ✅ Only do joins when searching (MAJOR PERFORMANCE BOOST)
         if (empty($search)) {
-            // Fast query without joins
+            // Fast query — still join eBay images for thumbnail fallback
             $products = DB::table('tblproduct as prod')
-                ->select('prod.*')
+                ->leftJoin('tblEbayOrderImages as ebayimgs', 'prod.ProductID', '=', 'ebayimgs.ProductID')
+                ->select(array_merge(['prod.*'], $ebayImgColumns))
                 ->orderBy('prod.ProductID', 'desc')
                 ->paginate($perPage);
-                
+
             $products->getCollection()->transform(function ($product) {
-                $product->company = $this->company;
-                $product->ASIN = null;
-                $product->MSKU = $product->MSKUviewer;
-                $product->FNSKU = $product->FNSKUviewer;
-                $product->grading = null;
-                $product->storename = null;
-                $product->AStitle = $product->ProductTitle;
-                $product->internal = null;
+                $product->company      = $this->company;
+                $product->ASIN         = null;
+                $product->MSKU         = $product->MSKUviewer;
+                $product->FNSKU        = $product->FNSKUviewer;
+                $product->grading      = null;
+                $product->storename    = null;
+                $product->AStitle      = $product->ProductTitle;
+                $product->internal     = null;
                 $product->system_title = null;
-                $product->metakeyword = null;
+                $product->metakeyword  = null;
+                $product->img1_source  = !empty($product->img1) ? 'ebay' : null;
                 return $product;
             });
+
         } else {
             // Query with joins only when searching
             $products = DB::table('tblproduct as prod')
-                ->leftJoin('tblfnsku as fnsku', 'prod.MSKUviewer', '=', 'fnsku.MSKU')
-                ->leftJoin('tblasin as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->select([
+                ->leftJoin('tblfnsku as fnsku',            'prod.MSKUviewer', '=', 'fnsku.MSKU')
+                ->leftJoin('tblasin as asin',              'fnsku.ASIN',      '=', 'asin.ASIN')
+                // ✅ Always join — needed for thumbnail fallback
+                ->leftJoin('tblEbayOrderImages as ebayimgs', 'prod.ProductID', '=', 'ebayimgs.ProductID')
+                ->select(array_merge([
                     'prod.*',
                     'fnsku.ASIN',
                     'fnsku.MSKU',
@@ -75,36 +90,36 @@ class HouseageController extends BasetablesController
                     'fnsku.grading',
                     'fnsku.storename',
                     DB::raw("COALESCE(
-                        NULLIF(TRIM(asin.system_title), ''), 
-                        NULLIF(TRIM(asin.internal), ''), 
+                        NULLIF(TRIM(asin.system_title), ''),
+                        NULLIF(TRIM(asin.internal), ''),
                         NULLIF(TRIM(prod.ProductTitle), '')
                     ) as AStitle"),
                     'asin.internal',
                     'asin.system_title',
                     'asin.metakeyword',
-                ])
+                ], $ebayImgColumns))
                 ->where(function ($q) use ($search) {
-                    $q->where('prod.serialnumber', 'like', "%{$search}%")
-                        ->orWhere('prod.ProductTitle', 'like', "%{$search}%")
-                        ->orWhere('prod.rtid', 'like', "%{$search}%")
-                        ->orWhere('prod.itemnumber', 'like', "%{$search}%")
-                        ->orWhere('prod.trackingnumber', 'like', '%'.substr($search, -12).'%')
-                        ->orWhere('prod.PCN', 'like', "%{$search}%")
-                        ->orWhere('prod.RPN', 'like', "%{$search}%")
-                        ->orWhere('prod.PRD', 'like', "%{$search}%")
-                        ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
-                        ->orWhere('prod.MSKUviewer', 'like', "%{$search}%")
-                        ->orWhere('prod.rtcounter', 'like', "%{$search}%")
-                        ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
-                        ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
-                        ->orWhere('fnsku.FNSKU', 'like', "%{$search}%")
-                        ->orWhere('asin.internal', 'like', "%{$search}%")
-                        ->orWhere('asin.system_title', 'like', "%{$search}%")
-                        ->orWhere('asin.metakeyword', 'like', "%{$search}%");
+                    $q->where('prod.serialnumber',    'like', "%{$search}%")
+                      ->orWhere('prod.ProductTitle',  'like', "%{$search}%")
+                      ->orWhere('prod.rtid',          'like', "%{$search}%")
+                      ->orWhere('prod.itemnumber',    'like', "%{$search}%")
+                      ->orWhere('prod.trackingnumber','like', '%'.substr($search, -12).'%')
+                      ->orWhere('prod.PCN',           'like', "%{$search}%")
+                      ->orWhere('prod.RPN',           'like', "%{$search}%")
+                      ->orWhere('prod.PRD',           'like', "%{$search}%")
+                      ->orWhere('prod.FNSKUviewer',   'like', "%{$search}%")
+                      ->orWhere('prod.MSKUviewer',    'like', "%{$search}%")
+                      ->orWhere('prod.rtcounter',     'like', "%{$search}%")
+                      ->orWhere('fnsku.ASIN',         'like', "%{$search}%")
+                      ->orWhere('fnsku.MSKU',         'like', "%{$search}%")
+                      ->orWhere('fnsku.FNSKU',        'like', "%{$search}%")
+                      ->orWhere('asin.internal',      'like', "%{$search}%")
+                      ->orWhere('asin.system_title',  'like', "%{$search}%")
+                      ->orWhere('asin.metakeyword',   'like', "%{$search}%");
                 })
                 ->orderBy('prod.ProductID', 'desc')
                 ->paginate($perPage);
-                
+
             $products->getCollection()->transform(function ($product) {
                 $product->company = $this->company;
                 if (empty($product->FNSKU) && !empty($product->FNSKUviewer)) {
@@ -113,14 +128,15 @@ class HouseageController extends BasetablesController
                 if (empty($product->MSKU) && !empty($product->MSKUviewer)) {
                     $product->MSKU = $product->MSKUviewer;
                 }
+                $product->img1_source = !empty($product->img1) ? 'ebay' : null;
                 return $product;
             });
         }
 
         Log::info('Products fetched', [
-            'count' => $products->count(),
-            'total' => $products->total(),
-            'has_search' => !empty($search)
+            'count'      => $products->count(),
+            'total'      => $products->total(),
+            'has_search' => !empty($search),
         ]);
 
         // ✅ Handle images
@@ -134,15 +150,15 @@ class HouseageController extends BasetablesController
         }
 
         return response()->json($products);
-        
+
     } catch (\Exception $e) {
         Log::error('Error in HouseageController index', [
             'message' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
+            'trace'   => $e->getTraceAsString(),
         ]);
 
         return response()->json([
-            'error' => true,
+            'error'   => true,
             'message' => 'An error occurred while fetching products',
             'details' => config('app.debug') ? $e->getMessage() : null,
         ], 500);
