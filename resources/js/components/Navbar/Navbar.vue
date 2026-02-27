@@ -26,8 +26,7 @@
 
                 <!-- Mobile Icons -->
                 <div class="navbar-mobile">
-
-                     <Button
+                    <Button
                         icon="pi pi-clock"
                         @click="openSystemClockInOut"
                         severity="secondary"
@@ -221,6 +220,15 @@
                         />
                     </div>
 
+                    <Button
+                        icon="pi pi-file-edit"
+                        label="My EWH"
+                        @click="openEwhModal"
+                        severity="secondary"
+                        text
+                        class="nav-button with-label"
+                    />
+
                     <!-- User Dropdown Menu -->
                     <div class="user-menu-wrapper">
                         <Button
@@ -262,6 +270,8 @@
     />
     <AnnouncementModal v-model:visible="announcementVisible" />
     <BreakModal v-model:visible="breakVisible" />
+
+    <EwhModal v-model:visible="ewhModalVisible" />
 </template>
 
 <script>
@@ -280,6 +290,8 @@ import SettingsModal from "../SettingsModal/SettingsModal.vue";
 import { OverlayBadge } from "primevue";
 import SystemInOutModal from "../SystemInOutModal/SystemInOutModal.vue";
 
+import EwhModal from "../../page/hr/modals/EWHModal.vue";
+
 export default {
     name: "Navbar",
     components: {
@@ -295,6 +307,7 @@ export default {
         SystemInOutModal,
         BreakModal,
         OverlayBadge,
+        EwhModal,
     },
     data() {
         return {
@@ -312,31 +325,33 @@ export default {
             userId: null,
             userMenuItems: [
                 {
-                    label: 'Profile',
-                    icon: 'pi pi-user',
+                    label: "Profile",
+                    icon: "pi pi-user",
                     command: () => {
                         this.openProfileModal();
-                    }
+                    },
                 },
                 {
-                    label: 'Settings',
-                    icon: 'pi pi-cog',
+                    label: "Settings",
+                    icon: "pi pi-cog",
                     command: () => {
                         this.openSettingModal();
-                    }
+                    },
                 },
                 {
-                    separator: true
+                    separator: true,
                 },
                 {
-                    label: 'Logout',
-                    icon: 'pi pi-sign-out',
-                    class: 'menu-item-logout',
+                    label: "Logout",
+                    icon: "pi pi-sign-out",
+                    class: "menu-item-logout",
                     command: () => {
                         this.showLogoutModal();
-                    }
-                }
-            ]
+                    },
+                },
+            ],
+
+            ewhModalVisible: false,
         };
     },
     mounted() {
@@ -441,6 +456,13 @@ export default {
 
         goToHistory() {
             window.loadContent("history");
+        },
+
+        openEwhModal() {
+            this.ewhModalVisible = false;
+            this.$nextTick(() => {
+                this.ewhModalVisible = true;
+            });
         },
     },
 };

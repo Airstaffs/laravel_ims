@@ -2,7 +2,12 @@
     <div class="payroll-wrapper">
         <div class="payroll-header">
             <h4>Payroll Management</h4>
-            <Button @click="openCreatePayslip" size="small" severity="info">
+            <Button
+                v-if="isHR"
+                @click="openCreatePayslip"
+                size="small"
+                severity="info"
+            >
                 Create Payslip
             </Button>
         </div>
@@ -55,7 +60,7 @@
                         class="text-primary"
                         icon="pi pi-pencil"
                         @click="editPayslip(data)"
-                        v-if="data.status === 'draft'"
+                        v-if="data.status === 'draft' || isHR"
                     />
                     <Button
                         label="Delete"
@@ -65,7 +70,7 @@
                         class="text-danger"
                         icon="pi pi-trash"
                         @click="deletePayslip(data)"
-                        v-if="data.status === 'draft'"
+                        v-if="data.status === 'draft' || isHR"
                     />
                 </div>
             </template>
@@ -1185,9 +1190,20 @@ export default {
             totalPages: 1,
             deductions: [],
             payslipNotes: "",
+
+            // Auth user
+            authUser: null,
         };
     },
     computed: {
+        isHR() {
+            return (
+                this.authUser?.role === "SuperAdmin" ||
+                this.authUser?.role === "SubAdmin" ||
+                this.authUser?.role === "hr"
+            );
+        },
+
         selectedEmployeeData() {
             if (
                 !this.selectedEmployee ||

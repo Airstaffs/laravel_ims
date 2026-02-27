@@ -13,20 +13,38 @@ class EwhController extends Controller
     /**
      * GET /hr/ewh
      * Paginated list of EWH records
+     * - HR/admin sees all records (draft + released)
+     * - Regular employee sees only their own released records
      */
     public function index(Request $request)
     {
         $perPage = $request->get('per_page', 10);
+        $user = auth()->user();
 
-        $records = EwhRecord::orderBy('created_at', 'desc')
-            ->paginate($perPage);
+        $query = EwhRecord::orderBy('created_at', 'desc');
 
-        return response()->json($records);
+        if ($user->isHR()) {
+            // HR/Admin: see all records
+        } else {
+            // Regular employee: only their own released records
+            $query->where('employee_id', $user->id)
+                ->where('status', 'released');
+        }
+
+        // Optional date filters (used by employee modal)
+        if ($request->filled('from')) {
+            $query->where('cutoff_from', '>=', $request->from);
+        }
+        if ($request->filled('to')) {
+            $query->where('cutoff_to', '<=', $request->to);
+        }
+
+        return response()->json($query->paginate($perPage));
     }
 
     /**
      * POST /hr/ewh
-     * Save batch EWH records
+     * Save batch EWH records — always saved as 'draft'
      */
     public function store(Request $request)
     {
@@ -70,6 +88,7 @@ class EwhController extends Controller
                     'regular_holiday_days' => $record['regular_holiday_days'] ?? 0,
                     'special_holiday_days' => $record['special_holiday_days'] ?? 0,
                     'attendance_records' => $record['attendance_records'] ?? [],
+                    'status' => 'draft', // always draft on creation
                 ]);
                 $saved[] = $ewh;
             }
@@ -89,6 +108,26 @@ class EwhController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * PATCH /hr/ewh/{id}/release
+     * Release an EWH record so the employee can see it
+     */
+    public function release($id)
+    {
+        $record = EwhRecord::find($id);
+
+        if (! $record) {
+            return response()->json(['message' => 'EWH record not found.'], 404);
+        }
+
+        $record->update(['status' => 'released']);
+
+        return response()->json([
+            'message' => 'EWH record released successfully.',
+            'data' => $record,
+        ]);
     }
 
     /**
@@ -121,5 +160,40 @@ class EwhController extends Controller
         $record->delete();
 
         return response()->json(['message' => 'EWH record deleted successfully.']);
+    }
+
+    /**
+     * PATCH /hr/ewh/{id}/employee-status
+     * Employee updates their own status (viewed / acknowledged)
+     */
+    public function updateEmployeeStatus(Request $request, $id)
+    {
+        $record = EwhRecord::find($id);
+
+        if (! $record) {
+            return response()->json(['message' => 'EWH record not found.'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'employee_status' => 'required|in:new,viewed,acknowledged',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Invalid status.', 'errors' => $validator->errors()], 422);
+        }
+
+        // Only allow upgrade: new → viewed → acknowledged (no downgrade)
+        $order = ['new' => 0, 'viewed' => 1, 'acknowledged' => 2];
+        $current = $order[$record->employee_status] ?? 0;
+        $incoming = $order[$request->employee_status] ?? 0;
+
+        if ($incoming > $current) {
+            $record->update(['employee_status' => $request->employee_status]);
+        }
+
+        return response()->json([
+            'message' => 'Employee status updated.',
+            'data' => $record,
+        ]);
     }
 }

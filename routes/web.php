@@ -1009,6 +1009,8 @@ Route::prefix('hr')->group(function () {
     Route::get('/ewh', [EwhController::class, 'index']);
     Route::post('/ewh', [EwhController::class, 'store']);
     Route::get('/ewh/{id}', [EwhController::class, 'show']);
+    Route::patch('/ewh/{id}/release', [EwhController::class, 'release']);
+    Route::patch('/ewh/{id}/employee-status', [EwhController::class, 'updateEmployeeStatus']);
     Route::delete('/ewh/{id}', [EwhController::class, 'destroy']);
 });
 
@@ -1040,8 +1042,6 @@ Route::get('/history', function () {
 Route::prefix('api/reconciliation')->middleware(['auth'])->group(function () {
     Route::get('products', [ReconciliationController::class, 'index']);
 });
-
-
 
 Route::post('/amazon/search-listings', [ListingController::class, 'searchListings']);
 Route::post('/amazon/listings/update-one', [ListingController::class, 'updateOne']);

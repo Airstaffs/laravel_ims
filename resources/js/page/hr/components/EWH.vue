@@ -5,6 +5,7 @@
         >
             <h4 class="mb-0">Employee Work Hours (EWH)</h4>
             <Button
+                v-if="isHR"
                 @click="openCreateEWH"
                 size="small"
                 severity="warn"
@@ -31,6 +32,18 @@
             <template #totalHours="{ data }">
                 {{ parseFloat(data.total_hours).toFixed(2) }} hrs
             </template>
+            <template #status="{ data }">
+                <span
+                    class="badge"
+                    :class="
+                        data.status === 'released'
+                            ? 'bg-success'
+                            : 'bg-secondary'
+                    "
+                >
+                    {{ data.status === "released" ? "RELEASED" : "DRAFT" }}
+                </span>
+            </template>
             <template #totalDays="{ data }">
                 {{ data.total_days }} day/s
             </template>
@@ -46,6 +59,7 @@
                         @click="viewEwh(data)"
                     />
                     <Button
+                        v-if="isHR"
                         label="Delete"
                         size="small"
                         variant="text"
@@ -379,20 +393,34 @@
         </div>
 
         <!-- Save Warning Summary -->
-        <!-- <div v-if="ewhResults.length > 0 && !loadingEWH" class="mt-3">
-            <div v-if="ewhNoRecordEmployees.length > 0" class="alert alert-warning mb-2">
+        <div v-if="ewhResults.length > 0 && !loadingEWH" class="mt-3">
+            <div
+                v-if="ewhNoRecordEmployees.length > 0"
+                class="alert alert-warning mb-2"
+            >
                 <i class="pi pi-exclamation-triangle me-2"></i>
-                <strong>The following employee(s) have no attendance records and will be skipped:</strong>
+                <strong
+                    >The following employee(s) have no attendance records and
+                    will be skipped:</strong
+                >
                 <ul class="mb-0 mt-1">
-                    <li v-for="name in ewhNoRecordEmployees" :key="name">{{ name }}</li>
+                    <li v-for="name in ewhNoRecordEmployees" :key="name">
+                        {{ name }}
+                    </li>
                 </ul>
             </div>
-            <div v-if="ewhValidEmployees.length > 0" class="alert alert-success mb-0">
+            <div
+                v-if="ewhValidEmployees.length > 0"
+                class="alert alert-success mb-0"
+            >
                 <i class="pi pi-check-circle me-2"></i>
-                <strong>{{ ewhValidEmployees.length }} employee(s) will be saved:</strong>
-                {{ ewhValidEmployees.join(', ') }}
+                <strong
+                    >{{ ewhValidEmployees.length }} employee(s) will be
+                    saved:</strong
+                >
+                {{ ewhValidEmployees.join(", ") }}
             </div>
-        </div> -->
+        </div>
 
         <template #footer>
             <div class="d-flex justify-content-between w-100">
@@ -560,6 +588,12 @@ const EWH_COLUMNS = [
         bodyStyle: "font-size:14px; text-align:center;",
         style: { width: "120px" },
     },
+    {
+        header: "Status",
+        slot: "status",
+        bodyStyle: "font-size:14px; text-align:center;",
+        style: { width: "110px" },
+    },
 ];
 
 export default {
@@ -593,10 +627,20 @@ export default {
             showViewEWH: false,
             viewingEwh: null,
             viewingEwhRecords: [],
+
+            // Auth user
+            authUser: null,
         };
     },
 
     computed: {
+        isHR() {
+            return (
+                this.authUser?.role === "SuperAdmin" ||
+                this.authUser?.role === "SubAdmin" ||
+                this.authUser?.role === "hr"
+            );
+        },
         canGenerateEWH() {
             return (
                 this.ewhSelectedEmployees.length > 0 &&
@@ -639,10 +683,20 @@ export default {
     },
 
     mounted() {
+        this.fetchAuthUser();
         this.fetchEwhRecords();
     },
 
     methods: {
+        async fetchAuthUser() {
+            try {
+                const response = await axios.get("/auth/user");
+                this.authUser = response.data;
+            } catch (error) {
+                console.error("Error fetching auth user:", error);
+            }
+        },
+
         // ── Table ────────────────────────────────────────────────
         async fetchEwhRecords() {
             this.loadingEwhRecords = true;
@@ -867,6 +921,42 @@ export default {
         },
 
         // ── Delete ────────────────────────────────────────────────
+        async releaseEwh(record) {
+            const confirm = await Swal.fire({
+                icon: "question",
+                title: "Release EWH?",
+                html: `This will make the EWH record for <strong>${record.employee_name}</strong> visible to the employee.`,
+                showCancelButton: true,
+                confirmButtonColor: "#28a745",
+                cancelButtonColor: "#6c757d",
+                confirmButtonText: "Yes, release it",
+                cancelButtonText: "Cancel",
+            });
+
+            if (!confirm.isConfirmed) return;
+
+            try {
+                await axios.patch(`/hr/ewh/${record.id}/release`);
+                await Swal.fire({
+                    icon: "success",
+                    title: "Released",
+                    text: `EWH record for ${record.employee_name} is now visible to the employee.`,
+                    timer: 2000,
+                    showConfirmButton: false,
+                });
+                this.fetchEwhRecords();
+            } catch (error) {
+                console.error("Error releasing EWH:", error);
+                await Swal.fire({
+                    icon: "error",
+                    title: "Release Failed",
+                    text:
+                        error.response?.data?.message ||
+                        "Failed to release EWH record.",
+                });
+            }
+        },
+
         async deleteEwh(record) {
             const confirm = await Swal.fire({
                 icon: "warning",
@@ -887,7 +977,8 @@ export default {
                     icon: "success",
                     title: "Deleted",
                     text: "EWH record deleted successfully.",
-                    confirmButtonText: "OK",
+                    timer: 1500,
+                    showConfirmButton: false,
                 });
                 this.fetchEwhRecords();
             } catch (error) {
