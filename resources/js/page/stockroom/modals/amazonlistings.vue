@@ -30,6 +30,8 @@
                         @click="runSearch(true)" />
                     <Button label="Reset" icon="pi pi-refresh" class="p-button-sm" severity="secondary"
                         :disabled="loading" @click="resetFilters" />
+                    <Button label="Amazon Automated Pricing" icon="pi pi-bolt" class="p-button-sm" severity="help"
+                        :disabled="loading" @click="openAutomationModal" />
                 </div>
             </div>
 
@@ -269,6 +271,196 @@
             <Button label="Close" severity="secondary" class="p-button-sm" @click="issuesModal.visible = false" />
         </div>
     </Dialog>
+
+    <Dialog v-model:visible="automationModal.visible" modal :draggable="false" :closable="true"
+        header="Amazon Automated Pricing" :style="{ width: '1100px', maxWidth: '98vw' }"
+        :contentStyle="{ padding: '0' }">
+        <!-- Header -->
+        <div class="auto-head">
+            <div class="auto-head-left">
+                <div class="font-medium">Create / Update Automation</div>
+                <div class="text-500 text-sm mt-1">
+                    Assign MSKUs by searching <b>tblfnsku</b> (MSKU/FNSKU/ASIN) and filtering by store.
+                </div>
+            </div>
+
+            <div class="auto-head-right flex gap-2 align-items-end">
+                <div style="min-width: 320px;">
+                    <label class="auto-label">Automation</label>
+                    <Dropdown v-model="automationModal.selectedAutomationId" :options="automationModal.list"
+                        optionLabel="label" optionValue="id" class="w-full p-inputtext-sm"
+                        placeholder="Select existing…"
+                        :disabled="automationModal.loading || automationModal.saving || automationModal.deleting"
+                        @change="onSelectAutomation" />
+                </div>
+
+                <Button label="New" icon="pi pi-plus" class="p-button-sm" severity="secondary"
+                    :disabled="automationModal.loading || automationModal.saving || automationModal.deleting"
+                    @click="newAutomation" />
+
+                <Button label="Delete" icon="pi pi-trash" class="p-button-sm" severity="danger"
+                    :disabled="automationModal.loading || automationModal.saving || automationModal.deleting || !automationModal.id"
+                    @click="deleteAutomation" />
+
+                <Button label="Save" icon="pi pi-save" class="p-button-sm" :loading="automationModal.saving"
+                    :disabled="automationModal.saving || automationModal.deleting || !automationCanSave"
+                    @click="saveAutomation" />
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="auto-body">
+            <!-- Left: settings + search -->
+            <div class="auto-left">
+                <div class="auto-card">
+                    <div class="auto-card-title">Automation Settings</div>
+
+                    <div class="auto-form">
+                        <div class="auto-field">
+                            <label class="auto-label">Store</label>
+                            <Dropdown v-model="automationModal.store" :options="storeOptions" optionLabel="label"
+                                optionValue="value" class="w-full p-inputtext-sm" @change="onAutomationStoreChanged" />
+                        </div>
+
+                        <div class="auto-grid">
+                            <div class="auto-field">
+                                <label class="auto-label">Marketplace</label>
+                                <Dropdown v-model="automationModal.marketplaceIds[0]" :options="marketplaceOptions"
+                                    optionLabel="label" optionValue="value" class="w-full p-inputtext-sm" />
+                                <small class="text-500">For now we use 1 marketplace ID (US). Later we can
+                                    multi-select.</small>
+                            </div>
+
+                            <div class="auto-field">
+                                <label class="auto-label">Timezone</label>
+                                <InputText v-model="automationModal.timezone" class="w-full p-inputtext-sm"
+                                    placeholder="America/Los_Angeles" />
+                            </div>
+                        </div>
+
+                        <div class="auto-grid">
+                            <div class="auto-field">
+                                <label class="auto-label">Time Local (HH:mm)</label>
+                                <InputText v-model="automationModal.timeLocal" class="w-full p-inputtext-sm"
+                                    placeholder="09:00" />
+                            </div>
+
+                            <div class="auto-field">
+                                <label class="auto-label">Frequency</label>
+                                <Dropdown v-model="automationModal.frequency" :options="frequencyOptions"
+                                    optionLabel="label" optionValue="value" class="w-full p-inputtext-sm" />
+                            </div>
+                        </div>
+
+                        <div class="auto-grid">
+                            <div class="auto-field">
+                                <label class="auto-label">Delta (price adjustment)</label>
+                                <InputText v-model="automationModal.delta" class="w-full p-inputtext-sm"
+                                    placeholder="-5.00 or 5.00" />
+                                <small class="text-500">New price = current price + delta</small>
+                            </div>
+
+                            <div class="auto-field">
+                                <label class="auto-label">Enabled</label>
+                                <Dropdown v-model="automationModal.isEnabled" :options="enabledOptions"
+                                    optionLabel="label" optionValue="value" class="w-full p-inputtext-sm" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="auto-card">
+                    <div class="auto-card-title">Search tblfnsku</div>
+
+                    <div class="auto-form">
+                        <div class="auto-grid">
+                            <div class="auto-field">
+                                <label class="auto-label">Search (MSKU / FNSKU / ASIN)</label>
+                                <InputText v-model="automationModal.search.q" class="w-full p-inputtext-sm"
+                                    placeholder="type and press Enter" @keyup.enter="searchFnsku(true)" />
+                                <small class="text-500">Supports partial match. Use store filter above.</small>
+                            </div>
+                            <div class="auto-field auto-field-actions">
+                                <label class="auto-label">&nbsp;</label>
+                                <div class="flex gap-2">
+                                    <Button label="Search" icon="pi pi-search" class="p-button-sm"
+                                        :loading="automationModal.search.loading" @click="searchFnsku(true)" />
+                                    <Button label="Reset" icon="pi pi-refresh" class="p-button-sm" severity="secondary"
+                                        :disabled="automationModal.search.loading" @click="resetFnskuSearch" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <DataTable :value="automationModal.search.rows" :loading="automationModal.search.loading"
+                            dataKey="FNSKUID" responsiveLayout="scroll" class="p-datatable-sm" selectionMode="multiple"
+                            v-model:selection="automationModal.selectedRows">
+                            <Column selectionMode="multiple" headerStyle="width: 40px" />
+
+                            <Column field="MSKU" header="MSKU" style="min-width: 200px;" />
+                            <Column field="FNSKU" header="FNSKU" style="min-width: 160px;" />
+                            <Column field="ASIN" header="ASIN" style="min-width: 140px;" />
+                            <Column field="storename" header="Store" style="width: 140px;" />
+                            <Column field="Units" header="Units" style="width: 90px;" />
+                            <Column field="grading" header="Grading" style="width: 140px;" />
+                        </DataTable>
+
+                        <div class="auto-pager">
+                            <Button label="Prev" icon="pi pi-angle-left" class="p-button-sm" severity="secondary"
+                                :disabled="automationModal.search.loading || automationModal.search.page <= 1"
+                                @click="searchFnsku(false, automationModal.search.page - 1)" />
+                            <div class="text-500 text-sm">
+                                Page {{ automationModal.search.page }}
+                            </div>
+                            <Button label="Next" icon="pi pi-angle-right" iconPos="right" class="p-button-sm"
+                                severity="secondary"
+                                :disabled="automationModal.search.loading || !automationModal.search.hasMore"
+                                @click="searchFnsku(false, automationModal.search.page + 1)" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: selected MSKUs -->
+            <div class="auto-right">
+                <div class="auto-card">
+                    <div class="auto-card-title">Assigned to this Automation</div>
+
+                    <div class="auto-assigned">
+                        <div class="auto-assigned-top">
+                            <div class="text-500 text-sm">
+                                {{ assignedCount }} selected
+                            </div>
+                            <Button label="Clear Selected" icon="pi pi-times" severity="secondary" class="p-button-sm"
+                                :disabled="assignedCount === 0" @click="automationModal.selectedRows = []" />
+                        </div>
+
+                        <div v-if="assignedCount" class="auto-assigned-list">
+                            <div v-for="r in automationModal.selectedRows" :key="r.FNSKUID" class="auto-assigned-item">
+                                <div class="auto-assigned-main">
+                                    <div class="font-medium">{{ r.MSKU }}</div>
+                                    <div class="text-500 text-xs mt-1">
+                                        <span class="mr-3"><b>ASIN</b> {{ r.ASIN || '—' }}</span>
+                                        <span><b>FNSKU</b> {{ r.FNSKU || '—' }}</span>
+                                    </div>
+                                </div>
+                                <Button icon="pi pi-trash" text severity="danger" class="p-button-sm"
+                                    @click="removeAssigned(r)" />
+                            </div>
+                        </div>
+
+                        <div v-else class="text-500 p-2">
+                            No assigned MSKUs yet. Search tblfnsku and select rows.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="auto-foot">
+            <Button label="Close" severity="secondary" class="p-button-sm" @click="automationModal.visible = false" />
+        </div>
+    </Dialog>
 </template>
 
 <script>
@@ -352,6 +544,36 @@ export default {
             },
 
             _suppressAutosave: false,
+
+            automationModal: {
+                visible: false,
+                saving: false,
+                deleting: false,
+                loading: false,
+
+                // list of existing automations for store
+                list: [],
+                selectedAutomationId: null, // dropdown selection
+
+                // PAA fields
+                id: null,
+                store: "Renovartech",
+                marketplaceIds: ["ATVPDKIKX0DER"],
+                timezone: "America/Los_Angeles",
+                timeLocal: "09:00",
+                frequency: "DAILY",
+                delta: "0.00",
+                isEnabled: 1,
+
+                // tblfnsku search
+                search: { q: "", loading: false, rows: [], page: 1, pageSize: 20, hasMore: false },
+
+                // assigned MSKUs (selection from search table)
+                selectedRows: [],
+
+                // existing assigned MSKUs from DB (for edit mode)
+                assigned: [], // array of { id, msku, sku, is_active }
+            },
         };
     },
     computed: {
@@ -390,6 +612,48 @@ export default {
         },
         hasPendingChanges() {
             return this.rows.some(r => this.isValidInt(r.newQty) || this.isValidMoney(r.newPrice));
+        },
+        assignedCount() {
+            return (this.automationModal.selectedRows || []).length;
+        },
+        automationCanSave() {
+            const a = this.automationModal;
+
+            if (!a.store) return false;
+            if (!Array.isArray(a.marketplaceIds) || a.marketplaceIds.length < 1) return false;
+
+            // time_local must be HH:mm
+            if (!/^\d{2}:\d{2}$/.test(String(a.timeLocal || ""))) return false;
+
+            if (!a.timezone) return false;
+            if (!["DAILY", "ONCE"].includes(String(a.frequency))) return false;
+
+            // delta is numeric (can be negative)
+            const d = Number(a.delta);
+            if (!Number.isFinite(d)) return false;
+
+            // must assign at least 1 MSKU
+            if (!Array.isArray(a.selectedRows) || a.selectedRows.length < 1) return false;
+
+            return true;
+        },
+        marketplaceOptions() {
+            return [
+                { label: "US (ATVPDKIKX0DER)", value: "ATVPDKIKX0DER" },
+                // add later if needed
+            ];
+        },
+        frequencyOptions() {
+            return [
+                { label: "DAILY", value: "DAILY" },
+                { label: "ONCE", value: "ONCE" },
+            ];
+        },
+        enabledOptions() {
+            return [
+                { label: "Yes", value: 1 },
+                { label: "No", value: 0 },
+            ];
         },
     },
     methods: {
@@ -921,6 +1185,230 @@ export default {
                 }, 5000);
             }
         },
+
+        async openAutomationModal() {
+            const store = this.filters.store || "Renovartech";
+
+            this.automationModal.visible = true;
+            this.automationModal.store = store;
+
+            // keep marketplace default, but ensure array exists
+            if (!Array.isArray(this.automationModal.marketplaceIds) || !this.automationModal.marketplaceIds.length) {
+                this.automationModal.marketplaceIds = ["ATVPDKIKX0DER"];
+            }
+            await this.loadAutomationList();
+            this.resetFnskuSearch();
+            this.newAutomation();
+
+        },
+
+        async loadAutomationList() {
+            const a = this.automationModal;
+            a.loading = true;
+            try {
+                const res = await axios.get(`${API_BASE_URL}/amazon/paa/automations`, {
+                    params: { store: a.store }
+                });
+
+                const rows = res?.data?.rows || [];
+                a.list = rows.map(x => ({
+                    id: x.id,
+                    label: `#${x.id} • ${x.time_local} • ${x.frequency} • delta ${x.delta} • ${x.is_enabled ? "ON" : "OFF"}`,
+                }));
+            } catch (err) {
+                console.error("loadAutomationList error:", err?.response?.data || err);
+                a.list = [];
+            } finally {
+                a.loading = false;
+            }
+        },
+
+        async onAutomationStoreChanged() {
+            // when store changes, reset selection + reload list
+            this.automationModal.selectedAutomationId = null;
+            this.automationModal.id = null;
+            this.automationModal.assigned = [];
+            this.automationModal.selectedRows = [];
+            this.resetFnskuSearch();
+            await this.loadAutomationList();
+        },
+
+        resetFnskuSearch() {
+            this.automationModal.search.q = "";
+            this.automationModal.search.rows = [];
+            this.automationModal.search.page = 1;
+            this.automationModal.search.hasMore = false;
+        },
+
+        removeAssigned(row) {
+            const id = row?.FNSKUID;
+            this.automationModal.selectedRows = (this.automationModal.selectedRows || []).filter(x => x.FNSKUID !== id);
+        },
+
+        async searchFnsku(resetPage = true, page = 1) {
+            const s = this.automationModal.search;
+            if (resetPage) page = 1;
+
+            s.loading = true;
+            try {
+                const payload = {
+                    store: this.automationModal.store,
+                    q: (s.q || "").trim(),
+                    page,
+                    pageSize: s.pageSize,
+                };
+
+                const res = await axios.post(`${API_BASE_URL}/amazon/automation/fnsku-search`, payload);
+                const raw = res?.data?.data || res?.data || {};
+                const rows = raw?.rows || [];
+                const hasMore = !!raw?.hasMore;
+
+                s.rows = rows;
+                s.page = page;
+                s.hasMore = hasMore;
+            } catch (err) {
+                console.error("fnsku search error:", err?.response?.data || err);
+            } finally {
+                s.loading = false;
+            }
+        },
+
+        normalizeNumberOrNull(v) {
+            const s = String(v ?? "").trim();
+            if (!s) return null;
+            const n = Number(s);
+            return Number.isFinite(n) ? n : null;
+        },
+
+        async saveAutomation() {
+            const a = this.automationModal;
+
+            const payload = {
+                id: a.id, // null means create
+                store: a.store,
+                marketplace_ids: a.marketplaceIds,
+                timezone: a.timezone,
+                time_local: a.timeLocal,
+                frequency: a.frequency,
+                delta: Number(a.delta) || 0,
+                is_enabled: a.isEnabled ? 1 : 0,
+
+                // MSKU list from UI selection
+                items: (a.selectedRows || []).map(r => ({
+                    msku: String(r.MSKU || "").trim(),
+                })).filter(x => x.msku),
+            };
+
+            a.saving = true;
+            try {
+                const res = await axios.post(`${API_BASE_URL}/amazon/paa/save`, payload);
+
+                // if created, update current id + reload list
+                const automationId = res?.data?.automation_id;
+                if (automationId) a.id = automationId;
+
+                await this.loadAutomationList();
+
+                // select this automation in dropdown
+                a.selectedAutomationId = a.id;
+
+                // reload details (to reflect synced items)
+                await this.onSelectAutomation();
+
+            } catch (err) {
+                console.error("save automation error:", err?.response?.data || err);
+            } finally {
+                a.saving = false;
+            }
+        },
+
+        async onSelectAutomation() {
+            const a = this.automationModal;
+            const id = a.selectedAutomationId;
+            if (!id) return;
+
+            a.loading = true;
+            try {
+                const res = await axios.get(`${API_BASE_URL}/amazon/paa/automation/${id}`);
+                const row = res?.data?.automation;
+                const items = res?.data?.items || [];
+
+                // fill fields
+                a.id = row.id;
+                a.store = row.store;
+                a.marketplaceIds = this.safeJsonArray(row.marketplace_ids) || ["ATVPDKIKX0DER"];
+                a.timezone = row.timezone;
+                a.timeLocal = row.time_local;
+                a.frequency = row.frequency;
+                a.delta = String(row.delta ?? "0.00");
+                a.isEnabled = row.is_enabled ? 1 : 0;
+
+                // assigned from DB
+                a.assigned = items;
+
+                // reflect assigned into selectedRows UI list
+                // (we only need MSKU for saving; other fields are optional)
+                a.selectedRows = items
+                    .filter(x => Number(x.is_active) === 1)
+                    .map(x => ({
+                        FNSKUID: `assigned-${x.id}`, // fake key for DataTable selection
+                        MSKU: x.msku,
+                        FNSKU: null,
+                        ASIN: null,
+                        storename: a.store,
+                    }));
+
+            } catch (err) {
+                console.error("load automation error:", err?.response?.data || err);
+            } finally {
+                a.loading = false;
+            }
+        },
+
+        safeJsonArray(v) {
+            try {
+                if (Array.isArray(v)) return v;
+                if (typeof v === "string") return JSON.parse(v);
+                return null;
+            } catch {
+                return null;
+            }
+        },
+
+        newAutomation() {
+            const a = this.automationModal;
+
+            a.selectedAutomationId = null;
+            a.id = null;
+            a.timezone = "America/Los_Angeles";
+            a.timeLocal = "09:00";
+            a.frequency = "DAILY";
+            a.delta = "0.00";
+            a.isEnabled = 1;
+
+            a.assigned = [];
+            a.selectedRows = [];
+            this.resetFnskuSearch();
+        },
+
+        async deleteAutomation() {
+            const a = this.automationModal;
+            if (!a.id) return;
+
+            // simple confirm (no fancy confirm dialog)
+            if (!confirm(`Delete automation #${a.id}? This will remove its MSKU list and runs/items via FK cascade.`)) return;
+
+            a.deleting = true;
+            try {
+                await axios.delete(`${API_BASE_URL}/amazon/paa/automation/${a.id}`);
+                await this.loadAutomationList();
+                this.newAutomation();
+            } catch (err) {
+                console.error("delete automation error:", err?.response?.data || err);
+            } finally {
+                a.deleting = false;
+            }
+        },
     },
 };
 </script>
@@ -1193,5 +1681,114 @@ export default {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.auto-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--surface-border);
+}
+
+.auto-body {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 12px;
+    padding: 12px;
+}
+
+.auto-left,
+.auto-right {
+    min-width: 0;
+}
+
+.auto-card {
+    border: 1px solid var(--surface-border);
+    border-radius: 12px;
+    background: var(--surface-0);
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.auto-card-title {
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.auto-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.auto-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.auto-label {
+    font-size: 11px;
+    color: var(--text-color-secondary);
+}
+
+.auto-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.auto-field-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.auto-pager {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.auto-assigned-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.auto-assigned-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 55vh;
+    overflow: auto;
+    padding-right: 4px;
+}
+
+.auto-assigned-item {
+    border: 1px solid var(--surface-border);
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.auto-foot {
+    padding: 12px 16px;
+    border-top: 1px solid var(--surface-border);
+    display: flex;
+    justify-content: flex-end;
+}
+
+@media (max-width: 980px) {
+    .auto-body {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
