@@ -80,6 +80,9 @@ export default {
             currentPage: 1,
             perPage: 10,
             first: 0, //for prime vues pagination internal state
+
+            selectedRows: [], //for invoice generation
+            showInvoiceModal: false,
         };
     },
 
@@ -421,6 +424,16 @@ export default {
     },
 
     methods: {
+        onSelectionChange(product, isSelected) {
+            if(isSelected){
+                this.selectedRows.push(product.ProductID);
+            }else{
+                //only get the ProductID
+                this.selectedRows = this.selectedRows.filter((item) => item !== product.ProductID);
+            }
+
+            console.log(this.selectedRows, "Product Id");
+        },
         goToSuppliersList() {
             window.loadContent('suppliersList');
         },

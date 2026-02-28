@@ -7,7 +7,9 @@
             />
 
             <div class="d-flex justify-content-center gap-2 mx-4 flex-wrap">
-                 <Button severity="secondary" size="small" outlined @click="goToSuppliersList"
+                <Button severity="secondary" size="small" outlined @click="showInvoiceModal = true"
+                    label="Generate Invoice" icon="pi pi-file" :disabled="selectedRows.length === 0"/>
+                <Button severity="secondary" size="small" outlined @click="goToSuppliersList"
                     label="Suppliers List" icon="pi pi-list" />
             </div>
          </div>
@@ -38,6 +40,7 @@
                 tableClass="desktop-view"
                 selectionMode="multiple"
                 dataKey="ProductID"
+                :onSelectionChange="onSelectionChange"
             >
                 <template #gallery="{ data }">
                     <div
@@ -1235,6 +1238,7 @@
                 </div>
             </div>
         </Dialog>
+        <ProductInvoiceModal :productIds="selectedRows" v-model:visible="showInvoiceModal" />
         <ScrollTop />
     </div>
 </template>
@@ -1260,6 +1264,7 @@ import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 import { showPricingForPH } from "../../utils/helpers.js";
 import ProductImageGallery from "../../components/ProductImageGallery/ProductImageGallery.vue";
+import ProductInvoiceModal from "./ProductInvoiceModal.vue";
 
 const TABLE_COLUMNS = [
     {
@@ -1350,6 +1355,7 @@ export default {
         AnimateDiv,
         ProductImageGallery,
         Paginator,
+        ProductInvoiceModal
     },
     data() {
         return {
