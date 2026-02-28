@@ -4,6 +4,7 @@ import "./houseage.css";
 import Swal from "sweetalert2";
 import copyDetailsModal from "../labeling/modals/copydetails/copydetailsmodal.vue";
 import { DEFAULT_IMAGE } from "../../constant";
+import { isUSAccount } from "../../utils/helpers";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
@@ -83,6 +84,8 @@ export default {
 
             selectedRows: [], //for invoice generation
             showInvoiceModal: false,
+
+            isUSAccount: false
         };
     },
 
@@ -1899,6 +1902,8 @@ export default {
         this.currentUser = window.Laravel?.user || null;
 
         this.fetchInventory();
+
+        this.isUSAccount = isUSAccount();
 
         // Handle keyboard navigation for the modal
         const handleKeyDown = (e) => {

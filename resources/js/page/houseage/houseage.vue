@@ -8,7 +8,7 @@
 
             <div class="d-flex justify-content-center gap-2 mx-4 flex-wrap">
                 <Button severity="secondary" size="small" outlined @click="showInvoiceModal = true"
-                    label="Generate Invoice" icon="pi pi-file" :disabled="selectedRows.length === 0"/>
+                    label="Generate Invoice" icon="pi pi-file" :disabled="selectedRows.length === 0" v-show="!isUSAccount"/>
                 <Button severity="secondary" size="small" outlined @click="goToSuppliersList"
                     label="Suppliers List" icon="pi pi-list" />
             </div>
