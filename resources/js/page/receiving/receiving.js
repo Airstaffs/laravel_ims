@@ -418,8 +418,10 @@ export default {
         handleTrackingInput(event) {
             this.validateTrackingNumber();
 
+            const isManual = this.$refs.scanner?.showManualInput;
+
             if (
-                !this.showManualInput &&
+                !isManual &&
                 this.trackingNumberValid &&
                 this.trackingNumber.length >= 5
             ) {
@@ -687,6 +689,12 @@ export default {
         },
 
         async processSerial() {
+            const isManual = this.$refs.scanner?.showManualInput;
+
+            if (isManual && !this._manualTrigger) {
+                return;
+            }
+            
             const step = this.currentStep;
             if (step < 3 || step > 7) return;
 
@@ -884,7 +892,8 @@ export default {
         },
 
         handlePcnInput() {
-            if (!this.showManualInput && this.pcnNumber.trim().length > 4) {
+            const isManual = this.$refs.scanner?.showManualInput;
+            if (!isManual && this.pcnNumber.trim().length > 4) {
                 if (this.autoVerifyTimeout) {
                     clearTimeout(this.autoVerifyTimeout);
                 }
@@ -939,7 +948,9 @@ export default {
         },
 
         handleBasketInput() {
-            if (!this.showManualInput && this.basketNumber.trim().length > 3) {
+            const isManual = this.$refs.scanner?.showManualInput;
+
+            if (!isManual && this.basketNumber.trim().length > 3) {
                 if (this.autoVerifyTimeout) {
                     clearTimeout(this.autoVerifyTimeout);
                 }
@@ -1388,6 +1399,23 @@ export default {
             });
         },
 
+        handleSerialTyping() {
+            const isManual = this.$refs.scanner?.showManualInput;
+
+            const idx = this.currentStep - 3;
+            const value = (this.serialNumbers[idx] || "").trim();
+
+            if (!isManual && value.length > 5) {
+                if (this.autoVerifyTimeout) {
+                    clearTimeout(this.autoVerifyTimeout);
+                }
+
+                this.autoVerifyTimeout = setTimeout(() => {
+                    this.processSerial();
+                }, 500);
+            }
+        },
+
         handleScanProcess() {
             switch (this.currentStep) {
                 case 1:
@@ -1423,10 +1451,17 @@ export default {
                 case 4:
                 case 5:
                 case 6:
-                case 7:
+                case 7: {
+                    const isManual = this.$refs.scanner?.showManualInput;
+
                     this.serialNumbers[this.currentStep - 3] = scannedCode;
-                    this.processSerial();
+
+                    if (!isManual) {
+                        this.processSerial();
+                    }
+
                     break;
+                }
 
                 case 8:
                     this.pcnNumber = scannedCode;

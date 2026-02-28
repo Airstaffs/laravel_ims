@@ -252,7 +252,10 @@
                     />
 
                     <div class="process-buttons">
-                        <button v-if="showManualInput" @click="processSerial" class="scan-button">
+                        <button
+                            v-if="showManualInput"
+                            @click="triggerManualSerial"
+                            class="scan-button">
                             Save Serial
                         </button>
 
@@ -1240,6 +1243,11 @@ export default {
 
         updatePricingView() {
             this.showPricingSection = showPricingForPH();
+        },
+        triggerManualSerial() {
+            this._manualTrigger = true;
+            this.processSerial();
+            this._manualTrigger = false;
         },
         handleAutoSerial() {
             // Let v-model update first
