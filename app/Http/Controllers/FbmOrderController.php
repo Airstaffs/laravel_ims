@@ -2103,11 +2103,10 @@ private function findMatchingProductsForItem($item, $storeName, $normalizedStore
         $fnskuRecords = $this->buildFnskuQuery($asinsToSearch, $normalizedStoreName, $originalConditionId, $originalSubtypeId)->get();
 
         // ----------------------------------------------------------------
-        // FALLBACK: exact ASIN had FNSKU records but none matched
-        //           condition/store — now try related ASINs
+        // FALLBACK A: FNSKU query returned nothing (condition/store mismatch)
         // ----------------------------------------------------------------
         if ($fnskuRecords->isEmpty() && $exactAsinHasRecords) {
-            Log::info("Exact ASIN had FNSKU records but none matched condition/store — trying related ASINs");
+            Log::info("findMatchingProductsForItem: Exact ASIN had FNSKU records but none matched condition/store — trying related ASINs");
 
             $relatedAsins = $this->findMatchingRelatedAsins(
                 $item->platform_asin,
@@ -2116,14 +2115,14 @@ private function findMatchingProductsForItem($item, $storeName, $normalizedStore
                 $originalConditionId,
                 $originalSubtypeId,
                 $normalizedStoreName,
-                [$item->platform_asin] // exclude exact ASIN already tried
+                [$item->platform_asin]
             );
 
             if (!empty($relatedAsins)) {
-                Log::info("Fallback: searching related ASINs", ['related_asins' => $relatedAsins]);
+                Log::info("Fallback A: searching related ASINs", ['related_asins' => $relatedAsins]);
                 $fnskuRecords  = $this->buildFnskuQuery($relatedAsins, $normalizedStoreName, $originalConditionId, $originalSubtypeId)->get();
                 $asinsToSearch = $relatedAsins;
-                Log::info("Fallback related-ASIN search returned {$fnskuRecords->count()} FNSKU records");
+                Log::info("Fallback A returned {$fnskuRecords->count()} FNSKU records");
             }
         }
 
@@ -2179,6 +2178,80 @@ private function findMatchingProductsForItem($item, $storeName, $normalizedStore
         $allProducts = $productsQuery->get();
 
         Log::info("Found {$allProducts->count()} products before store filter");
+
+        // ----------------------------------------------------------------
+        // FALLBACK B: FNSKU records exist but NO products in stockroom
+        //             for the exact ASIN — now try related ASINs
+        // ----------------------------------------------------------------
+        if ($allProducts->isEmpty() && in_array($item->platform_asin, $asinsToSearch)) {
+            Log::info("findMatchingProductsForItem: Exact ASIN has FNSKU records but 0 products in stockroom — trying related ASINs");
+
+            $relatedAsins = $this->findMatchingRelatedAsins(
+                $item->platform_asin,
+                $requiredQuantityInside,
+                $requiredColor,
+                $originalConditionId,
+                $originalSubtypeId,
+                $normalizedStoreName,
+                [$item->platform_asin]
+            );
+
+            if (!empty($relatedAsins)) {
+                Log::info("Fallback B: searching related ASINs", ['related_asins' => $relatedAsins]);
+
+                // Get FNSKU records for related ASINs
+                $relatedFnskuRecords = $this->buildFnskuQuery($relatedAsins, $normalizedStoreName, $originalConditionId, $originalSubtypeId)->get();
+
+                if ($relatedFnskuRecords->isNotEmpty()) {
+                    // Rebuild fnskuMap with related FNSKU records
+                    $fnskuMap   = [];
+                    $baseFnskus = [];
+
+                    foreach ($relatedFnskuRecords as $record) {
+                        $baseFnsku            = $this->extractBaseFnsku($record->FNSKU);
+                        $baseFnskus[]         = $baseFnsku;
+                        $fnskuMap[$baseFnsku] = $record;
+                    }
+                    $baseFnskus    = array_unique($baseFnskus);
+                    $asinsToSearch = $relatedAsins;
+
+                    Log::info("Fallback B: rebuilt FNSKU map with " . count($baseFnskus) . " base FNSKUs: " . implode(', ', $baseFnskus));
+
+                    // Re-query products using related base FNSKUs
+                    $relatedProductsQuery = DB::table('tblproduct')
+                        ->select([
+                            'ProductID', 'FNSKUviewer', 'FBMAvailable',
+                            'warehouseLocation', 'serialNumber', 'rtCounter',
+                            'stockroom_insert_date',
+                        ]);
+
+                    if (Schema::hasColumn('tblproduct', 'FBMAvailable')) {
+                        $relatedProductsQuery->where('FBMAvailable', '>', 0);
+                    }
+                    if (Schema::hasColumn('tblproduct', 'ProductModuleLoc')) {
+                        $relatedProductsQuery->where('ProductModuleLoc', 'Stockroom');
+                    }
+
+                    $relatedProductsQuery->where(function ($q) use ($baseFnskus) {
+                        foreach ($baseFnskus as $baseFnsku) {
+                            $q->orWhere('FNSKUviewer', 'like', "%{$baseFnsku}%");
+                        }
+                    });
+
+                    if (Schema::hasColumn('tblproduct', 'stockroom_insert_date')) {
+                        $relatedProductsQuery->orderBy('stockroom_insert_date', 'asc');
+                    }
+
+                    $allProducts = $relatedProductsQuery->get();
+
+                    Log::info("Fallback B: found {$allProducts->count()} products from related ASINs");
+                } else {
+                    Log::warning("Fallback B: related ASINs also have no FNSKU records with matching condition/store");
+                }
+            } else {
+                Log::warning("Fallback B: no related ASINs found matching criteria");
+            }
+        }
 
         // ============================================================
         // STEP 5: Match products with FNSKU records + store filter
