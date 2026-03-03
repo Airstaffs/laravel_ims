@@ -39,6 +39,7 @@ use App\Http\Controllers\PaaAutomationController;
 use App\Http\Controllers\PackagingController;
 use App\Http\Controllers\printer\PrinterController;
 use App\Http\Controllers\PrinterManagementController;
+use App\Http\Controllers\ProductInvoiceController;
 use App\Http\Controllers\ProductionAreaController;
 use App\Http\Controllers\ReceivedController;
 use App\Http\Controllers\ReconciliationController;
@@ -62,7 +63,6 @@ use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Middleware\PreventBackHistory;
-use App\Http\Controllers\ProductInvoiceController;
 use App\Http\Models\Store;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -718,11 +718,10 @@ Route::prefix('api/suppliers')->group(function () {
     Route::post('/update-supplier', [SupplierController::class, 'updateSupplier']);
 });
 
-//Product Invoice routes
+// Product Invoice routes
 Route::prefix('api/product-invoice')->group(function () {
     Route::get('/', [ProductInvoiceController::class, 'index']);
 });
-
 
 // Inventory Statistics Routes
 Route::prefix('api/inventory-statistics')->group(function () {
