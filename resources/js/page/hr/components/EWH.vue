@@ -635,12 +635,11 @@ export default {
 
     computed: {
         isHR() {
-            return (
-                this.authUser?.role === "SuperAdmin" ||
-                this.authUser?.role === "SubAdmin" ||
-                this.authUser?.role === "hr"
+            return ["SuperAdmin", "SubAdmin", "hr"].includes(
+                this.authUser?.role,
             );
         },
+
         canGenerateEWH() {
             return (
                 this.ewhSelectedEmployees.length > 0 &&
