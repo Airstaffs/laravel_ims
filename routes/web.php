@@ -62,6 +62,7 @@ use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Middleware\PreventBackHistory;
+use App\Http\Controllers\ProductInvoiceController;
 use App\Http\Models\Store;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -716,6 +717,12 @@ Route::prefix('api/suppliers')->group(function () {
     Route::get('/', [SupplierController::class, 'index']);
     Route::post('/update-supplier', [SupplierController::class, 'updateSupplier']);
 });
+
+//Product Invoice routes
+Route::prefix('api/product-invoice')->group(function () {
+    Route::get('/', [ProductInvoiceController::class, 'index']);
+});
+
 
 // Inventory Statistics Routes
 Route::prefix('api/inventory-statistics')->group(function () {
