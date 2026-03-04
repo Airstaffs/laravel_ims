@@ -26,6 +26,7 @@ $LARAVEL_ROOT = realpath(__DIR__ . '/..');
 // ----------------------------------------------------
 // ENV / DB HELPERS
 // ----------------------------------------------------
+
 function load_env($envPath)
 {
     static $cache = null;
@@ -99,8 +100,123 @@ function logg($msg)
 }
 
 // ----------------------------------------------------
+// JSON helpers + rules + triggers scheduling
+// ----------------------------------------------------
+
+function safe_json_array($v)
+{
+    if ($v === null)
+        return [];
+    if (is_array($v))
+        return $v;
+    $s = trim((string) $v);
+    if ($s === '')
+        return [];
+    $j = json_decode($s, true);
+    return is_array($j) ? $j : [];
+}
+
+function normalize_triggers($triggers)
+{
+    $out = [];
+    foreach ((array) $triggers as $t) {
+        $t = trim((string) $t);
+        if ($t === '')
+            continue;
+        if (!preg_match('/^\d{2}:\d{2}$/', $t))
+            continue;
+        $out[$t] = true;
+    }
+    $out = array_keys($out);
+    sort($out); // HH:mm sorts correctly
+    return $out;
+}
+
+/**
+ * Compute next run UTC from multiple local triggers.
+ * $afterUtcStr: schedule strictly AFTER this moment (use current run scheduled_for_utc)
+ */
+
+function computeNextRunUtcFromTriggers(array $triggersHHMM, $tzLocal = 'America/Los_Angeles', $afterUtcStr = null)
+{
+    $triggersHHMM = normalize_triggers($triggersHHMM);
+    if (!count($triggersHHMM))
+        return null;
+
+    $tz = new DateTimeZone($tzLocal ?: 'America/Los_Angeles');
+    $utcTz = new DateTimeZone('UTC');
+
+    if ($afterUtcStr) {
+        $baseUtc = new DateTime($afterUtcStr, $utcTz);
+        $baseLocal = (clone $baseUtc)->setTimezone($tz);
+    } else {
+        $baseLocal = new DateTime('now', $tz);
+    }
+
+    $best = null;
+
+    foreach ($triggersHHMM as $t) {
+        [$hh, $mm] = array_map('intval', explode(':', $t));
+
+        // candidate on the same local date as baseLocal
+        $cand = new DateTime($baseLocal->format('Y-m-d') . ' 00:00:00', $tz);
+        $cand->setTime($hh, $mm, 0);
+
+        // must be strictly > baseLocal
+        if ($cand <= $baseLocal) {
+            $cand->modify('+1 day');
+        }
+
+        if ($best === null || $cand < $best) {
+            $best = $cand;
+        }
+    }
+
+    if ($best === null)
+        return null;
+
+    $bestUtc = (clone $best)->setTimezone($utcTz);
+    return $bestUtc->format('Y-m-d H:i:s');
+}
+
+/**
+ * Rules: first match wins: min <= price < max
+ * rules_json example: [{min:200,max:400,delta:50}, ...]
+ */
+
+function pickDeltaFromRules($currentPrice, array $rules, $defaultDelta = 0.0)
+{
+    $p = (float) $currentPrice;
+
+    // sort by min asc (safe even if already sorted)
+    usort($rules, function ($a, $b) {
+        $amin = isset($a['min']) ? (float) $a['min'] : INF;
+        $bmin = isset($b['min']) ? (float) $b['min'] : INF;
+        return $amin <=> $bmin;
+    });
+
+    foreach ($rules as $r) {
+        if (!is_array($r))
+            continue;
+        if (!isset($r['min'], $r['max'], $r['delta']))
+            continue;
+
+        $min = (float) $r['min'];
+        $max = (float) $r['max'];
+        $delta = (float) $r['delta'];
+
+        if ($min <= $p && $p < $max) {
+            return $delta;
+        }
+    }
+
+    return (float) $defaultDelta;
+}
+
+// ----------------------------------------------------
 // TIME: compute next_run_at_utc from LA local HH:mm
 // ----------------------------------------------------
+
 function computeNextRunUtc($timeLocalHHMM, $tzLocal = 'America/Los_Angeles')
 {
     $timeLocalHHMM = trim((string) $timeLocalHHMM);
@@ -126,6 +242,7 @@ function computeNextRunUtc($timeLocalHHMM, $tzLocal = 'America/Los_Angeles')
 // ----------------------------------------------------
 // AMAZON HOOKS (YOU PLUG THESE IN)
 // ----------------------------------------------------
+
 function fetchCurrentPrice($store, $sku, $marketplaceIds)
 {
     $base = rtrim(envv('APP_URL'), '/'); // from .env
@@ -261,6 +378,7 @@ function http_post_json($url, $payload, $headers = [], $timeout = 50)
 // ----------------------------------------------------
 // CORE
 // ----------------------------------------------------
+
 $mysqli = db();
 
 // 0) Reset stuck processing items (resume safety)
@@ -316,12 +434,28 @@ logg("Due automations: " . count($dueAutomations));
 foreach ($dueAutomations as $a) {
     $automationId = (int) $a['id'];
     $store = $a['store'];
-    $timeLocal = $a['time_local'];
     $tz = $a['timezone'] ?: 'America/Los_Angeles';
-    $frequency = $a['frequency'] ?: 'DAILY';
-    $delta = (float) $a['delta'];
+    $frequency = $a['frequency'] ?: 'DAILY'; // keep legacy support
     $marketplaceIds = json_decode($a['marketplace_ids'] ?? '[]', true) ?: [];
-    $scheduledForUtc = $a['next_run_at_utc']; // this run's scheduled time
+    $scheduledForUtc = $a['next_run_at_utc']; // current run schedule
+
+    // NEW: triggers/rules/default
+    $triggers = normalize_triggers(safe_json_array($a['triggers_json'] ?? null));
+    if (!count($triggers)) {
+        // fallback: legacy single time_local
+        if (!empty($a['time_local']))
+            $triggers = normalize_triggers([$a['time_local']]);
+    }
+
+    $rules = safe_json_array($a['rules_json'] ?? null);
+    $defaultDelta = isset($a['default_delta']) ? (float) $a['default_delta'] : 0.0;
+
+    // fallback: legacy delta if default_delta not set
+    if (!isset($a['default_delta']) && isset($a['delta'])) {
+        $defaultDelta = (float) $a['delta'];
+    }
+
+    logg("Automation #{$automationId} store={$store} scheduled_for_utc={$scheduledForUtc} triggers=" . json_encode($triggers) . " default_delta={$defaultDelta}");
 
     logg("Automation #{$automationId} store={$store} scheduled_for_utc={$scheduledForUtc} delta={$delta}");
 
@@ -381,7 +515,7 @@ foreach ($dueAutomations as $a) {
 
             // schedule next
             if ($frequency === 'DAILY') {
-                $next = computeNextRunUtc($timeLocal, $tz);
+                $next = computeNextRunUtcFromTriggers($triggers, $tz, $scheduledForUtc);
                 $stmt = $mysqli->prepare("UPDATE tbl_paa_automations SET last_run_at_utc=UTC_TIMESTAMP(), next_run_at_utc=?, updated_at=UTC_TIMESTAMP() WHERE id=?");
                 $stmt->bind_param('si', $next, $automationId);
                 $stmt->execute();
@@ -475,7 +609,8 @@ foreach ($dueAutomations as $a) {
             ");
 
             if ($frequency === 'DAILY') {
-                $next = computeNextRunUtc($timeLocal, $tz);
+                $next = computeNextRunUtcFromTriggers($triggers, $tz, $scheduledForUtc);
+
                 $stmt = $mysqli->prepare("UPDATE tbl_paa_automations SET last_run_at_utc=UTC_TIMESTAMP(), next_run_at_utc=?, updated_at=UTC_TIMESTAMP() WHERE id=?");
                 $stmt->bind_param('si', $next, $automationId);
                 $stmt->execute();
@@ -566,7 +701,8 @@ foreach ($dueAutomations as $a) {
                 continue;
             }
 
-            $newPrice = (float) $currentPrice + (float) $delta;
+            $deltaToApply = pickDeltaFromRules($currentPrice, $rules, $defaultDelta);
+            $newPrice = (float) $currentPrice + (float) $deltaToApply;
             if ($newPrice < 0)
                 $newPrice = 0;
 

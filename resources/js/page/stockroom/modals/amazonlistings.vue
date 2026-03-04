@@ -156,7 +156,7 @@
 
                             <small class="text-500">Auto-saves per item. 0 = out of stock. Blank = clear.</small>
 
-                            <div v-if="data._errorQty" class="error-chip" v-tooltip.top="data._errorQty">
+                            <div v-if="data._errorPrice" class="error-chip" v-tooltip.top="data._errorPrice">
                                 <i class="pi pi-exclamation-triangle mr-1"></i>
                                 Save failed
                             </div>
@@ -190,7 +190,7 @@
 
                             <small class="text-500">Auto-saves per item. Blank = clear.</small>
 
-                            <div v-if="data._errorQty" class="error-chip" v-tooltip.top="data._errorQty">
+                            <div v-if="data._errorPrice" class="error-chip" v-tooltip.top="data._errorPrice">
                                 <i class="pi pi-exclamation-triangle mr-1"></i>
                                 Save failed
                             </div>
@@ -275,6 +275,7 @@
     <Dialog v-model:visible="automationModal.visible" modal :draggable="false" :closable="true"
         header="Amazon Automated Pricing" :style="{ width: '1100px', maxWidth: '98vw' }"
         :contentStyle="{ padding: '0' }">
+
         <!-- Header -->
         <div class="auto-head">
             <div class="auto-head-left">
@@ -310,126 +311,95 @@
 
         <!-- Body -->
         <div class="auto-body">
-            <!-- Left: settings + search -->
+            <!-- Left -->
             <div class="auto-left">
                 <div class="auto-card">
-                    <div class="auto-card-title">Automation Settings</div>
+                    <div class="auto-card-title">Triggers</div>
 
                     <div class="auto-form">
                         <div class="auto-field">
-                            <label class="auto-label">Store</label>
-                            <Dropdown v-model="automationModal.store" :options="storeOptions" optionLabel="label"
-                                optionValue="value" class="w-full p-inputtext-sm" @change="onAutomationStoreChanged" />
+                            <label class="auto-label">Timezone</label>
+                            <InputText v-model="automationModal.timezone" class="w-full p-inputtext-sm"
+                                placeholder="America/Los_Angeles" />
                         </div>
 
-                        <div class="auto-grid">
-                            <div class="auto-field">
-                                <label class="auto-label">Marketplace</label>
-                                <Dropdown v-model="automationModal.marketplaceIds[0]" :options="marketplaceOptions"
-                                    optionLabel="label" optionValue="value" class="w-full p-inputtext-sm" />
-                                <small class="text-500">For now we use 1 marketplace ID (US). Later we can
-                                    multi-select.</small>
+                        <div class="auto-field">
+                            <label class="auto-label">Run Times (HH:mm)</label>
+
+                            <div class="trigger-list">
+                                <div v-for="(t, idx) in automationModal.triggers" :key="idx" class="trigger-row">
+                                    <InputText v-model="automationModal.triggers[idx]"
+                                        class="p-inputtext-sm trigger-input" placeholder="09:00" />
+                                    <Button icon="pi pi-trash" class="p-button-sm" severity="danger" text
+                                        :disabled="automationModal.triggers.length <= 1" @click="removeTrigger(idx)" />
+                                </div>
                             </div>
 
-                            <div class="auto-field">
-                                <label class="auto-label">Timezone</label>
-                                <InputText v-model="automationModal.timezone" class="w-full p-inputtext-sm"
-                                    placeholder="America/Los_Angeles" />
-                            </div>
-                        </div>
-
-                        <div class="auto-grid">
-                            <div class="auto-field">
-                                <label class="auto-label">Time Local (HH:mm)</label>
-                                <InputText v-model="automationModal.timeLocal" class="w-full p-inputtext-sm"
-                                    placeholder="09:00" />
+                            <div class="mt-2">
+                                <Button label="Add Time" icon="pi pi-plus" class="p-button-sm" severity="secondary"
+                                    @click="addTrigger" />
                             </div>
 
-                            <div class="auto-field">
-                                <label class="auto-label">Frequency</label>
-                                <Dropdown v-model="automationModal.frequency" :options="frequencyOptions"
-                                    optionLabel="label" optionValue="value" class="w-full p-inputtext-sm" />
-                            </div>
-                        </div>
-
-                        <div class="auto-grid">
-                            <div class="auto-field">
-                                <label class="auto-label">Delta (price adjustment)</label>
-                                <InputText v-model="automationModal.delta" class="w-full p-inputtext-sm"
-                                    placeholder="-5.00 or 5.00" />
-                                <small class="text-500">New price = current price + delta</small>
-                            </div>
-
-                            <div class="auto-field">
-                                <label class="auto-label">Enabled</label>
-                                <Dropdown v-model="automationModal.isEnabled" :options="enabledOptions"
-                                    optionLabel="label" optionValue="value" class="w-full p-inputtext-sm" />
-                            </div>
+                            <small class="text-500">
+                                Examples: 09:00, 10:00, 14:00, 18:00. These are local to the chosen timezone.
+                            </small>
                         </div>
                     </div>
                 </div>
 
                 <div class="auto-card">
-                    <div class="auto-card-title">Search tblfnsku</div>
+                    <div class="auto-card-title">Pricing Rules</div>
 
                     <div class="auto-form">
-                        <div class="auto-grid">
-                            <div class="auto-field">
-                                <label class="auto-label">Search (MSKU / FNSKU / ASIN)</label>
-                                <InputText v-model="automationModal.search.q" class="w-full p-inputtext-sm"
-                                    placeholder="type and press Enter" @keyup.enter="searchFnsku(true)" />
-                                <small class="text-500">Supports partial match. Use store filter above.</small>
+                        <div class="rules-table">
+                            <div class="rules-head">
+                                <div class="rules-col">Min</div>
+                                <div class="rules-col">Max</div>
+                                <div class="rules-col">Delta</div>
+                                <div class="rules-col rules-col-actions"></div>
                             </div>
-                            <div class="auto-field auto-field-actions">
-                                <label class="auto-label">&nbsp;</label>
-                                <div class="flex gap-2">
-                                    <Button label="Search" icon="pi pi-search" class="p-button-sm"
-                                        :loading="automationModal.search.loading" @click="searchFnsku(true)" />
-                                    <Button label="Reset" icon="pi pi-refresh" class="p-button-sm" severity="secondary"
-                                        :disabled="automationModal.search.loading" @click="resetFnskuSearch" />
-                                </div>
+
+                            <div v-for="(r, idx) in automationModal.rules" :key="idx" class="rules-row">
+                                <InputText v-model="automationModal.rules[idx].min" class="p-inputtext-sm"
+                                    placeholder="100" />
+                                <InputText v-model="automationModal.rules[idx].max" class="p-inputtext-sm"
+                                    placeholder="200" />
+                                <InputText v-model="automationModal.rules[idx].delta" class="p-inputtext-sm"
+                                    placeholder="-50" />
+
+                                <Button icon="pi pi-trash" class="p-button-sm" severity="danger" text
+                                    :disabled="automationModal.rules.length <= 1" @click="removeRule(idx)" />
                             </div>
                         </div>
 
-                        <DataTable :value="automationModal.search.rows" :loading="automationModal.search.loading"
-                            dataKey="FNSKUID" responsiveLayout="scroll" class="p-datatable-sm" selectionMode="multiple"
-                            v-model:selection="automationModal.selectedRows">
-                            <Column selectionMode="multiple" headerStyle="width: 40px" />
-
-                            <Column field="MSKU" header="MSKU" style="min-width: 200px;" />
-                            <Column field="FNSKU" header="FNSKU" style="min-width: 160px;" />
-                            <Column field="ASIN" header="ASIN" style="min-width: 140px;" />
-                            <Column field="storename" header="Store" style="width: 140px;" />
-                            <Column field="Units" header="Units" style="width: 90px;" />
-                            <Column field="grading" header="Grading" style="width: 140px;" />
-                        </DataTable>
-
-                        <div class="auto-pager">
-                            <Button label="Prev" icon="pi pi-angle-left" class="p-button-sm" severity="secondary"
-                                :disabled="automationModal.search.loading || automationModal.search.page <= 1"
-                                @click="searchFnsku(false, automationModal.search.page - 1)" />
-                            <div class="text-500 text-sm">
-                                Page {{ automationModal.search.page }}
-                            </div>
-                            <Button label="Next" icon="pi pi-angle-right" iconPos="right" class="p-button-sm"
-                                severity="secondary"
-                                :disabled="automationModal.search.loading || !automationModal.search.hasMore"
-                                @click="searchFnsku(false, automationModal.search.page + 1)" />
+                        <div class="flex gap-2 mt-2">
+                            <Button label="Add Rule" icon="pi pi-plus" class="p-button-sm" severity="secondary"
+                                @click="addRule" />
+                            <Button label="Sort by Min" icon="pi pi-sort-amount-up" class="p-button-sm"
+                                severity="secondary" @click="sortRules" />
                         </div>
+
+                        <div class="auto-field mt-3">
+                            <label class="auto-label">Default Delta (if no rule matches)</label>
+                            <InputText v-model="automationModal.defaultDelta" class="w-full p-inputtext-sm"
+                                placeholder="0" />
+                        </div>
+
+                        <small class="text-500">
+                            Matching suggestion: first rule that matches wins (min &lt;= price &lt; max).
+                        </small>
                     </div>
                 </div>
             </div>
 
-            <!-- Right: selected MSKUs -->
+            <!-- Right -->
             <div class="auto-right">
                 <div class="auto-card">
                     <div class="auto-card-title">Assigned to this Automation</div>
 
                     <div class="auto-assigned">
                         <div class="auto-assigned-top">
-                            <div class="text-500 text-sm">
-                                {{ assignedCount }} selected
-                            </div>
+                            <div class="text-500 text-sm">{{ assignedCount }} selected</div>
                             <Button label="Clear Selected" icon="pi pi-times" severity="secondary" class="p-button-sm"
                                 :disabled="assignedCount === 0" @click="automationModal.selectedRows = []" />
                         </div>
@@ -551,28 +521,42 @@ export default {
                 deleting: false,
                 loading: false,
 
-                // list of existing automations for store
                 list: [],
-                selectedAutomationId: null, // dropdown selection
+                selectedAutomationId: null,
 
-                // PAA fields
+                // base identity
                 id: null,
                 store: "Renovartech",
                 marketplaceIds: ["ATVPDKIKX0DER"],
                 timezone: "America/Los_Angeles",
-                timeLocal: "09:00",
-                frequency: "DAILY",
-                delta: "0.00",
                 isEnabled: 1,
 
+                // NEW: multiple times per day
+                triggers: ["09:00"], // array of "HH:mm"
+
+                // NEW: rule tiers (range -> delta)
+                // Interpretation: if current_price >= min && current_price < max then delta applies
+                rules: [
+                    { min: "200", max: "400", delta: "50" },
+                    { min: "100", max: "200", delta: "-50" },
+                    { min: "400", max: "500", delta: "200" },
+                ],
+
+                // optional fallback if no rule matches
+                defaultDelta: "0",
+
                 // tblfnsku search
-                search: { q: "", loading: false, rows: [], page: 1, pageSize: 20, hasMore: false },
+                search: {
+                    q: "",
+                    loading: false,
+                    rows: [],
+                    page: 1,
+                    pageSize: 20,
+                    hasMore: false,
+                },
 
-                // assigned MSKUs (selection from search table)
                 selectedRows: [],
-
-                // existing assigned MSKUs from DB (for edit mode)
-                assigned: [], // array of { id, msku, sku, is_active }
+                assigned: [],
             },
         };
     },
@@ -621,18 +605,29 @@ export default {
 
             if (!a.store) return false;
             if (!Array.isArray(a.marketplaceIds) || a.marketplaceIds.length < 1) return false;
-
-            // time_local must be HH:mm
-            if (!/^\d{2}:\d{2}$/.test(String(a.timeLocal || ""))) return false;
-
             if (!a.timezone) return false;
-            if (!["DAILY", "ONCE"].includes(String(a.frequency))) return false;
 
-            // delta is numeric (can be negative)
-            const d = Number(a.delta);
-            if (!Number.isFinite(d)) return false;
+            // triggers must be HH:mm
+            const timeOk = (t) => /^\d{2}:\d{2}$/.test(String(t || ""));
+            if (!Array.isArray(a.triggers) || a.triggers.length < 1) return false;
+            if (!a.triggers.every(timeOk)) return false;
 
-            // must assign at least 1 MSKU
+            // rules validate
+            const num = (v) => {
+                const n = Number(String(v ?? "").trim());
+                return Number.isFinite(n) ? n : null;
+            };
+
+            if (!Array.isArray(a.rules) || a.rules.length < 1) return false;
+            for (const r of a.rules) {
+                const min = num(r.min);
+                const max = num(r.max);
+                const delta = num(r.delta);
+                if (min === null || max === null || delta === null) return false;
+                if (!(min < max)) return false;
+            }
+
+            // assigned MSKUs
             if (!Array.isArray(a.selectedRows) || a.selectedRows.length < 1) return false;
 
             return true;
@@ -1072,6 +1067,9 @@ export default {
 
             this.resetRowStatus(row, row._touchedPrice ? "price" : "qty");
 
+            if (row._touchedQty) row._savingQty = true;
+            if (row._touchedPrice) row._savingPrice = true;
+
             try {
                 const payload = {
                     store: this.filters.store,
@@ -1284,42 +1282,27 @@ export default {
             const a = this.automationModal;
 
             const payload = {
-                id: a.id, // null means create
+                id: a.id,
                 store: a.store,
                 marketplace_ids: a.marketplaceIds,
                 timezone: a.timezone,
-                time_local: a.timeLocal,
-                frequency: a.frequency,
-                delta: Number(a.delta) || 0,
                 is_enabled: a.isEnabled ? 1 : 0,
 
-                // MSKU list from UI selection
-                items: (a.selectedRows || []).map(r => ({
-                    msku: String(r.MSKU || "").trim(),
-                })).filter(x => x.msku),
+                triggers: a.triggers.map(t => String(t).trim()),
+                rules: a.rules.map(r => ({
+                    min: Number(r.min),
+                    max: Number(r.max),
+                    delta: Number(r.delta),
+                })),
+                default_delta: Number(a.defaultDelta) || 0,
+
+                items: (a.selectedRows || [])
+                    .map(r => ({ msku: String(r.MSKU || "").trim() }))
+                    .filter(x => x.msku),
             };
 
-            a.saving = true;
-            try {
-                const res = await axios.post(`${API_BASE_URL}/amazon/automation/save`, payload);
-
-                // if created, update current id + reload list
-                const automationId = res?.data?.automation_id;
-                if (automationId) a.id = automationId;
-
-                await this.loadAutomationList();
-
-                // select this automation in dropdown
-                a.selectedAutomationId = a.id;
-
-                // reload details (to reflect synced items)
-                await this.onSelectAutomation();
-
-            } catch (err) {
-                console.error("save automation error:", err?.response?.data || err);
-            } finally {
-                a.saving = false;
-            }
+            // endpoint later
+            await axios.post(`${API_BASE_URL}/amazon/paa/save`, payload);
         },
 
         async onSelectAutomation() {
@@ -1408,6 +1391,29 @@ export default {
             } finally {
                 a.deleting = false;
             }
+        },
+
+        addTrigger() {
+            this.automationModal.triggers.push("09:00");
+        },
+        removeTrigger(idx) {
+            if (this.automationModal.triggers.length <= 1) return;
+            this.automationModal.triggers.splice(idx, 1);
+        },
+
+        addRule() {
+            this.automationModal.rules.push({ min: "", max: "", delta: "" });
+        },
+        removeRule(idx) {
+            if (this.automationModal.rules.length <= 1) return;
+            this.automationModal.rules.splice(idx, 1);
+        },
+        sortRules() {
+            const toNum = (v) => {
+                const n = Number(String(v ?? "").trim());
+                return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
+            };
+            this.automationModal.rules.sort((a, b) => toNum(a.min) - toNum(b.min));
         },
     },
 };
@@ -1790,5 +1796,44 @@ export default {
     .auto-body {
         grid-template-columns: 1fr;
     }
+}
+
+.trigger-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.trigger-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.trigger-input {
+    width: 120px;
+}
+
+.rules-table {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.rules-head,
+.rules-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 44px;
+    gap: 8px;
+    align-items: center;
+}
+
+.rules-head {
+    font-size: 11px;
+    color: var(--text-color-secondary);
+}
+
+.rules-col-actions {
+    text-align: right;
 }
 </style>
