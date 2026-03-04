@@ -532,7 +532,8 @@ export default {
       uniqueIdentifiersData: [],
       lastNumberLabel: 0,
       isPrintingPCN_RPN_SH: false,
-      labelOption: [{label: "PCN", value: 'pcn'},{label: "RPN", value: 'rpn'},{label: "SHLF", value: 'shlf'}]
+      labelOption: [{ label: "PCN", value: 'pcn' }, { label: "RPN", value: 'rpn' }, { label: "SH", value: 'sh' }]
+
     };
   },
 
@@ -1629,11 +1630,11 @@ export default {
                 'Content-Type': 'application/json', 
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
             },
-            body: JSON.stringify({
-                labelName: this.initLabelOption.toUpperCase(),
-                quantity: this.uniqueLabelQuantity,
-                printerIp: this.selectedPrinterForUniqueLabel,
-                lastNumber: this.lastNumberLabel
+                 body: JSON.stringify({
+                labelName:  this.initLabelOption.toUpperCase(), // sends "SH", "RPN", or "PCN"
+                quantity:   this.uniqueLabelQuantity,
+                printerIp:  this.selectedPrinterForUniqueLabel,
+                lastNumber: this.initLabelOption === 'sh' ? 0 : this.lastNumberLabel, // SH ignores lastNumber
             }),
         });
 
@@ -1641,7 +1642,7 @@ export default {
 
 
         if (result.success) {
-            is.$refs.scannerComponent.saveScans()
+               this.$refs.scannerComponent.saveScans()
                  this.$refs.scannerComponent.addSuccessScan({
                 message: `Successfully printed ${this.uniqueLabelQuantity} ${this.initLabelOption.toUpperCase()} labels`,
                 status: `Success`
@@ -1687,20 +1688,26 @@ export default {
 
     //get prefix
     prefixUniqueLabelWithValue() {
-    const prefixMap = {
-        pcn: 'PCN',
-        rpn: 'RPN',
-        shlf: 'SHLF',
-    };
-    
-    const prefix = prefixMap[this.initLabelOption];
-    
-    if (!prefix) return '';
-    
-    const item = this.uniqueIdentifiersData.find(item => item.name === prefix);
-    this.lastNumberLabel = item?.latest
-    return `${prefix} ${item?.latest || 0}`;
-},
+        const prefixMap = {
+            pcn: 'PCN',
+            rpn: 'RPN',
+            sh:  'SH',
+        };
+        const prefix = prefixMap[this.initLabelOption];
+        if (!prefix) return '';
+        const item = this.uniqueIdentifiersData.find(i => i.name === prefix);
+        const latest = item?.latest ?? 0;
+
+        if (this.initLabelOption === 'sh') {
+            // latest is already a full string e.g. "SH1500" — display as-is
+            this.lastNumberLabel = latest;
+            return `${latest}`;
+        }
+
+        // RPN / PCN — numeric as before
+        this.lastNumberLabel = latest;
+        return `${prefix}${latest}`;
+    },
 
 async fetchIdentifiers() {
     try {
