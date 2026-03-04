@@ -22,6 +22,7 @@ use App\Http\Controllers\FnskuController;
 use App\Http\Controllers\HistoryTrackingController;
 use App\Http\Controllers\HouseageController;
 use App\Http\Controllers\HR\EwhController;
+use App\Http\Controllers\HR\PayrollController;
 use App\Http\Controllers\HrController;
 use App\Http\Controllers\InventoryStatisticsController;
 use App\Http\Controllers\KanbanActivityLogController;
@@ -34,9 +35,11 @@ use App\Http\Controllers\notfoundController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderIdentifierController;
 use App\Http\Controllers\OrdersController;
+use App\Http\Controllers\PaaAutomationController;
 use App\Http\Controllers\PackagingController;
 use App\Http\Controllers\printer\PrinterController;
 use App\Http\Controllers\PrinterManagementController;
+use App\Http\Controllers\ProductInvoiceController;
 use App\Http\Controllers\ProductionAreaController;
 use App\Http\Controllers\ReceivedController;
 use App\Http\Controllers\ReconciliationController;
@@ -46,6 +49,7 @@ use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\SoldlistController;
 use App\Http\Controllers\StockroomController;
 use App\Http\Controllers\StoreController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SuppliesComponentsController;
 use App\Http\Controllers\SystemDesignController;
 use App\Http\Controllers\tblproductController;
@@ -59,8 +63,6 @@ use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Middleware\PreventBackHistory;
-use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\PaaAutomationController;
 use App\Http\Models\Store;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -716,6 +718,10 @@ Route::prefix('api/suppliers')->group(function () {
     Route::post('/update-supplier', [SupplierController::class, 'updateSupplier']);
 });
 
+// Product Invoice routes
+Route::prefix('api/product-invoice')->group(function () {
+    Route::get('/', [ProductInvoiceController::class, 'index']);
+});
 
 // Inventory Statistics Routes
 Route::prefix('api/inventory-statistics')->group(function () {
@@ -952,6 +958,8 @@ Route::get('/notifications/unread-count/{id}', [NotificationController::class, '
 
 Route::get('/joined-fnsku-data', [LabelingController::class, 'getFnskuData']);
 
+Route::get('/auth/user', fn () => response()->json(auth()->user()));
+
 // HR Controller
 Route::prefix('hr')->group(function () {
     Route::get('/employees', [HrController::class, 'getEmployees']);
@@ -1009,15 +1017,23 @@ Route::prefix('hr')->group(function () {
     Route::post('/break/start', [AttendanceController::class, 'start'])->name('hr.break.start');
     Route::post('/break/end', [AttendanceController::class, 'end'])->name('hr.break.end');
 
-    Route::get('/payslips', [HrController::class, 'getPayslips']);
-    Route::post('/payslips', [HrController::class, 'createPayslip']);
-    Route::delete('/payslips/{id}', [HrController::class, 'deletePayslip']);
+    // Payslips
+    Route::get('/payslips', [PayrollController::class, 'getPayslips']);
+    Route::post('/payslips', [PayrollController::class, 'createPayslip']);
+    Route::delete('/payslips/{id}', [PayrollController::class, 'deletePayslip']);
+    Route::patch('/payslips/{id}/status', [PayrollController::class, 'updateStatus']);
+    Route::patch('/payslips/{id}/release', [PayrollController::class, 'releasePayslip']);
+    Route::patch('/payslips/{id}/status', [PayrollController::class, 'updateStatus']);
+    Route::patch('/payslips/{id}/employee-status', [PayrollController::class, 'updateEmployeeStatus']);
 
-    Route::get('/holidays', [HrController::class, 'getHolidays']);
+    // Holidays
+    Route::get('/holidays', [PayrollController::class, 'getHolidays']);
 
     Route::get('/ewh', [EwhController::class, 'index']);
     Route::post('/ewh', [EwhController::class, 'store']);
     Route::get('/ewh/{id}', [EwhController::class, 'show']);
+    Route::patch('/ewh/{id}/release', [EwhController::class, 'release']);
+    Route::patch('/ewh/{id}/employee-status', [EwhController::class, 'updateEmployeeStatus']);
     Route::delete('/ewh/{id}', [EwhController::class, 'destroy']);
 });
 
@@ -1049,8 +1065,6 @@ Route::get('/history', function () {
 Route::prefix('api/reconciliation')->middleware(['auth'])->group(function () {
     Route::get('products', [ReconciliationController::class, 'index']);
 });
-
-
 
 Route::post('/amazon/search-listings', [ListingController::class, 'searchListings']);
 Route::post('/amazon/listings/update-one', [ListingController::class, 'updateOne']);

@@ -2,9 +2,11 @@
     <div class="payroll-wrapper">
         <div class="payroll-header">
             <h4>Payroll Management</h4>
-            <Button @click="openCreatePayslip" size="small" severity="info">
-                Create Payslip
-            </Button>
+            <Button
+                v-if="isHR"
+                @click="openCreatePayslip"
+                label="Create Payslip"
+            />
         </div>
 
         <!-- Payslips Table -->
@@ -29,8 +31,7 @@
                     :class="{
                         badge: true,
                         'bg-secondary': data.status === 'draft',
-                        'bg-success': data.status === 'approved',
-                        'bg-primary': data.status === 'paid',
+                        'bg-success': data.status === 'released',
                     }"
                 >
                     {{ data.status.toUpperCase() }}
@@ -48,6 +49,17 @@
                         @click="viewPayslip(data)"
                     />
                     <Button
+                        v-if="isHR && data.status === 'draft'"
+                        label="Release"
+                        size="small"
+                        variant="text"
+                        severity="contrast"
+                        class="text-success"
+                        icon="pi pi-send"
+                        @click="releasePayslip(data)"
+                    />
+                    <Button
+                        v-if="isHR"
                         label="Edit"
                         size="small"
                         variant="text"
@@ -55,9 +67,9 @@
                         class="text-primary"
                         icon="pi pi-pencil"
                         @click="editPayslip(data)"
-                        v-if="data.status === 'draft'"
                     />
                     <Button
+                        v-if="isHR"
                         label="Delete"
                         size="small"
                         variant="text"
@@ -65,7 +77,6 @@
                         class="text-danger"
                         icon="pi pi-trash"
                         @click="deletePayslip(data)"
-                        v-if="data.status === 'draft'"
                     />
                 </div>
             </template>
@@ -1121,6 +1132,186 @@
             </div>
         </template>
     </Dialog>
+
+    <!-- Edit Dialog -->
+
+    <Dialog
+        v-model:visible="showEditPayslip"
+        modal
+        header="Edit Payslip"
+        :style="{ width: '70%' }"
+        :pt="{
+            root: { class: 'mobile-fullscreen-dialog' },
+        }"
+    >
+        <fieldset>
+            <label>Employee: </label>
+            <InputText
+                :value="editForm.employee_name"
+                class="form-control"
+                disabled
+            />
+        </fieldset>
+
+        <fieldset>
+            <label>Pay Out: </label>
+            <InputText
+                v-model="editForm.payout_date"
+                type="date"
+                class="form-control"
+                required
+            />
+        </fieldset>
+
+        <fieldset>
+            <label>Cut off from - to: </label>
+            <div class="d-flex gap-2">
+                <InputText
+                    v-model="editForm.cutoff_from"
+                    type="date"
+                    class="form-control"
+                    required
+                />
+                <InputText
+                    v-model="editForm.cutoff_to"
+                    type="date"
+                    class="form-control"
+                    required
+                />
+            </div>
+        </fieldset>
+
+        <!-- Deductions Section -->
+        <fieldset>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="mb-0 fw-semibold">Deductions: </label>
+                <Button
+                    label="Add Deduction"
+                    icon="pi pi-plus"
+                    size="small"
+                    severity="success"
+                    text
+                    @click="addEditDeduction"
+                    type="button"
+                />
+            </div>
+
+            <div
+                v-if="editForm.deductions.length === 0"
+                class="text-muted small p-3 bg-light rounded text-center"
+            >
+                No deductions added. Click "Add Deduction" to add one.
+            </div>
+
+            <div
+                v-for="(deduction, index) in editForm.deductions"
+                :key="index"
+                class="deduction-item mb-3 p-3 border rounded bg-white"
+            >
+                <div
+                    class="d-flex justify-content-between align-items-start mb-3"
+                >
+                    <div class="form-check">
+                        <input
+                            type="checkbox"
+                            class="form-check-input"
+                            :id="'edit-deduction-active-' + index"
+                            v-model="deduction.active"
+                        />
+                        <label
+                            class="form-check-label fw-semibold"
+                            :for="'edit-deduction-active-' + index"
+                        >
+                            <span v-if="deduction.active" class="text-success"
+                                >✓ Include in computation</span
+                            >
+                            <span v-else class="text-muted"
+                                >○ Exclude from computation</span
+                            >
+                        </label>
+                    </div>
+                    <Button
+                        icon="pi pi-trash"
+                        size="small"
+                        severity="danger"
+                        text
+                        @click="removeEditDeduction(index)"
+                        type="button"
+                    />
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <label class="small fw-semibold"
+                            >Deduction Name:
+                            <span class="text-danger">*</span></label
+                        >
+                        <InputText
+                            v-model="deduction.name"
+                            class="form-control"
+                            placeholder="e.g., SSS, PAGIBIG, Tax"
+                        />
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <label class="small fw-semibold"
+                            >Amount: <span class="text-danger">*</span></label
+                        >
+                        <InputText
+                            v-model.number="deduction.amount"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            class="form-control"
+                            placeholder="0.00"
+                        />
+                    </div>
+                    <div class="col-md-12">
+                        <label class="small fw-semibold"
+                            >Description (Optional):</label
+                        >
+                        <textarea
+                            v-model="deduction.description"
+                            class="form-control"
+                            rows="2"
+                            placeholder="Add notes about this deduction"
+                        ></textarea>
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <label>Notes: </label>
+            <textarea
+                v-model="editForm.notes"
+                class="form-control"
+                rows="4"
+                placeholder="Add any additional notes or comments about this payslip..."
+            ></textarea>
+            <small class="text-muted">
+                Optional: Add any special instructions, adjustments, or comments
+            </small>
+        </fieldset>
+
+        <template #footer>
+            <div class="d-flex justify-content-between w-100">
+                <Button
+                    label="Cancel"
+                    severity="secondary"
+                    @click="closeEditPayslip"
+                    :disabled="updating"
+                />
+                <Button
+                    label="Update Payslip"
+                    severity="success"
+                    icon="pi pi-save"
+                    @click="updatePayslip"
+                    :loading="updating"
+                    :disabled="!canUpdate"
+                />
+            </div>
+        </template>
+    </Dialog>
 </template>
 
 <script>
@@ -1185,9 +1376,31 @@ export default {
             totalPages: 1,
             deductions: [],
             payslipNotes: "",
+
+            // Auth user
+            authUser: null,
+
+            showEditPayslip: false,
+            updating: false,
+            editForm: {
+                id: null,
+                employee_id: null,
+                employee_name: "",
+                payout_date: null,
+                cutoff_from: null,
+                cutoff_to: null,
+                deductions: [],
+                notes: "",
+            },
         };
     },
     computed: {
+        isHR() {
+            return ["SuperAdmin", "SubAdmin", "hr"].includes(
+                this.authUser?.role,
+            );
+        },
+
         selectedEmployeeData() {
             if (
                 !this.selectedEmployee ||
@@ -1283,6 +1496,16 @@ export default {
                 (d) => d.description && d.description.trim() !== "",
             );
         },
+
+        canUpdate() {
+            return (
+                this.editForm.employee_id &&
+                this.editForm.payout_date &&
+                this.editForm.cutoff_from &&
+                this.editForm.cutoff_to &&
+                !this.updating
+            );
+        },
     },
     watch: {
         cutoffDateFrom(newVal) {
@@ -1307,9 +1530,19 @@ export default {
         },
     },
     mounted() {
+        this.fetchAuthUser();
         this.fetchPayslips();
     },
     methods: {
+        async fetchAuthUser() {
+            try {
+                const response = await axios.get("/auth/user");
+                this.authUser = response.data;
+            } catch (error) {
+                console.error("Error fetching auth user:", error);
+            }
+        },
+
         async fetchPayslips() {
             this.loadingPayslips = true;
             try {
@@ -1608,9 +1841,12 @@ export default {
         async savePayslip() {
             if (!this.canSave) return;
 
-            // Add validation check
             if (!this.selectedEmployeeData) {
-                alert("Please select an employee first.");
+                await Swal.fire({
+                    icon: "warning",
+                    title: "No Employee Selected",
+                    text: "Please select an employee first.",
+                });
                 return;
             }
 
@@ -1667,26 +1903,30 @@ export default {
                     notes: this.payslipNotes || null,
                 };
 
-                console.log("Sending payslip data:", payslipData);
+                await axios.post("/hr/payslips", payslipData);
 
-                const response = await axios.post("/hr/payslips", payslipData);
-
-                console.log("Payslip saved successfully:", response.data);
-                alert("Payslip created successfully!");
+                await Swal.fire({
+                    icon: "success",
+                    title: "Payslip Created",
+                    text: "Payslip created successfully.",
+                    confirmButtonText: "OK",
+                });
 
                 this.closeCreatePayslip();
                 this.fetchPayslips();
             } catch (error) {
                 console.error("Full error details:", error);
-                console.error("Error response:", error.response);
-                console.error("Error data:", error.response?.data);
-
                 const errorMessage =
                     error.response?.data?.message ||
                     error.response?.data?.error ||
                     error.message ||
                     "Failed to create payslip";
-                alert(`Error: ${errorMessage}`);
+
+                await Swal.fire({
+                    icon: "error",
+                    title: "Failed to Create",
+                    text: errorMessage,
+                });
             } finally {
                 this.saving = false;
             }
@@ -1806,22 +2046,39 @@ export default {
         editPayslip(payslip) {
             console.log("Edit payslip:", payslip);
         },
+
         async deletePayslip(payslip) {
-            if (
-                !confirm(
-                    `Are you sure you want to delete payslip for ${payslip.employee_name}?`,
-                )
-            ) {
-                return;
-            }
+            const confirm = await Swal.fire({
+                icon: "warning",
+                title: "Delete Payslip?",
+                html: `Are you sure you want to delete the payslip for <strong>${payslip.employee_name}</strong>?`,
+                showCancelButton: true,
+                confirmButtonColor: "#d33",
+                cancelButtonColor: "#6c757d",
+                confirmButtonText: "Yes, delete it",
+                cancelButtonText: "Cancel",
+            });
+
+            if (!confirm.isConfirmed) return;
 
             try {
                 await axios.delete(`/hr/payslips/${payslip.id}`);
-                alert("Payslip deleted successfully!");
+                await Swal.fire({
+                    icon: "success",
+                    title: "Deleted",
+                    text: "Payslip deleted successfully.",
+                    confirmButtonText: "OK",
+                });
                 this.fetchPayslips();
             } catch (error) {
                 console.error("Error deleting payslip:", error);
-                alert("Failed to delete payslip. Please try again.");
+                await Swal.fire({
+                    icon: "error",
+                    title: "Delete Failed",
+                    text:
+                        error.response?.data?.message ||
+                        "Failed to delete payslip.",
+                });
             }
         },
         formatDate(dateString) {
@@ -1850,6 +2107,141 @@ export default {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
             });
+        },
+
+        async releasePayslip(payslip) {
+            const confirm = await Swal.fire({
+                icon: "question",
+                title: "Release Payslip?",
+                html: `This will make the payslip for <strong>${payslip.employee_name}</strong> visible to the employee.`,
+                showCancelButton: true,
+                confirmButtonColor: "#28a745",
+                cancelButtonColor: "#6c757d",
+                confirmButtonText: "Yes, release it",
+                cancelButtonText: "Cancel",
+            });
+
+            if (!confirm.isConfirmed) return;
+
+            try {
+                await axios.patch(`/hr/payslips/${payslip.id}/release`);
+                await Swal.fire({
+                    icon: "success",
+                    title: "Released",
+                    text: `Payslip for ${payslip.employee_name} is now visible to the employee.`,
+                    confirmButtonText: "OK",
+                });
+                this.fetchPayslips();
+            } catch (error) {
+                console.error("Error releasing payslip:", error);
+                await Swal.fire({
+                    icon: "error",
+                    title: "Release Failed",
+                    text:
+                        error.response?.data?.message ||
+                        "Failed to release payslip.",
+                });
+            }
+        },
+
+        editPayslip(payslip) {
+            // Parse deduction_details if it's a string
+            let deductions = [];
+            if (payslip.deduction_details) {
+                try {
+                    deductions =
+                        typeof payslip.deduction_details === "string"
+                            ? JSON.parse(payslip.deduction_details)
+                            : payslip.deduction_details;
+                } catch (e) {
+                    deductions = [];
+                }
+            }
+
+            this.editForm = {
+                id: payslip.id,
+                employee_id: payslip.employee_id,
+                employee_name: payslip.employee_name,
+                payout_date:
+                    payslip.payout_date?.split("T")[0] ?? payslip.payout_date,
+                cutoff_from:
+                    payslip.cutoff_from?.split("T")[0] ?? payslip.cutoff_from,
+                cutoff_to:
+                    payslip.cutoff_to?.split("T")[0] ?? payslip.cutoff_to,
+                deductions: deductions,
+                notes: payslip.notes || "",
+            };
+
+            this.showEditPayslip = true;
+
+            if (this.employees.length === 0) {
+                this.fetchEmployees();
+            }
+        },
+
+        closeEditPayslip() {
+            this.showEditPayslip = false;
+            this.editForm = {
+                id: null,
+                employee_id: null,
+                employee_name: "",
+                payout_date: null,
+                cutoff_from: null,
+                cutoff_to: null,
+                deductions: [],
+                notes: "",
+            };
+        },
+
+        addEditDeduction() {
+            this.editForm.deductions.push({
+                name: "",
+                amount: 0,
+                description: "",
+                active: true,
+            });
+        },
+
+        removeEditDeduction(index) {
+            this.editForm.deductions.splice(index, 1);
+        },
+
+        async updatePayslip() {
+            if (!this.canUpdate) return;
+            this.updating = true;
+
+            try {
+                await axios.patch(`/hr/payslips/${this.editForm.id}`, {
+                    employee_id: this.editForm.employee_id,
+                    payout_date: this.editForm.payout_date,
+                    cutoff_from: this.editForm.cutoff_from,
+                    cutoff_to: this.editForm.cutoff_to,
+                    deduction_details: this.editForm.deductions,
+                    notes: this.editForm.notes,
+                });
+
+                await Swal.fire({
+                    icon: "success",
+                    title: "Updated",
+                    text: "Payslip updated successfully.",
+                    timer: 1500,
+                    showConfirmButton: false,
+                });
+
+                this.closeEditPayslip();
+                this.fetchPayslips();
+            } catch (error) {
+                console.error("Error updating payslip:", error);
+                await Swal.fire({
+                    icon: "error",
+                    title: "Update Failed",
+                    text:
+                        error.response?.data?.message ||
+                        "Failed to update payslip.",
+                });
+            } finally {
+                this.updating = false;
+            }
         },
     },
 };

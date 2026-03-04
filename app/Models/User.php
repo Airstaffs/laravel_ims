@@ -14,13 +14,28 @@ class User extends Authenticatable
     protected $fillable = [
         'username',
         'email',
-        'profile_picture',
+        'google_id',
         'password',
-        'role'
+        'role',
+        'profile_picture',
+        'first_login',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
     ];
+
+    protected $casts = [
+        'first_login' => 'boolean',
+        'google_id' => 'boolean',
+    ];
+
+    /**
+     * Check if the user is an admin or HR
+     */
+    public function isHR(): bool
+    {
+        return in_array($this->role, ['SuperAdmin', 'SubAdmin', 'hr']);
+    }
 }

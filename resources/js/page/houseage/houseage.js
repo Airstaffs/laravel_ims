@@ -4,6 +4,7 @@ import "./houseage.css";
 import Swal from "sweetalert2";
 import copyDetailsModal from "../labeling/modals/copydetails/copydetailsmodal.vue";
 import { DEFAULT_IMAGE } from "../../constant";
+import { isUSAccount } from "../../utils/helpers";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
@@ -80,6 +81,11 @@ export default {
             currentPage: 1,
             perPage: 10,
             first: 0, //for prime vues pagination internal state
+
+            selectedRows: [], //for invoice generation
+            showInvoiceModal: false,
+
+            isUSAccount: false
         };
     },
 
@@ -421,6 +427,16 @@ export default {
     },
 
     methods: {
+        onSelectionChange(product, isSelected) {
+            if(isSelected){
+                this.selectedRows.push(product.ProductID);
+            }else{
+                //only get the ProductID
+                this.selectedRows = this.selectedRows.filter((item) => item !== product.ProductID);
+            }
+
+            console.log(this.selectedRows, "Product Id");
+        },
         goToSuppliersList() {
             window.loadContent('suppliersList');
         },
@@ -1886,6 +1902,8 @@ export default {
         this.currentUser = window.Laravel?.user || null;
 
         this.fetchInventory();
+
+        this.isUSAccount = isUSAccount();
 
         // Handle keyboard navigation for the modal
         const handleKeyDown = (e) => {

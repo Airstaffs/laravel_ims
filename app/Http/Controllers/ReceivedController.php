@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class ReceivedController extends BasetablesController
 {
@@ -404,14 +405,111 @@ public function index(Request $request)
 
             if ($request->status === 'fail') {
 
-                $request->validate([
-                    'trackingNumber' => 'required',
-                    'status' => 'required|in:fail',
-                    'basketNumber' => ['required', 'regex:/^(BKT\d+|S[I-Z]\d+|ENV\d+)$/i'],
-                    'pcnNumber' => ['required', 'regex:/^PCN\d+$/i'],
-                    'productId' => $isReconciliation ? 'nullable' : 'required',
-                    'rtcounter' => 'required',
-                ]);
+                    $updateData = [
+                        'ProductModuleLoc' => 'RTS',
+                        'PCN' => $request->pcnNumber,
+                        'basketnumber' => $request->basketNumber,
+                        'Username' => $user,
+                    ];
+
+                    // Update product status for failed item
+                    $updateResult = DB::table($this->productTable)
+                        ->where('ProductID', $request->productId)
+                        ->update($updateData);
+
+                    // ✅ AUTO INSERT INTO tblrts
+                    $rtsTableName = $this->company . 'tblrts';
+
+                    // Create table if it doesn't exist (reuse your existing schema)
+                    if (!Schema::hasTable($rtsTableName)) {
+                        Schema::create($rtsTableName, function ($table) {
+                            $table->id('rts_id');
+                            $table->string('rtcounter', 50)->index();
+                            $table->unsignedBigInteger('ProductID')->index();
+                            $table->string('FNSKU', 100)->nullable();
+                            $table->string('serialnumber', 100)->nullable();
+                            $table->date('filed_date');
+                            $table->boolean('filed_in_es')->default(false);
+                            $table->boolean('filed_in_ppl')->default(false);
+                            $table->enum('test_result', ['Passed', 'Failed']);
+                            $table->enum('status', ['RTS', 'Dismantle']);
+                            $table->enum('rts_result', ['PRNR', 'FRNR', 'LST', 'Replacement', 'Ship-Back'])->nullable();
+                            $table->decimal('refund_amount', 10, 2)->nullable();
+                            $table->date('refund_date')->nullable();
+                            $table->text('reason_of_return')->nullable();
+                            $table->string('return_tn', 255)->nullable();
+                            $table->text('notes')->nullable();
+                            $table->string('created_by', 100)->nullable();
+                            $table->string('updated_by', 100)->nullable();
+                            $table->timestamps();
+                            $table->unique(['rtcounter', 'ProductID'], 'unique_rt_product');
+                        });
+                    }
+
+                    // Get the product for FNSKU
+                    $product = DB::table($this->productTable)
+                        ->where('ProductID', $request->productId)
+                        ->first();
+
+                    $fnsku = $product->FNSKUviewer ?? $product->FNSKU ?? 'N/A';
+
+                    if (Schema::hasTable($rtsTableName)) {
+                        DB::statement("ALTER TABLE `{$rtsTableName}` MODIFY `rts_result` ENUM('PRNR','FRNR','LST','Replacement','Ship-Back') NULL DEFAULT NULL");
+                    }
+
+
+                    // ✅ Insert RTS record — only if not already exists
+                    $alreadyExists = DB::table($rtsTableName)
+                        ->where('rtcounter', $request->rtcounter)
+                        ->where('ProductID', $request->productId)
+                        ->exists();
+
+                    if (!$alreadyExists) {
+                        DB::table($rtsTableName)->insert([
+                            'rtcounter'       => (string) $request->rtcounter,
+                            'ProductID'       => $request->productId,
+                            'FNSKU'           => $fnsku,
+                            'serialnumber'    => $product->serialnumber ?? null,
+                            'filed_date'      => now()->toDateString(),
+                            'filed_in_es'     => false,
+                            'filed_in_ppl'    => false,
+                            'test_result'     => 'Failed',
+                            'status'          => 'RTS',
+                            'rts_result'      => null, // operator fills this later
+                            'refund_amount'   => null,
+                            'refund_date'     => null,
+                            'reason_of_return'=> null,
+                            'return_tn'       => null,
+                            'notes'           => 'Auto-inserted from Received module (Failed scan)',
+                            'created_by'      => $user,
+                            'created_at'      => now(),
+                            'updated_at'      => now(),
+                        ]);
+
+                        Log::info('Auto-inserted RTS record from Received fail', [
+                            'rtcounter'  => $request->rtcounter,
+                            'ProductID'  => $request->productId,
+                            'FNSKU'      => $fnsku,
+                            'created_by' => $user,
+                        ]);
+                    }
+
+                    // Track history
+                    $this->trackLocationChange(
+                        'Received',
+                        "RT#{$request->rtcounter} | Tracking: {$fullTrackingNumber}",
+                        'Received',
+                        'RTS (Failed)',
+                        $employeeName
+                    );
+
+                    DB::commit();
+
+                    return response()->json([
+                        'success' => true,
+                        'item' => $request->trackingNumber . ' marked as failed',
+                        'playsound' => 1,
+                    ]);
 
             } else {
 

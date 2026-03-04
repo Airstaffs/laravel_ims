@@ -179,21 +179,12 @@
               </button>
             </div>
             
-            <div v-if="scannerCameraActive" class="zoom-slider-vertical">
-              <i class="fas fa-search-plus zoom-icon-top"></i>
-              <input
-                type="range"
-                class="zoom-slider"
-                :min="minZoom"
-                :max="maxZoom"
-                :step="0.1"
-                :value="currentZoom"
-                @input="e => onZoomSlider(e)"
-                orient="vertical"
-              />
+           <div v-if="scannerCameraActive" class="zoom-slider-vertical">
+              <i class="fas fa-search-plus zoom-icon-top" @click="onZoomIn"></i>
               <span class="zoom-value">{{ currentZoom.toFixed(1) }}x</span>
-              <i class="fas fa-search-minus zoom-icon-bottom"></i>
-            </div>
+              <i class="fas fa-search-minus zoom-icon-bottom" @click="onZoomOut"></i>
+              <i class="fas fa-redo zoom-icon-reset" @click="onZoomReset"></i>
+          </div>
 
                 <div v-if="scannerCameraActive" class="rotate-control">
                   <!-- <button
@@ -521,7 +512,17 @@ export default {
     
   },
   methods: {
-
+      onZoomIn() {
+        const next = Math.min(this.currentZoom + 0.1, this.maxZoom);
+        this.onZoomSlider({ target: { value: next } });
+    },
+    onZoomOut() {
+        const next = Math.max(this.currentZoom - 0.1, this.minZoom);
+        this.onZoomSlider({ target: { value: next } });
+    },
+    onZoomReset() {
+    this.onZoomSlider({ target: { value: this.minZoom } });
+},
     onZoomSlider(e) {
   const val = parseFloat(e.target.value);
   this.currentZoom = val;
@@ -2845,7 +2846,7 @@ input:checked + .toggle-slider:before {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 20px;
   background: rgba(0, 0, 0, 0.65);
   padding: 10px 6px;
   border-radius: 20px;
@@ -2937,7 +2938,7 @@ input:checked + .toggle-slider:before {
   .zoom-slider-vertical{
   position: absolute;
   right: 11px;
-  top: 45%;
+  top: 55%;
 }
 .rotate-control {
   position: absolute;
@@ -2960,7 +2961,19 @@ input:checked + .toggle-slider:before {
     gap: 8px;
   }
 }
+.zoom-icon-reset {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 13px;
+    cursor: pointer;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    width: 100%;
+    text-align: center;
+}
 
+.zoom-icon-reset:active {
+    color: #fff;
+}
 /* Prevent text selection during pinch zoom */
 .scanner-view {
   position: relative;

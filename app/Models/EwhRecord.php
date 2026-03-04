@@ -21,15 +21,17 @@ class EwhRecord extends Model
         'regular_holiday_days',
         'special_holiday_days',
         'attendance_records',
+        'status',
+        'employee_status',
     ];
 
     protected $casts = [
         'attendance_records' => 'array',
-        'payout_date' => 'date',
-        'cutoff_from' => 'date',
-        'cutoff_to' => 'date',
-        'total_hours' => 'float',
-        'regular_hours' => 'float',
-        'ot_hours' => 'float',
+        'payout_date'        => 'date',
+        'cutoff_from'        => 'date',
+        'cutoff_to'          => 'date',
+        'total_hours'        => 'float',
+        'regular_hours'      => 'float',
+        'ot_hours'           => 'float',
     ];
 }

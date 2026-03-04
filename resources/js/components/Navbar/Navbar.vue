@@ -26,8 +26,7 @@
 
                 <!-- Mobile Icons -->
                 <div class="navbar-mobile">
-
-                     <Button
+                    <Button
                         icon="pi pi-clock"
                         @click="openSystemClockInOut"
                         severity="secondary"
@@ -262,6 +261,9 @@
     />
     <AnnouncementModal v-model:visible="announcementVisible" />
     <BreakModal v-model:visible="breakVisible" />
+
+    <EwhModal v-model:visible="ewhModalVisible" />
+    <PayrollModal v-model:visible="payrollModalVisible" />
 </template>
 
 <script>
@@ -280,6 +282,9 @@ import SettingsModal from "../SettingsModal/SettingsModal.vue";
 import { OverlayBadge } from "primevue";
 import SystemInOutModal from "../SystemInOutModal/SystemInOutModal.vue";
 
+import EwhModal from "../../page/hr/modals/EWHModal.vue";
+import PayrollModal from "../../page/hr/modals/PayrollModal.vue";
+
 export default {
     name: "Navbar",
     components: {
@@ -295,6 +300,8 @@ export default {
         SystemInOutModal,
         BreakModal,
         OverlayBadge,
+        EwhModal,
+        PayrollModal,
     },
     data() {
         return {
@@ -312,31 +319,48 @@ export default {
             userId: null,
             userMenuItems: [
                 {
-                    label: 'Profile',
-                    icon: 'pi pi-user',
+                    label: "My Payroll",
+                    icon: "pi pi-money-bill",
+                    command: () => {
+                        this.openPayrollModal();
+                    },
+                },
+                {
+                    label: "My EWH",
+                    icon: "pi pi-file-edit",
+                    command: () => {
+                        this.openEwhModal();
+                    },
+                },
+                {
+                    label: "Profile",
+                    icon: "pi pi-user",
                     command: () => {
                         this.openProfileModal();
-                    }
+                    },
                 },
                 {
-                    label: 'Settings',
-                    icon: 'pi pi-cog',
+                    label: "Settings",
+                    icon: "pi pi-cog",
                     command: () => {
                         this.openSettingModal();
-                    }
+                    },
                 },
                 {
-                    separator: true
+                    separator: true,
                 },
                 {
-                    label: 'Logout',
-                    icon: 'pi pi-sign-out',
-                    class: 'menu-item-logout',
+                    label: "Logout",
+                    icon: "pi pi-sign-out",
+                    class: "menu-item-logout",
                     command: () => {
                         this.showLogoutModal();
-                    }
-                }
-            ]
+                    },
+                },
+            ],
+
+            ewhModalVisible: false,
+            payrollModalVisible: false,
         };
     },
     mounted() {
@@ -441,6 +465,20 @@ export default {
 
         goToHistory() {
             window.loadContent("history");
+        },
+
+        openEwhModal() {
+            this.ewhModalVisible = false;
+            this.$nextTick(() => {
+                this.ewhModalVisible = true;
+            });
+        },
+
+        openPayrollModal() {
+            this.payrollModalVisible = false;
+            this.$nextTick(() => {
+                this.payrollModalVisible = true;
+            });
         },
     },
 };

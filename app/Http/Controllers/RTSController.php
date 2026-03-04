@@ -168,9 +168,9 @@ class RTSController extends BasetablesController
                     $product->capturedImages = $capturedImages;
 
                     // Set img1 directly for the main thumbnail display if capturedimg1 exists
-                    if (! empty($capturedImages->capturedimg1)) {
-                        $product->img1 = $capturedImages->capturedimg1;
-                    }
+                   if (!empty($capturedImages->capturedimg1)) {
+                                $product->img1 = null; // don't override img1, let gallery slot handle it
+                            }
                 } else {
                     // Initialize empty capturedImages if not requested
                     $product->capturedImages = (object) [];
@@ -205,12 +205,12 @@ class RTSController extends BasetablesController
             $validator = Validator::make($request->all(), [
                 'rtcounter' => 'required',
                 'ProductID' => 'required|integer',
-                'FNSKU' => 'required|string',
+                'FNSKU' => 'nullable|string',
                 'serialnumber' => 'nullable|string',
                 'dateField' => 'required|date',
                 'testResult' => 'required|in:Passed,Failed',
                 'status' => 'required|in:RTS,Dismantle',
-                'rtsResult' => 'required|in:PRNR,FRNR,LST,Replacement,Ship-Back',
+                'rtsResult' => 'nullable|in:PRNR,FRNR,LST,Replacement,Ship-Back',
                 'filedInES' => 'boolean',
                 'filedInPPL' => 'boolean',
                 'refundAmount' => 'nullable|numeric|min:0',
