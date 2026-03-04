@@ -35,7 +35,7 @@
               @click="onChangeTab('unique')"
               :class="['tab-button', { active: activeTab === 'unique' }]"
             >
-              <i class="fas fa-note-sticky"></i> RPN-PCN-SHLF
+              <i class="fas fa-note-sticky"></i> RPN-PCN-SHELF
             </button>
           </div>
 
@@ -532,7 +532,7 @@ export default {
       uniqueIdentifiersData: [],
       lastNumberLabel: 0,
       isPrintingPCN_RPN_SH: false,
-      labelOption: [{ label: "PCN", value: 'pcn' }, { label: "RPN", value: 'rpn' }, { label: "SH", value: 'sh' }]
+      labelOption: [{ label: "PCN", value: 'pcn' }, { label: "RPN", value: 'rpn' }, { label: "SHELF", value: 'sh' }]
 
     };
   },
