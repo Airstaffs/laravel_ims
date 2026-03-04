@@ -220,15 +220,6 @@
                         />
                     </div>
 
-                    <Button
-                        icon="pi pi-file-edit"
-                        label="My EWH"
-                        @click="openEwhModal"
-                        severity="secondary"
-                        text
-                        class="nav-button with-label"
-                    />
-
                     <!-- User Dropdown Menu -->
                     <div class="user-menu-wrapper">
                         <Button
@@ -272,6 +263,7 @@
     <BreakModal v-model:visible="breakVisible" />
 
     <EwhModal v-model:visible="ewhModalVisible" />
+    <PayrollModal v-model:visible="payrollModalVisible" />
 </template>
 
 <script>
@@ -291,6 +283,7 @@ import { OverlayBadge } from "primevue";
 import SystemInOutModal from "../SystemInOutModal/SystemInOutModal.vue";
 
 import EwhModal from "../../page/hr/modals/EWHModal.vue";
+import PayrollModal from "../../page/hr/modals/PayrollModal.vue";
 
 export default {
     name: "Navbar",
@@ -308,6 +301,7 @@ export default {
         BreakModal,
         OverlayBadge,
         EwhModal,
+        PayrollModal,
     },
     data() {
         return {
@@ -324,6 +318,20 @@ export default {
             kanbanCount: 0,
             userId: null,
             userMenuItems: [
+                {
+                    label: "My Payroll",
+                    icon: "pi pi-money-bill",
+                    command: () => {
+                        this.openPayrollModal();
+                    },
+                },
+                {
+                    label: "My EWH",
+                    icon: "pi pi-file-edit",
+                    command: () => {
+                        this.openEwhModal();
+                    },
+                },
                 {
                     label: "Profile",
                     icon: "pi pi-user",
@@ -352,6 +360,7 @@ export default {
             ],
 
             ewhModalVisible: false,
+            payrollModalVisible: false,
         };
     },
     mounted() {
@@ -462,6 +471,13 @@ export default {
             this.ewhModalVisible = false;
             this.$nextTick(() => {
                 this.ewhModalVisible = true;
+            });
+        },
+
+        openPayrollModal() {
+            this.payrollModalVisible = false;
+            this.$nextTick(() => {
+                this.payrollModalVisible = true;
             });
         },
     },

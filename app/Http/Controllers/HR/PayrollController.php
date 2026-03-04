@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\HR;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class PayrollController extends Controller
 {
@@ -22,7 +22,7 @@ class PayrollController extends Controller
     public function getPayslips(Request $request)
     {
         $perPage = $request->input('per_page', 10);
-        $user    = auth()->user();
+        $user = auth()->user();
 
         $query = DB::table('tblpayslips')->orderBy('created_at', 'desc');
 
@@ -31,7 +31,15 @@ class PayrollController extends Controller
         } else {
             // Employee sees only their own released payslips
             $query->where('employee_id', $user->id)
-                  ->where('status', 'released');
+                ->where('status', 'released');
+        }
+
+        // Optional date filters (used by employee modal)
+        if ($request->filled('from')) {
+            $query->where('cutoff_from', '>=', $request->from);
+        }
+        if ($request->filled('to')) {
+            $query->where('cutoff_to', '<=', $request->to);
         }
 
         return response()->json($query->paginate($perPage));
@@ -43,7 +51,7 @@ class PayrollController extends Controller
      */
     public function createPayslip(Request $request)
     {
-        if (!auth()->user()->isHR()) {
+        if (! auth()->user()->isHR()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -51,84 +59,86 @@ class PayrollController extends Controller
 
         try {
             $validated = $request->validate([
-                'employee_id'             => 'required|integer',
-                'employee_name'           => 'required|string',
-                'payout_date'             => 'required|date',
-                'cutoff_from'             => 'required|date',
-                'cutoff_to'               => 'required|date',
-                'total_days'              => 'required|integer',
-                'total_hours'             => 'required|numeric',
-                'hourly_rate'             => 'required|numeric',
-                'currency'                => 'required|string|max:3',
-                'basic_pay'               => 'required|numeric',
-                'regular_holiday_hours'   => 'nullable|numeric',
-                'regular_holiday_pay'     => 'nullable|numeric',
-                'special_holiday_hours'   => 'nullable|numeric',
-                'special_holiday_pay'     => 'nullable|numeric',
-                'gross_pay'               => 'required|numeric',
-                'deductions'              => 'nullable|numeric',
-                'net_pay'                 => 'required|numeric',
-                'deduction_details'       => 'nullable|array',
-                'holiday_details'         => 'nullable|array',
-                'attendance_records'      => 'nullable|array',
-                'notes'                   => 'nullable|string|max:65535',
+                'employee_id' => 'required|integer',
+                'employee_name' => 'required|string',
+                'payout_date' => 'required|date',
+                'cutoff_from' => 'required|date',
+                'cutoff_to' => 'required|date',
+                'total_days' => 'required|integer',
+                'total_hours' => 'required|numeric',
+                'hourly_rate' => 'required|numeric',
+                'currency' => 'required|string|max:3',
+                'basic_pay' => 'required|numeric',
+                'regular_holiday_hours' => 'nullable|numeric',
+                'regular_holiday_pay' => 'nullable|numeric',
+                'special_holiday_hours' => 'nullable|numeric',
+                'special_holiday_pay' => 'nullable|numeric',
+                'gross_pay' => 'required|numeric',
+                'deductions' => 'nullable|numeric',
+                'net_pay' => 'required|numeric',
+                'deduction_details' => 'nullable|array',
+                'holiday_details' => 'nullable|array',
+                'attendance_records' => 'nullable|array',
+                'notes' => 'nullable|string|max:65535',
             ]);
 
             $payslipId = DB::table('tblpayslips')->insertGetId([
-                'employee_id'             => $validated['employee_id'],
-                'employee_name'           => $validated['employee_name'],
-                'payout_date'             => $validated['payout_date'],
-                'cutoff_from'             => $validated['cutoff_from'],
-                'cutoff_to'               => $validated['cutoff_to'],
-                'total_days'              => $validated['total_days'],
-                'total_hours'             => $validated['total_hours'],
-                'hourly_rate'             => $validated['hourly_rate'],
-                'currency'                => $validated['currency'],
-                'basic_pay'               => $validated['basic_pay'],
-                'regular_holiday_hours'   => $validated['regular_holiday_hours'] ?? 0,
-                'regular_holiday_pay'     => $validated['regular_holiday_pay'] ?? 0,
-                'special_holiday_hours'   => $validated['special_holiday_hours'] ?? 0,
-                'special_holiday_pay'     => $validated['special_holiday_pay'] ?? 0,
-                'gross_pay'               => $validated['gross_pay'],
-                'deductions'              => $validated['deductions'] ?? 0,
-                'net_pay'                 => $validated['net_pay'],
-                'deduction_details'       => !empty($validated['deduction_details'])
+                'employee_id' => $validated['employee_id'],
+                'employee_name' => $validated['employee_name'],
+                'payout_date' => $validated['payout_date'],
+                'cutoff_from' => $validated['cutoff_from'],
+                'cutoff_to' => $validated['cutoff_to'],
+                'total_days' => $validated['total_days'],
+                'total_hours' => $validated['total_hours'],
+                'hourly_rate' => $validated['hourly_rate'],
+                'currency' => $validated['currency'],
+                'basic_pay' => $validated['basic_pay'],
+                'regular_holiday_hours' => $validated['regular_holiday_hours'] ?? 0,
+                'regular_holiday_pay' => $validated['regular_holiday_pay'] ?? 0,
+                'special_holiday_hours' => $validated['special_holiday_hours'] ?? 0,
+                'special_holiday_pay' => $validated['special_holiday_pay'] ?? 0,
+                'gross_pay' => $validated['gross_pay'],
+                'deductions' => $validated['deductions'] ?? 0,
+                'net_pay' => $validated['net_pay'],
+                'deduction_details' => ! empty($validated['deduction_details'])
                                                 ? json_encode($validated['deduction_details'])
                                                 : null,
-                'holiday_details'         => !empty($validated['holiday_details'])
+                'holiday_details' => ! empty($validated['holiday_details'])
                                                 ? json_encode($validated['holiday_details'])
                                                 : null,
-                'attendance_records'      => !empty($validated['attendance_records'])
+                'attendance_records' => ! empty($validated['attendance_records'])
                                                 ? json_encode($validated['attendance_records'])
                                                 : null,
-                'notes'                   => $validated['notes'] ?? null,
-                'status'                  => 'draft',
-                'created_by'              => auth()->user()->username ?? 'system',
-                'created_at'              => now(),
-                'updated_at'              => now(),
+                'notes' => $validated['notes'] ?? null,
+                'status' => 'draft',
+                'created_by' => auth()->user()->username ?? 'system',
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
             return response()->json([
-                'success'    => true,
-                'message'    => 'Payslip created successfully.',
+                'success' => true,
+                'message' => 'Payslip created successfully.',
                 'payslip_id' => $payslipId,
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             Log::error('Payslip validation error:', $e->errors());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
-                'errors'  => $e->errors(),
+                'errors' => $e->errors(),
             ], 422);
 
         } catch (\Exception $e) {
-            Log::error('Payslip creation error: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::error('Payslip creation error: '.$e->getMessage());
+            Log::error('Stack trace: '.$e->getTraceAsString());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create payslip.',
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -139,25 +149,25 @@ class PayrollController extends Controller
      */
     public function updatePayslip(Request $request, $id)
     {
-        if (!auth()->user()->isHR()) {
+        if (! auth()->user()->isHR()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         try {
             $validated = $request->validate([
-                'employee_id'      => 'required|integer',
-                'payout_date'      => 'required|date',
-                'cutoff_from'      => 'required|date',
-                'cutoff_to'        => 'required|date',
-                'deduction_details'=> 'nullable|array',
-                'notes'            => 'nullable|string|max:65535',
+                'employee_id' => 'required|integer',
+                'payout_date' => 'required|date',
+                'cutoff_from' => 'required|date',
+                'cutoff_to' => 'required|date',
+                'deduction_details' => 'nullable|array',
+                'notes' => 'nullable|string|max:65535',
             ]);
 
             // Recalculate total deductions from active deductions
             $deductions = 0;
-            if (!empty($validated['deduction_details'])) {
+            if (! empty($validated['deduction_details'])) {
                 foreach ($validated['deduction_details'] as $d) {
-                    if (!empty($d['active'])) {
+                    if (! empty($d['active'])) {
                         $deductions += floatval($d['amount'] ?? 0);
                     }
                 }
@@ -166,19 +176,19 @@ class PayrollController extends Controller
             $updated = DB::table('tblpayslips')
                 ->where('id', $id)
                 ->update([
-                    'employee_id'       => $validated['employee_id'],
-                    'payout_date'       => $validated['payout_date'],
-                    'cutoff_from'       => $validated['cutoff_from'],
-                    'cutoff_to'         => $validated['cutoff_to'],
-                    'deductions'        => $deductions,
-                    'deduction_details' => !empty($validated['deduction_details'])
+                    'employee_id' => $validated['employee_id'],
+                    'payout_date' => $validated['payout_date'],
+                    'cutoff_from' => $validated['cutoff_from'],
+                    'cutoff_to' => $validated['cutoff_to'],
+                    'deductions' => $deductions,
+                    'deduction_details' => ! empty($validated['deduction_details'])
                                             ? json_encode($validated['deduction_details'])
                                             : null,
-                    'notes'             => $validated['notes'] ?? null,
-                    'updated_at'        => now(),
+                    'notes' => $validated['notes'] ?? null,
+                    'updated_at' => now(),
                 ]);
 
-            if (!$updated) {
+            if (! $updated) {
                 return response()->json(['message' => 'Payslip not found.'], 404);
             }
 
@@ -188,14 +198,15 @@ class PayrollController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
-                'errors'  => $e->errors(),
+                'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            Log::error('Payslip update error: ' . $e->getMessage());
+            Log::error('Payslip update error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update payslip.',
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -206,27 +217,70 @@ class PayrollController extends Controller
      */
     public function deletePayslip($id)
     {
-        if (!auth()->user()->isHR()) {
+        if (! auth()->user()->isHR()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         try {
             $deleted = DB::table('tblpayslips')->where('id', $id)->delete();
 
-            if (!$deleted) {
+            if (! $deleted) {
                 return response()->json(['success' => false, 'message' => 'Payslip not found.'], 404);
             }
 
             return response()->json(['success' => true, 'message' => 'Payslip deleted successfully.']);
 
         } catch (\Exception $e) {
-            Log::error('Payslip delete error: ' . $e->getMessage());
+            Log::error('Payslip delete error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete payslip.',
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * PATCH /hr/payslips/{id}/employee-status
+     * Employee updates their own status (viewed / acknowledged)
+     */
+    public function updateEmployeeStatus(Request $request, $id)
+    {
+        $record = DB::table('tblpayslips')->where('id', $id)->first();
+
+        if (! $record) {
+            return response()->json(['message' => 'Payslip not found.'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'employee_status' => 'required|in:new,viewed,acknowledged',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Invalid status.', 'errors' => $validator->errors()], 422);
+        }
+
+        // Only allow upgrade: new → viewed → acknowledged (no downgrade)
+        $order = ['new' => 0, 'viewed' => 1, 'acknowledged' => 2];
+        $current = $order[$record->employee_status] ?? 0;
+        $incoming = $order[$request->employee_status] ?? 0;
+
+        if ($incoming > $current) {
+            DB::table('tblpayslips')
+                ->where('id', $id)
+                ->update([
+                    'employee_status' => $request->employee_status,
+                    'updated_at' => now(),
+                ]);
+        }
+
+        $updated = DB::table('tblpayslips')->where('id', $id)->first();
+
+        return response()->json([
+            'message' => 'Employee status updated.',
+            'data' => $updated,
+        ]);
     }
 
     /**
@@ -235,7 +289,7 @@ class PayrollController extends Controller
      */
     public function releasePayslip($id)
     {
-        if (!auth()->user()->isHR()) {
+        if (! auth()->user()->isHR()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -243,11 +297,11 @@ class PayrollController extends Controller
             $updated = DB::table('tblpayslips')
                 ->where('id', $id)
                 ->update([
-                    'status'     => 'released',
+                    'status' => 'released',
                     'updated_at' => now(),
                 ]);
 
-            if (!$updated) {
+            if (! $updated) {
                 return response()->json(['message' => 'Payslip not found.'], 404);
             }
 
@@ -257,7 +311,7 @@ class PayrollController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to release payslip.',
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -268,7 +322,7 @@ class PayrollController extends Controller
      */
     public function updateStatus(Request $request, $id)
     {
-        if (!auth()->user()->isHR()) {
+        if (! auth()->user()->isHR()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -280,11 +334,11 @@ class PayrollController extends Controller
             $updated = DB::table('tblpayslips')
                 ->where('id', $id)
                 ->update([
-                    'status'     => $request->status,
+                    'status' => $request->status,
                     'updated_at' => now(),
                 ]);
 
-            if (!$updated) {
+            if (! $updated) {
                 return response()->json(['message' => 'Payslip not found.'], 404);
             }
 
@@ -294,7 +348,7 @@ class PayrollController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update status.',
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -309,7 +363,7 @@ class PayrollController extends Controller
     public function getHolidays(Request $request)
     {
         $dateFrom = $request->input('date_from');
-        $dateTo   = $request->input('date_to');
+        $dateTo = $request->input('date_to');
 
         $holidays = DB::table('tblholiday')
             ->select('holidayID', 'holidate', 'status', 'title', 'is_recurring')
@@ -327,15 +381,15 @@ class PayrollController extends Controller
     private function calculateHoursFromRecord(array $record): float
     {
         try {
-            $timeIn  = new \DateTime($record['TimeIn']);
+            $timeIn = new \DateTime($record['TimeIn']);
             $timeOut = new \DateTime($record['TimeOut']);
-            $diff    = $timeOut->getTimestamp() - $timeIn->getTimestamp();
+            $diff = $timeOut->getTimestamp() - $timeIn->getTimestamp();
 
-            if (!empty($record['shortbreak_start']) && !empty($record['shortbreak_end'])) {
+            if (! empty($record['shortbreak_start']) && ! empty($record['shortbreak_end'])) {
                 $breakStart = new \DateTime($record['shortbreak_start']);
-                $breakEnd   = new \DateTime($record['shortbreak_end']);
+                $breakEnd = new \DateTime($record['shortbreak_end']);
                 $diff -= ($breakEnd->getTimestamp() - $breakStart->getTimestamp());
-            } elseif (!empty($record['shortbreak_totaltime'])) {
+            } elseif (! empty($record['shortbreak_totaltime'])) {
                 $diff -= ($record['shortbreak_totaltime'] * 60);
             }
 

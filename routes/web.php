@@ -1024,6 +1024,7 @@ Route::prefix('hr')->group(function () {
     Route::patch('/payslips/{id}/status', [PayrollController::class, 'updateStatus']);
     Route::patch('/payslips/{id}/release', [PayrollController::class, 'releasePayslip']);
     Route::patch('/payslips/{id}/status', [PayrollController::class, 'updateStatus']);
+    Route::patch('/payslips/{id}/employee-status', [PayrollController::class, 'updateEmployeeStatus']);
 
     // Holidays
     Route::get('/holidays', [PayrollController::class, 'getHolidays']);
