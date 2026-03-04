@@ -502,14 +502,14 @@ export default {
                     include_images: true,
                 });
 
-                const response = await axios.get(
+               const response = await axios.get(
                     `${API_BASE_URL}/api/rts/products`,
                     {
                         params: {
                             search: this.searchQuery,
                             page: this.currentPage,
                             per_page: this.perPage,
-                            location: "",
+                            location: "RTS",  // ✅ was empty string
                             include_images: true,
                         },
                     }
@@ -857,18 +857,17 @@ export default {
             this.loading = true;
 
             try {
-                const payload = {
-                    rtcounter: this.rtsCurrentItem.rtcounter,
-                    ProductID: this.rtsCurrentItem.ProductID,
-                    FNSKU: this.rtsCurrentItem.FNSKU,
-                    serialnumber: this.rtsCurrentItem.serialnumber,
-                    ...this.rtsForm,
-                    _token:
-                        document
-                            .querySelector('meta[name="csrf-token"]')
-                            ?.getAttribute("content") || "",
-                };
-
+                 const payload = {
+                rtcounter: this.rtsCurrentItem.rtcounter,
+                ProductID: this.rtsCurrentItem.ProductID,
+                // ✅ Fallback chain: FNSKU from join → FNSKUviewer from product → 'N/A'
+                FNSKU: this.rtsCurrentItem.FNSKU 
+                    || this.rtsCurrentItem.FNSKUviewer 
+                    || 'N/A',
+                serialnumber: this.rtsCurrentItem.serialnumber,
+                ...this.rtsForm,
+                _token: document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "",
+            };
                 console.log("RTS Options payload:", payload);
 
                 const response = await axios.post(

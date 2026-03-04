@@ -1049,12 +1049,15 @@ export default {
                     this.$refs.scanner.showScanSuccess("Item marked as failed");
                     SoundService.successScan(true);
 
-                    this.$refs.scanner.addSuccessScan({
-                        trackingnumber: this.trackingNumber,
-                        status: "fail",
-                        pcn: this.pcnNumber,
-                        basket: this.basketNumber,
+                   this.$refs.scanner.addSuccessScan({
+                        Trackingnumber: this.trackingNumber,
+                        Serials: ['FAILED'],   // or [] if you prefer blank
+                        PCN: this.pcnNumber,
+                        Basket: this.basketNumber,
                     });
+
+                     this.$refs.scanner.capturedImages = [];          // clear captured images
+                     this.$refs.scanner.setExistingTrackingImages([]); // clear reused tracking images
 
                     if (response.data.clearImages) {
                         this.$refs.scanner.capturedImages = [];
@@ -1354,50 +1357,60 @@ export default {
         },
 
         resetScannerState() {
-            this.currentStep = 1;
-            this.trackingNumber = "";
-            // this.firstSerialNumber = "";
-            // this.secondSerialNumber = "";
-            this.serialNumbers = ["", "", "", "", ""];
-            this.serialCount = 1;
-            this.pcnNumber = "";
-            this.basketNumber = "";
-            this.trackingValid = false;
-            this.trackingFound = false;
-            this.productId = "";
-            this.rtcounter = "";
-            this.status = "";
-            this.showSecondSerialInput = false;
-            this.useAiDetection = false;
-            
-            // ✅ Reset quantity tracking
-            this.originalQuantity = 1;
-            this.remainingQuantity = 1;
+    this.currentStep = 1;
+    this.trackingNumber = "";
+    this.serialNumbers = ["", "", "", "", ""];
+    this.serialCount = 1;
+    this.pcnNumber = "";
+    this.basketNumber = "";
+    this.trackingValid = false;
+    this.trackingFound = false;
+    this.productId = "";
+    this.rtcounter = "";
+    this.status = "";
+    this.showSecondSerialInput = false;
+    this.useAiDetection = false;
 
-            this.trackingSource = null;
-            this.isRescan = false;
-            this.requireTrackingImage = false;
+    // ✅ Reset quantity tracking
+    this.originalQuantity = 1;
+    this.remainingQuantity = 1;
 
-            this.resetUploader();
+    this.trackingSource = null;
+    this.isRescan = false;
+    this.requireTrackingImage = false;
 
-            if (
-                this.$refs.scanner &&
-                this.$refs.scanner.clearProductThumbnails
-            ) {
-                this.$refs.scanner.clearProductThumbnails();
-            }
+    this.resetUploader();
 
-            if (this.autoVerifyTimeout) {
-                clearTimeout(this.autoVerifyTimeout);
-                this.autoVerifyTimeout = null;
-            }
+    if (this.$refs.scanner) {
+        // ✅ Clear all scanner internal states
+        this.$refs.scanner.capturedImages = [];
+        this.$refs.scanner.clearProductThumbnails?.();
 
-            this.$nextTick(() => {
-                if (this.$refs.trackingInput) {
-                    this.$refs.trackingInput.focus();
-                }
-            });
-        },
+        // ✅ Clear existing tracking images
+        if (typeof this.$refs.scanner.setExistingTrackingImages === 'function') {
+            this.$refs.scanner.setExistingTrackingImages([]);
+        }
+
+        // ✅ Reset scanner step indicator if it has one
+        if (typeof this.$refs.scanner.resetStepIndicator === 'function') {
+            this.$refs.scanner.resetStepIndicator();
+        }
+    }
+
+    // ✅ Reset existing tracking images local state
+    this.existingTrackingImgs = { trackingimg1: null, trackingimg2: null };
+
+    if (this.autoVerifyTimeout) {
+        clearTimeout(this.autoVerifyTimeout);
+        this.autoVerifyTimeout = null;
+    }
+
+    this.$nextTick(() => {
+        if (this.$refs.trackingInput) {
+            this.$refs.trackingInput.focus();
+        }
+    });
+},
 
         handleSerialTyping() {
             const isManual = this.$refs.scanner?.showManualInput;
