@@ -434,8 +434,14 @@ export default {
                 //only get the ProductID
                 this.selectedRows = this.selectedRows.filter((item) => item !== product.ProductID);
             }
-
-            console.log(this.selectedRows, "Product Id");
+        },
+        onAllSelectionChange(product, isSelected) {
+            if(isSelected){
+                this.selectedRows = this.inventory.map((item) => item.ProductID);
+            }else{
+                this.selectedRows = [];
+            }
+            console.log(product, isSelected, "isSelected")
         },
         goToSuppliersList() {
             window.loadContent('suppliersList');
