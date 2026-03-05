@@ -1390,6 +1390,10 @@ dispensedProduct, dpIndex
                                                     Unit Total: <strong>${{ (Number(item.unit_tax) +
                                                         Number(item.unit_price)).toFixed(2)}}</strong>
                                                 </li>
+                                                <li>
+                                                    Label Price: <strong>${{ (Number(item.unit_tax) +
+                                                        Number(item.unit_price)).toFixed(2)}}</strong>
+                                                </li>
                                             </ul>
                                         </div>
                                     </li>
