@@ -22,7 +22,7 @@ class OrderIdentifierController extends Controller
             $identifiers = [
                 ['table' => 'tblrpnsticker', 'name' => 'RPN', 'prefix' => 'RPN'],
                 ['table' => 'tblpcnsticker', 'name' => 'PCN', 'prefix' => 'PCN'],
-                ['table' => 'tblshsticker',  'name' => 'SHELF',  'prefix' => 'SH'],
+                ['table' => 'tblshsticker',  'name' => 'SH',  'prefix' => 'SH'],
             ];
 
             $data = [];
@@ -61,21 +61,21 @@ class OrderIdentifierController extends Controller
     {
         try {
             $validated = $request->validate([
-                'name'  => 'required|string|in:RPN,PCN,SHELF',
+                'name'  => 'required|string|in:RPN,PCN,SH',
                 'start' => 'required|integer|min:0|max:9999',
             ]);
 
             $tableMap = [
                 'RPN' => ['table' => 'tblrpnsticker', 'prefix' => 'RPN'],
                 'PCN' => ['table' => 'tblpcnsticker', 'prefix' => 'PCN'],
-                'SHELF'  => ['table' => 'tblshsticker',  'prefix' => 'SH'],
+                'SH'  => ['table' => 'tblshsticker',  'prefix' => 'SH'],
             ];
 
             $config    = $tableMap[$validated['name']];
             $tableName = $config['table'];
             $prefix    = $config['prefix'];
 
-            if ($validated['name'] === 'SHELF') {
+            if ($validated['name'] === 'SH') {
                 // Read current letter from DB, preserve it
                 $record     = DB::table($tableName)->where($prefix . 'id', 1)->first();
                 $currentEnd = $record->{$prefix . 'end'} ?? 'SH0000';
@@ -129,7 +129,7 @@ class OrderIdentifierController extends Controller
     {
         try {
             $validated = $request->validate([
-                'labelName'  => 'required|string|in:RPN,PCN,SHELF',
+                'labelName'  => 'required|string|in:RPN,PCN,SH',
                 'quantity'   => 'required|integer|min:1|max:500',
                 'printerIp'  => 'required|ip',
                 'lastNumber' => 'required|integer|min:0',
@@ -140,7 +140,7 @@ class OrderIdentifierController extends Controller
             $printerIp  = $validated['printerIp'];
 
             // SH uses string-based counter with letter rollover
-            if ($labelName === 'SHELF') {
+            if ($labelName === 'SH') {
                 $record     = DB::table('tblshsticker')->where('SHid', 1)->first();
                 $currentEnd = $record->SHend ?? 'SH0000';
 
