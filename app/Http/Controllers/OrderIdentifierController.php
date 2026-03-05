@@ -304,8 +304,8 @@ class OrderIdentifierController extends Controller
 
         foreach ($labels as $value) {
             $zpl .= "^XA";
-            $zpl .= "^FO70,50^FB400,2,0,C^AON,24,24^BCN,100,N,N,N,A^FD" . $value . "^FS";
-            $zpl .= "^FO10,160^FB400,1,0,C^ADN,24,24^FD" . $value . "^FS";
+            $zpl .= "^FO100,80^FB400,2,0,C^AON,24,24^BCN,100,N,N,N,A^FD" . $value . "^FS";
+            $zpl .= "^FO10,190^FB400,1,0,C^ADN,24,24^FD" . $value . "^FS";
             $zpl .= "^XZ";
         }
 
@@ -342,8 +342,8 @@ class OrderIdentifierController extends Controller
 
             $value  = $labelName . $i;
             $zpl   .= "^XA";
-            $zpl   .= "^FO70,50^FB400,2,0,C^AON,24,24^BCN,100,N,N,N,A^FD" . $value . "^FS";
-            $zpl   .= "^FO10,160^FB400,1,0,C^ADN,24,24^FD" . $value . "^FS";
+            $zpl   .= "^FO100,80^FB400,2,0,C^AON,24,24^BCN,100,N,N,N,A^FD" . $value . "^FS";
+            $zpl   .= "^FO10,190^FB400,1,0,C^ADN,24,24^FD" . $value . "^FS";
             $zpl   .= "^XZ";
 
             $labelCounter++;
