@@ -576,13 +576,14 @@ export default {
   }
   },
   
-  mounted() {
-    // Load printers first, then open scanner
-    this.loadPrinters().then(() => {
-      this.openPrinterScanner();
-      this.$refs.scannerComponent.saveScans()
-    });
-  },
+    mounted() {
+        this.loadPrinters().then(() => {
+            this.openPrinterScanner();
+            this.$refs.scannerComponent.saveScans();
+            this.fetchIdentifiers(); // ← add this
+        });
+    },
+
   
   methods: {
 
@@ -1687,28 +1688,28 @@ export default {
 
 
     //get prefix
-    prefixUniqueLabelWithValue() {
-        const prefixMap = {
-            pcn: 'PCN',
-            rpn: 'RPN',
-            sh:  'SH',
-        };
-        const prefix = prefixMap[this.initLabelOption];
-        if (!prefix) return '';
-        const item = this.uniqueIdentifiersData.find(i => i.name === prefix);
-        const latest = item?.latest ?? 0;
+prefixUniqueLabelWithValue() {
+    const prefixMap = {
+        pcn:   'PCN',
+        rpn:   'RPN',
+        shelf: 'SHELF',
+    };
 
-        if (this.initLabelOption === 'sh') {
-            // latest is already a full string e.g. "SH1500" — display as-is
-            this.lastNumberLabel = latest;
-            return `${latest}`;
-        }
+    const prefix = prefixMap[this.initLabelOption];
+    if (!prefix) return '';
 
-        // RPN / PCN — numeric as before
-        this.lastNumberLabel = latest;
-        return `${prefix}${latest}`;
-    },
+    const item = this.uniqueIdentifiersData.find(i => i.name === prefix);
+    const latest = item?.latest ?? null;
 
+    if (this.initLabelOption === 'shelf') {
+        this.lastNumberLabel = latest ?? 'SH0000';
+        return latest ?? 'SH0000'; // ← show SH0000 instead of 0
+    }
+
+    // RPN / PCN — numeric
+    this.lastNumberLabel = latest ?? 0;
+    return latest !== null ? `${prefix}${latest}` : `${prefix}0`;
+},
 async fetchIdentifiers() {
     try {
         this.loadingUniqueIdentifiers = true;
