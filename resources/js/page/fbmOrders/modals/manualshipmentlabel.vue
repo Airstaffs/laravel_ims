@@ -39,6 +39,12 @@
                     </fieldset>
 
                     <fieldset>
+                        <label>LCode</label>
+                        <input v-model.number="form.LPrice" type="number" class="form-control" step="0.01" min="00.00"
+                            required />
+                    </fieldset>
+
+                    <fieldset>
                         <label>Ship Date</label>
                         <input v-model="form.ShipDate" type="datetime-local" class="form-control" required />
                     </fieldset>
@@ -159,7 +165,8 @@ export default {
             form: {
                 AmazonOrderId: "Enter AmazonOrderId",
                 OrderItemIds: [""],
-                LCode: 0.0,
+                LCode: 0.00,
+                LPrice: 0.00,
                 ShipDate: "",
                 TrackingNumber: "Enter Tracking Number",
                 Carrier: "USPS",
@@ -339,7 +346,8 @@ export default {
             this.form = {
                 AmazonOrderId: "",
                 OrderItemIds: [""],
-                LCode: 0.0,
+                LCode: 0.00,
+                LPrice: 0.00,
                 ShipDate: "",
                 TrackingNumber: "",
                 Carrier: "USPS",

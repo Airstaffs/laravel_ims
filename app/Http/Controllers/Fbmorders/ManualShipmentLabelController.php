@@ -31,6 +31,7 @@ class ManualShipmentLabelController extends Controller
             'OrderItemIds' => 'required|array|min:1',
             'OrderItemIds.*' => 'required|string',
             'LCode' => 'required|numeric|min:0',
+            'LPrice' => 'required|numeric|min:0',
             'ShipDate' => 'required|date',
             'TrackingNumber' => 'required|string',
             'Carrier' => 'required|string',
@@ -41,6 +42,7 @@ class ManualShipmentLabelController extends Controller
         $AmazonOrderId = $request->AmazonOrderId;
         $orderItemIds = $request->OrderItemIds;
         $LCode = $request->LCode;
+        $LPrice = $request->LPrice;
         $user = session('user_name', 'system');
 
         // Save the PDF
@@ -94,6 +96,7 @@ class ManualShipmentLabelController extends Controller
                     'trackingnumber' => $request->TrackingNumber,
                     'carrier' => $request->Carrier,
                     'carrier_description' => $request->DeliveryExperience,
+                    'labelprice' => $request->LPrice,
                 ]);
         }
 

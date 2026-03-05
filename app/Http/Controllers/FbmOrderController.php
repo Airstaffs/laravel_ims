@@ -412,7 +412,8 @@ public function index(Request $request)
                         'oi.carrier',                      
                         'oi.carrier_description',
                         'oi.unit_price',
-                        'oi.unit_tax'
+                        'oi.unit_tax',
+                        'oi.labelprice'
                     )
                     ->where('oi.platform_order_id', $order->platform_order_id)
                     ->get();
