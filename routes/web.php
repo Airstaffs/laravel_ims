@@ -1018,6 +1018,7 @@ Route::prefix('hr')->group(function () {
     Route::post('/break/end', [AttendanceController::class, 'end'])->name('hr.break.end');
 
     // Payslips
+    Route::get('/payslips/new-count', [PayrollController::class, 'getNewCount']);
     Route::get('/payslips', [PayrollController::class, 'getPayslips']);
     Route::post('/payslips', [PayrollController::class, 'createPayslip']);
     Route::delete('/payslips/{id}', [PayrollController::class, 'deletePayslip']);
@@ -1029,6 +1030,7 @@ Route::prefix('hr')->group(function () {
     // Holidays
     Route::get('/holidays', [PayrollController::class, 'getHolidays']);
 
+    Route::get('/ewh/new-count', [EwhController::class, 'getNewCount']);
     Route::get('/ewh', [EwhController::class, 'index']);
     Route::post('/ewh', [EwhController::class, 'store']);
     Route::get('/ewh/{id}', [EwhController::class, 'show']);
