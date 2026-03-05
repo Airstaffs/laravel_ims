@@ -12,44 +12,70 @@
             <div class="invoice-scaler" ref="scalerRef">
                 <div class="invoice" ref="invoiceRef" v-if="currentSupplier">
 
-                    <!-- Top Banner -->
-                    <div class="invoice-banner">
-                        <div class="banner-left">
-                            <div class="invoice-title">INVOICE</div>
-                            <div class="invoice-number">#{{ invoiceNumber }}</div>
+                    <!-- ── Company Header ── -->
+                    <div class="company-header">
+                        <!-- Left: dark panel with logo + name -->
+                        <div class="ch-left">
+                            <img :src="logoSrc" alt="Logo" class="ch-logo" />
+                            <div class="ch-brand">
+                                <div class="ch-title">{{ title }}</div>
+                                <div class="ch-warranty">
+                                    <span class="warranty-badge">
+                                        {{ warrantyFrom }} {{ warrantyFromUnitText }} – {{ warrantyTo }} {{ warrantyToUnitText }} Warranty
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="banner-right">
-                            <div class="date-row"><span class="date-label">Invoice Date</span><span
-                                    class="date-value">{{ invoiceDate }}</span></div>
-                            <div class="date-row"><span class="date-label">Due Date</span><span class="date-value">{{
-                                    dueDate }}</span></div>
+
+                        <!-- Right: contact info -->
+                        <div class="ch-right">
+                            <div class="ch-contact-item"><span>{{ ownerWebsite }}</span></div>
+                            <div class="ch-contact-item"><span>{{ ownerEmail }}</span></div>
+                            <div class="ch-contact-item"><span>{{ ownerContact }}</span></div>
+                            <div class="ch-contact-item"><span>{{ ownerAddress }}</span></div>
                         </div>
                     </div>
+                    <!-- Accent bar -->
+                    <div class="accent-bar"></div>
 
-                    <!-- Seller / Bill To / Payment Details -->
+                    <!-- ── Invoice Header ── -->
+                    <div class="invoice-header">
+                        <div class="invoice-meta">
+                            <div><strong>Invoice Date</strong> &nbsp;&nbsp;&nbsp;{{ invoiceDate }}</div>
+                            <div><strong>Due Date</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ dueDate }}</div>
+                            <div v-if="trackingNumber"><strong>Tracking #</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ trackingNumber }}</div>
+                            <div v-if="orderNumber"><strong>Order #</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ orderNumber }}</div>
+                        </div>
+                        <div class="invoice-title">INVOICE</div>
+                    </div>
+
+                    <hr class="divider" />
+
+                    <!-- Bill To / Ship To / Payment Details -->
                     <div class="invoice-parties">
-                        <div class="party-card seller-card">
-                            <div class="party-label">SELLER</div>
-                            <div class="party-content">
-                                <div class="party-name">{{ currentSupplier.name }}</div>
-                                <div>{{ currentSupplier.address1 }}</div>
-                                <div>{{ currentSupplier.address2 }}</div>
-                                <div>{{ currentSupplier.contact }}</div>
+                        <div>
+                            <div class="section-label">BILL TO</div>
+                            <div class="section-content">
+                                <div v-if="billToName">{{ billToName }}</div>
+                                <div v-if="billToAddress1">{{ billToAddress1 }}</div>
+                                <div v-if="billToAddress2">{{ billToAddress2 }}</div>
+                                <div v-if="billToContact">{{ billToContact }}</div>
                             </div>
                         </div>
-                        <div class="party-card bill-card">
-                            <div class="party-label">BILL TO</div>
-                            <div class="party-content">
-                                <div class="party-name">[Client's Company Name]</div>
-                                <div>[Client's Company Address Line 1]</div>
-                                <div>[Client's Company Address Line 2]</div>
+                        <div>
+                            <div class="section-label">SHIP TO</div>
+                            <div class="section-content">
+                                <div v-if="shipToName">{{ shipToName }}</div>
+                                <div v-if="shipToAddress1">{{ shipToAddress1 }}</div>
+                                <div v-if="shipToAddress2">{{ shipToAddress2 }}</div>
+                                <div v-if="shipToContact">{{ shipToContact }}</div>
+                                <div v-if="shipToEmail">{{ shipToEmail }}</div>
                             </div>
                         </div>
-                        <div class="party-card payment-card">
-                            <div class="party-label">PAYMENT DETAILS</div>
-                            <div class="party-content">
-                                <div>{{ currentSupplier.email }}</div>
-                                <div>{{ currentSupplier.websiteAddress }}</div>
+                        <div>
+                            <div class="section-label">PAYMENT DETAILS</div>
+                            <div class="section-content">
+                                <div class="party-text">Paypal</div>
                             </div>
                         </div>
                     </div>
@@ -66,15 +92,14 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="(p, i) in currentSupplier.products" :key="i" :class="{ 'row-alt': i % 2 !== 0 }">
+                            <tr v-for="(p, i) in currentSupplier.products" :key="i">
                                 <td>{{ p.ProductTitle }}</td>
                                 <td class="text-right">{{ p.quantity }}</td>
                                 <td class="text-right">{{ fmt(p.price) }}</td>
                                 <td class="text-right">{{ fmt(p.totalPrice) }}</td>
                                 <td class="text-right">{{ p.tax }}%</td>
                             </tr>
-                            <tr v-for="n in emptyRows" :key="`empty-${n}`"
-                                :class="{ 'row-alt': (currentSupplier.products.length + n - 1) % 2 !== 0 }">
+                            <tr v-for="n in emptyRows" :key="`empty-${n}`">
                                 <td colspan="5">&nbsp;</td>
                             </tr>
                         </tbody>
@@ -85,11 +110,11 @@
                         <table>
                             <tbody>
                                 <tr>
-                                    <td class="total-label">Subtotal</td>
+                                    <td>Subtotal</td>
                                     <td class="text-right">{{ fmt(subtotal) }}</td>
                                 </tr>
                                 <tr>
-                                    <td class="total-label">Tax ({{ taxRate }}%)</td>
+                                    <td>Tax ({{ taxRate }}%)</td>
                                     <td class="text-right">{{ fmt(taxAmount) }}</td>
                                 </tr>
                                 <tr class="total-row">
@@ -100,10 +125,16 @@
                         </table>
                     </div>
 
+                    <hr class="divider" />
+
                     <!-- Footer -->
                     <div class="invoice-footer">
                         <span>THANK YOU FOR YOUR BUSINESS!</span>
+                        <span class="footer-warranty">
+                            {{ warrantyFrom }} {{ warrantyFromUnitText }} – {{ warrantyTo }} {{ warrantyToUnitText }} Warranty Included
+                        </span>
                     </div>
+
                 </div>
             </div>
         </div>
@@ -111,15 +142,11 @@
 </template>
 
 <script>
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
-
 export default {
-    name: 'ProductInvoiceColored',
+    name: 'SecondTemplate',
     props: {
-        suppliers: { type: Array, required: true },
-        invoiceNumber: { type: [String, Number], default: '' },
-           invoiceDate: {
+        suppliers:        { type: Array,            required: true },
+        invoiceDate: {
             type: String,
             default: () => new Date().toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric' }),
         },
@@ -127,17 +154,50 @@ export default {
             type: String,
             default: () => new Date(Date.now() + 15 * 864e5).toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric' }),
         },
+        // Header
+        logoSrc:          { type: String,            default: '/images/all-renewed-logo.png' },
+        title:            { type: String,            default: 'ALL RENEWED ELECTRONICS' },
+        warrantyFrom:     { type: [String, Number],  default: 90 },
+        warrantyFromUnit: { type: String,            default: 'days' },
+        warrantyTo:       { type: [String, Number],  default: 1 },
+        warrantyToUnit:   { type: String,            default: 'years' },
+        ownerAddress:     { type: String,            default: '4620 Northgate Blvd., Ste 180, Sacramento, CA 95834' },
+        ownerContact:     { type: String,            default: '(415) 882-6949' },
+        ownerEmail:       { type: String,            default: 'sales@allrenewed.com' },
+        ownerWebsite:     { type: String,            default: 'www.allrenewed.com' },
+        // Tracking & Order
+        trackingNumber:   { type: String,            default: '' },
+        orderNumber:      { type: String,            default: '' },
+        // Bill To
+        billToName:       { type: String,            default: '' },
+        billToAddress1:   { type: String,            default: '' },
+        billToAddress2:   { type: String,            default: '' },
+        billToContact:    { type: String,            default: '' },
+        // Ship To
+        shipToName:       { type: String,            default: '' },
+        shipToAddress1:   { type: String,            default: '' },
+        shipToAddress2:   { type: String,            default: '' },
+        shipToContact:    { type: String,            default: '' },
+        shipToEmail:      { type: String,            default: '' },
     },
     data() {
         return { currentIndex: 0 };
     },
     computed: {
-        currentSupplier() { return this.suppliers[this.currentIndex] ?? null; },
-        subtotal() { return this.currentSupplier?.products.reduce((sum, p) => sum + p.totalPrice, 0) ?? 0; },
-        taxRate() { return this.currentSupplier?.products[0]?.tax ?? 0; },
-        taxAmount() { return this.subtotal * (this.taxRate / 100); },
-        total() { return this.subtotal + this.taxAmount; },
-        emptyRows() { return Math.max(0, 8 - (this.currentSupplier?.products.length ?? 0)); },
+        currentSupplier()     { return this.suppliers[this.currentIndex] ?? null; },
+        subtotal()            { return this.currentSupplier?.products.reduce((sum, p) => sum + p.totalPrice, 0) ?? 0; },
+        taxRate()             { return this.currentSupplier?.products[0]?.tax ?? 0; },
+        taxAmount()           { return this.subtotal * (this.taxRate / 100); },
+        total()               { return this.subtotal + this.taxAmount; },
+        emptyRows()           { return Math.max(0, 8 - (this.currentSupplier?.products.length ?? 0)); },
+        warrantyFromUnitText() {
+            const u = this.warrantyFromUnit?.toLowerCase() ?? '';
+            return Number(this.warrantyFrom) === 1 ? u.replace(/s$/, '') : u;
+        },
+        warrantyToUnitText() {
+            const u = this.warrantyToUnit?.toLowerCase() ?? '';
+            return Number(this.warrantyTo) === 1 ? u.replace(/s$/, '') : u;
+        },
     },
     methods: {
         fmt(n) {
@@ -155,16 +215,6 @@ export default {
                 scaler.style.height = 'auto';
                 wrapper.style.height = `${scaler.offsetHeight * scale}px`;
             });
-        },
-        async downloadPdf() {
-            const el = this.$refs.invoiceRef;
-            const canvas = await html2canvas(el, { scale: 2, useCORS: true });
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = (canvas.height * pageWidth) / canvas.width;
-            pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight);
-            pdf.save(`invoice-${this.invoiceNumber}.pdf`);
         },
     },
     mounted() {
@@ -185,250 +235,214 @@ export default {
 
 <style scoped>
 .invoice-wrapper {
-    font-family: Arial, sans-serif;
+    font-family: 'Arial', sans-serif;
     font-size: 12px;
-    color: #333;
+    color: #222;
     width: 100%;
 }
 
+/* ── Supplier Tabs ── */
 .supplier-tabs {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     margin-bottom: 16px;
 }
-
 .tab-btn {
     padding: 6px 16px;
-    border-radius: 20px;
-    border: 2px solid #4f46e5;
+    border-radius: 4px;
+    border: 1px solid #ccc;
     background: #fff;
-    color: #4f46e5;
+    color: #111;
     cursor: pointer;
     font-size: 12px;
-    font-weight: 600;
-    transition: all 0.2s;
 }
+.tab-btn.active { background: #1a3a5c; color: #fff; border-color: #1a3a5c; }
 
-.tab-btn.active,
-.tab-btn:hover {
-    background: #4f46e5;
-    color: #fff;
-}
-
-.invoice-scaler {
+/* ── Company Header ── */
+.company-header {
+    display: flex;
+    align-items: stretch;
+    background: #1a3a5c;
+    border-radius: 4px 4px 0 0;
     overflow: hidden;
+    min-height: 90px;
+}
+.ch-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    background: #1a3a5c;
+    border-right: 1px solid rgba(255,255,255,0.15);
+    flex: 0 0 auto;
+    max-width: 320px;
+}
+.ch-logo {
+    width: 52px;
+    height: auto;
+    filter: brightness(0) invert(1);
+    flex-shrink: 0;
+}
+.ch-brand {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.ch-title {
+    color: #fff;
+    font-size: 15px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+}
+.warranty-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.15);
+    color: #c8dff5;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.25);
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+.ch-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    padding: 14px 20px;
+    background: #223f5e;
+}
+.ch-contact-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #c8dff5;
+    font-size: 11px;
 }
 
+/* Accent bar */
+.accent-bar {
+    height: 4px;
+    background: linear-gradient(90deg, #2980b9, #1abc9c);
+    margin-bottom: 20px;
+}
+
+/* ── Invoice ── */
+.invoice-scaler { overflow: hidden; }
 .invoice {
     background: #fff;
-    border-radius: 12px;
-    overflow: hidden;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 4px 24px rgba(79, 70, 229, 0.08);
+    padding: 30px 40px 40px;
+    border: 1px solid #ddd;
     width: 700px;
     box-sizing: border-box;
 }
-
-.invoice-banner {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    color: #fff;
-    padding: 32px 40px;
+.invoice-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    line-height: 1.8;
 }
-
 .invoice-title {
-    font-size: 40px;
-    font-weight: 800;
-    letter-spacing: 4px;
-    line-height: 1;
+    font-size: 36px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    color: #1a3a5c;
 }
-
-.invoice-number {
-    font-size: 16px;
-    opacity: 0.85;
-    letter-spacing: 1px;
+.divider {
+    border: none;
+    border-top: 1px solid #aaa;
+    margin-bottom: 16px;
 }
-
-.banner-right {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    text-align: right;
-}
-
-.date-row {
-    display: flex;
-    gap: 12px;
-    justify-content: flex-end;
-    align-items: center;
-}
-
-.date-label {
-    font-size: 11px;
-    opacity: 0.75;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.date-value {
-    font-weight: 700;
-    font-size: 13px;
-    background: rgba(255, 255, 255, 0.15);
-    padding: 2px 10px;
-    border-radius: 20px;
-}
-
 .invoice-parties {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    border-bottom: 2px solid #f3f4f6;
+    gap: 16px;
+    margin-bottom: 32px;
+}
+.section-label {
+    font-weight: bold;
+    font-size: 11px;
+    margin-bottom: 6px;
+    color: #1a3a5c;
+    letter-spacing: 0.5px;
+}
+.section-content {
+    line-height: 1.7;
+    color: #444;
 }
 
-.party-card {
-    padding: 24px 28px;
-    border-right: 1px solid #f3f4f6;
-}
-
-.party-card:last-child {
-    border-right: none;
-}
-
-.seller-card,
-.bill-card {
-    border-top: 4px solid #4f46e5;
-}
-
-.payment-card {
-    border-top: 4px solid #7c3aed;
-}
-
-.party-label {
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 1.5px;
-    color: #4f46e5;
-    margin-bottom: 10px;
-    text-transform: uppercase;
-}
-
-.party-name {
-    font-weight: 700;
-    font-size: 13px;
-    color: #111;
-    margin-bottom: 4px;
-}
-
-.party-content {
-    line-height: 1.8;
-    color: #6b7280;
-    font-size: 12px;
-}
-
+/* ── Table ── */
 .invoice-table {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
+    margin-bottom: 16px;
 }
-
 .invoice-table th:first-child,
-.invoice-table td:first-child {
-    width: 35%;
-    text-wrap: wrap;
-}
-
+.invoice-table td:first-child { width: 35%; text-wrap: wrap; }
 .invoice-table th:not(:first-child),
-.invoice-table td:not(:first-child) {
-    width: 18%;
-}
-
-/* Second column QTY specific styles */
-.invoice-table th:nth-child(2),
-.invoice-table td:nth-child(2) {
-    width: 12%;
-    text-wrap: wrap;
-}
-
-/* Last columns */
-.invoice-table th:last-child,
-.invoice-table td:last-child {
-    width: 12%;
-}
+.invoice-table td:not(:first-child) { width: 16.25%; }
 
 .invoice-table thead tr {
-    background: #f5f3ff;
+    background: linear-gradient(90deg, #1a3a5c, #2980b9);
 }
-
 .invoice-table th {
-    padding: 12px 24px;
+    padding: 8px 10px;
     font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 1px;
-    color: #4f46e5;
-    text-transform: uppercase;
-    border-bottom: 2px solid #e5e7eb;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    color: #fff;  /* fixed: was #1a3a5c (dark on dark) */
+    background-color: #1a3a5c;
 }
-
 .invoice-table td {
-    padding: 11px 24px;
-    border-bottom: 1px solid #f3f4f6;
-    color: #374151;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e5e5e5;
+}
+.invoice-table tbody tr:nth-child(even) td {
+    background: #f5f9ff;
 }
 
-.row-alt td,
-.row-alt {
-    background: #fafafa;
-}
-
+/* ── Totals ── */
 .invoice-totals {
     display: flex;
     justify-content: flex-end;
-    padding: 16px 24px;
-    background: #fafafa;
-    border-top: 2px solid #f3f4f6;
+    margin-bottom: 24px;
 }
-
-.invoice-totals table {
-    width: 280px;
-    font-size: 12px;
-}
-
-.invoice-totals td {
-    padding: 5px 12px;
-}
-
-.total-label {
-    color: #6b7280;
-}
-
+.invoice-totals table { width: 260px; font-size: 12px; }
+.invoice-totals td    { padding: 4px 10px; color: #444; }
 .total-row td {
-    font-weight: 800;
-    font-size: 14px;
-    color: #fff;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
-    padding: 10px 12px;
-    border-radius: 4px;
+    font-weight: bold;
+    font-size: 13px;
+    border-top: 2px solid #1a3a5c;
+    padding-top: 6px;
+    color: #1a3a5c;
 }
 
+/* ── Footer ── */
 .invoice-footer {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    background: linear-gradient(90deg, #1a3a5c, #2980b9);
     color: #fff;
-    text-align: center;
-    padding: 14px;
-    font-weight: 800;
-    letter-spacing: 2px;
-    font-size: 12px;
-    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    font-size: 11px;
+    border-radius: 0 0 4px 4px;
+}
+.footer-warranty {
+    font-weight: normal;
+    font-size: 10px;
+    color: #c8dff5;
+    letter-spacing: 0.3px;
 }
 
-.text-left {
-    text-align: left;
-}
-
-.text-right {
-    text-align: right;
-}
+.text-left  { text-align: left; }
+.text-right { text-align: right; }
 </style>

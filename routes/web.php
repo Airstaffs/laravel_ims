@@ -721,6 +721,7 @@ Route::prefix('api/suppliers')->group(function () {
 // Product Invoice routes
 Route::prefix('api/product-invoice')->group(function () {
     Route::get('/', [ProductInvoiceController::class, 'index']);
+    Route::post('/generate-invoice-pdf', [ProductInvoiceController::class, 'generatePdf']);
 });
 
 // Inventory Statistics Routes

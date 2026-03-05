@@ -94,14 +94,242 @@
                             :outlined="selectedTemplate !== t.value"
                         />
                     </div>
-
-                     <div class="d-flex justify-content-center mt-4">
-                        <div style="width: 100%; max-width: 700px;">
-                            <FirstTemplate  ref="invoiceTemplate" :suppliers="selectedProducts" v-if="selectedTemplate === 'template1'" />
-                            <SecondTemplate ref="invoiceTemplate" :suppliers="selectedProducts" v-else-if="selectedTemplate === 'template2'" />
-                            <ThirdTemplate  ref="invoiceTemplate" :suppliers="selectedProducts" v-else-if="selectedTemplate === 'template3'" />
-                            <FourthTemplate ref="invoiceTemplate" :suppliers="selectedProducts" v-else-if="selectedTemplate === 'template4'" />
-                            <FifthTemplate  ref="invoiceTemplate" :suppliers="selectedProducts" v-else-if="selectedTemplate === 'template5'" />
+                    <div class="row">
+                        <div class="col-md-3 border-end">
+                            <div class="d-flex justify-content-between mt-4">
+                                <h5>Settings</h5>
+                               <div class="show-toggle" @click="toggleSettings">
+                                    {{ showSettings ? 'Hide' : 'Show' }} Settings
+                                </div>
+                            </div>
+                            <hr>
+                    <div class="setting-form" :style="{ display: showSettings ? 'block' : 'none' }">
+                        <div>
+                            <h6>Set Warranty</h6>
+                            <fieldset class="d-flex align-items-center justify-content-between gap-2">
+                                <label>From: </label>
+                                <InputText v-model="warrantyFrom" type="number" placeholder="Warranty" size="small" fluid />
+                                <Select v-model="warrantyFromUnit" :options="[{label: 'Days', value: 'days'},{label: 'Years', value: 'years'}]" size="small" optionLabel="label" optionValue="value" />
+                            </fieldset>
+                            <fieldset class="d-flex align-items-center justify-content-between gap-2">
+                                <label>To: </label>
+                                <InputText v-model="warrantyTo" type="number" placeholder="Warranty" size="small" fluid />
+                                <Select v-model="warrantyToUnit" :options="[{label: 'Days', value: 'days'},{label: 'Years', value: 'years'}]" size="small" optionLabel="label" optionValue="value" />
+                            </fieldset>
+                        </div>
+                        <hr>
+                        <div>
+                            <h6>Set Header Information</h6>
+                            <fieldset>
+                                <label>Title</label>
+                                <InputText v-model="title" placeholder="Title" size="small" fluid />
+                            </fieldset>
+                            <fieldset>
+                                <label>Owner Website</label>
+                                <InputText v-model="ownerWebsite" placeholder="Owner Website" size="small" fluid />
+                            </fieldset>
+                            <fieldset>
+                                <label>Owner Email</label>
+                                <InputText v-model="ownerEmail" placeholder="Owner Email" size="small" fluid />
+                            </fieldset>
+                            <fieldset>
+                                <label>Owner Contact</label>
+                                <InputText v-model="ownerContact" placeholder="Owner Contact" size="small" fluid />
+                            </fieldset>
+                            <fieldset>
+                                <label>Owner Address</label>
+                                <InputText v-model="ownerAddress" placeholder="Owner Address" size="small" fluid />
+                            </fieldset>
+                        </div>
+                        <hr>
+                        <div>
+                            <h6>Set Tracking and Order Number</h6>
+                            <fieldset>
+                                <label for="">Tracking Number</label>
+                                <InputText v-model="trackingNumber" placeholder="Tracking Number" size="small" fluid />
+                            </fieldset>
+                            <fieldset>
+                                <label for="">Order Number</label>
+                                <InputText v-model="orderNumber" placeholder="Order Number" size="small" fluid />
+                            </fieldset>
+                        </div>
+                        <hr>
+                        <div>
+                            <h6>
+                                Set Bill To Information
+                            </h6>
+                            <fieldset>
+                                <label for="">Name</label>
+                                <InputText v-model="billToName" placeholder="Name" size="small" fluid />
+                            </fieldset>
+                             <fieldset>
+                                <label for="">Address 1</label>
+                                <InputText v-model="billToAddress1" placeholder="Address 1" size="small" fluid />
+                            </fieldset>
+                             <fieldset>
+                                <label for="">Address 2</label>
+                                <InputText v-model="billToAddress2" placeholder="Address 2" size="small" fluid />
+                            </fieldset>
+                            <fieldset>
+                                <label>Contact</label>
+                                <InputText v-model="billToContact" placeholder="Contact" size="small" fluid />
+                            </fieldset>
+                        </div>
+                        <hr>
+                         <div>
+                            <h6>
+                                Set Ship To Information
+                            </h6>
+                            <fieldset>
+                                <label for="">Name</label>
+                                <InputText v-model="shipToName" placeholder="Name" size="small" fluid />
+                            </fieldset>
+                             <fieldset>
+                                <label for="">Address 1</label>
+                                <InputText v-model="shipToAddress1" placeholder="Address 1" size="small" fluid />
+                            </fieldset>
+                             <fieldset>
+                                <label for="">Address 2</label>
+                                <InputText v-model="shipToAddress2" placeholder="Address 2" size="small" fluid />
+                            </fieldset>
+                            <fieldset>
+                                <label>Contact</label>
+                                <InputText v-model="shipToContact" placeholder="Contact" size="small" fluid />
+                            </fieldset>
+                            <fieldset>
+                                <label>Email</label>
+                                <InputText v-model="shipToEmail" placeholder="Email" size="small" fluid />
+                            </fieldset>
+                        </div>
+                    </div>
+                           
+                        </div>
+                        <div class="col-md-9">
+                            <div class="d-flex justify-content-center mt-4">
+                                <div style="width: 100%; max-width: 700px;">
+                                 <FirstTemplate
+                                    ref="invoiceTemplate"
+                                    :suppliers="selectedProducts"
+                                    v-if="selectedTemplate === 'template1'"
+                                    :warrantyFrom="warrantyFrom"
+                                    :warrantyFromUnit="warrantyFromUnit"
+                                    :warrantyTo="warrantyTo"
+                                    :warrantyToUnit="warrantyToUnit"
+                                    :title="title"
+                                    :ownerWebsite="ownerWebsite"
+                                    :ownerEmail="ownerEmail"
+                                    :ownerContact="ownerContact"
+                                    :ownerAddress="ownerAddress"
+                                    :trackingNumber="trackingNumber"
+                                    :orderNumber="orderNumber"
+                                    :billToName="billToName"
+                                    :billToAddress1="billToAddress1"
+                                    :billToAddress2="billToAddress2"
+                                    :billToContact="billToContact"
+                                    :shipToName="shipToName"
+                                    :shipToAddress1="shipToAddress1"
+                                    :shipToAddress2="shipToAddress2"
+                                    :shipToContact="shipToContact"
+                                    :shipToEmail="shipToEmail"
+                                />
+                                    
+<SecondTemplate
+    ref="invoiceTemplate"
+    :suppliers="selectedProducts"
+    v-else-if="selectedTemplate === 'template2'"
+    :warrantyFrom="warrantyFrom"
+    :warrantyFromUnit="warrantyFromUnit"
+    :warrantyTo="warrantyTo"
+    :warrantyToUnit="warrantyToUnit"
+    :title="title"
+    :ownerWebsite="ownerWebsite"
+    :ownerEmail="ownerEmail"
+    :ownerContact="ownerContact"
+    :ownerAddress="ownerAddress"
+    :trackingNumber="trackingNumber"
+    :orderNumber="orderNumber"
+    :billToName="billToName"
+    :billToAddress1="billToAddress1"
+    :billToAddress2="billToAddress2"
+    :billToContact="billToContact"
+    :shipToName="shipToName"
+    :shipToAddress1="shipToAddress1"
+    :shipToAddress2="shipToAddress2"
+    :shipToContact="shipToContact"
+    :shipToEmail="shipToEmail"
+/>
+    <ThirdTemplate  
+        ref="invoiceTemplate"
+    :suppliers="selectedProducts"
+    v-else-if="selectedTemplate === 'template3'"
+    :warrantyFrom="warrantyFrom"
+    :warrantyFromUnit="warrantyFromUnit"
+    :warrantyTo="warrantyTo"
+    :warrantyToUnit="warrantyToUnit"
+    :title="title"
+    :ownerWebsite="ownerWebsite"
+    :ownerEmail="ownerEmail"
+    :ownerContact="ownerContact"
+    :ownerAddress="ownerAddress"
+    :trackingNumber="trackingNumber"
+    :orderNumber="orderNumber"
+    :billToName="billToName"
+    :billToAddress1="billToAddress1"
+    :billToAddress2="billToAddress2"
+    :billToContact="billToContact"
+    :shipToName="shipToName"
+    :shipToAddress1="shipToAddress1"
+    :shipToAddress2="shipToAddress2"
+    :shipToContact="shipToContact"
+    :shipToEmail="shipToEmail"
+                                    />
+                                    <FourthTemplate  ref="invoiceTemplate"
+    :suppliers="selectedProducts"
+    v-else-if="selectedTemplate === 'template4'"
+    :warrantyFrom="warrantyFrom"
+    :warrantyFromUnit="warrantyFromUnit"
+    :warrantyTo="warrantyTo"
+    :warrantyToUnit="warrantyToUnit"
+    :title="title"
+    :ownerWebsite="ownerWebsite"
+    :ownerEmail="ownerEmail"
+    :ownerContact="ownerContact"
+    :ownerAddress="ownerAddress"
+    :trackingNumber="trackingNumber"
+    :orderNumber="orderNumber"
+    :billToName="billToName"
+    :billToAddress1="billToAddress1"
+    :billToAddress2="billToAddress2"
+    :billToContact="billToContact"
+    :shipToName="shipToName"
+    :shipToAddress1="shipToAddress1"
+    :shipToAddress2="shipToAddress2"
+    :shipToContact="shipToContact"
+    :shipToEmail="shipToEmail"/>
+                                    <FifthTemplate   :suppliers="selectedProducts"
+    v-else-if="selectedTemplate === 'template5'"
+    :warrantyFrom="warrantyFrom"
+    :warrantyFromUnit="warrantyFromUnit"
+    :warrantyTo="warrantyTo"
+    :warrantyToUnit="warrantyToUnit"
+    :title="title"
+    :ownerWebsite="ownerWebsite"
+    :ownerEmail="ownerEmail"
+    :ownerContact="ownerContact"
+    :ownerAddress="ownerAddress"
+    :trackingNumber="trackingNumber"
+    :orderNumber="orderNumber"
+    :billToName="billToName"
+    :billToAddress1="billToAddress1"
+    :billToAddress2="billToAddress2"
+    :billToContact="billToContact"
+    :shipToName="shipToName"
+    :shipToAddress1="shipToAddress1"
+    :shipToAddress2="shipToAddress2"
+    :shipToContact="shipToContact"
+    :shipToEmail="shipToEmail""/>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -119,7 +347,7 @@
 </template>
 
 <script>
-import { Dialog, Skeleton, Button, Card } from 'primevue';
+import { Dialog, Skeleton, Button, Card, InputText, Select } from 'primevue';
 import FirstTemplate  from '../../components/invoiceTemplate/FirstTemplate.vue';
 import SecondTemplate from '../../components/invoiceTemplate/SecondTemplate.vue';
 import ThirdTemplate  from '../../components/invoiceTemplate/ThirdTemplate.vue';
@@ -129,7 +357,7 @@ import FifthTemplate  from '../../components/invoiceTemplate/FifthTemplate.vue';
 export default {
     name: 'ProductInvoiceModal',
     components: {
-        Dialog, Skeleton, Button, Card,
+        Dialog, Skeleton, Button, Card, InputText,Select,
         FirstTemplate, SecondTemplate, ThirdTemplate, FourthTemplate, FifthTemplate,
     },
     props: {
@@ -138,22 +366,52 @@ export default {
     },
     emits: ['update:visible', 'close'],
     data() {
-        return {
-            isVisible: this.visible,
-            isLoading: false,
-            isDownloading: false,
-            selectedProducts: [],
-            selectedTemplate: 'template1',
-            templateOptions: [
-                { label: 'Template 1', value: 'template1' },
-                { label: 'Template 2', value: 'template2' },
-                { label: 'Template 3', value: 'template3' },
-                { label: 'Template 4', value: 'template4' },
-                { label: 'Template 5', value: 'template5' },
-            ],
-        };
+       return {
+        isVisible: this.visible,
+        isLoading: false,
+        isDownloading: false,
+        selectedProducts: [],
+        selectedTemplate: 'template1',
+        templateOptions: [
+            { label: 'Template 1', value: 'template1' },
+            { label: 'Template 2', value: 'template2' },
+            { label: 'Template 3', value: 'template3' },
+            { label: 'Template 4', value: 'template4' },
+            { label: 'Template 5', value: 'template5' },
+        ],
+        warrantyFrom: 90,
+        warrantyTo: 1,
+        warrantyFromUnit: 'days',
+        warrantyToUnit: 'years',
+        ownerAddress: "4620 Northgate Blvd., Ste 180, Sacramento, CA 95834",
+        ownerContact: "(415) 882-6949",
+        ownerEmail: "sales@allrenewed.com",
+        ownerWebsite: "www.allrenewed.com",
+        title: "ALL RENEWED ELECTRONICS",
+        showSettings: true,
+
+        // Tracking & Order
+        trackingNumber: '',
+        orderNumber: '',
+
+        // Bill To
+        billToName: 'Julius Sanchez',
+        billToAddress1: 'PO Box 1907',
+        billToAddress2: 'North Highlands CA 95660',
+        billToContact: '(916) 370-5657',
+
+        // Ship To
+        shipToName: '',
+        shipToAddress1: '',
+        shipToAddress2: '',
+        shipToContact: '',
+        shipToEmail: '',
+    };
     },
     methods: {
+       toggleSettings() {
+            this.showSettings = !this.showSettings;
+        },
         async getProductInvoice() {
             this.isLoading = true;
             try {
@@ -163,6 +421,7 @@ export default {
                     headers: { 'X-CSRF-TOKEN': csrfToken, Accept: 'application/json' },
                 });
                 this.selectedProducts = response.data;
+                console.log(this.selectedProducts, "selectedProducts");
             } catch (error) {
                 this.$emit('update:visible', false);
                 Swal.fire({
@@ -174,45 +433,55 @@ export default {
                 this.isLoading = false;
             }
         },
-        async printInvoice() {
-            const tpl = this.$refs.invoiceTemplate;
-            if (!tpl) {
-                Swal.fire({ icon: 'error', title: 'Error', text: 'Template not found.' });
-                return;
+ async downloadInvoice() {
+    this.isDownloading = true;
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+        const response = await axios.post(
+            '/api/product-invoice/generate-invoice-pdf',
+            {
+                suppliers:        this.selectedProducts,
+                selectedTemplate: this.selectedTemplate,
+                warrantyFrom:     this.warrantyFrom,
+                warrantyFromUnit: this.warrantyFromUnit,
+                warrantyTo:       this.warrantyTo,
+                warrantyToUnit:   this.warrantyToUnit,
+                title:            this.title,
+                ownerWebsite:     this.ownerWebsite,
+                ownerEmail:       this.ownerEmail,
+                ownerContact:     this.ownerContact,
+                ownerAddress:     this.ownerAddress,
+                trackingNumber:   this.trackingNumber,
+                orderNumber:      this.orderNumber,
+                billToName:       this.billToName,
+                billToAddress1:   this.billToAddress1,
+                billToAddress2:   this.billToAddress2,
+                billToContact:    this.billToContact,
+                shipToName:       this.shipToName,
+                shipToAddress1:   this.shipToAddress1,
+                shipToAddress2:   this.shipToAddress2,
+                shipToContact:    this.shipToContact,
+                shipToEmail:      this.shipToEmail,
+            },
+            {
+                headers: { 'X-CSRF-TOKEN': csrfToken, Accept: 'application/json' },
+                responseType: 'blob',
             }
-            this.isDownloading = true;
-            try {
-                const { default: html2canvas } = await import('html2canvas');
-                const { default: jsPDF } = await import('jspdf');
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                const pw = pdf.internal.pageSize.getWidth();
+        );
 
-                for (let i = 0; i < this.selectedProducts.length; i++) {
-                    // Switch to this supplier
-                    tpl.currentIndex = i;
-                    await this.$nextTick();
+        const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `invoice-${Date.now()}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
 
-                    // Small delay to allow DOM to update/scale
-                    await new Promise(r => setTimeout(r, 150));
-
-                    const el = tpl.$refs.invoiceRef;
-                    if (!el) continue;
-
-                    const canvas = await html2canvas(el, { scale: 2, useCORS: true });
-                    const imgData = canvas.toDataURL('image/png');
-                    const ph = (canvas.height * pw) / canvas.width;
-
-                    if (i > 0) pdf.addPage();
-                    pdf.addImage(imgData, 'PNG', 0, 0, pw, ph);
-                }
-
-                pdf.save(`invoice-${Date.now()}.pdf`);
-            } catch (e) {
-                Swal.fire({ icon: 'error', title: 'Print Failed', text: e.message });
-            } finally {
-                this.isDownloading = false;
-            }
-        },
+    } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Download Failed', text: e.message });
+    } finally {
+        this.isDownloading = false;
+    }
+},
         handleClose() {
             this.isVisible = false;
             this.$emit('update:visible', false);
@@ -264,5 +533,18 @@ export default {
     display: flex;
     flex-direction: column;
     align-items: start;
+}
+
+.show-toggle {
+    display: none;
+}
+
+@media screen and (max-width: 768px) {
+    .show-toggle {
+        display: block;
+        color: rgb(87, 171, 255);
+        font-size: 14px;
+        font-weight: bold;
+    }
 }
 </style>

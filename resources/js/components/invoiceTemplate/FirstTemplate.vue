@@ -1,6 +1,5 @@
 <template>
     <div class="invoice-wrapper">
-        <!-- Supplier Tabs -->
         <div v-if="suppliers.length > 1" class="supplier-tabs">
             <button v-for="(s, i) in suppliers" :key="i" :class="['tab-btn', { active: currentIndex === i }]"
                 @click="currentIndex = i">
@@ -12,42 +11,69 @@
             <div class="invoice-scaler" ref="scalerRef">
                 <div class="invoice" ref="invoiceRef" v-if="currentSupplier">
 
-                    <!-- Header -->
+                    <!-- Company Header -->
+                    <div class="company-header">
+                        <div class="company-header-left">
+                            <img :src="logoSrc" alt="Logo" class="company-logo" />
+                        </div>
+                        <div class="company-header-center">
+                            <div class="company-name">{{ title }}</div>
+                            <div class="company-warranty">
+                                {{ warrantyFrom }} {{ warrantyFromUnitText }} TO {{ warrantyTo }} {{ warrantyToUnitText }} WARRANTY
+                            </div>
+                        </div>
+                    </div>
+                    <div class="company-header-bottom">
+                        <div class="company-contact-row">
+                            <span>{{ ownerWebsite }}</span>
+                            <span class="contact-divider">|</span>
+                            <span>{{ ownerAddress }}</span>
+                        </div>
+                        <div class="company-contact-row">
+                            <span>{{ ownerEmail }}</span>
+                            <span class="contact-divider">|</span>
+                            <span>{{ ownerContact }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Invoice Header -->
                     <div class="invoice-header">
                         <div class="invoice-meta">
-                            <div><strong>Invoice Number</strong> &nbsp;{{ invoiceNumber }}</div>
-                            <div><strong>Invoice Date</strong> &nbsp;&nbsp;&nbsp;{{ invoiceDate }}</div>
-                            <div><strong>Due Date</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ dueDate }}</div>
+                            <div><strong>Tracking Number</strong> &nbsp;{{ trackingNumber }}</div>
+                            <div><strong>Invoice Date</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ invoiceDate }}</div>
+                            <div><strong>Due Date</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ dueDate }}</div>
+                            <div><strong>Order Number</strong> &nbsp;&nbsp;&nbsp;{{ orderNumber }}</div>
                         </div>
                         <div class="invoice-title">INVOICE</div>
                     </div>
 
                     <hr class="divider" />
 
-                    <!-- Seller / Bill To / Payment Details -->
+                    <!-- Bill To / Ship To / Payment Details -->
                     <div class="invoice-parties">
-                        <div>
-                            <div class="section-label">SELLER</div>
-                            <div class="section-content">
-                                <div>{{ currentSupplier.name }}</div>
-                                <div>{{ currentSupplier.address1 }}</div>
-                                <div>{{ currentSupplier.address2 }}</div>
-                                <div>{{ currentSupplier.contact }}</div>
-                            </div>
-                        </div>
                         <div>
                             <div class="section-label">BILL TO</div>
                             <div class="section-content">
-                                <div>[Client's Company Name]</div>
-                                <div>[Client's Company Address Line 1]</div>
-                                <div>[Client's Company Address Line 2]</div>
+                                <div>{{ billToName || "[Client's Name]" }}</div>
+                                <div>{{ billToAddress1 || "[Client's Address Line 1]" }}</div>
+                                <div>{{ billToAddress2 || "[Client's Address Line 2]" }}</div>
+                                <div v-if="billToContact">{{ billToContact }}</div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="section-label">SHIP TO</div>
+                            <div class="section-content">
+                                <div>{{ shipToName }}</div>
+                                <div>{{ shipToAddress1 }}</div>
+                                <div>{{ shipToAddress2 }}</div>
+                                <div>{{ shipToContact }}</div>
+                                <div>{{ shipToEmail }}</div>
                             </div>
                         </div>
                         <div>
                             <div class="section-label">PAYMENT DETAILS</div>
                             <div class="section-content">
-                                <div>{{ currentSupplier.email }}</div>
-                                <div>{{ currentSupplier.websiteAddress }}</div>
+                                <div>Paypal</div>
                             </div>
                         </div>
                     </div>
@@ -108,15 +134,11 @@
 </template>
 
 <script>
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
-
 export default {
-    name: 'ProductInvoice',
+    name: 'FirstTemplate',
     props: {
-        suppliers: { type: Array, required: true },
-        invoiceNumber: { type: [String, Number], default: '' },
-           invoiceDate: {
+        suppliers:        { type: Array,            required: true },
+        invoiceDate: {
             type: String,
             default: () => new Date().toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric' }),
         },
@@ -124,17 +146,49 @@ export default {
             type: String,
             default: () => new Date(Date.now() + 15 * 864e5).toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles', month: '2-digit', day: '2-digit', year: 'numeric' }),
         },
+        logoSrc:          { type: String,           default: '/images/all-renewed-logo.png' },
+        title:            { type: String,           default: 'ALL RENEWED ELECTRONICS' },
+        warrantyFrom:     { type: [String, Number], default: 90 },
+        warrantyFromUnit: { type: String,           default: 'days' },
+        warrantyTo:       { type: [String, Number], default: 1 },
+        warrantyToUnit:   { type: String,           default: 'years' },
+        ownerAddress:     { type: String,           default: '4620 Northgate Blvd., Ste 180, Sacramento, CA 95834' },
+        ownerContact:     { type: String,           default: '(415) 882-6949' },
+        ownerEmail:       { type: String,           default: 'sales@allrenewed.com' },
+        ownerWebsite:     { type: String,           default: 'www.allrenewed.com' },
+        // Tracking & Order
+        trackingNumber:   { type: String,           default: '' },
+        orderNumber:      { type: String,           default: '' },
+        // Bill To
+        billToName:       { type: String,           default: '' },
+        billToAddress1:   { type: String,           default: '' },
+        billToAddress2:   { type: String,           default: '' },
+        billToContact:    { type: String,           default: '' },
+        // Ship To
+        shipToName:       { type: String,           default: '' },
+        shipToAddress1:   { type: String,           default: '' },
+        shipToAddress2:   { type: String,           default: '' },
+        shipToContact:    { type: String,           default: '' },
+        shipToEmail:      { type: String,           default: '' },
     },
     data() {
         return { currentIndex: 0 };
     },
     computed: {
         currentSupplier() { return this.suppliers[this.currentIndex] ?? null; },
-        subtotal() { return this.currentSupplier?.products.reduce((sum, p) => sum + p.totalPrice, 0) ?? 0; },
-        taxRate() { return this.currentSupplier?.products[0]?.tax ?? 0; },
-        taxAmount() { return this.subtotal * (this.taxRate / 100); },
-        total() { return this.subtotal + this.taxAmount; },
-        emptyRows() { return Math.max(0, 8 - (this.currentSupplier?.products.length ?? 0)); },
+        subtotal()        { return this.currentSupplier?.products.reduce((sum, p) => sum + p.totalPrice, 0) ?? 0; },
+        taxRate()         { return this.currentSupplier?.products[0]?.tax ?? 0; },
+        taxAmount()       { return this.subtotal * (this.taxRate / 100); },
+        total()           { return this.subtotal + this.taxAmount; },
+        emptyRows()       { return Math.max(0, 8 - (this.currentSupplier?.products.length ?? 0)); },
+        warrantyFromUnitText() {
+            const u = this.warrantyFromUnit?.toUpperCase() ?? '';
+            return Number(this.warrantyFrom) === 1 ? u.replace(/S$/, '') : u;
+        },
+        warrantyToUnitText() {
+            const u = this.warrantyToUnit?.toUpperCase() ?? '';
+            return Number(this.warrantyTo) === 1 ? u.replace(/S$/, '') : u;
+        },
     },
     methods: {
         fmt(n) {
@@ -152,16 +206,6 @@ export default {
                 scaler.style.height = 'auto';
                 wrapper.style.height = `${scaler.offsetHeight * scale}px`;
             });
-        },
-        async downloadPdf() {
-            const el = this.$refs.invoiceRef;
-            const canvas = await html2canvas(el, { scale: 2, useCORS: true });
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = (canvas.height * pageWidth) / canvas.width;
-            pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight);
-            pdf.save(`invoice-${this.invoiceNumber}.pdf`);
         },
     },
     mounted() {
@@ -181,162 +225,50 @@ export default {
 </script>
 
 <style scoped>
-.invoice-wrapper {
-    font-family: Arial, sans-serif;
-    font-size: 12px;
-    color: #222;
-    width: 100%;
-}
+.invoice-wrapper { font-family: Arial, sans-serif; font-size: 12px; color: #222; width: 100%; }
 
-.supplier-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 16px;
-}
+.supplier-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.tab-btn { padding: 6px 16px; border-radius: 4px; border: 1px solid #ccc; background: #fff; color: #111; cursor: pointer; font-size: 12px; }
+.tab-btn.active { background: #111; color: #fff; }
 
-.tab-btn {
-    padding: 6px 16px;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-    background: #fff;
-    color: #111;
-    cursor: pointer;
-    font-size: 12px;
-}
+.company-header { display: flex; align-items: stretch; border: 1.5px solid #555; border-bottom: none; }
+.company-header-left { display: flex; align-items: center; justify-content: center; padding: 10px 14px; border-right: 1.5px solid #555; background: #fff; min-width: 80px; }
+.company-logo { width: 60px; height: auto; filter: brightness(0); }
+.company-header-center { flex: 1; background: #555; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 16px; }
+.company-name { color: #fff; font-size: 18px; font-weight: bold; letter-spacing: 1px; text-align: center; }
+.company-warranty { color: #ddd; font-size: 11px; margin-top: 4px; letter-spacing: 0.5px; text-align: center; }
 
-.tab-btn.active {
-    background: #111;
-    color: #fff;
-}
+.company-header-bottom { border: 1.5px solid #555; border-top: 1.5px solid #555; display: flex; flex-direction: column; margin-bottom: 20px; }
+.company-contact-row { display: flex; align-items: center; padding: 4px 14px; font-size: 11px; color: #333; border-bottom: 1px solid #ccc; gap: 10px; }
+.company-contact-row:last-child { border-bottom: none; }
+.contact-divider { color: #aaa; }
 
-.invoice-scaler {
-    overflow: hidden;
-}
+.invoice-scaler { overflow: hidden; }
+.invoice { background: #fff; padding: 40px; border: 1px solid #ddd; width: 700px; box-sizing: border-box; }
 
-.invoice {
-    background: #fff;
-    padding: 40px;
-    border: 1px solid #ddd;
-    width: 700px;
-    box-sizing: border-box;
-}
+.invoice-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; line-height: 1.8; }
+.invoice-title { font-size: 36px; font-weight: bold; letter-spacing: 2px; color: #111; }
 
-.invoice-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 24px;
-    line-height: 1.8;
-}
+.divider { border: none; border-top: 1px solid #aaa; margin-bottom: 16px; }
 
-.invoice-title {
-    font-size: 36px;
-    font-weight: bold;
-    letter-spacing: 2px;
-    color: #111;
-}
+.invoice-parties { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 32px; }
+.section-label { font-weight: bold; font-size: 11px; margin-bottom: 6px; }
+.section-content { line-height: 1.7; color: #444; }
 
-.divider {
-    border: none;
-    border-top: 1px solid #aaa;
-    margin-bottom: 16px;
-}
+.invoice-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 16px; }
+.invoice-table th:first-child, .invoice-table td:first-child { width: 35%; text-wrap: wrap; }
+.invoice-table th:not(:first-child), .invoice-table td:not(:first-child) { width: 16.25%; }
+.invoice-table thead tr { background: #111; color: #fff; }
+.invoice-table th { padding: 8px 10px; font-size: 11px; font-weight: bold; letter-spacing: 0.5px; }
+.invoice-table td { padding: 8px 10px; border-bottom: 1px solid #e5e5e5; }
 
-.invoice-parties {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 32px;
-}
+.invoice-totals { display: flex; justify-content: flex-end; margin-bottom: 24px; }
+.invoice-totals table { width: 260px; font-size: 12px; }
+.invoice-totals td { padding: 4px 10px; color: #444; }
+.total-row td { font-weight: bold; font-size: 13px; border-top: 2px solid #111; padding-top: 6px; color: #111; }
 
-.section-label {
-    font-weight: bold;
-    font-size: 11px;
-    margin-bottom: 6px;
-}
+.invoice-footer { background: #111; color: #fff; text-align: center; padding: 12px; font-weight: bold; letter-spacing: 1px; font-size: 12px; }
 
-.section-content {
-    line-height: 1.7;
-    color: #444;
-}
-
-.invoice-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-    margin-bottom: 16px;
-}
-
-.invoice-table th:first-child,
-.invoice-table td:first-child {
-    width: 35%;
-    text-wrap: wrap;
-}
-
-.invoice-table th:not(:first-child),
-.invoice-table td:not(:first-child) {
-    width: 16.25%;
-}
-
-.invoice-table thead tr {
-    background: #111;
-    color: #fff;
-}
-
-.invoice-table th {
-    padding: 8px 10px;
-    font-size: 11px;
-    font-weight: bold;
-    letter-spacing: 0.5px;
-}
-
-.invoice-table td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #e5e5e5;
-}
-
-.invoice-totals {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 24px;
-}
-
-.invoice-totals table {
-    width: 260px;
-    font-size: 12px;
-}
-
-.invoice-totals td {
-    padding: 4px 10px;
-    color: #444;
-}
-
-.total-row td {
-    font-weight: bold;
-    font-size: 13px;
-    border-top: 2px solid #111;
-    padding-top: 6px;
-    color: #111;
-}
-
-.invoice-footer {
-    background: #111;
-    color: #fff;
-    text-align: center;
-    padding: 12px;
-    font-weight: bold;
-    letter-spacing: 1px;
-    font-size: 12px;
-}
-
-.text-left {
-    text-align: left;
-    color: #111;
-}
-
-.text-right {
-    text-align: right;
-    color: #111;
-}
+.text-left  { text-align: left;  color: #111; }
+.text-right { text-align: right; color: #111; }
 </style>
