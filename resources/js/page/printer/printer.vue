@@ -1620,7 +1620,8 @@ export default {
       }
     },
 
- async handleProcessPrintRPN_PCN_SH() {
+ 
+async handleProcessPrintRPN_PCN_SH() {
     try {
         this.$refs.scannerComponent.startLoading(`Printing ${this.uniqueLabelQuantity} ${this.initLabelOption.toUpperCase()} label/s`);
 
@@ -1635,7 +1636,7 @@ export default {
                 labelName:  this.initLabelOption.toUpperCase(),
                 quantity:   this.uniqueLabelQuantity,
                 printerIp:  this.selectedPrinterForUniqueLabel,
-                lastNumber: this.initLabelOption === 'shelf' ? 0 : this.lastNumberLabel,
+                lastNumber: this.initLabelOption === 'sh' ? 0 : this.lastNumberLabel,
             }),
         });
 
