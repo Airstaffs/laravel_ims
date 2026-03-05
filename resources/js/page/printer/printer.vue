@@ -1620,68 +1620,61 @@ export default {
       }
     },
 
-  async handleProcessPrintRPN_PCN_SH() {
+ async handleProcessPrintRPN_PCN_SH() {
     try {
-         this.$refs.scannerComponent.startLoading(`Printing ${this.uniqueLabelQuantity} ${this.initLabelOption.toUpperCase()} label/s`);
+        this.$refs.scannerComponent.startLoading(`Printing ${this.uniqueLabelQuantity} ${this.initLabelOption.toUpperCase()} label/s`);
+
         const response = await fetch("/print/processPrintRPN_PCN_SH", {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
-                'Content-Type': 'application/json', 
+                'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
             },
-                 body: JSON.stringify({
-                labelName:  this.initLabelOption.toUpperCase(), // sends "SH", "RPN", or "PCN"
+            body: JSON.stringify({
+                labelName:  this.initLabelOption.toUpperCase(),
                 quantity:   this.uniqueLabelQuantity,
                 printerIp:  this.selectedPrinterForUniqueLabel,
-                lastNumber: this.initLabelOption === 'sh' ? 0 : this.lastNumberLabel, // SH ignores lastNumber
+                lastNumber: this.initLabelOption === 'shelf' ? 0 : this.lastNumberLabel,
             }),
         });
 
         const result = await response.json();
 
-
         if (result.success) {
-               this.$refs.scannerComponent.saveScans()
-                 this.$refs.scannerComponent.addSuccessScan({
+            this.$refs.scannerComponent.saveScans();
+            this.$refs.scannerComponent.addSuccessScan({
                 message: `Successfully printed ${this.uniqueLabelQuantity} ${this.initLabelOption.toUpperCase()} labels`,
                 status: `Success`
-              });
+            });
             this.$refs.scannerComponent.showScanSuccess(result.message);
+            SoundService.successScan(false); // ← success sound
 
             this.lastNumberLabel = result.endNumber;
-            
-            //fetch fresh data
-            await this.fetchIdentifiers()
+            await this.fetchIdentifiers();
         } else {
             let errorMessage = result.message || 'Failed to print labels';
-            
+
             if (result.errors) {
-                      this.$refs.scannerComponent.saveScans()
-                // Show validation errors
-                const errorList = Object.values(result.errors)
-                    .flat()
-                    .join('\n');
+                this.$refs.scannerComponent.saveScans();
+                const errorList = Object.values(result.errors).flat().join('\n');
                 errorMessage = `Validation errors:\n${errorList}`;
             }
 
-             SoundService.error(true);
-
-             this.$refs.scannerComponent.addErrorScan({
+            SoundService.error(true); // already here, keep it
+            this.$refs.scannerComponent.addErrorScan({
                 message: `Failed to print ${this.uniqueLabelQuantity} ${this.initLabelOption.toUpperCase()} labels`,
                 status: 'Failed'
-              }, errorMessage);
-      
+            }, errorMessage);
             this.$refs.scannerComponent.showScanError(result.message);
-
         }
 
     } catch (error) {
         console.error('Print request failed:', error);
-          this.$refs.scannerComponent.showScanError("Network Error");
-
+        SoundService.error(true); // ← error sound for network/catch errors
+        this.$refs.scannerComponent.showScanError("Network Error");
     } finally {
-       this.$refs.scannerComponent.stopLoading();
+        this.$refs.scannerComponent.stopLoading();
     }
 },
 
