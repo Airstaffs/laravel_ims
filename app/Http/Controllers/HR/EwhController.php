@@ -11,10 +11,28 @@ use Illuminate\Support\Facades\Validator;
 class EwhController extends Controller
 {
     /**
+     * GET /hr/ewh/new-count
+     * Returns count of new (unviewed) released EWH records for the logged-in employee
+     */
+    public function getNewCount()
+    {
+        $user = auth()->user();
+        \Log::info('Auth user id: '.$user->id); // check laravel.log
+
+        $count = EwhRecord::where('employee_id', $user->id)
+            ->where('employee_status', 'new')
+            ->count();
+
+        return response()->json([
+            'count' => $count ?? 0,
+            'debug_user_id' => $user->id,  // ← temporarily return this
+        ]);
+    }
+
+    /**
      * GET /hr/ewh
-     * Paginated list of EWH records
-     * - HR/admin sees all records (draft + released)
-     * - Regular employee sees only their own released records
+     * - HR/Admin: see all records (draft + released)
+     * - Employee: see only their own released records
      */
     public function index(Request $request)
     {
@@ -31,7 +49,7 @@ class EwhController extends Controller
                 ->where('status', 'released');
         }
 
-        // Optional date filters (used by employee modal)
+        // Optional date filters
         if ($request->filled('from')) {
             $query->where('cutoff_from', '>=', $request->from);
         }
@@ -88,7 +106,8 @@ class EwhController extends Controller
                     'regular_holiday_days' => $record['regular_holiday_days'] ?? 0,
                     'special_holiday_days' => $record['special_holiday_days'] ?? 0,
                     'attendance_records' => $record['attendance_records'] ?? [],
-                    'status' => 'draft', // always draft on creation
+                    'status' => 'draft',
+                    'employee_status' => 'new',
                 ]);
                 $saved[] = $ewh;
             }
@@ -111,26 +130,6 @@ class EwhController extends Controller
     }
 
     /**
-     * PATCH /hr/ewh/{id}/release
-     * Release an EWH record so the employee can see it
-     */
-    public function release($id)
-    {
-        $record = EwhRecord::find($id);
-
-        if (! $record) {
-            return response()->json(['message' => 'EWH record not found.'], 404);
-        }
-
-        $record->update(['status' => 'released']);
-
-        return response()->json([
-            'message' => 'EWH record released successfully.',
-            'data' => $record,
-        ]);
-    }
-
-    /**
      * GET /hr/ewh/{id}
      * Get a single EWH record
      */
@@ -146,20 +145,27 @@ class EwhController extends Controller
     }
 
     /**
-     * DELETE /hr/ewh/{id}
-     * Delete a single EWH record
+     * PATCH /hr/ewh/{id}/release
+     * HR only — release an EWH record so the employee can see it
      */
-    public function destroy($id)
+    public function release($id)
     {
+        if (! auth()->user()->isHR()) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
         $record = EwhRecord::find($id);
 
         if (! $record) {
             return response()->json(['message' => 'EWH record not found.'], 404);
         }
 
-        $record->delete();
+        $record->update(['status' => 'released']);
 
-        return response()->json(['message' => 'EWH record deleted successfully.']);
+        return response()->json([
+            'message' => 'EWH record released successfully.',
+            'data' => $record,
+        ]);
     }
 
     /**
@@ -195,5 +201,26 @@ class EwhController extends Controller
             'message' => 'Employee status updated.',
             'data' => $record,
         ]);
+    }
+
+    /**
+     * DELETE /hr/ewh/{id}
+     * HR only — delete a single EWH record
+     */
+    public function destroy($id)
+    {
+        if (! auth()->user()->isHR()) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $record = EwhRecord::find($id);
+
+        if (! $record) {
+            return response()->json(['message' => 'EWH record not found.'], 404);
+        }
+
+        $record->delete();
+
+        return response()->json(['message' => 'EWH record deleted successfully.']);
     }
 }

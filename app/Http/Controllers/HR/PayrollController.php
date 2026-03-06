@@ -15,6 +15,24 @@ class PayrollController extends Controller
     // ============================================================
 
     /**
+     * GET /hr/payslips/new-count
+     * Returns count of new (unviewed) released payslips for the logged-in employee
+     */
+    public function getNewCount()
+    {
+        $user = auth()->user();
+        $count = DB::table('tblpayslips')
+            ->where('employee_id', $user->id)
+            ->where('employee_status', 'new')
+            ->count();
+
+        return response()->json([
+            'count' => $count ?? 0,
+            'debug_user_id' => $user->id, // remove after testing
+        ]);
+    }
+
+    /**
      * GET /hr/payslips
      * - HR/Admin: see all payslips (draft + released)
      * - Employee: see only their own released payslips

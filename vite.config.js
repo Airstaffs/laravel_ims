@@ -33,7 +33,7 @@ export default defineConfig({
         },
         watch: {
             usePolling: true,
-            interval: 200,
+            interval: 1000,
         },
     },
 });

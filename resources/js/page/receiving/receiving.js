@@ -992,117 +992,151 @@ export default {
             return false;
         },
 
-        async submitFailedItem() {
-            try {
-                if (!this.validateBasketNumber()) {
-                    this.$refs.scanner.showScanError(
-                        "Basket number must start with BKT, S[I-Z], or ENV followed by numbers"
-                    );
-                    SoundService.error();
-                    return;
-                }
+     async submitFailedItem() {
+    try {
+        if (!this.validateBasketNumber()) {
+            this.$refs.scanner.showScanError(
+                "Basket number must start with BKT, S[I-Z], or ENV followed by numbers"
+            );
+            SoundService.error();
+            return;
+        }
 
-                if (!this.validatePcnNumber()) {
-                    this.$refs.scanner.showScanError(
-                        "PCN must start with PCN followed by numbers (e.g. PCN12345)"
-                    );
-                    SoundService.error();
-                    return;
-                }
+        if (!this.validatePcnNumber()) {
+            this.$refs.scanner.showScanError(
+                "PCN must start with PCN followed by numbers (e.g. PCN12345)"
+            );
+            SoundService.error();
+            return;
+        }
 
-                this.$refs.scanner.startLoading("Processing Data");
+        this.$refs.scanner.startLoading("Processing Data");
 
-                const images = this.$refs.scanner.capturedImages.map(
-                    (img) => img.data
-                );
-                const csrfToken = document.querySelector(
-                    'meta[name="csrf-token"]'
-                ).content;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
-                const failData = {
-                    _token: csrfToken,
-                    trackingNumber: this.trackingNumber,
-                    status: "fail",
-                    pcnNumber: this.pcnNumber,
-                    basketNumber: this.basketNumber,
-                    productId: this.productId,
-                    rtcounter: this.rtcounter,
-                    Images: images,
-                };
+        const failData = {
+            _token: csrfToken,
+            trackingNumber: this.trackingNumber,
+            status: "fail",
+            pcnNumber: this.pcnNumber,
+            basketNumber: this.basketNumber,
+            productId: this.productId,
+            rtcounter: this.rtcounter,
+        };
 
-                const response = await axios.post(
-                    `${API_BASE_URL}/api/received/process-scan`,
-                    failData,
-                    {
-                        withCredentials: true,
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            "X-CSRF-TOKEN": csrfToken,
-                        },
-                    }
-                );
+        const response = await axios.post(
+            `${API_BASE_URL}/api/received/process-scan`,
+            failData,
+            {
+                withCredentials: true,
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    "X-CSRF-TOKEN": csrfToken,
+                },
+            }
+        );
 
-                if (response.data.success) {
-                    this.$refs.scanner.clearProductThumbnails();
-                    this.$refs.scanner.stopLoading();
-                    this.$refs.scanner.showScanSuccess("Item marked as failed");
-                    SoundService.successScan(true);
+        if (response.data.success) {
 
-                   this.$refs.scanner.addSuccessScan({
-                        Trackingnumber: this.trackingNumber,
-                        Serials: ['FAILED'],   // or [] if you prefer blank
-                        PCN: this.pcnNumber,
-                        Basket: this.basketNumber,
-                    });
+            // ✅ Upload captured images for the failed item
+            const capturedImages = this.getUploadableImages();
 
-                     this.$refs.scanner.capturedImages = [];          // clear captured images
-                     this.$refs.scanner.setExistingTrackingImages([]); // clear reused tracking images
+            if (capturedImages.length > 0) {
+                const stepCounters = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
 
-                    if (response.data.clearImages) {
-                        this.$refs.scanner.capturedImages = [];
-                    }
+                for (let i = 0; i < capturedImages.length; i++) {
+                    try {
+                        const img = capturedImages[i];
+                        const imgStep = img.step;
+                        const stepIndex = stepCounters[imgStep] ?? 0;
+                        stepCounters[imgStep] = stepIndex + 1;
 
-                    this.resetScannerState();
-                    this.fetchInventory();
-                } else {
-                    this.$refs.scanner.stopLoading();
-                    this.$refs.scanner.showScanError(
-                        response.data.message || "Error processing scan"
-                    );
-                    SoundService.scanRejected(true);
-                }
-            } catch (error) {
-                console.error("Error submitting failed item:", error);
-                SoundService.scanRejected(true);
-
-                if (error.response && error.response.status === 422) {
-                    console.log("Validation errors:", error.response.data);
-                    if (error.response.data.errors) {
-                        const errorMessages = [];
-                        Object.keys(error.response.data.errors).forEach(
-                            (field) => {
-                                errorMessages.push(
-                                    `${field}: ${error.response.data.errors[
-                                        field
-                                    ].join(", ")}`
-                                );
+                        await axios.post(
+                            `${API_BASE_URL}/api/images/upload`,
+                            {
+                                _token: csrfToken,
+                                productId: this.productId,
+                                imageIndex: stepIndex,
+                                imageData: img.data,
+                                step: imgStep,
+                                isSerial: false,
+                                serialIndex: 0,
+                            },
+                            {
+                                withCredentials: true,
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    Accept: "application/json",
+                                    "X-CSRF-TOKEN": csrfToken,
+                                },
                             }
                         );
-                        const errorMsg = errorMessages.join("\n");
-                        this.$refs.scanner.showScanError(
-                            `Validation error: ${errorMsg}`
-                        );
-                    } else {
-                        this.$refs.scanner.showScanError(
-                            "Validation failed. Please check your inputs."
+
+                        console.log(`✅ Failed item image uploaded (step ${imgStep}, index ${stepIndex})`);
+                    } catch (imageError) {
+                        console.error(
+                            `❌ Error uploading image for failed item`,
+                            imageError.response?.data || imageError.message
                         );
                     }
-                } else {
-                    this.$refs.scanner.showScanError("Network or server error");
                 }
+            } else {
+                console.log('⚠️ No images to upload for failed item');
             }
-        },
+
+            this.$refs.scanner.clearProductThumbnails();
+            this.$refs.scanner.stopLoading();
+            this.$refs.scanner.showScanSuccess("Item marked as failed");
+            SoundService.successScan(true);
+
+            this.$refs.scanner.addSuccessScan({
+                Trackingnumber: this.trackingNumber,
+                Serials: ['FAILED'],
+                PCN: this.pcnNumber,
+                Basket: this.basketNumber,
+            });
+
+            this.$refs.scanner.capturedImages = [];
+            this.$refs.scanner.setExistingTrackingImages([]);
+
+            this.resetScannerState();
+            this.fetchInventory();
+
+        } else {
+            this.$refs.scanner.stopLoading();
+            this.$refs.scanner.showScanError(
+                response.data.message || "Error processing scan"
+            );
+            SoundService.scanRejected(true);
+        }
+
+    } catch (error) {
+        console.error("Error submitting failed item:", error);
+        SoundService.scanRejected(true);
+
+        if (error.response && error.response.status === 422) {
+            console.log("Validation errors:", error.response.data);
+            if (error.response.data.errors) {
+                const errorMessages = [];
+                Object.keys(error.response.data.errors).forEach((field) => {
+                    errorMessages.push(
+                        `${field}: ${error.response.data.errors[field].join(", ")}`
+                    );
+                });
+                this.$refs.scanner.showScanError(
+                    `Validation error: ${errorMessages.join("\n")}`
+                );
+            } else {
+                this.$refs.scanner.showScanError(
+                    "Validation failed. Please check your inputs."
+                );
+            }
+        } else {
+            this.$refs.scanner.showScanError("Network or server error");
+        }
+    }
+},
 
         async submitScanData() {
             try {

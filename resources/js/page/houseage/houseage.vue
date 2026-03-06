@@ -41,6 +41,7 @@
                 selectionMode="multiple"
                 dataKey="ProductID"
                 :onSelectionChange="onSelectionChange"
+                :onAllSelectionChange="onAllSelectionChange"
             >
                 <template #gallery="{ data }">
                     <div
@@ -176,7 +177,7 @@
                 >
                     <div class="mobile-card-header">
                         <div class="mobile-checkbox">
-                            <input type="checkbox" v-model="item.checked" />
+                            <input type="checkbox" v-model="item.checked" @change="onSelectionChange(item, $event.target.checked)"/>
                         </div>
 
                         <!-- Updated mobile gallery with captured images support -->

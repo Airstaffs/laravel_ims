@@ -74,6 +74,7 @@
                             size="small"
                             aria-label="Notifications"
                         />
+
                         <Badge
                             v-if="notificationCount > 0"
                             :value="notificationCount"
@@ -237,7 +238,34 @@
                             id="user_menu"
                             :model="userMenuItems"
                             :popup="true"
-                        />
+                        >
+                            <template #item="{ item, props }">
+                                <!-- Separator -->
+                                <template v-if="item.separator">
+                                    <hr class="my-1" />
+                                </template>
+
+                                <!-- Regular item -->
+                                <a
+                                    v-else
+                                    v-bind="props.action"
+                                    class="d-flex align-items-center justify-content-between px-3 py-2 text-decoration-none text-dark"
+                                >
+                                    <div
+                                        class="d-flex align-items-center gap-2"
+                                    >
+                                        <i :class="item.icon"></i>
+                                        <span>{{ item.label }}</span>
+                                    </div>
+                                    <Badge
+                                        v-if="item.badge"
+                                        :value="item.badge"
+                                        severity="danger"
+                                        style="font-size: 11px"
+                                    />
+                                </a>
+                            </template>
+                        </Menu>
                     </div>
                 </div>
             </div>
@@ -262,8 +290,14 @@
     <AnnouncementModal v-model:visible="announcementVisible" />
     <BreakModal v-model:visible="breakVisible" />
 
-    <EwhModal v-model:visible="ewhModalVisible" />
-    <PayrollModal v-model:visible="payrollModalVisible" />
+    <EwhModal
+        v-model:visible="ewhModalVisible"
+        @update-ewh-count="fetchNewCounts"
+    />
+    <PayrollModal
+        v-model:visible="payrollModalVisible"
+        @update-payroll-count="fetchNewCounts"
+    />
 </template>
 
 <script>
@@ -317,10 +351,21 @@ export default {
             breakVisible: false,
             kanbanCount: 0,
             userId: null,
-            userMenuItems: [
+
+            ewhModalVisible: false,
+            payrollModalVisible: false,
+            ewhNewCount: 0,
+            payrollNewCount: 0,
+        };
+    },
+    computed: {
+        userMenuItems() {
+            return [
                 {
                     label: "My Payroll",
                     icon: "pi pi-money-bill",
+                    badge:
+                        this.payrollNewCount > 0 ? this.payrollNewCount : null,
                     command: () => {
                         this.openPayrollModal();
                     },
@@ -328,6 +373,7 @@ export default {
                 {
                     label: "My EWH",
                     icon: "pi pi-file-edit",
+                    badge: this.ewhNewCount > 0 ? this.ewhNewCount : null,
                     command: () => {
                         this.openEwhModal();
                     },
@@ -346,9 +392,7 @@ export default {
                         this.openSettingModal();
                     },
                 },
-                {
-                    separator: true,
-                },
+                { separator: true },
                 {
                     label: "Logout",
                     icon: "pi pi-sign-out",
@@ -357,11 +401,8 @@ export default {
                         this.showLogoutModal();
                     },
                 },
-            ],
-
-            ewhModalVisible: false,
-            payrollModalVisible: false,
-        };
+            ];
+        },
     },
     mounted() {
         this.logo = this.getSessionData("logo");
@@ -371,6 +412,11 @@ export default {
         setInterval(() => {
             this.kanbanCount = window.kanbanMentionedCount || 0;
         }, 1000);
+
+        this.fetchNewCounts();
+        setInterval(() => {
+            this.fetchNewCounts();
+        }, 60000);
     },
     methods: {
         getUserId() {
@@ -479,6 +525,21 @@ export default {
             this.$nextTick(() => {
                 this.payrollModalVisible = true;
             });
+        },
+
+        async fetchNewCounts() {
+            try {
+                const [ewhRes, payrollRes] = await Promise.all([
+                    axios.get("/hr/ewh/new-count"),
+                    axios.get("/hr/payslips/new-count"),
+                ]);
+                this.ewhNewCount = ewhRes.data.count ?? 0;
+                this.payrollNewCount = payrollRes.data.count ?? 0;
+            } catch (error) {
+                console.error("Error fetching new counts:", error);
+                this.ewhNewCount = 0;
+                this.payrollNewCount = 0;
+            }
         },
     },
 };
