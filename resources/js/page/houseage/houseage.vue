@@ -41,6 +41,7 @@
                 selectionMode="multiple"
                 dataKey="ProductID"
                 :onSelectionChange="onSelectionChange"
+                :onAllSelectionChange="onAllSelectionChange"
             >
                 <template #gallery="{ data }">
                     <div
