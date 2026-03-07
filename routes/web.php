@@ -5,6 +5,7 @@ use App\Http\Controllers\Amzn\FBAShipmentController;
 use App\Http\Controllers\Amzn\Listing\CatalogController;
 use App\Http\Controllers\Amzn\Listing\ListingController;
 use App\Http\Controllers\Amzn\OutboundOrders\ShippingLabel\ShippingLabelController;
+use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\ASINlistController;
 use App\Http\Controllers\AsinMappingController;
 use App\Http\Controllers\AttendanceController;
@@ -1077,3 +1078,21 @@ Route::post('/amazon/automation/save', [PaaAutomationController::class, 'save'])
 Route::get('/amazon/paa/automations', [PaaAutomationController::class, 'index']);
 Route::get('/amazon/paa/automation/{id}', [PaaAutomationController::class, 'show']);
 Route::delete('/amazon/paa/automation/{id}', [PaaAutomationController::class, 'destroy']);
+
+// Announcements
+Route::middleware('auth')->group(function () {
+    Route::get('/hr/dash/announcements', [AnnouncementController::class, 'dashIndex']);
+    Route::post('/hr/dash/announcements/acknowledge', [AnnouncementController::class, 'acknowledge']);
+    Route::get('/hr/announcements/admin', [AnnouncementController::class, 'adminIndex']);
+    Route::post('/hr/announcements/save', [AnnouncementController::class, 'save']);
+    Route::post('/hr/announcements/toggle-active', [AnnouncementController::class, 'toggleActive']);
+});
+
+Route::get('/hr/dash/announcements/debug', function () {
+    return response()->json(
+        \DB::table('tblannouncements')
+            ->where('is_active', 1)
+            ->where('type', 'birthday')
+            ->get()
+    );
+});

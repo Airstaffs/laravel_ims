@@ -116,7 +116,7 @@
                     'printer',
                     'auxiliary',
                     'inventorystatistics',
-                 
+
 
                 ];
 
@@ -164,7 +164,7 @@
                 'auxiliary' => 'Auxiliary Label',
                 'inventorystatistics' => 'Inventory Statistics',
                 'reconciliation' => 'Reconciliation',
-             
+
             ];
 
             function hasAccess($module, $mainModule, $subModules): bool
@@ -796,6 +796,8 @@
 
     <!-- Footer -->
     <x-footer></x-footer>
+
+    <celebrateannouncement></celebrateannouncement>
 
     {{-- Scripts --}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
