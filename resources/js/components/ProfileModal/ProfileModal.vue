@@ -592,6 +592,11 @@
                                                         timezoneForm.auto_sync
                                                     "
                                                     :binary="true"
+                                                    @change="
+                                                        onAutoSyncChange(
+                                                            timezoneForm.auto_sync,
+                                                        )
+                                                    "
                                                 />
                                                 <label>
                                                     Automatically detect
@@ -1478,33 +1483,6 @@ export default {
                 this.stopClock();
             }
         },
-
-        "timezoneForm.auto_sync"(newVal, oldVal) {
-            // Only trigger if this is a user action (not initial load)
-            if (this.timezonesLoaded && oldVal !== undefined) {
-                if (newVal) {
-                    console.log("🔄 Auto-sync enabled, detecting timezone...");
-                    const detected = this.detectCurrentTimezone();
-                    this.timezoneForm.usertimezone = detected;
-
-                    // Show confirmation before auto-saving
-                    Swal.fire({
-                        title: "Auto-Sync Enabled",
-                        html: `Your timezone will be automatically detected as:<br><strong>${this.detectedTimezone}</strong><br><br>Save this setting now?`,
-                        icon: "info",
-                        showCancelButton: true,
-                        confirmButtonText: "Yes, Save",
-                        cancelButtonText: "Not Now",
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            this.updateTimezone();
-                        }
-                    });
-                } else {
-                    console.log("🔄 Auto-sync disabled");
-                }
-            }
-        },
     },
     mounted() {
         if (this.visible) {
@@ -1971,7 +1949,16 @@ export default {
 
             if (result.isConfirmed) {
                 try {
-                    await axios.post("/attendance/clockin");
+                    await axios.post(
+                        "/attendance/clockin",
+                        {},
+                        {
+                            headers: {
+                                "Content-Type": "application/json",
+                                Accept: "application/json",
+                            },
+                        },
+                    );
 
                     await Swal.fire({
                         title: "Success!",
@@ -2657,6 +2644,31 @@ export default {
                 });
             } finally {
                 this.loadingSchedule = false;
+            }
+        },
+
+        onAutoSyncChange(newVal) {
+            if (!this.timezonesLoaded) return;
+
+            if (newVal) {
+                console.log("🔄 Auto-sync enabled, detecting timezone...");
+                const detected = this.detectCurrentTimezone();
+                this.timezoneForm.usertimezone = detected;
+
+                Swal.fire({
+                    title: "Auto-Sync Enabled",
+                    html: `Your timezone will be automatically detected as:<br><strong>${this.detectedTimezone}</strong><br><br>Save this setting now?`,
+                    icon: "info",
+                    showCancelButton: true,
+                    confirmButtonText: "Yes, Save",
+                    cancelButtonText: "Not Now",
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        this.updateTimezone();
+                    }
+                });
+            } else {
+                console.log("🔄 Auto-sync disabled");
             }
         },
     },
