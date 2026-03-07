@@ -401,36 +401,6 @@
                 <form method="POST" class="editOrderForm">
                     <div class="form-grid-wrapper">
                         <div class="form-col-left">
-                            <!-- <div class="image-section" v-if="allImages.length">
-                                <div class="main-image">
-                                    <img
-                                        :src="activeImageUrl"
-                                        alt="Product Image"
-                                        loading="lazy"
-                                        @error="onImageError"
-                                    />
-                                </div>
-
-                                <div class="thumbnail-carousel">
-                                    <div
-                                        v-for="(img, index) in allImages"
-                                        :key="index"
-                                        :class="[
-                                            'thumbnail',
-                                            { active: index === activeIndex },
-                                        ]"
-                                        @click="activeIndex = index"
-                                        @mouseenter="activeIndex = index"
-                                    >
-                                        <img
-                                            :src="img.src"
-                                            :alt="img.src"
-                                            loading="lazy"
-                                            @error="onImageError"
-                                        />
-                                    </div>
-                                </div>
-                            </div> -->
                             <ProductImageGallery
                                 label="Serial Images"
                                 :imageList="serialImageList"
