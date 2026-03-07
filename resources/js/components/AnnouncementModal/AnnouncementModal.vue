@@ -389,7 +389,7 @@ const groupUS = ref(false);
 
 // Computed
 const composeTitle = computed(() =>
-    form.value.id ? `Edit #${form.value.id}` : "New Announcement"
+    form.value.id ? `Edit #${form.value.id}` : "New Announcement",
 );
 
 const announcementDuration = computed(() => {
@@ -434,7 +434,7 @@ const loadAnnouncements = async () => {
             `/hr/announcements/admin?${params.toString()}`,
             {
                 credentials: "same-origin",
-            }
+            },
         );
         const data = await response.json();
         announcements.value = Array.isArray(data) ? data : [];
@@ -495,7 +495,7 @@ const acknowledgeAnnouncement = async () => {
 
     try {
         const csrfToken = document.querySelector(
-            'meta[name="csrf-token"]'
+            'meta[name="csrf-token"]',
         )?.content;
 
         if (!csrfToken) {
@@ -567,7 +567,7 @@ const acknowledgeAnnouncement = async () => {
                 username:
                     window.userName ||
                     document.querySelector('meta[name="user-name"]')?.content,
-            })
+            }),
         );
     } catch (error) {
         console.error("Error acknowledging announcement:", error);
@@ -651,7 +651,7 @@ const submitCompose = async (mode) => {
 
     try {
         const csrfToken = document.querySelector(
-            'meta[name="csrf-token"]'
+            'meta[name="csrf-token"]',
         )?.content;
 
         if (!csrfToken) {
@@ -744,7 +744,7 @@ const submitCompose = async (mode) => {
 const toggleActive = async (id, makeActive) => {
     try {
         const csrfToken = document.querySelector(
-            'meta[name="csrf-token"]'
+            'meta[name="csrf-token"]',
         )?.content;
 
         if (!csrfToken) {
@@ -819,7 +819,7 @@ const applyGroupSelection = () => {
         .filter(
             (e) =>
                 (groupPH.value && e.accounttype === "PH") ||
-                (groupUS.value && e.accounttype === "US")
+                (groupUS.value && e.accounttype === "US"),
         )
         .map((e) => e.id);
 

@@ -572,6 +572,7 @@ import InventoryStatistics from "./page/inventoryStatistics/inventoryStatistics.
 import SuppliesComponents from "./page/suppliesComponents/suppliesComponents.vue";
 import FbaInboundShipment from "./components/Stockroom/fba_inbound/fba_inbound_shipment.vue";
 
+import CelebrateAnnouncement from "./components/AnnouncementModal/CelebrateAnnouncement.vue";
 
 import Navbar from "./components/Navbar/Navbar.vue";
 import Login from "./components/Login/Login.vue";
@@ -640,9 +641,9 @@ const componentMapping = {
     "Returned Items": "returnlist",
     "Auxiliary Label": "auxiliary",
     "Inventory Statistics": "inventorystatistics",
-    "Reconciliation": "reconciliation",
+    Reconciliation: "reconciliation",
     "Supplies & Components": "suppliescomponents",
-    "Suppliers List": "supplierslist"
+    "Suppliers List": "supplierslist",
 };
 
 // ============================================
@@ -728,7 +729,7 @@ const app = createApp({
                 return;
             }
 
-              if (navName === "supplierslist") {
+            if (navName === "supplierslist") {
                 const componentName = this.mapToComponentName(navName);
                 this.safeComponentUpdate(componentName, navName);
                 return;
@@ -976,6 +977,7 @@ const app = createApp({
         inventorystatistics: InventoryStatistics,
         reconciliation: Reconciliation,
         suppliescomponents: SuppliesComponents,
+        celebrateannouncement: CelebrateAnnouncement,
     },
 });
 
