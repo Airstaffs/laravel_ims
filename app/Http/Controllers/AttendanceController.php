@@ -693,14 +693,14 @@ class AttendanceController extends Controller
             'meta' => [
                 'scheduledStart' => $matchedSched ? $matchedSched->start->toDateTimeString() : null,
                 'scheduledEnd' => $matchedSched ? $matchedSched->end->toDateTimeString() : null,
-                'effective' => $effective,            // echo mins that affected behavior
+                'effective' => $effective,
                 'graceMinutesUsed' => $effGrace,
                 'hardMaxMinutes' => $HARD_MAX_SHIFT_MINUTES,
                 'earlyOutMins' => $earlyOutMins,
                 'overTimeMins' => $overTimeMins,
                 'auto' => $isAuto,
             ],
-        ]);
+        ], 200, [], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     }
 
     /**

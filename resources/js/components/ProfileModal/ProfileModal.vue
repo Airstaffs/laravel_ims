@@ -2019,11 +2019,22 @@ export default {
 
             if (result.isConfirmed) {
                 try {
-                    await axios.post("/attendance/clockout");
+                    const response = await axios.post(
+                        "/attendance/clockout",
+                        {},
+                        {
+                            headers: {
+                                "Content-Type": "application/json",
+                                Accept: "application/json",
+                            },
+                        },
+                    );
 
                     await Swal.fire({
                         title: "Success!",
-                        text: "You have successfully clocked out",
+                        text:
+                            response.data?.message ||
+                            "You have successfully clocked out",
                         icon: "success",
                         confirmButtonText: "OK",
                     });
