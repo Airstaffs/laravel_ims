@@ -133,6 +133,26 @@ export default {
         this.item = item;
         this.viewDetailsModal = true;
     },
+
+    isDuplicateSerial(value, ownIndex) {
+    if (!value?.trim()) return false;
+    const v = value.trim().toLowerCase();
+    return [
+        { i: 1, v: this.serialNumber },
+        { i: 2, v: this.secondSerialNumber },
+        { i: 3, v: this.thirdSerialNumber },
+        { i: 4, v: this.fourthSerialNumber },
+    ].some(s => s.i !== ownIndex && s.v && s.v.trim().toLowerCase() === v);
+},
+
+// Blocks processScan if any two serials are identical
+hasDuplicateSerials() {
+    const serials = this.getActiveSerials().map(s => s.trim().toLowerCase());
+    return new Set(serials).size !== serials.length;
+},
+
+
+
     
     // ADD THIS METHOD - View return details (used in mobile view)
     viewReturnDetails(item) {
@@ -689,41 +709,74 @@ async fetchInventory() {
         },
 
         // ========== HIDE SERIAL (X button) - Don't return this serial ==========
-        hideSecondSerial() {
-            console.log("❌ User chose NOT to return Serial 2");
-            this.secondSerialNumber = "";
-            this.capturedImagesForSerial2 = [];
-            this.showSecondSerialInput = false;
-            this.serial2CaptureComplete = false;
-            this.currentCaptureStep = 0;
-            if (this.$refs.scanner) this.$refs.scanner.capturedImages = [];
-            this.$nextTick(() => this.focusNextInput(2));
-            SoundService?.success?.();
-        },
+            async hideSecondSerial() {
+                const result = await Swal.fire({
+                    title: 'Remove Serial?',
+                    text: `Remove "${this.secondSerialNumber}" from this return?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#f44336',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Yes, Remove',
+                    cancelButtonText: 'Cancel',
+                });
+                if (!result.isConfirmed) return;
+                console.log("❌ User chose NOT to return Serial 2");
+                this.secondSerialNumber = "";
+                this.capturedImagesForSerial2 = [];
+                this.showSecondSerialInput = false;
+                this.serial2CaptureComplete = false;
+                this.currentCaptureStep = 0;
+                if (this.$refs.scanner) this.$refs.scanner.capturedImages = [];
+                this.$nextTick(() => this.focusNextInput(2));
+                SoundService?.success?.();
+            },
         
-        hideThirdSerial() {
-            console.log("❌ User chose NOT to return Serial 3");
-            this.thirdSerialNumber = "";
-            this.capturedImagesForSerial3 = [];
-            this.showThirdSerialInput = false;
-            this.serial3CaptureComplete = false;
-            this.currentCaptureStep = 0;
-            if (this.$refs.scanner) this.$refs.scanner.capturedImages = [];
-            this.$nextTick(() => this.focusNextInput(3));
-            SoundService?.success?.();
-        },
-        
-        hideFourthSerial() {
-            console.log("❌ User chose NOT to return Serial 4");
-            this.fourthSerialNumber = "";
-            this.capturedImagesForSerial4 = [];
-            this.showFourthSerialInput = false;
-            this.serial4CaptureComplete = false;
-            this.currentCaptureStep = 0;
-            if (this.$refs.scanner) this.$refs.scanner.capturedImages = [];
-            this.$nextTick(() => this.$refs.locationInput?.focus());
-            SoundService?.success?.();
-        },
+                async hideThirdSerial() {
+                const result = await Swal.fire({
+                    title: 'Remove Serial?',
+                    text: `Remove "${this.thirdSerialNumber}" from this return?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#f44336',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Yes, Remove',
+                    cancelButtonText: 'Cancel',
+                });
+                if (!result.isConfirmed) return;
+                console.log("❌ User chose NOT to return Serial 3");
+                this.thirdSerialNumber = "";
+                this.capturedImagesForSerial3 = [];
+                this.showThirdSerialInput = false;
+                this.serial3CaptureComplete = false;
+                this.currentCaptureStep = 0;
+                if (this.$refs.scanner) this.$refs.scanner.capturedImages = [];
+                this.$nextTick(() => this.focusNextInput(3));
+                SoundService?.success?.();
+            },
+                                
+            async hideFourthSerial() {
+                const result = await Swal.fire({
+                    title: 'Remove Serial?',
+                    text: `Remove "${this.fourthSerialNumber}" from this return?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#f44336',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Yes, Remove',
+                    cancelButtonText: 'Cancel',
+                });
+                if (!result.isConfirmed) return;
+                console.log("❌ User chose NOT to return Serial 4");
+                this.fourthSerialNumber = "";
+                this.capturedImagesForSerial4 = [];
+                this.showFourthSerialInput = false;
+                this.serial4CaptureComplete = false;
+                this.currentCaptureStep = 0;
+                if (this.$refs.scanner) this.$refs.scanner.capturedImages = [];
+                this.$nextTick(() => this.$refs.locationInput?.focus());
+                SoundService?.success?.();
+            },
 
         // ========== HELPER: Get active serials for display ==========
         getActiveSerials() {
@@ -738,6 +791,12 @@ async fetchInventory() {
         // ========== PROCESS SCAN ==========
             async processScan() {
                 console.log("🚀 PROCESS SCAN");
+
+                if (this.hasDuplicateSerials()) {
+                    this.$refs.scanner?.showScanError("Duplicate serial detected — please re-scan");
+                    SoundService?.error?.();
+                    return;
+                }
                 
                 // ✅ Prevent duplicate scans
                 if (this.isProcessing) {
