@@ -171,7 +171,7 @@ class LabelingController extends BasetablesController
                 // 2nd choice: eBay image      (path: /images/thumbnails/)
                 // Frontend already handles the path difference via img1_source
                 if (!empty($capturedImages->capturedimg1)) {
-                    $product->img1        = $capturedImages->capturedimg1;
+                    // $product->img1        = $capturedImages->capturedimg1;
                     $product->img1_source = 'captured';
                 } elseif (!empty($product->img1)) {
                     // img1 already set from ebayimgs join — keep it

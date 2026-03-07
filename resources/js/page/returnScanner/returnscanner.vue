@@ -59,51 +59,85 @@
 
                     <!-- SERIAL 2 INPUT -->
                     <div class="input-group" v-if="showSecondSerialInput">
-                        <label>{{ secondSerialLabel }}: <span v-if="serial2CaptureComplete" class="capture-done-badge">✓ {{ capturedImagesForSerial2.length }} imgs</span></label>
-                        <div class="input-with-action">
-                            <input type="text" v-model="secondSerialNumber" placeholder="Scan or enter second serial..."
-                                @input="handleSecondSerialInput" @keyup.enter="secondSerialNumber ? proceedToImageCapture(2) : null"
-                                ref="secondSerialInput" :class="{ 'input-complete': serial2CaptureComplete, 'highlight-input': !serial2CaptureComplete }" />
-                            <button v-if="secondSerialNumber && !serial2CaptureComplete" type="button" class="btn-capture-trigger" @click="proceedToImageCapture(2)" title="Capture images">
-                                <i class="fas fa-camera"></i>
-                            </button>
-                            <button type="button" class="btn-remove-serial" @click="hideSecondSerial" title="Don't return this serial">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
+                    <label>
+                        {{ secondSerialLabel }}:
+                        <span v-if="serial2CaptureComplete" class="capture-done-badge">✓ {{ capturedImagesForSerial2.length }} imgs</span>
+                        <span v-if="isDuplicateSerial(secondSerialNumber, 2)" class="serial-duplicate-badge">⚠ Duplicate Serial!</span>
+                    </label>
+                    <div class="input-with-action">
+                        <input type="text" v-model="secondSerialNumber" placeholder="Scan or enter second serial..."
+                            @input="handleSecondSerialInput" @keyup.enter="secondSerialNumber ? proceedToImageCapture(2) : null"
+                            ref="secondSerialInput"
+                            :class="{
+                                'input-complete': serial2CaptureComplete,
+                                'highlight-input': !serial2CaptureComplete && !isDuplicateSerial(secondSerialNumber, 2),
+                                'input-duplicate': isDuplicateSerial(secondSerialNumber, 2)
+                            }" />
+                        <button v-if="secondSerialNumber && !serial2CaptureComplete" type="button" class="btn-capture-trigger" @click="proceedToImageCapture(2)" title="Capture images">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                        <button type="button" class="btn-remove-serial" @click="hideSecondSerial" title="Don't return this serial">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
+                    <div v-if="isDuplicateSerial(secondSerialNumber, 2)" class="duplicate-warning-row">
+                        <i class="fas fa-exclamation-circle"></i> This serial was already scanned. Please re-scan the correct one.
+                    </div>
+                </div>
 
-                    <!-- SERIAL 3 INPUT -->
-                    <div class="input-group" v-if="showThirdSerialInput">
-                        <label>{{ thirdSerialLabel }}: <span v-if="serial3CaptureComplete" class="capture-done-badge">✓ {{ capturedImagesForSerial3.length }} imgs</span></label>
-                        <div class="input-with-action">
-                            <input type="text" v-model="thirdSerialNumber" placeholder="Scan or enter third serial..."
-                                @input="handleThirdSerialInput" @keyup.enter="thirdSerialNumber ? proceedToImageCapture(3) : null"
-                                ref="thirdSerialInput" :class="{ 'input-complete': serial3CaptureComplete }" />
-                            <button v-if="thirdSerialNumber && !serial3CaptureComplete" type="button" class="btn-capture-trigger" @click="proceedToImageCapture(3)" title="Capture images">
-                                <i class="fas fa-camera"></i>
-                            </button>
-                            <button type="button" class="btn-remove-serial" @click="hideThirdSerial" title="Don't return this serial">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
+                <!-- SERIAL 3 INPUT — replace your existing block -->
+                <div class="input-group" v-if="showThirdSerialInput">
+                    <label>
+                        {{ thirdSerialLabel }}:
+                        <span v-if="serial3CaptureComplete" class="capture-done-badge">✓ {{ capturedImagesForSerial3.length }} imgs</span>
+                        <span v-if="isDuplicateSerial(thirdSerialNumber, 3)" class="serial-duplicate-badge">⚠ Duplicate Serial!</span>
+                    </label>
+                    <div class="input-with-action">
+                        <input type="text" v-model="thirdSerialNumber" placeholder="Scan or enter third serial..."
+                            @input="handleThirdSerialInput" @keyup.enter="thirdSerialNumber ? proceedToImageCapture(3) : null"
+                            ref="thirdSerialInput"
+                            :class="{
+                                'input-complete': serial3CaptureComplete,
+                                'input-duplicate': isDuplicateSerial(thirdSerialNumber, 3)
+                            }" />
+                        <button v-if="thirdSerialNumber && !serial3CaptureComplete" type="button" class="btn-capture-trigger" @click="proceedToImageCapture(3)" title="Capture images">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                        <button type="button" class="btn-remove-serial" @click="hideThirdSerial" title="Don't return this serial">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
+                    <div v-if="isDuplicateSerial(thirdSerialNumber, 3)" class="duplicate-warning-row">
+                        <i class="fas fa-exclamation-circle"></i> This serial was already scanned. Please re-scan the correct one.
+                    </div>
+                </div>
 
-                    <!-- SERIAL 4 INPUT -->
-                    <div class="input-group" v-if="showFourthSerialInput">
-                        <label>{{ fourthSerialLabel }}: <span v-if="serial4CaptureComplete" class="capture-done-badge">✓ {{ capturedImagesForSerial4.length }} imgs</span></label>
-                        <div class="input-with-action">
-                            <input type="text" v-model="fourthSerialNumber" placeholder="Scan or enter fourth serial..."
-                                @input="handleFourthSerialInput" @keyup.enter="fourthSerialNumber ? proceedToImageCapture(4) : null"
-                                ref="fourthSerialInput" :class="{ 'input-complete': serial4CaptureComplete }" />
-                            <button v-if="fourthSerialNumber && !serial4CaptureComplete" type="button" class="btn-capture-trigger" @click="proceedToImageCapture(4)" title="Capture images">
-                                <i class="fas fa-camera"></i>
-                            </button>
-                            <button type="button" class="btn-remove-serial" @click="hideFourthSerial" title="Don't return this serial">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
+                <!-- SERIAL 4 INPUT — replace your existing block -->
+                <div class="input-group" v-if="showFourthSerialInput">
+                    <label>
+                        {{ fourthSerialLabel }}:
+                        <span v-if="serial4CaptureComplete" class="capture-done-badge">✓ {{ capturedImagesForSerial4.length }} imgs</span>
+                        <span v-if="isDuplicateSerial(fourthSerialNumber, 4)" class="serial-duplicate-badge">⚠ Duplicate Serial!</span>
+                    </label>
+                    <div class="input-with-action">
+                        <input type="text" v-model="fourthSerialNumber" placeholder="Scan or enter fourth serial..."
+                            @input="handleFourthSerialInput" @keyup.enter="fourthSerialNumber ? proceedToImageCapture(4) : null"
+                            ref="fourthSerialInput"
+                            :class="{
+                                'input-complete': serial4CaptureComplete,
+                                'input-duplicate': isDuplicateSerial(fourthSerialNumber, 4)
+                            }" />
+                        <button v-if="fourthSerialNumber && !serial4CaptureComplete" type="button" class="btn-capture-trigger" @click="proceedToImageCapture(4)" title="Capture images">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                        <button type="button" class="btn-remove-serial" @click="hideFourthSerial" title="Don't return this serial">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
+                    <div v-if="isDuplicateSerial(fourthSerialNumber, 4)" class="duplicate-warning-row">
+                        <i class="fas fa-exclamation-circle"></i> This serial was already scanned. Please re-scan the correct one.
+                    </div>
+                </div>
 
                     <!-- LOCATION INPUT -->
                     <div class="input-group" v-if="serialNumber">

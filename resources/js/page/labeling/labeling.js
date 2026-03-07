@@ -408,27 +408,31 @@ export default {
 
     methods: {
         //get images to display main thumbnail in the table
-        getFirstAvailableImage(product) {
+      getFirstAvailableImage(product) {
     try {
-        // Safety checks
         if (!product || !product.capturedImages) {
             return DEFAULT_IMAGE;
         }
 
-        const company = product.company || 'Airstaffs'; // Dynamic company
+        const company = product.company || 'Airstaffs';
         const basePath = `/images/product_images/${company}/`;
-        
-        // Get all image values and filter out NULL/empty
+
         const imagesArray = Object.values(product.capturedImages).filter(
             img => img && img !== 'NULL' && img !== 'null' && img.trim() !== ''
         );
-        
-        if (imagesArray && imagesArray.length > 0) {
-            const filename = imagesArray[0];
-            console.log('✅ First image:', basePath + filename);
-            return basePath + filename;
+
+        if (imagesArray.length > 0) {
+            return basePath + imagesArray[0];
         }
-        
+
+        //if there is no captured images, display the ebay image
+        const ebayImages = Array.from({ length: 15 }, (_, i) => product[`img${i + 1}`])
+            .filter(Boolean);
+
+        if (ebayImages.length > 0) {
+            return '/images/thumbnails/' + ebayImages[0];
+        }
+
         return DEFAULT_IMAGE;
     } catch (error) {
         console.error('❌ Error getting image:', error);
@@ -525,37 +529,39 @@ export default {
         },
 
         // Count captured images (capturedimg1 - capturedimg12)
-        countCapturedImages(item) {
-            if (!item || !item.capturedImages) return 0;
+      countCapturedImages(item) {
+    if (!item) return 0;
 
-            console.log("🔍 Counting captured images for item:", {
-                ProductID: item.ProductID,
-                capturedImages: item.capturedImages,
-            });
+    const capturedImagesObj = item.capturedImages;
 
-            let count = 0;
-            const capturedImagesObj = item.capturedImages;
+    // Covers: null, undefined, or empty object {}
+    const hasCapturedImages = capturedImagesObj && Object.keys(capturedImagesObj).length > 0;
 
-            // Check both capturedimg1-12 AND serialimg1-2
-            for (let i = 1; i <= 12; i++) {
-                const fieldName = `capturedimg${i}`;
-                if (this.isValidImage(capturedImagesObj[fieldName])) {
-                    count++;
-                }
-            }
+    if (!hasCapturedImages) {
+        const ebayImages = Array.from({ length: 15 }, (_, i) => item[`img${i + 1}`])
+            .filter(Boolean);
+        return ebayImages.length;
+    }
 
-            // Also check serial images
-            if (this.isValidImage(capturedImagesObj.serialimg1)) count++;
-            if (this.isValidImage(capturedImagesObj.serialimg2)) count++;
+    let count = 0;
 
-             // Also check serial images
-            if (this.isValidImage(capturedImagesObj.trackingimg1)) count++;
-            if (this.isValidImage(capturedImagesObj.trackingimg2)) count++;
+    for (let i = 1; i <= 12; i++) {
+        if (this.isValidImage(capturedImagesObj[`capturedimg${i}`])) count++;
+    }
 
-            console.log("🔍 Total captured images found:", count);
-            return count;
-        },
+    if (this.isValidImage(capturedImagesObj.serialimg1)) count++;
+    if (this.isValidImage(capturedImagesObj.serialimg2)) count++;
+    if (this.isValidImage(capturedImagesObj.trackingimg1)) count++;
+    if (this.isValidImage(capturedImagesObj.trackingimg2)) count++;
 
+    if (count === 0) {
+        const ebayImages = Array.from({ length: 15 }, (_, i) => item[`img${i + 1}`])
+            .filter(Boolean);
+        return ebayImages.length;
+    }
+
+    return count;
+},
         // Count all images (regular + captured)
         countAllImages(item) {
             if (!item) {
