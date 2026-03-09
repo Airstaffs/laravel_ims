@@ -137,7 +137,7 @@ class AttendanceController extends Controller
         return [
             'status' => $holiday ? ($holiday->status ?? 'Normal') : 'Normal',
             'holidayID' => $holiday->holidayID ?? null,
-            'holidayTitle' => $holiday->title ?? null,
+            'holidayTitle' => mb_convert_encoding($holiday->title ?? '', 'UTF-8', 'UTF-8'),
             'date' => $laDate,
         ];
     }
