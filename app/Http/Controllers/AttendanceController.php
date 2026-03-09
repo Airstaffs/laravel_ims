@@ -8,9 +8,9 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use PHPMailer\PHPMailer\Exception;
 use PHPMailer\PHPMailer\PHPMailer;
-use Illuminate\Support\Facades\Log;
 
 class AttendanceController extends Controller
 {
@@ -138,7 +138,7 @@ class AttendanceController extends Controller
         return [
             'status' => $holiday ? ($holiday->status ?? 'Normal') : 'Normal',
             'holidayID' => $holiday->holidayID ?? null,
-            'holidayTitle' => $holiday->title ?? null,
+            'holidayTitle' => mb_convert_encoding($holiday->title ?? '', 'UTF-8', 'UTF-8'),
             'date' => $laDate,
         ];
     }
@@ -180,6 +180,16 @@ class AttendanceController extends Controller
 
     public function clockIn(Request $request)
     {
+        try {
+
+        } catch (\Exception $e) {
+            \Log::error('ClockIn error: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Clock-in failed: '.$e->getMessage(),
+            ], 500, [], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        }
         $uid = Auth::id();
         $uname = Auth::user()->username;
         $tz = 'America/Los_Angeles';
@@ -430,277 +440,287 @@ class AttendanceController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Clocked in at '.$now->format('h:i A').' (LA) • '.$day['holidayTitle'],
+            'message' => 'Clocked in at '.$now->format('h:i A').' (LA) • '.($day['holidayTitle'] ?? ''),
             'meta' => [
-                'holiday' => $day['holidayTitle'],
-                'date' => $day['date'],
+                'holiday' => $day['holidayTitle'] ?? '',
+                'date' => $day['date'] ?? '',
                 'schedule' => [
                     'start' => $win->start->toDateTimeString(),
                     'startGrace' => $win->startGrace->toDateTimeString(),
                     'end' => $win->end->toDateTimeString(),
-                    'title' => $match->title,
+                    'title' => $match->title ?? '',
                     'schedId' => $match->schedId ?? null,
                 ],
-                'effective' => $effective, // echoes mins used (from DB)
+                'effective' => $effective,
                 'early' => $isEarly,
                 'earlyByMinutes' => $earlyByMinutes,
                 'late' => $isLate,
                 'lateByMinutes' => $lateByMinutes,
-                'Data' => $smsResult,
+                'Data' => $smsResult ?? null,
             ],
-        ]);
+        ], 200, [], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     }
 
     public function clockOut(Request $request)
     {
-        $uid = Auth::id();
-        $tz = 'America/Los_Angeles';
-        $now = \Carbon\Carbon::now($tz);
+        try {
+            $uid = Auth::id();
+            $tz = 'America/Los_Angeles';
+            $now = \Carbon\Carbon::now($tz);
 
-        // 1) Find the open clock-in
-        $open = DB::table('tblemployeeclocks')
-            ->where('userid', $uid)
-            ->whereNotNull('TimeIn')
-            ->whereNull('TimeOut')
-            ->orderByDesc('ID')
-            ->first();
+            // 1) Find the open clock-in
+            $open = DB::table('tblemployeeclocks')
+                ->where('userid', $uid)
+                ->whereNotNull('TimeIn')
+                ->whereNull('TimeOut')
+                ->orderByDesc('ID')
+                ->first();
 
-        if (! $open) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No open clock-in record found.',
-            ], 400);
-        }
-
-        $timeIn = \Carbon\Carbon::parse($open->TimeIn, $tz);
-        $anchorDate = $timeIn->toDateString();            // day the user clocked in
-        $dowAnchor = (int) $timeIn->isoWeekday();        // 1..7
-
-        $maskHas = function ($mask, $dow) {
-            $m = (int) ($mask ?? 0);
-
-            return $m > 0 && (($m & (1 << ($dow - 1))) !== 0);
-        };
-
-        // user override > template > default
-        $resolveMins = function ($userVal, $tmplVal, $default = 0) {
-            if (is_numeric($userVal)) {
-                return (int) $userVal;
-            }
-            if (is_numeric($tmplVal)) {
-                return (int) $tmplVal;
+            if (! $open) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No open clock-in record found.',
+                ], 400);
             }
 
-            return (int) $default;
-        };
+            $timeIn = \Carbon\Carbon::parse($open->TimeIn, $tz);
+            $anchorDate = $timeIn->toDateString();            // day the user clocked in
+            $dowAnchor = (int) $timeIn->isoWeekday();        // 1..7
 
-        // 2) Load links effective on the anchor date (so mid-shift changes don’t break)
-        $links = DB::table('tblusersched as us')
-            ->join('tbltimesched as ts', 'ts.timeschedId', '=', 'us.schedId')
-            ->select(
-                'us.userschedId',
-                'us.userId',
-                'us.schedId',
-                'us.effective_from',
-                'us.effective_to',
-                'us.is_active',
-                'us.early_login_mins  as us_early_login_mins',
-                'us.early_clockin_mins as us_early_clockin_mins',
-                'us.grace_clockout_mins as us_grace_clockout_mins',
-                'ts.timeschedId',
-                'ts.day_of_week',
-                'ts.days_mask',
-                'ts.start_time',
-                'ts.end_time',
-                'ts.end_next_day',
-                'ts.title',
-                'ts.early_login_mins  as ts_early_login_mins',
-                'ts.early_clockin_mins as ts_early_clockin_mins',
-                'ts.grace_clockout_mins as ts_grace_clockout_mins'
-            )
-            ->where('us.userId', $uid)
-            ->where('us.is_active', 1)
-            ->where(function ($q) use ($anchorDate) {
-                $q->whereNull('us.effective_from')->orWhere('us.effective_from', '<=', $anchorDate);
-            })
-            ->where(function ($q) use ($anchorDate) {
-                $q->whereNull('us.effective_to')->orWhere('us.effective_to', '>=', $anchorDate);
-            })
-            ->orderBy('ts.start_time')
-            ->get();
+            $maskHas = function ($mask, $dow) {
+                $m = (int) ($mask ?? 0);
 
-        // 3) Reconstruct the scheduled window
-        $matchedSched = null;  // {start, end, title, id}
-        $effective = [
-            'early_login_mins' => null,
-            'early_clockin_mins' => null,
-            'grace_clockout_mins' => null,
-        ];
+                return $m > 0 && (($m & (1 << ($dow - 1))) !== 0);
+            };
 
-        // Prefer the exact schedId stored on clock-in (keeps overrides)
-        if (! empty($open->schedId)) {
-            $linkForId = $links->first(fn ($r) => (int) $r->schedId === (int) $open->schedId);
-            if ($linkForId) {
-                $start = \Carbon\Carbon::parse($anchorDate.' '.$linkForId->start_time, $tz);
-                $end = \Carbon\Carbon::parse($anchorDate.' '.$linkForId->end_time, $tz);
-                if ((int) $linkForId->end_next_day === 1) {
-                    $end->addDay();
+            // user override > template > default
+            $resolveMins = function ($userVal, $tmplVal, $default = 0) {
+                if (is_numeric($userVal)) {
+                    return (int) $userVal;
+                }
+                if (is_numeric($tmplVal)) {
+                    return (int) $tmplVal;
                 }
 
-                $matchedSched = (object) [
-                    'start' => $start,
-                    'end' => $end,
-                    'title' => $linkForId->title,
-                    'id' => $linkForId->schedId,
-                ];
+                return (int) $default;
+            };
 
-                $effective['early_login_mins'] = $resolveMins($linkForId->us_early_login_mins, $linkForId->ts_early_login_mins, 0);
-                $effective['early_clockin_mins'] = $resolveMins($linkForId->us_early_clockin_mins, $linkForId->ts_early_clockin_mins, 5);
-                $effective['grace_clockout_mins'] = $resolveMins($linkForId->us_grace_clockout_mins, $linkForId->ts_grace_clockout_mins, 180);
-            } else {
-                // Template only (no overrides)
-                $sched = DB::table('tbltimesched')->where('timeschedId', $open->schedId)->first();
-                if ($sched) {
-                    $start = \Carbon\Carbon::parse($anchorDate.' '.$sched->start_time, $tz);
-                    $end = \Carbon\Carbon::parse($anchorDate.' '.$sched->end_time, $tz);
-                    if ((int) $sched->end_next_day === 1) {
+            // 2) Load links effective on the anchor date (so mid-shift changes don’t break)
+            $links = DB::table('tblusersched as us')
+                ->join('tbltimesched as ts', 'ts.timeschedId', '=', 'us.schedId')
+                ->select(
+                    'us.userschedId',
+                    'us.userId',
+                    'us.schedId',
+                    'us.effective_from',
+                    'us.effective_to',
+                    'us.is_active',
+                    'us.early_login_mins  as us_early_login_mins',
+                    'us.early_clockin_mins as us_early_clockin_mins',
+                    'us.grace_clockout_mins as us_grace_clockout_mins',
+                    'ts.timeschedId',
+                    'ts.day_of_week',
+                    'ts.days_mask',
+                    'ts.start_time',
+                    'ts.end_time',
+                    'ts.end_next_day',
+                    'ts.title',
+                    'ts.early_login_mins  as ts_early_login_mins',
+                    'ts.early_clockin_mins as ts_early_clockin_mins',
+                    'ts.grace_clockout_mins as ts_grace_clockout_mins'
+                )
+                ->where('us.userId', $uid)
+                ->where('us.is_active', 1)
+                ->where(function ($q) use ($anchorDate) {
+                    $q->whereNull('us.effective_from')->orWhere('us.effective_from', '<=', $anchorDate);
+                })
+                ->where(function ($q) use ($anchorDate) {
+                    $q->whereNull('us.effective_to')->orWhere('us.effective_to', '>=', $anchorDate);
+                })
+                ->orderBy('ts.start_time')
+                ->get();
+
+            // 3) Reconstruct the scheduled window
+            $matchedSched = null;  // {start, end, title, id}
+            $effective = [
+                'early_login_mins' => null,
+                'early_clockin_mins' => null,
+                'grace_clockout_mins' => null,
+            ];
+
+            // Prefer the exact schedId stored on clock-in (keeps overrides)
+            if (! empty($open->schedId)) {
+                $linkForId = $links->first(fn ($r) => (int) $r->schedId === (int) $open->schedId);
+                if ($linkForId) {
+                    $start = \Carbon\Carbon::parse($anchorDate.' '.$linkForId->start_time, $tz);
+                    $end = \Carbon\Carbon::parse($anchorDate.' '.$linkForId->end_time, $tz);
+                    if ((int) $linkForId->end_next_day === 1) {
                         $end->addDay();
                     }
 
                     $matchedSched = (object) [
                         'start' => $start,
                         'end' => $end,
-                        'title' => $sched->title,
-                        'id' => $sched->timeschedId,
+                        'title' => $linkForId->title,
+                        'id' => $linkForId->schedId,
                     ];
 
-                    $effective['early_login_mins'] = is_numeric($sched->early_login_mins) ? (int) $sched->early_login_mins : 0;
-                    $effective['early_clockin_mins'] = is_numeric($sched->early_clockin_mins) ? (int) $sched->early_clockin_mins : 5;
-                    $effective['grace_clockout_mins'] = is_numeric($sched->grace_clockout_mins) ? (int) $sched->grace_clockout_mins : 180;
+                    $effective['early_login_mins'] = $resolveMins($linkForId->us_early_login_mins, $linkForId->ts_early_login_mins, 0);
+                    $effective['early_clockin_mins'] = $resolveMins($linkForId->us_early_clockin_mins, $linkForId->ts_early_clockin_mins, 5);
+                    $effective['grace_clockout_mins'] = $resolveMins($linkForId->us_grace_clockout_mins, $linkForId->ts_grace_clockout_mins, 180);
+                } else {
+                    // Template only (no overrides)
+                    $sched = DB::table('tbltimesched')->where('timeschedId', $open->schedId)->first();
+                    if ($sched) {
+                        $start = \Carbon\Carbon::parse($anchorDate.' '.$sched->start_time, $tz);
+                        $end = \Carbon\Carbon::parse($anchorDate.' '.$sched->end_time, $tz);
+                        if ((int) $sched->end_next_day === 1) {
+                            $end->addDay();
+                        }
+
+                        $matchedSched = (object) [
+                            'start' => $start,
+                            'end' => $end,
+                            'title' => $sched->title,
+                            'id' => $sched->timeschedId,
+                        ];
+
+                        $effective['early_login_mins'] = is_numeric($sched->early_login_mins) ? (int) $sched->early_login_mins : 0;
+                        $effective['early_clockin_mins'] = is_numeric($sched->early_clockin_mins) ? (int) $sched->early_clockin_mins : 5;
+                        $effective['grace_clockout_mins'] = is_numeric($sched->grace_clockout_mins) ? (int) $sched->grace_clockout_mins : 180;
+                    }
                 }
             }
-        }
 
-        // Fallback: infer the schedule by day/mask that contained TimeIn
-        if (! $matchedSched) {
-            foreach ($links as $r) {
-                $hasMask = ((int) ($r->days_mask ?? 0) > 0);
-                $isEveryLegacy = ((int) $r->day_of_week) === 0;
+            // Fallback: infer the schedule by day/mask that contained TimeIn
+            if (! $matchedSched) {
+                foreach ($links as $r) {
+                    $hasMask = ((int) ($r->days_mask ?? 0) > 0);
+                    $isEveryLegacy = ((int) $r->day_of_week) === 0;
 
-                $dayOk = ($hasMask && $maskHas($r->days_mask, $dowAnchor))
-                    || (! $hasMask && ($isEveryLegacy || (int) $r->day_of_week === $dowAnchor));
-                if (! $dayOk) {
-                    continue;
+                    $dayOk = ($hasMask && $maskHas($r->days_mask, $dowAnchor))
+                        || (! $hasMask && ($isEveryLegacy || (int) $r->day_of_week === $dowAnchor));
+                    if (! $dayOk) {
+                        continue;
+                    }
+
+                    $schedStart = \Carbon\Carbon::parse($anchorDate.' '.$r->start_time, $tz);
+                    $schedEnd = \Carbon\Carbon::parse($anchorDate.' '.$r->end_time, $tz);
+                    if ((int) $r->end_next_day === 1) {
+                        $schedEnd->addDay();
+                    }
+
+                    if ($timeIn->between($schedStart, $schedEnd, true)) {
+                        $matchedSched = (object) [
+                            'start' => $schedStart,
+                            'end' => $schedEnd,
+                            'title' => $r->title,
+                            'id' => $r->schedId,
+                        ];
+                        $effective['early_login_mins'] = $resolveMins($r->us_early_login_mins, $r->ts_early_login_mins, 0);
+                        $effective['early_clockin_mins'] = $resolveMins($r->us_early_clockin_mins, $r->ts_early_clockin_mins, 5);
+                        $effective['grace_clockout_mins'] = $resolveMins($r->us_grace_clockout_mins, $r->ts_grace_clockout_mins, 180);
+                        break;
+                    }
                 }
+            }
 
-                $schedStart = \Carbon\Carbon::parse($anchorDate.' '.$r->start_time, $tz);
-                $schedEnd = \Carbon\Carbon::parse($anchorDate.' '.$r->end_time, $tz);
-                if ((int) $r->end_next_day === 1) {
-                    $schedEnd->addDay();
+            // 4) Compute grace, caps, and early/OT info
+            $GRACE_DEFAULT = 180; // mins, only if no schedule
+            $effGrace = $matchedSched ? ($effective['grace_clockout_mins'] ?? $GRACE_DEFAULT) : $GRACE_DEFAULT;
+
+            // If we found a schedule, compute deltas w.r.t. scheduled end
+            $earlyOutMins = null;  // positive means minutes early
+            $overTimeMins = null;  // positive means minutes over (beyond end)
+            $autoCutoff = null;  // end + grace
+
+            if ($matchedSched) {
+                $delta = $now->diffInMinutes($matchedSched->end, false); // >0 before end; <0 after end
+                if ($delta > 0) {
+                    $earlyOutMins = $delta;               // user leaves early
+                } elseif ($delta < 0) {
+                    $overTimeMins = abs($delta);          // user leaves after end
                 }
+                $autoCutoff = $matchedSched->end->copy()->addMinutes($effGrace);
+            }
 
-                if ($timeIn->between($schedStart, $schedEnd, true)) {
-                    $matchedSched = (object) [
-                        'start' => $schedStart,
-                        'end' => $schedEnd,
-                        'title' => $r->title,
-                        'id' => $r->schedId,
-                    ];
-                    $effective['early_login_mins'] = $resolveMins($r->us_early_login_mins, $r->ts_early_login_mins, 0);
-                    $effective['early_clockin_mins'] = $resolveMins($r->us_early_clockin_mins, $r->ts_early_clockin_mins, 5);
-                    $effective['grace_clockout_mins'] = $resolveMins($r->us_grace_clockout_mins, $r->ts_grace_clockout_mins, 180);
-                    break;
+            // Dynamic hard cap when there is no schedule (TimeIn + 8h + grace by default)
+            $scheduledDurationMinutes = $matchedSched
+                ? $matchedSched->start->diffInMinutes($matchedSched->end, false)
+                : (8 * 60);
+            $HARD_MAX_SHIFT_MINUTES = $scheduledDurationMinutes + $effGrace;
+
+            // 5) Decide auto-clockout
+            $isAuto = false;
+            if ($matchedSched) {
+                $isAuto = $now->greaterThan($autoCutoff);
+            } else {
+                $isAuto = $timeIn->diffInMinutes($now) > $HARD_MAX_SHIFT_MINUTES;
+            }
+
+            // 6) Build notes (early/OT/auto) and update
+            $notes = [];
+
+            if ($matchedSched) {
+                if ($earlyOutMins !== null && $earlyOutMins > 0) {
+                    $notes[] = "Early clock-out ({$earlyOutMins} min before scheduled end)";
+                }
+                if ($overTimeMins !== null && $overTimeMins > 0) {
+                    $notes[] = "Overtime (+{$overTimeMins} min beyond scheduled end)";
+                }
+                if ($isAuto) {
+                    $notes[] = "IMS: Auto Clockout (exceeded scheduled window + {$effGrace} min grace)";
+                }
+            } else {
+                if ($isAuto) {
+                    $notes[] = "IMS: Auto Clockout (no schedule; exceeded hard cap {$HARD_MAX_SHIFT_MINUTES} min)";
                 }
             }
-        }
 
-        // 4) Compute grace, caps, and early/OT info
-        $GRACE_DEFAULT = 180; // mins, only if no schedule
-        $effGrace = $matchedSched ? ($effective['grace_clockout_mins'] ?? $GRACE_DEFAULT) : $GRACE_DEFAULT;
+            $update = ['TimeOut' => $now];
 
-        // If we found a schedule, compute deltas w.r.t. scheduled end
-        $earlyOutMins = null;  // positive means minutes early
-        $overTimeMins = null;  // positive means minutes over (beyond end)
-        $autoCutoff = null;  // end + grace
-
-        if ($matchedSched) {
-            $delta = $now->diffInMinutes($matchedSched->end, false); // >0 before end; <0 after end
-            if ($delta > 0) {
-                $earlyOutMins = $delta;               // user leaves early
-            } elseif ($delta < 0) {
-                $overTimeMins = abs($delta);          // user leaves after end
-            }
-            $autoCutoff = $matchedSched->end->copy()->addMinutes($effGrace);
-        }
-
-        // Dynamic hard cap when there is no schedule (TimeIn + 8h + grace by default)
-        $scheduledDurationMinutes = $matchedSched
-            ? $matchedSched->start->diffInMinutes($matchedSched->end, false)
-            : (8 * 60);
-        $HARD_MAX_SHIFT_MINUTES = $scheduledDurationMinutes + $effGrace;
-
-        // 5) Decide auto-clockout
-        $isAuto = false;
-        if ($matchedSched) {
-            $isAuto = $now->greaterThan($autoCutoff);
-        } else {
-            $isAuto = $timeIn->diffInMinutes($now) > $HARD_MAX_SHIFT_MINUTES;
-        }
-
-        // 6) Build notes (early/OT/auto) and update
-        $notes = [];
-
-        if ($matchedSched) {
-            if ($earlyOutMins !== null && $earlyOutMins > 0) {
-                $notes[] = "Early clock-out ({$earlyOutMins} min before scheduled end)";
-            }
-            if ($overTimeMins !== null && $overTimeMins > 0) {
-                $notes[] = "Overtime (+{$overTimeMins} min beyond scheduled end)";
-            }
-            if ($isAuto) {
-                $notes[] = "IMS: Auto Clockout (exceeded scheduled window + {$effGrace} min grace)";
-            }
-        } else {
-            if ($isAuto) {
-                $notes[] = "IMS: Auto Clockout (no schedule; exceeded hard cap {$HARD_MAX_SHIFT_MINUTES} min)";
-            }
-        }
-
-        $update = ['TimeOut' => $now];
-
-        if (! empty($notes)) {
-            $joined = implode(' • ', $notes);
-            $quoted = DB::getPdo()->quote($joined);
-            $update['systemNotes'] = DB::raw(
-                "CASE WHEN systemNotes IS NULL OR systemNotes = '' 
+            if (! empty($notes)) {
+                $joined = implode(' • ', $notes);
+                $quoted = DB::getPdo()->quote($joined);
+                $update['systemNotes'] = DB::raw(
+                    "CASE WHEN systemNotes IS NULL OR systemNotes = '' 
                   THEN {$quoted}
                   ELSE CONCAT(systemNotes, '\n', {$quoted})
              END"
-            );
+                );
+            }
+
+            DB::table('tblemployeeclocks')->where('ID', $open->ID)->update($update);
+
+            $this->userLogService->log('Clockout');
+
+            $uname = Auth::user()->username;
+            $currentDatetimeStr = $now->format('Y-m-d H:i:s');
+            $this->sendClockinMail($uname, $currentDatetimeStr, 'Clock Out');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Clocked out at '.$now->format('h:i A').' (LA)'.($isAuto ? ' • Auto-clockout noted' : ''),
+                'meta' => [
+                    'scheduledStart' => $matchedSched ? $matchedSched->start->toDateTimeString() : null,
+                    'scheduledEnd' => $matchedSched ? $matchedSched->end->toDateTimeString() : null,
+                    'effective' => $effective,
+                    'graceMinutesUsed' => $effGrace,
+                    'hardMaxMinutes' => $HARD_MAX_SHIFT_MINUTES,
+                    'earlyOutMins' => $earlyOutMins,
+                    'overTimeMins' => $overTimeMins,
+                    'auto' => $isAuto,
+                ],
+            ], 200, [], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        } catch (\Exception $e) {
+            \Log::error('ClockIn error: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Clock-in failed: '.$e->getMessage(),
+            ], 500, [], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         }
 
-        DB::table('tblemployeeclocks')->where('ID', $open->ID)->update($update);
-
-        $this->userLogService->log('Clockout');
-
-        $uname = Auth::user()->username;
-        $currentDatetimeStr = $now->format('Y-m-d H:i:s');
-        $this->sendClockinMail($uname, $currentDatetimeStr, 'Clock Out');
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Clocked out at '.$now->format('h:i A').' (LA)'.($isAuto ? ' • Auto-clockout noted' : ''),
-            'meta' => [
-                'scheduledStart' => $matchedSched ? $matchedSched->start->toDateTimeString() : null,
-                'scheduledEnd' => $matchedSched ? $matchedSched->end->toDateTimeString() : null,
-                'effective' => $effective,            // echo mins that affected behavior
-                'graceMinutesUsed' => $effGrace,
-                'hardMaxMinutes' => $HARD_MAX_SHIFT_MINUTES,
-                'earlyOutMins' => $earlyOutMins,
-                'overTimeMins' => $overTimeMins,
-                'auto' => $isAuto,
-            ],
-        ]);
     }
 
     /**
@@ -1626,127 +1646,128 @@ class AttendanceController extends Controller
         ]);
     }
 
-public function getAllUsersAttendanceToday(Request $request)
-{
-    try {
-        // ✅ Fixed validation syntax
-        $validated = $request->validate([
-            'status' => 'nullable|string|in:clocked_in,clocked_out,absent,',
-            'account' => 'nullable|string|in:PH,US,'
-        ]);
+    public function getAllUsersAttendanceToday(Request $request)
+    {
+        try {
+            // ✅ Fixed validation syntax
+            $validated = $request->validate([
+                'status' => 'nullable|string|in:clocked_in,clocked_out,absent,',
+                'account' => 'nullable|string|in:PH,US,',
+            ]);
 
-        // ✅ Explicitly set to US Eastern Time
-        $tz = 'America/Los_Angeles'; 
-        $todayUS = Carbon::today($tz)->toDateString();
-        
-        $query = DB::table('tblemployeeclocks')
-            ->join('tbluser', 'tblemployeeclocks.userid', '=', 'tbluser.id')
-            ->select(
-                'tblemployeeclocks.ID as id',
-                'tblemployeeclocks.userid',
-                'tblemployeeclocks.Employee as employee_name',
-                'tblemployeeclocks.TimeIn as time_in',
-                'tblemployeeclocks.TimeOut as time_out',
-                'tblemployeeclocks.Notes as notes',
-                'tblemployeeclocks.schedID as scheduleid',
-                'tblemployeeclocks.DateToday as date_today',
-                'tbluser.username',
-                'tbluser.accounttype', 
-                'tbluser.profile_picture',
-                DB::raw('TIMESTAMPDIFF(MINUTE, tblemployeeclocks.TimeIn, tblemployeeclocks.TimeOut) as duration_minutes'),
-                DB::raw('DATE(tblemployeeclocks.TimeIn) as date')
-            )
-            // ✅ Use the US-calculated date for the filter
-            ->whereRaw('DATE(tblemployeeclocks.TimeIn) = ?', [$todayUS]);
+            // ✅ Explicitly set to US Eastern Time
+            $tz = 'America/Los_Angeles';
+            $todayUS = Carbon::today($tz)->toDateString();
 
-        // ✅ Apply account type filter
-        if (!empty($validated['account'])) {
-            $query->where('tbluser.accounttype', $validated['account']);
-        }
+            $query = DB::table('tblemployeeclocks')
+                ->join('tbluser', 'tblemployeeclocks.userid', '=', 'tbluser.id')
+                ->select(
+                    'tblemployeeclocks.ID as id',
+                    'tblemployeeclocks.userid',
+                    'tblemployeeclocks.Employee as employee_name',
+                    'tblemployeeclocks.TimeIn as time_in',
+                    'tblemployeeclocks.TimeOut as time_out',
+                    'tblemployeeclocks.Notes as notes',
+                    'tblemployeeclocks.schedID as scheduleid',
+                    'tblemployeeclocks.DateToday as date_today',
+                    'tbluser.username',
+                    'tbluser.accounttype',
+                    'tbluser.profile_picture',
+                    DB::raw('TIMESTAMPDIFF(MINUTE, tblemployeeclocks.TimeIn, tblemployeeclocks.TimeOut) as duration_minutes'),
+                    DB::raw('DATE(tblemployeeclocks.TimeIn) as date')
+                )
+                // ✅ Use the US-calculated date for the filter
+                ->whereRaw('DATE(tblemployeeclocks.TimeIn) = ?', [$todayUS]);
 
-        $attendanceRecords = $query->orderBy('tblemployeeclocks.TimeIn', 'desc')->get();
-
-        $formattedData = $attendanceRecords->map(function ($record) use ($tz) {
-            // Parse UTC from DB and convert to US Eastern
-            $timeIn = $record->time_in ? Carbon::parse($record->time_in, 'UTC')->timezone($tz) : null;
-            $timeOut = $record->time_out ? Carbon::parse($record->time_out, 'UTC')->timezone($tz) : null;
-            
-            $status = 'clocked_out';
-            if ($timeIn && !$timeOut) {
-                $status = 'clocked_in';
-            } elseif (!$timeIn) {
-                $status = 'absent';
+            // ✅ Apply account type filter
+            if (! empty($validated['account'])) {
+                $query->where('tbluser.accounttype', $validated['account']);
             }
 
-            // ✅ Calculate formatted duration
-            $duration = null;
-            $durationFormatted = null;
-            
-            if ($timeIn && $timeOut && $record->duration_minutes) {
-                $duration = $record->duration_minutes;
-                $hours = floor($duration / 60);
-                $minutes = $duration % 60;
-                
-                if ($hours > 0 && $minutes > 0) {
-                    $durationFormatted = "{$hours}h {$minutes}m";
-                } elseif ($hours > 0) {
-                    $durationFormatted = "{$hours}h";
-                } else {
-                    $durationFormatted = "{$minutes}m";
+            $attendanceRecords = $query->orderBy('tblemployeeclocks.TimeIn', 'desc')->get();
+
+            $formattedData = $attendanceRecords->map(function ($record) use ($tz) {
+                // Parse UTC from DB and convert to US Eastern
+                $timeIn = $record->time_in ? Carbon::parse($record->time_in, 'UTC')->timezone($tz) : null;
+                $timeOut = $record->time_out ? Carbon::parse($record->time_out, 'UTC')->timezone($tz) : null;
+
+                $status = 'clocked_out';
+                if ($timeIn && ! $timeOut) {
+                    $status = 'clocked_in';
+                } elseif (! $timeIn) {
+                    $status = 'absent';
                 }
+
+                // ✅ Calculate formatted duration
+                $duration = null;
+                $durationFormatted = null;
+
+                if ($timeIn && $timeOut && $record->duration_minutes) {
+                    $duration = $record->duration_minutes;
+                    $hours = floor($duration / 60);
+                    $minutes = $duration % 60;
+
+                    if ($hours > 0 && $minutes > 0) {
+                        $durationFormatted = "{$hours}h {$minutes}m";
+                    } elseif ($hours > 0) {
+                        $durationFormatted = "{$hours}h";
+                    } else {
+                        $durationFormatted = "{$minutes}m";
+                    }
+                }
+
+                return [
+                    'id' => $record->id,
+                    'userid' => $record->userid,
+                    'employee_name' => $record->employee_name,
+                    'username' => $record->username,
+                    'profile_picture' => $record->profile_picture,
+                    'accounttype' => $record->accounttype,
+                    'scheduleid' => $record->scheduleid,
+                    'time_in' => $record->time_in,
+                    'time_out' => $record->time_out,
+                    'time_in_full' => $timeIn ? $timeIn->format('m-d-Y H:i:s') : null,
+                    'time_out_full' => $timeOut ? $timeOut->format('m-d-Y H:i:s') : null,
+                    'duration_minutes' => $duration,
+                    'duration' => $durationFormatted,
+                    'notes' => $record->notes,
+                    'status' => $status,
+                    'date' => $record->date,
+                    'date_today' => $record->date_today,
+                ];
+            });
+
+            // ✅ Calculate unique user counts based on LATEST record per user
+            $latestRecordsByUser = $formattedData->groupBy('userid')->map(function ($userRecords) {
+                // Get the latest record for this user (first one since already ordered by TimeIn desc)
+                return $userRecords->first();
+            });
+
+            $currentlyClockedInCount = $latestRecordsByUser->where('status', 'clocked_in')->count();
+            $currentlyClockedOutCount = $latestRecordsByUser->where('status', 'clocked_out')->count();
+
+            // ✅ Apply status filter after mapping (since status is calculated)
+            if (! empty($validated['status'])) {
+                $formattedData = $formattedData->where('status', $validated['status']);
             }
 
-            return [
-                'id' => $record->id,
-                'userid' => $record->userid,
-                'employee_name' => $record->employee_name,
-                'username' => $record->username,
-                'profile_picture' => $record->profile_picture,
-                'accounttype' => $record->accounttype,
-                'scheduleid' => $record->scheduleid,
-                'time_in' => $record->time_in,
-                'time_out' => $record->time_out,
-                'time_in_full' => $timeIn ? $timeIn->format('m-d-Y H:i:s') : null,
-                'time_out_full' => $timeOut ? $timeOut->format('m-d-Y H:i:s') : null,
-                'duration_minutes' => $duration,
-                'duration' => $durationFormatted,
-                'notes' => $record->notes,
-                'status' => $status,
-                'date' => $record->date,
-                'date_today' => $record->date_today,
-            ];
-        });
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'records' => $formattedData->values(),
+                    'summary' => [
+                        'total' => $latestRecordsByUser->count(),
+                        'clocked_in' => $currentlyClockedInCount,
+                        'clocked_out' => $currentlyClockedOutCount,
+                    ],
+                ],
+                'message' => "Today's US Attendance ($todayUS) retrieved successfully",
+            ]);
 
-        // ✅ Calculate unique user counts based on LATEST record per user
-        $latestRecordsByUser = $formattedData->groupBy('userid')->map(function ($userRecords) {
-            // Get the latest record for this user (first one since already ordered by TimeIn desc)
-            return $userRecords->first();
-        });
+        } catch (\Exception $e) {
+            Log::error('Attendance Error: '.$e->getMessage());
 
-        $currentlyClockedInCount = $latestRecordsByUser->where('status', 'clocked_in')->count();
-        $currentlyClockedOutCount = $latestRecordsByUser->where('status', 'clocked_out')->count();
-
-        // ✅ Apply status filter after mapping (since status is calculated)
-        if (!empty($validated['status'])) {
-            $formattedData = $formattedData->where('status', $validated['status']);
+            return response()->json(['success' => false, 'message' => 'Failed to retrieve records'], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'records' => $formattedData->values(),
-                'summary' => [
-                    'total' => $latestRecordsByUser->count(),
-                    'clocked_in' => $currentlyClockedInCount,
-                    'clocked_out' => $currentlyClockedOutCount,
-                ]
-            ],
-            'message' => "Today's US Attendance ($todayUS) retrieved successfully",
-        ]);
-
-    } catch (\Exception $e) {
-        Log::error('Attendance Error: ' . $e->getMessage());
-        return response()->json(['success' => false, 'message' => 'Failed to retrieve records'], 500);
     }
-}
 }

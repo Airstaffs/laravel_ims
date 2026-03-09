@@ -662,6 +662,7 @@ class LoginController extends Controller
                 'work_email' => $profile->work_email ?? ($user->email ?? ''),
                 'contact_phone' => $profile->contact_phone ?? '',
                 'birthdate' => $profile->birthdate ?? '',
+                'hire_date' => $profile->hire_date ?? '',
                 'address' => $profile->address ?? '',
                 'ice_name' => $profile->ice_name ?? '',
                 'ice_relationship' => $profile->ice_relationship ?? '',
