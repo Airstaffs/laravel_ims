@@ -24,20 +24,21 @@ class AttendanceController extends Controller
     }
 
     // ============================================================
-    // UTF-8 SAFETY HELPERS
+    // UTF-8 SAFETY HELPERS — BYPASSES Laravel's JsonResponse
     // ============================================================
 
     /**
      * Recursively clean all strings in a value to valid UTF-8.
-     * This prevents "Malformed UTF-8" errors during json_encode.
      */
     private function deepCleanUtf8($value)
     {
         if (is_string($value)) {
-            // Remove invalid UTF-8 sequences
+            // Force valid UTF-8, strip invalid sequences
             $value = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
             // Strip null bytes
             $value = str_replace("\0", '', $value);
+            // Extra safety: remove any remaining non-UTF8 via regex
+            $value = preg_replace('/[^\x20-\x7E\x0A\x0D\xC0-\xFD][\x80-\xBF]*/u', '', $value) ?? $value;
             return $value;
         }
 
@@ -45,9 +46,15 @@ class AttendanceController extends Controller
             return array_map([$this, 'deepCleanUtf8'], $value);
         }
 
+        if ($value instanceof \Illuminate\Support\Collection) {
+            return $value->map([$this, 'deepCleanUtf8'])->toArray();
+        }
+
         if (is_object($value)) {
-            foreach (get_object_vars($value) as $k => $v) {
-                $value->$k = $this->deepCleanUtf8($v);
+            // Convert stdClass / Eloquent models etc. to array first
+            $arr = json_decode(json_encode($value, JSON_INVALID_UTF8_SUBSTITUTE), true);
+            if (is_array($arr)) {
+                return array_map([$this, 'deepCleanUtf8'], $arr);
             }
             return $value;
         }
@@ -56,19 +63,41 @@ class AttendanceController extends Controller
     }
 
     /**
-     * Return a JSON response with all strings sanitized to valid UTF-8.
-     * Use this instead of response()->json() throughout this controller.
+     * CRITICAL FIX: Bypass Laravel's response()->json() entirely.
+     * 
+     * Laravel's JsonResponse uses json_encode() WITHOUT the 
+     * JSON_INVALID_UTF8_SUBSTITUTE flag, so it throws an exception
+     * if ANY string in the payload has bad UTF-8 bytes.
+     * 
+     * This method:
+     *   1) Deep-cleans all strings to valid UTF-8
+     *   2) Calls json_encode() directly with safe flags
+     *   3) Returns a raw Response (not JsonResponse)
      */
-    private function safeJsonResponse(array $data, int $status = 200): \Illuminate\Http\JsonResponse
+    private function safeJsonResponse(array $data, int $status = 200): \Illuminate\Http\Response
     {
+        // Step 1: Deep clean all strings
         $cleaned = $this->deepCleanUtf8($data);
 
-        return response()->json(
-            $cleaned,
-            $status,
-            [],
-            JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
-        );
+        // Step 2: Encode with substitute flag (never throws on bad UTF-8)
+        $json = json_encode($cleaned, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+
+        // Step 3: Fallback if json_encode still somehow fails
+        if ($json === false) {
+            $fallbackError = json_last_error_msg();
+            \Log::error('safeJsonResponse: json_encode failed even after cleaning: ' . $fallbackError);
+            
+            $json = json_encode([
+                'success' => false,
+                'message' => 'Server response encoding error. Please contact support.',
+                'debug_error' => $fallbackError,
+            ]);
+            $status = 500;
+        }
+
+        // Step 4: Return raw Response with JSON headers (bypasses Laravel JsonResponse)
+        return response($json, $status)
+            ->header('Content-Type', 'application/json; charset=UTF-8');
     }
 
     /**
@@ -77,7 +106,9 @@ class AttendanceController extends Controller
     private function safeStr(?string $value): string
     {
         if ($value === null) return '';
-        return mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+        $value = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+        $value = str_replace("\0", '', $value);
+        return $value;
     }
 
     /**
@@ -85,7 +116,7 @@ class AttendanceController extends Controller
      */
     private function safeExceptionMessage(\Exception $e): string
     {
-        return mb_convert_encoding($e->getMessage(), 'UTF-8', 'UTF-8');
+        return $this->safeStr($e->getMessage());
     }
 
     // ============================================================
@@ -232,9 +263,10 @@ class AttendanceController extends Controller
 
             $mail->send();
 
-            return response()->json(['success' => true, 'message' => 'Emails sent']);
+            return true;
         } catch (Exception $e) {
-            return response()->json(['success' => false, 'message' => "Mailer Error: {$mail->ErrorInfo}"]);
+            \Log::warning('Mail send failed: ' . $mail->ErrorInfo);
+            return false;
         }
     }
 
@@ -407,8 +439,8 @@ class AttendanceController extends Controller
                         'message' => 'Too early to clock in. Earliest allowed: ' .
                             $tooEarly['allowedAt']->format('h:i A') .
                             ' (LA). Your shift: ' . $tooEarly['start']->format('h:i A') .
-                            ' – ' . $tooEarly['end']->format('h:i A') .
-                            ($tooEarly['title'] ? (' • ' . $tooEarly['title']) : ''),
+                            ' - ' . $tooEarly['end']->format('h:i A') .
+                            ($tooEarly['title'] ? (' | ' . $tooEarly['title']) : ''),
                         'meta' => [
                             'allowedAt' => $tooEarly['allowedAt']->toDateTimeString(),
                             'schedule'  => [
@@ -450,31 +482,41 @@ class AttendanceController extends Controller
                 'day_status' => $day['status'],
                 'holidayID'  => $day['holidayID'],
                 'schedId'    => $match->schedId ?? null,
-                'Notes'      => ($safeTitle ? ('Matched schedule: ' . $safeTitle . ' • ') : '')
+                'Notes'      => ($safeTitle ? ('Matched schedule: ' . $safeTitle . ' | ') : '')
                     . 'early_clockin_mins=' . $effective['early_clockin_mins'],
             ]);
 
             $this->userLogService->log('Clockin');
-            $this->sendClockinMail($uname, $currentDatetimeStr, 'Clock In');
+
+            // Send mail (non-blocking - don't let mail failure break clockin)
+            try {
+                $this->sendClockinMail($uname, $currentDatetimeStr, 'Clock In');
+            } catch (\Exception $mailEx) {
+                \Log::warning('ClockIn mail failed: ' . $mailEx->getMessage());
+            }
 
             // SMS
             $phone = '+19163705657';
-            $smsResult = null;
-            $smsData   = null;
+            $smsData = null;
 
             if ($phone) {
-                $smsBody = "Hi {$uname} clocked in at " . $now->format('h:i A') . ' (LA). Test Value Rawr';
-                $smsResult = $this->twilioService->sendSystemSms($phone, $smsBody);
+                try {
+                    $smsBody = "Hi {$uname} clocked in at " . $now->format('h:i A') . ' (LA). Test Value Rawr';
+                    $smsResult = $this->twilioService->sendSystemSms($phone, $smsBody);
 
-                if ($smsResult !== null) {
-                    $encoded = json_encode($smsResult, JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_UNICODE);
-                    $smsData = $encoded !== false ? json_decode($encoded, true) : null;
+                    if ($smsResult !== null) {
+                        $encoded = json_encode($smsResult, JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_UNICODE);
+                        $smsData = $encoded !== false ? json_decode($encoded, true) : null;
+                    }
+                } catch (\Exception $smsEx) {
+                    \Log::warning('ClockIn SMS failed: ' . $smsEx->getMessage());
+                    $smsData = ['error' => 'SMS send failed'];
                 }
             }
 
             return $this->safeJsonResponse([
                 'success' => true,
-                'message' => 'Clocked in at ' . $now->format('h:i A') . ' (LA) • ' . ($day['holidayTitle'] ?? ''),
+                'message' => 'Clocked in at ' . $now->format('h:i A') . ' (LA) | ' . ($day['holidayTitle'] ?? ''),
                 'meta'    => [
                     'holiday'  => $day['holidayTitle'] ?? '',
                     'date'     => $day['date'] ?? '',
@@ -495,7 +537,10 @@ class AttendanceController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('ClockIn error: ' . $e->getMessage());
+            \Log::error('ClockIn error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'userId' => Auth::id(),
+            ]);
 
             return $this->safeJsonResponse([
                 'success' => false,
@@ -701,14 +746,12 @@ class AttendanceController extends Controller
             $update = ['TimeOut' => $now];
 
             if (!empty($notes)) {
-                $joined = implode(' • ', $notes);
-                // Sanitize before inserting into DB
-                $joined = $this->safeStr($joined);
+                $joined = $this->safeStr(implode(' | ', $notes));
                 $quoted = DB::getPdo()->quote($joined);
                 $update['systemNotes'] = DB::raw(
                     "CASE WHEN systemNotes IS NULL OR systemNotes = '' 
                       THEN {$quoted}
-                      ELSE CONCAT(systemNotes, '\n', {$quoted})
+                      ELSE CONCAT(systemNotes, ' | ', {$quoted})
                  END"
                 );
             }
@@ -719,11 +762,17 @@ class AttendanceController extends Controller
 
             $uname              = $this->safeStr(Auth::user()->username);
             $currentDatetimeStr = $now->format('Y-m-d H:i:s');
-            $this->sendClockinMail($uname, $currentDatetimeStr, 'Clock Out');
+
+            // Send mail (non-blocking)
+            try {
+                $this->sendClockinMail($uname, $currentDatetimeStr, 'Clock Out');
+            } catch (\Exception $mailEx) {
+                \Log::warning('ClockOut mail failed: ' . $mailEx->getMessage());
+            }
 
             return $this->safeJsonResponse([
                 'success' => true,
-                'message' => 'Clocked out at ' . $now->format('h:i A') . ' (LA)' . ($isAuto ? ' • Auto-clockout noted' : ''),
+                'message' => 'Clocked out at ' . $now->format('h:i A') . ' (LA)' . ($isAuto ? ' | Auto-clockout noted' : ''),
                 'meta'    => [
                     'scheduledStart'    => $matchedSched ? $matchedSched->start->toDateTimeString() : null,
                     'scheduledEnd'      => $matchedSched ? $matchedSched->end->toDateTimeString()   : null,
@@ -737,7 +786,10 @@ class AttendanceController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('ClockOut error: ' . $e->getMessage());
+            \Log::error('ClockOut error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'userId' => Auth::id(),
+            ]);
 
             return $this->safeJsonResponse([
                 'success' => false,
@@ -801,7 +853,7 @@ class AttendanceController extends Controller
                 : $autoNote;
 
             $newSystemNotes = $existingSystemNotes
-                ? $existingSystemNotes . "\n" . $autoNote
+                ? $existingSystemNotes . ' | ' . $autoNote
                 : $autoNote;
 
             DB::table('tblemployeeclocks')
@@ -815,7 +867,12 @@ class AttendanceController extends Controller
             $this->userLogService->log('Auto Clockout: Record ID ' . $openRecord->ID . ' from ' . $timeIn->format('Y-m-d'));
 
             $uname = $this->safeStr(Auth::user()->username);
-            $this->sendClockinMail($uname, $autoClockOutTime->format('Y-m-d H:i:s'), 'Auto Clock Out');
+
+            try {
+                $this->sendClockinMail($uname, $autoClockOutTime->format('Y-m-d H:i:s'), 'Auto Clock Out');
+            } catch (\Exception $mailEx) {
+                \Log::warning('AutoClockOut mail failed: ' . $mailEx->getMessage());
+            }
 
             return $this->safeJsonResponse([
                 'success' => true,
@@ -827,7 +884,10 @@ class AttendanceController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('AutoClockOut error: ' . $e->getMessage());
+            \Log::error('AutoClockOut error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'userId' => Auth::id(),
+            ]);
 
             return $this->safeJsonResponse([
                 'success' => false,
@@ -842,50 +902,64 @@ class AttendanceController extends Controller
 
     public function updateComputedHours(Request $request)
     {
-        $timeIn = Carbon::parse($request->timeIn)->setTimezone('America/Los_Angeles');
-        $timeOut = $request->timeOut
-            ? Carbon::parse($request->timeOut)->setTimezone('America/Los_Angeles')
-            : now()->setTimezone('America/Los_Angeles')->subHours(8);
+        try {
+            $timeIn = Carbon::parse($request->timeIn)->setTimezone('America/Los_Angeles');
+            $timeOut = $request->timeOut
+                ? Carbon::parse($request->timeOut)->setTimezone('America/Los_Angeles')
+                : now()->setTimezone('America/Los_Angeles')->subHours(8);
 
-        $totalMinutes = $timeIn->diffInMinutes($timeOut);
-        $hours = floor($totalMinutes / 60);
-        $minutes = $totalMinutes % 60;
+            $totalMinutes = $timeIn->diffInMinutes($timeOut);
+            $hours = floor($totalMinutes / 60);
+            $minutes = $totalMinutes % 60;
 
-        return $this->safeJsonResponse([
-            'hours' => $hours,
-            'minutes' => $minutes,
-            'message' => !$request->timeOut ? 'Calculated until now' : null,
-        ]);
+            return $this->safeJsonResponse([
+                'hours' => $hours,
+                'minutes' => $minutes,
+                'message' => !$request->timeOut ? 'Calculated until now' : null,
+            ]);
+        } catch (\Exception $e) {
+            return $this->safeJsonResponse([
+                'success' => false,
+                'message' => 'Failed to compute hours: ' . $this->safeExceptionMessage($e),
+            ], 500);
+        }
     }
 
     public function updateHours()
     {
-        $currentUserId = Auth::user()->id;
+        try {
+            $currentUserId = Auth::user()->id;
 
-        $todayHours = DB::table('tblemployeeclocks')
-            ->where('userid', $currentUserId)
-            ->whereDate('TimeIn', Carbon::today('America/Los_Angeles'))
-            ->sum(DB::raw('
-                TIMESTAMPDIFF(MINUTE, TimeIn, COALESCE(TimeOut, DATE_SUB(NOW(), INTERVAL 8 HOUR)))
-            '));
+            $todayHours = DB::table('tblemployeeclocks')
+                ->where('userid', $currentUserId)
+                ->whereDate('TimeIn', Carbon::today('America/Los_Angeles'))
+                ->sum(DB::raw('
+                    TIMESTAMPDIFF(MINUTE, TimeIn, COALESCE(TimeOut, DATE_SUB(NOW(), INTERVAL 8 HOUR)))
+                '));
 
-        $weekHours = DB::table('tblemployeeclocks')
-            ->where('userid', $currentUserId)
-            ->whereBetween('TimeIn', [
-                Carbon::now('America/Los_Angeles')->startOfWeek(),
-                Carbon::now('America/Los_Angeles')->endOfWeek(),
-            ])
-            ->sum(DB::raw('
-                TIMESTAMPDIFF(MINUTE, TimeIn, COALESCE(TimeOut, DATE_SUB(NOW(), INTERVAL 8 HOUR)))
-            '));
+            $weekHours = DB::table('tblemployeeclocks')
+                ->where('userid', $currentUserId)
+                ->whereBetween('TimeIn', [
+                    Carbon::now('America/Los_Angeles')->startOfWeek(),
+                    Carbon::now('America/Los_Angeles')->endOfWeek(),
+                ])
+                ->sum(DB::raw('
+                    TIMESTAMPDIFF(MINUTE, TimeIn, COALESCE(TimeOut, DATE_SUB(NOW(), INTERVAL 8 HOUR)))
+                '));
 
-        $todayHoursFormatted = sprintf('%d hrs %02d mins', intdiv($todayHours, 60), $todayHours % 60);
-        $weekHoursFormatted = sprintf('%d hrs %02d mins', intdiv($weekHours, 60), $weekHours % 60);
+            $todayHoursFormatted = sprintf('%d hrs %02d mins', intdiv($todayHours, 60), $todayHours % 60);
+            $weekHoursFormatted = sprintf('%d hrs %02d mins', intdiv($weekHours, 60), $weekHours % 60);
 
-        return $this->safeJsonResponse([
-            'todayHours' => $todayHoursFormatted,
-            'weekHours' => $weekHoursFormatted,
-        ]);
+            return $this->safeJsonResponse([
+                'todayHours' => $todayHoursFormatted,
+                'weekHours' => $weekHoursFormatted,
+            ]);
+        } catch (\Exception $e) {
+            return $this->safeJsonResponse([
+                'success' => false,
+                'message' => 'Failed to update hours: ' . $this->safeExceptionMessage($e),
+            ], 500);
+        }
     }
 
     // ============================================================
@@ -894,39 +968,46 @@ class AttendanceController extends Controller
 
     public function filterAttendanceAjax(Request $request)
     {
-        $currentUserId = Auth::user()->id;
+        try {
+            $currentUserId = Auth::user()->id;
 
-        $startDate = $request->input('start_date');
-        $endDate = $request->input('end_date');
+            $startDate = $request->input('start_date');
+            $endDate = $request->input('end_date');
 
-        $query = DB::table('tblemployeeclocks')
-            ->join('tbluser', 'tblemployeeclocks.userid', '=', 'tbluser.id')
-            ->select(
-                'tblemployeeclocks.ID as clock_id',
-                'tblemployeeclocks.userid as user_id',
-                'tblemployeeclocks.Employee as employee_name',
-                'tblemployeeclocks.TimeIn as time_in',
-                'tblemployeeclocks.TimeOut as time_out',
-                'tbluser.username as user_name'
-            )
-            ->where('tblemployeeclocks.userid', $currentUserId)
-            ->orderBy('tblemployeeclocks.TimeIn', 'desc');
+            $query = DB::table('tblemployeeclocks')
+                ->join('tbluser', 'tblemployeeclocks.userid', '=', 'tbluser.id')
+                ->select(
+                    'tblemployeeclocks.ID as clock_id',
+                    'tblemployeeclocks.userid as user_id',
+                    'tblemployeeclocks.Employee as employee_name',
+                    'tblemployeeclocks.TimeIn as time_in',
+                    'tblemployeeclocks.TimeOut as time_out',
+                    'tbluser.username as user_name'
+                )
+                ->where('tblemployeeclocks.userid', $currentUserId)
+                ->orderBy('tblemployeeclocks.TimeIn', 'desc');
 
-        if ($startDate) {
-            $query->whereDate('tblemployeeclocks.TimeIn', '>=', $startDate);
+            if ($startDate) {
+                $query->whereDate('tblemployeeclocks.TimeIn', '>=', $startDate);
+            }
+
+            if ($endDate) {
+                $query->whereDate('tblemployeeclocks.TimeIn', '<=', $endDate);
+            }
+
+            $employeeClocks = $query->limit(10)->get();
+
+            return $this->safeJsonResponse([
+                'employeeClocks' => $employeeClocks,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ]);
+        } catch (\Exception $e) {
+            return $this->safeJsonResponse([
+                'success' => false,
+                'message' => 'Failed to filter records: ' . $this->safeExceptionMessage($e),
+            ], 500);
         }
-
-        if ($endDate) {
-            $query->whereDate('tblemployeeclocks.TimeIn', '<=', $endDate);
-        }
-
-        $employeeClocks = $query->limit(10)->get();
-
-        return $this->safeJsonResponse([
-            'employeeClocks' => $employeeClocks,
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-        ]);
     }
 
     // ============================================================
@@ -935,26 +1016,33 @@ class AttendanceController extends Controller
 
     public function updateNotes(Request $request, $id)
     {
-        $validatedData = $request->validate([
-            'notes' => 'required|string|max:255',
-        ]);
-
-        $updated = DB::table('tblemployeeclocks')
-            ->where('ID', $id)
-            ->update(['Notes' => $validatedData['notes']]);
-
-        if ($updated) {
-            $this->userLogService->log('Save user time clock notes');
-
-            return $this->safeJsonResponse([
-                'success' => true,
-                'message' => 'Notes updated successfully.',
+        try {
+            $validatedData = $request->validate([
+                'notes' => 'required|string|max:255',
             ]);
-        } else {
+
+            $updated = DB::table('tblemployeeclocks')
+                ->where('ID', $id)
+                ->update(['Notes' => $validatedData['notes']]);
+
+            if ($updated) {
+                $this->userLogService->log('Save user time clock notes');
+
+                return $this->safeJsonResponse([
+                    'success' => true,
+                    'message' => 'Notes updated successfully.',
+                ]);
+            } else {
+                return $this->safeJsonResponse([
+                    'success' => false,
+                    'message' => 'Failed to update notes.',
+                ]);
+            }
+        } catch (\Exception $e) {
             return $this->safeJsonResponse([
                 'success' => false,
-                'message' => 'Failed to update notes.',
-            ]);
+                'message' => 'Failed to update notes: ' . $this->safeExceptionMessage($e),
+            ], 500);
         }
     }
 
@@ -1181,7 +1269,7 @@ class AttendanceController extends Controller
             // Auto-clockout at/after cap
             $autoClockedOut = false;
             if ($minsToCap <= 0) {
-                $safeNote = $this->safeStr('IMS: Auto Clockout (status watchdog)');
+                $safeNote = 'IMS: Auto Clockout (status watchdog)';
                 $quotedNote = DB::getPdo()->quote($safeNote);
 
                 $update = [
@@ -1189,7 +1277,7 @@ class AttendanceController extends Controller
                     'systemNotes' => DB::raw(
                         "CASE WHEN systemNotes IS NULL OR systemNotes = '' 
                           THEN {$quotedNote}
-                          ELSE CONCAT(systemNotes, '\n', {$quotedNote})
+                          ELSE CONCAT(systemNotes, ' | ', {$quotedNote})
                      END"
                     ),
                 ];
@@ -1221,7 +1309,10 @@ class AttendanceController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Status error: ' . $e->getMessage());
+            \Log::error('Status error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'userId' => Auth::id(),
+            ]);
 
             return $this->safeJsonResponse([
                 'success' => false,
@@ -1236,34 +1327,41 @@ class AttendanceController extends Controller
 
     public function start(Request $request)
     {
-        $userId = Auth::id();
+        try {
+            $userId = Auth::id();
 
-        return DB::transaction(function () use ($userId) {
-            $nowLA = Carbon::now(self::LA_TZ);
-            $row = $this->getOpenClockForUpdate($userId);
-            if (!$row) {
-                return $this->safeJsonResponse(['error' => 'No open shift.'], 422);
-            }
+            return DB::transaction(function () use ($userId) {
+                $nowLA = Carbon::now(self::LA_TZ);
+                $row = $this->getOpenClockForUpdate($userId);
+                if (!$row) {
+                    return $this->safeJsonResponse(['error' => 'No open shift.'], 422);
+                }
 
-            if (($row->shortbreak_status ?? null) === 'on_break') {
-                return $this->safeJsonResponse(['error' => 'Already on break.'], 409);
-            }
+                if (($row->shortbreak_status ?? null) === 'on_break') {
+                    return $this->safeJsonResponse(['error' => 'Already on break.'], 409);
+                }
 
-            $shiftDateLA = Carbon::parse($row->DateToday, self::LA_TZ);
-            $allowed = $this->resolveAllowedBreakMinutes($userId, $shiftDateLA);
-            $used = (float) ($row->shortbreak_totaltime ?? 0.0);
+                $shiftDateLA = Carbon::parse($row->DateToday, self::LA_TZ);
+                $allowed = $this->resolveAllowedBreakMinutes($userId, $shiftDateLA);
+                $used = (float) ($row->shortbreak_totaltime ?? 0.0);
 
-            if ($used >= $allowed) {
-                return $this->safeJsonResponse(['error' => 'No break time remaining.'], 409);
-            }
+                if ($used >= $allowed) {
+                    return $this->safeJsonResponse(['error' => 'No break time remaining.'], 409);
+                }
 
-            DB::table('tblemployeeclocks')->where('ID', $row->ID)->update([
-                'shortbreak_start' => $nowLA,
-                'shortbreak_status' => 'on_break',
-            ]);
+                DB::table('tblemployeeclocks')->where('ID', $row->ID)->update([
+                    'shortbreak_start' => $nowLA,
+                    'shortbreak_status' => 'on_break',
+                ]);
 
-            return $this->safeJsonResponse(['ok' => true]);
-        });
+                return $this->safeJsonResponse(['ok' => true]);
+            });
+        } catch (\Exception $e) {
+            \Log::error('Break start error: ' . $e->getMessage());
+            return $this->safeJsonResponse([
+                'error' => 'Failed to start break: ' . $this->safeExceptionMessage($e),
+            ], 500);
+        }
     }
 
     // ============================================================
@@ -1272,44 +1370,51 @@ class AttendanceController extends Controller
 
     public function end(Request $request)
     {
-        $userId = Auth::id();
+        try {
+            $userId = Auth::id();
 
-        return DB::transaction(function () use ($userId) {
-            $nowLA = Carbon::now(self::LA_TZ);
-            $row = $this->getOpenClockForUpdate($userId);
-            if (!$row) {
-                return $this->safeJsonResponse(['error' => 'No open shift.'], 422);
-            }
+            return DB::transaction(function () use ($userId) {
+                $nowLA = Carbon::now(self::LA_TZ);
+                $row = $this->getOpenClockForUpdate($userId);
+                if (!$row) {
+                    return $this->safeJsonResponse(['error' => 'No open shift.'], 422);
+                }
 
-            if (($row->shortbreak_status ?? null) !== 'on_break' || !$row->shortbreak_start) {
-                return $this->safeJsonResponse(['error' => 'Not currently on break.'], 409);
-            }
+                if (($row->shortbreak_status ?? null) !== 'on_break' || !$row->shortbreak_start) {
+                    return $this->safeJsonResponse(['error' => 'Not currently on break.'], 409);
+                }
 
-            $shiftDateLA = Carbon::parse($row->DateToday, self::LA_TZ);
-            $allowed = $this->resolveAllowedBreakMinutes($userId, $shiftDateLA);
+                $shiftDateLA = Carbon::parse($row->DateToday, self::LA_TZ);
+                $allowed = $this->resolveAllowedBreakMinutes($userId, $shiftDateLA);
 
-            $priorMin = (float) ($row->shortbreak_totaltime ?? 0.0);
-            $elapsedSec = max(0, Carbon::parse($row->shortbreak_start, self::LA_TZ)->diffInSeconds($nowLA));
-            $elapsedMin = $elapsedSec / 60.0;
+                $priorMin = (float) ($row->shortbreak_totaltime ?? 0.0);
+                $elapsedSec = max(0, Carbon::parse($row->shortbreak_start, self::LA_TZ)->diffInSeconds($nowLA));
+                $elapsedMin = $elapsedSec / 60.0;
 
-            $newTotal = $priorMin + $elapsedMin;
-            $clamped = min($newTotal, (float) $allowed);
+                $newTotal = $priorMin + $elapsedMin;
+                $clamped = min($newTotal, (float) $allowed);
 
-            $effectiveEnd = $nowLA;
-            if ($clamped < $newTotal) {
-                $extraMin = max(0.0, $clamped - $priorMin);
-                $effectiveEnd = Carbon::parse($row->shortbreak_start, self::LA_TZ)
-                    ->copy()->addSeconds((int) round($extraMin * 60));
-            }
+                $effectiveEnd = $nowLA;
+                if ($clamped < $newTotal) {
+                    $extraMin = max(0.0, $clamped - $priorMin);
+                    $effectiveEnd = Carbon::parse($row->shortbreak_start, self::LA_TZ)
+                        ->copy()->addSeconds((int) round($extraMin * 60));
+                }
 
-            DB::table('tblemployeeclocks')->where('ID', $row->ID)->update([
-                'shortbreak_end' => $effectiveEnd,
-                'shortbreak_totaltime' => $clamped,
-                'shortbreak_status' => ($clamped >= (float) $allowed) ? 'done' : 'idle',
-            ]);
+                DB::table('tblemployeeclocks')->where('ID', $row->ID)->update([
+                    'shortbreak_end' => $effectiveEnd,
+                    'shortbreak_totaltime' => $clamped,
+                    'shortbreak_status' => ($clamped >= (float) $allowed) ? 'done' : 'idle',
+                ]);
 
-            return $this->safeJsonResponse(['ok' => true]);
-        });
+                return $this->safeJsonResponse(['ok' => true]);
+            });
+        } catch (\Exception $e) {
+            \Log::error('Break end error: ' . $e->getMessage());
+            return $this->safeJsonResponse([
+                'error' => 'Failed to end break: ' . $this->safeExceptionMessage($e),
+            ], 500);
+        }
     }
 
     // ============================================================
@@ -1520,7 +1625,10 @@ class AttendanceController extends Controller
             return $this->safeJsonResponse(['ym' => $ym, 'byDate' => $byDate]);
 
         } catch (\Exception $e) {
-            \Log::error('Month schedule error: ' . $e->getMessage());
+            \Log::error('Month schedule error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'userId' => Auth::id(),
+            ]);
 
             return $this->safeJsonResponse([
                 'success' => false,
@@ -1614,7 +1722,10 @@ class AttendanceController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('GetProfileData error: ' . $e->getMessage());
+            \Log::error('GetProfileData error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'userId' => Auth::id(),
+            ]);
 
             return $this->safeJsonResponse([
                 'success' => false,
@@ -1737,7 +1848,9 @@ class AttendanceController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Attendance Error: ' . $e->getMessage());
+            Log::error('Attendance Error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
 
             return $this->safeJsonResponse([
                 'success' => false,
@@ -1747,7 +1860,7 @@ class AttendanceController extends Controller
     }
 
     // ============================================================
-    // LEGACY HELPER (kept for compatibility)
+    // LEGACY HELPER
     // ============================================================
 
     private function quote(string $s): string
