@@ -72,12 +72,7 @@
             scanner-title="Received Scanner"
             storage-prefix="received"
             :enable-camera="currentStep >= 1"
-            :display-fields="[
-                'Trackingnumber',
-                'Serials',
-                'PCN',
-                'Basket',
-            ]"
+            :display-fields="['Trackingnumber', 'Serials', 'PCN', 'Basket']"
             :api-endpoint="'/api/received/process-scan'"
             :hide-button="true"
             @process-scan="handleScanProcess"
@@ -164,24 +159,35 @@
 
                     <!-- Optional helper text -->
                     <p v-if="!scannerHasCapturedImage" class="text-sm mt-2">
-                        📸 Please capture at least 3 images before passing or failing.
+                        📸 Please capture at least 3 images before passing or
+                        failing.
                     </p>
 
                     <!-- ✅ Modal viewer for thumbnails -->
                 </div>
 
                 <!-- ✅ Steps 3–7: Serial Inputs (max 5) -->
-                <div class="input-group" v-if="currentStep >= 3 && currentStep <= 7">
+                <div
+                    class="input-group"
+                    v-if="currentStep >= 3 && currentStep <= 7"
+                >
                     <div class="label-wrap">
-                        <label>Serial Number {{ currentSerialIndex + 1 }}:</label>
+                        <label
+                            >Serial Number {{ currentSerialIndex + 1 }}:</label
+                        >
 
                         <div class="ai-switch-container">
-                        <span class="ai-label">AI Detection</span>
-                        <label class="ai-switch">
-                            <input type="checkbox" v-model="useAiDetection" />
-                            <span class="ai-slider"></span>
-                        </label>
-                        <span class="ai-status">{{ useAiDetection ? "ON" : "OFF" }}</span>
+                            <span class="ai-label">AI Detection</span>
+                            <label class="ai-switch">
+                                <input
+                                    type="checkbox"
+                                    v-model="useAiDetection"
+                                />
+                                <span class="ai-slider"></span>
+                            </label>
+                            <span class="ai-status">{{
+                                useAiDetection ? "ON" : "OFF"
+                            }}</span>
                         </div>
                     </div>
 
@@ -197,65 +203,76 @@
                         :class="{ 'is-dragging': isDragging }"
                     >
                         <p>
-                        Drag & drop an image here, or
-                        <span class="text-highlight">click to select</span>
+                            Drag & drop an image here, or
+                            <span class="text-highlight">click to select</span>
                         </p>
                         <input
-                        ref="fileInput"
-                        type="file"
-                        accept="image/*"
-                        class="hidden"
-                        @change="onFileChange"
-                        :disabled="loading"
+                            ref="fileInput"
+                            type="file"
+                            accept="image/*"
+                            class="hidden"
+                            @change="onFileChange"
+                            :disabled="loading"
                         />
                     </div>
 
                     <div v-if="imageUrl" class="uploaded-preview">
                         <img :src="imageUrl" alt="Uploaded preview" />
-                        <button class="clear-upload" @click="imageUrl = null">×</button>
+                        <button class="clear-upload" @click="imageUrl = null">
+                            ×
+                        </button>
                     </div>
 
                     <!-- OCR Results for current step -->
                     <div
                         v-if="
-                        apiResult['step' + currentStep] &&
-                        apiResult['step' + currentStep].serials &&
-                        apiResult['step' + currentStep].serials.length
+                            apiResult['step' + currentStep] &&
+                            apiResult['step' + currentStep].serials &&
+                            apiResult['step' + currentStep].serials.length
                         "
                         class="serial-results-wrapper-main"
                     >
-                        <p class="text-sm text-gray-500 mb-1">Detected Serials:</p>
+                        <p class="text-sm text-gray-500 mb-1">
+                            Detected Serials:
+                        </p>
 
                         <div
-                        v-for="(serial, idx) in apiResult['step' + currentStep].serials"
-                        :key="idx"
-                        class="mb-3 serial-results-wrapper"
+                            v-for="(serial, idx) in apiResult[
+                                'step' + currentStep
+                            ].serials"
+                            :key="idx"
+                            class="mb-3 serial-results-wrapper"
                         >
-                        <div class="flex items-center gap-2 serial-result-wrap">
-                            <div class="font-mono serial-result">{{ serial.text }}</div>
-                            <button
-                            class="px-2 py-1 bg-green-500 text-white rounded serial-btn"
-                            @click="saveSerial(serial.text)"
+                            <div
+                                class="flex items-center gap-2 serial-result-wrap"
                             >
-                            Save
-                            </button>
-                        </div>
+                                <div class="font-mono serial-result">
+                                    {{ serial.text }}
+                                </div>
+                                <button
+                                    class="px-2 py-1 bg-green-500 text-white rounded serial-btn"
+                                    @click="saveSerial(serial.text)"
+                                >
+                                    Save
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <input
-                    type="text"
-                    v-model="serialNumbers[currentSerialIndex]"
-                    :placeholder="`Scan Serial #${currentSerialIndex + 1}...`"
-                    @input="handleSerialTyping"
-                    :ref="`serialInput${currentSerialIndex + 1}`"
+                        type="text"
+                        v-model="serialNumbers[currentSerialIndex]"
+                        :placeholder="`Scan Serial #${currentSerialIndex + 1}...`"
+                        @input="handleSerialTyping"
+                        :ref="`serialInput${currentSerialIndex + 1}`"
                     />
 
                     <div class="process-buttons">
                         <button
                             v-if="showManualInput"
                             @click="triggerManualSerial"
-                            class="scan-button">
+                            class="scan-button"
+                        >
                             Save Serial
                         </button>
 
@@ -270,7 +287,10 @@
                         </button>
                     </div>
                     <p class="instruction-text">
-                        📸 Capture the serial image for Serial #{{ currentSerialIndex + 1 }} before continuing.
+                        📸 Capture the serial image for Serial #{{
+                            currentSerialIndex + 1
+                        }}
+                        before continuing.
                     </p>
                 </div>
 
@@ -1268,7 +1288,7 @@ export default {
                 clearTimeout(this._serialTimer);
 
                 this._serialTimer = setTimeout(() => {
-                this.processSerial();
+                    this.processSerial();
                 }, 150); // 150ms debounce for scanner
             }
         },
@@ -1284,16 +1304,12 @@ export default {
 
             // Wait until user stops typing
             this._serialTypingTimer = setTimeout(() => {
-
                 // Only auto proceed if still on same step
                 if (this.currentStep === idx + 3) {
-                this.processSerial();
+                    this.processSerial();
                 }
-
             }, 300); // 🔥 300ms pause = considered "finished typing"
-        }
-
-
+        },
     },
     beforeUnmount() {
         window.removeEventListener("resize", this.updatePricingView);
@@ -1359,8 +1375,6 @@ export default {
         currentSerialIndex() {
             return Math.max(0, Math.min(4, (this.currentStep || 3) - 3));
         },
-
-
     },
 };
 </script>
@@ -1570,5 +1584,69 @@ button.back-button {
     cursor: pointer;
     font-weight: bold;
     background-color: #f44336;
+}
+
+/* ── SweetAlert2 — Scanner duplicate-warning popups ── */
+.swal-scanner-popup {
+    font-family: inherit;
+    border-radius: 12px;
+    padding: 1.5rem;
+    max-width: 420px;
+}
+
+.swal-scanner-popup .swal2-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.swal-scanner-popup .swal2-html-container {
+    font-size: 0.9rem;
+    color: #374151;
+    text-align: left;
+    margin-top: 0.5rem;
+}
+
+.swal-scanner-popup .swal2-html-container p {
+    margin-bottom: 0.35rem;
+}
+
+.swal-scanner-popup .swal2-html-container .text-muted {
+    color: #6b7280;
+    font-size: 0.82rem;
+}
+
+/* Existing-record detail block */
+.swal-detail-block {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-left: 4px solid #f59e0b;
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    margin: 0.6rem 0;
+    font-size: 0.83rem;
+}
+
+.swal-detail-block p {
+    margin: 0.15rem 0;
+    color: #374151;
+}
+
+.swal-detail-block strong {
+    color: #111827;
+}
+
+/* Action buttons row */
+.swal-scanner-popup .swal2-actions {
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.swal-scanner-popup .swal2-confirm,
+.swal-scanner-popup .swal2-cancel {
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 6px;
+    padding: 0.45rem 1.1rem;
 }
 </style>
