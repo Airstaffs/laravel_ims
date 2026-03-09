@@ -134,12 +134,12 @@ class AttendanceController extends Controller
         ")
             ->first();
 
-        return [
-            'status' => $holiday ? ($holiday->status ?? 'Normal') : 'Normal',
-            'holidayID' => $holiday->holidayID ?? null,
-            'holidayTitle' => mb_convert_encoding($holiday->title ?? '', 'UTF-8', 'UTF-8'),
-            'date' => $laDate,
-        ];
+              return [
+                'status'       => $this->safeStr($holiday->status  ?? 'Normal'),
+                'holidayID'    => $holiday->holidayID ?? null,
+                'holidayTitle' => $this->safeStr($holiday->title   ?? ''),
+                'date'         => $laDate,
+            ];
     }
 
     public function sendClockinMail($user, $currentDatetimeStr, $action)
@@ -176,6 +176,13 @@ class AttendanceController extends Controller
             return response()->json(['success' => false, 'message' => "Mailer Error: {$mail->ErrorInfo}"]);
         }
     }
+
+ private function safeStr(?string $value): string
+{
+    if ($value === null) return '';
+    // Strip anything that's not valid UTF-8
+    return mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+}   
 
  public function clockIn(Request $request)
 {
