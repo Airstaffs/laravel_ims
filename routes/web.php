@@ -1096,3 +1096,9 @@ Route::get('/hr/dash/announcements/debug', function () {
             ->get()
     );
 });
+
+
+Route::get('/debug-charset', function () {
+    $result = DB::select("SHOW VARIABLES LIKE 'character_set_connection'");
+    return response()->json($result);
+});
