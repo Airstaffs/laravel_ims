@@ -4,11 +4,13 @@ import { SoundService } from "../../components/Sound_service";
 import "../../../css/modules.css";
 import "./returnscanner.css";
 import { DEFAULT_IMAGE } from "../../constant";
+import AmazonReturnsModal from "./modals/amazonreturnsmodal.vue";
+
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
     name: "ReturnScannerModule",
-    components: { ScannerComponent },
+    components: { ScannerComponent, AmazonReturnsModal },
     data() {
         return {
             inventory: [],
@@ -99,7 +101,9 @@ export default {
             currentPage: 1,
             totalRecords: 0,
             perPage: 10,
-            first: 0 //paginator internal state
+            first: 0, //paginator internal state
+
+            showAmazonReturnsModal: false,
         
         };
     },
@@ -128,6 +132,12 @@ export default {
         },
     },
     methods: {
+
+openAmazonReturnsModal() {
+    console.log("clicked amazon returns");
+    this.showAmazonReturnsModal = true;
+    console.log("modal state:", this.showAmazonReturnsModal);
+},
         
             handleShowDetailsModal(item) {
         this.item = item;

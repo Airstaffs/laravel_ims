@@ -1,13 +1,27 @@
 <template>
     <div class="vue-container return-module">
         <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
-            <TitlePage title="Return Scanner Module"
-                subtitle="View and manage the status of all incoming customer product returns for processing." />
-            <Button class="mx-4" @click="openScannerModal" severity="secondary" outlined label="Scan Items" size="small"
-                icon="pi pi-barcode" />
+            <TitlePage
+                title="Return Scanner Module"
+                subtitle="View and manage the status of all incoming customer product returns for processing."
+            />
 
-            <Button label="Amazon Returns" icon="pi pi-replay" class="p-button-warning"
-                @click="openAmazonReturnsModal" />
+            <Button
+                class="mx-4"
+                @click="openScannerModal"
+                severity="secondary"
+                outlined
+                label="Scan Items"
+                size="small"
+                icon="pi pi-barcode"
+            />
+
+            <Button
+                label="Amazon Returns"
+                icon="pi pi-replay"
+                class="p-button-warning"
+                @click="openAmazonReturnsModal"
+            />
         </div>
 
         <scanner-component scanner-title="Return Scanner" storage-prefix="returnscanner" :enable-camera="true"
@@ -367,8 +381,11 @@
             :ProductTitle="ProductTitle" :regularImages="regularImages" :capturedImages="capturedImages"
             :handleImageError="handleImageError" />
 
-        <AmazonReturnsModal v-model:visible="showAmazonReturnsModal" />
+
     </div>
+            <AmazonReturnsModal
+    v-model:visible="showAmazonReturnsModal"
+/>
 </template>
 
 <script>
@@ -381,6 +398,7 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
+
 
 const TABLE_COLUMNS = [
     { header: "Gallery", slot: "gallery", style: { width: "4rem", minWidth: "4rem" } },
