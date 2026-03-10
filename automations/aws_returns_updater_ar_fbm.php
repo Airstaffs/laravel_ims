@@ -27,7 +27,7 @@ $formattedDate = formatDateToISO8601($inputDate);
 $currentDate = date('Y-m-d H:i:s');
 
 // Generate a random number of days between 5 and 15
-$randomDays = rand(5, 40);
+$randomDays = rand(5, 20);
 $random = rand(0, 1);
 
 // Subtract 61 days from the current date

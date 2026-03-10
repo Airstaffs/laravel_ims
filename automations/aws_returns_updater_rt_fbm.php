@@ -27,7 +27,7 @@ $formattedDate = formatDateToISO8601($inputDate);
 $currentDate = date('Y-m-d H:i:s');
 
 // Generate a random number of days between 5 and 15
-$randomDays = rand(5, 40);
+$randomDays = rand(5, 20);
 $random = rand(0, 1);
 
 // Subtract 61 days from the current date
@@ -73,11 +73,11 @@ do {
 
     $status = fetchdetailsID($credentials, $accessToken, $nextToken = null, $path);
 
-    
+
     echo "<pre>";
     print_r($status);
     echo "</pre>";
-    
+
 
 } while ($status['processingStatus'] == 'IN_QUEUE' || $status['processingStatus'] == 'IN_PROGRESS');
 
@@ -92,7 +92,7 @@ if ($status['processingStatus'] == 'DONE') {
     if ($status['reportDocumentId'] && !empty($status['reportDocumentId'])) {
         $documentid = $status['reportDocumentId'];
         $path = "/reports/2021-06-30/documents/{$documentid}";
-        
+
 
         $restrictedResources = [
             [
@@ -109,22 +109,22 @@ if ($status['processingStatus'] == 'DONE') {
         $rdtResponse = fetchRestrictedDataToken($accessToken, $restrictedResources);
         echo "<br>RDT RESPONSE<br>";
         print_r($rdtResponse);
-    }    
-    
-     $data1 = fetchSuccessDetails($credentials, $rdtResponse, $accessToken, $jsonbody, $nextToken = null, $path);
-    
-     // $sheesh = json_encode($data1);
+    }
+
+    $data1 = fetchSuccessDetails($credentials, $rdtResponse, $accessToken, $jsonbody, $nextToken = null, $path);
+
+    // $sheesh = json_encode($data1);
     // echo "SHEEEEEEEEEEEEEEEEESH" . $sheesh;
     $compressionAlgorithm = $data1['compressionAlgorithm'] ?? "";
-    
+
     $url = $data1['url'];
-    
+
     $retrievedData = download($url, $compressionAlgorithm);
 
     $response = processRetrievedData($Connect, $retrievedData);
-    
+
     insertToDb($Connect, $response);
-    
+
     /*
     echo "<pre>";
     print_r($response);
@@ -141,7 +141,8 @@ if ($status['processingStatus'] == 'DONE') {
 //________________________________________________________________________________________________________________________________________________________________________________________________
 // function
 
-function fetchRestrictedDataToken($accessToken, $restrictedResources) {
+function fetchRestrictedDataToken($accessToken, $restrictedResources)
+{
     $postfields = json_encode([
         'restrictedResources' => $restrictedResources
     ]);
@@ -432,7 +433,7 @@ function fetchSuccessDetails($credentials, $rdtResponse, $accessToken, $jsonbody
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_HTTPGET, true);  // Set the request method to GET
-            
+
             $result = curl_exec($ch);
             $data = json_decode($result, true);
 
@@ -476,7 +477,8 @@ function fetchSuccessDetails($credentials, $rdtResponse, $accessToken, $jsonbody
     return $data;
 }
 
-function download($url, $compressionAlgorithm) {
+function download($url, $compressionAlgorithm)
+{
     // Initialize cURL session
     $ch = curl_init();
 
@@ -497,7 +499,7 @@ function download($url, $compressionAlgorithm) {
     if ($response === false) {
         return "Error: " . curl_error($ch);
     }
-    
+
     // Get HTTP status code
     $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
@@ -522,7 +524,8 @@ function download($url, $compressionAlgorithm) {
     return $retrievedData;
 }
 
-function processRetrievedData($Connect, $retrievedData) {
+function processRetrievedData($Connect, $retrievedData)
+{
 
     // Parse the XML data
     $xml = simplexml_load_string($retrievedData) or die("Error: Cannot create object");
@@ -577,7 +580,8 @@ function processRetrievedData($Connect, $retrievedData) {
     ];
 }
 
-function convertToLosAngelesTime($dateString) {
+function convertToLosAngelesTime($dateString)
+{
     if ($dateString) {
         $dt = new DateTime($dateString, new DateTimeZone('UTC'));
         $dt->setTimezone(new DateTimeZone('America/Los_Angeles'));
@@ -587,7 +591,8 @@ function convertToLosAngelesTime($dateString) {
 }
 
 
-function insertToDb($Connect, $response) {
+function insertToDb($Connect, $response)
+{
     echo "Sheesh<br>";
     echo "<pre>";
     print_r($response);
@@ -605,18 +610,18 @@ function insertToDb($Connect, $response) {
         $return_request_status = $details['return_request_status'] ?? NULL;
         $return_reason_code = $details['item_details']['return_reason_code'] ?? NULL;
         $return_system = "NEW";
-        $store_name = "Allrenewed";
+        $store_name = "Renovartech";
 
         $order_date_la = convertToLosAngelesTime($order_date);
         $return_request_date_la = convertToLosAngelesTime($return_request_date);
-    
+
         // Prepare the SQL query to count existing records
         $sql = "SELECT COUNT(*) as count FROM tblfbmreturns WHERE amazonOrderId = ? AND ASIN = ? AND MSKU = ?";
         $stmt = $Connect->prepare($sql);
         $stmt->bind_param("sss", $amazonOrderId, $ASIN, $MSKU);
         $stmt->execute();
         $result = $stmt->get_result();
-    
+
         if ($result) {
             $row = $result->fetch_assoc();
             $count = $row['count'];
@@ -625,7 +630,7 @@ function insertToDb($Connect, $response) {
             continue; // Skip to the next iteration if there is an error
         }
         $stmt->close();
-    
+
         if ($count > 0) {
             // Record exists, perform update
             $updateQuery = "UPDATE tblfbmreturns SET 
@@ -639,20 +644,22 @@ function insertToDb($Connect, $response) {
                 return_reason_code = ? 
                 WHERE amazonOrderId = ? AND ASIN = ? AND MSKU = ?";
             $stmt = $Connect->prepare($updateQuery);
-    
+
             // Use `NULL` explicitly if the value is not provided
-            $stmt->bind_param("sssssssssss", 
-                $order_date_la, 
-                $amazon_rma_id, 
-                $item_name, 
-                $return_type, 
-                $tracking_id, 
-                $return_request_date_la, 
-                $return_request_status, 
-                $return_reason_code, 
-                $amazonOrderId, 
-                $ASIN, 
-                $MSKU);
+            $stmt->bind_param(
+                "sssssssssss",
+                $order_date_la,
+                $amazon_rma_id,
+                $item_name,
+                $return_type,
+                $tracking_id,
+                $return_request_date_la,
+                $return_request_status,
+                $return_reason_code,
+                $amazonOrderId,
+                $ASIN,
+                $MSKU
+            );
             $stmt->execute();
             $stmt->close();
             echo "<br>Record updated successfully: Order ID $amazonOrderId, ASIN $ASIN, MSKU $MSKU<br>";
@@ -673,19 +680,20 @@ function insertToDb($Connect, $response) {
                 notif_status,
                 store_name ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             $stmt = $Connect->prepare($insertQuery);
-    
+
             // Use `NULL` explicitly if the value is not provided
-            $stmt->bind_param("sssssssssssss", 
-                $amazonOrderId, 
-                $order_date_la, 
-                $amazon_rma_id, 
-                $ASIN, 
-                $MSKU, 
-                $item_name, 
-                $return_type, 
-                $tracking_id, 
-                $return_request_date_la, 
-                $return_request_status, 
+            $stmt->bind_param(
+                "sssssssssssss",
+                $amazonOrderId,
+                $order_date_la,
+                $amazon_rma_id,
+                $ASIN,
+                $MSKU,
+                $item_name,
+                $return_type,
+                $tracking_id,
+                $return_request_date_la,
+                $return_request_status,
                 $return_reason_code,
                 $return_system,
                 $store_name
