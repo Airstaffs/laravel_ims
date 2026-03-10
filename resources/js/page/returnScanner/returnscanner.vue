@@ -46,7 +46,7 @@
                     <!-- SERIAL 1 INPUT -->
                     <div class="input-group">
                         <label>Serial Number: <span v-if="serial1CaptureComplete" class="capture-done-badge">✓ {{
-                                capturedImagesForSerial1.length }} imgs</span></label>
+                            capturedImagesForSerial1.length }} imgs</span></label>
                         <div class="input-with-action">
                             <input type="text" v-model="serialNumber" placeholder="Enter Serial Number..."
                                 @input="handleSerialInput" @keyup.enter="serialNumber ? proceedToImageCapture(1) : null"
@@ -278,7 +278,7 @@
                                 <img :src="'/images/thumbnails/' + item.img1" :alt="getDisplayTitle(item)"
                                     class="product-thumbnail clickable-image" @error="handleImageError($event)" />
                                 <div class="image-count-badge" v-if="countAllImages(item) > 0">+{{ countAllImages(item)
-                                    }}</div>
+                                }}</div>
                             </div>
                         </div>
                         <div class="mobile-return-info">
@@ -300,7 +300,7 @@
                                 class="mobile-detail-value">{{ item.warehouselocation || "Floor" }}</span></div>
                         <div class="mobile-detail-row"><span class="fw-semibold">Status:</span><span
                                 :class="['mobile-detail-value', 'status-badge', 'status-' + item.returnstatus]">{{
-                                formatStatus(item.returnstatus) }}</span></div>
+                                    formatStatus(item.returnstatus) }}</span></div>
                         <div class="mobile-detail-row"><span class="fw-semibold">Buyer:</span><span
                                 class="mobile-detail-value">{{ item.BuyerName || item.costumer_name || "Unknown"
                                 }}</span></div>
@@ -333,15 +333,15 @@
                                 item.storename || "") : "N/A" }}</span></div>
                         <div class="item-container"><span>Return ID: </span><span>{{ item.LPN || "N/A" }}</span></div>
                         <div class="item-container"><span>Return Date: </span><span>{{ formatDate(item.LPNDATE || null)
-                                }}</span></div>
+                        }}</span></div>
                         <div class="item-container"><span>Serial Number: </span><span>{{ item.serialnumber || "N/A"
-                                }}</span>
+                        }}</span>
                         </div>
                         <div class="item-container"><span>Second Serial: </span><span>{{ item.serialnumberb || "N/A"
-                                }}</span>
+                        }}</span>
                         </div>
                         <div class="item-container"><span>Location: </span><span>{{ item.warehouselocation || "Floor"
-                                }}</span>
+                        }}</span>
                         </div>
                         <div class="item-container"><span>Status: </span>
                             <Tag :value="item.returnstatus"
@@ -351,7 +351,7 @@
                         </div>
                         <div class="item-container"><span>ASIN: </span><span>{{ item.ASINviewer || "N/A" }}</span></div>
                         <div class="item-container"><span>Buyer: </span><span>{{ item.BuyerName || item.costumer_name ||
-                                "Unknown" }}</span></div>
+                            "Unknown" }}</span></div>
                     </div>
                 </div>
             </div>
@@ -366,6 +366,8 @@
         <ViewImageGalleryModal :showImageModal="showImageModal" :closeImageModal="closeImageModal"
             :ProductTitle="ProductTitle" :regularImages="regularImages" :capturedImages="capturedImages"
             :handleImageError="handleImageError" />
+
+        <AmazonReturnsModal v-model:visible="showAmazonReturnsModal" />
     </div>
 </template>
 
