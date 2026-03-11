@@ -756,8 +756,9 @@ function connectDatabase($servertype)
 }
 
 // Functions
-function getAWSCredentials($Connect, $storename)
+function getAWSCredentials($Connect)
 {
+    $storename = 'Allrenewed';
     // The id you want to retrieve
     $sql = "SELECT client_id, client_secret, refresh_token, MerchantID FROM tblstores WHERE storename = $storename";
     $result = $Connect->query($sql);
