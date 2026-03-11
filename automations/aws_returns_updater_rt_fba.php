@@ -590,9 +590,9 @@ function insertToDb($Connect, $response)
 
 
         // Prepare the SQL query to count existing records
-        $sql = "SELECT COUNT(*) as count FROM tblfbareturns WHERE order_id = ? AND asin = ? AND sku = ? AND fnsku = ? ";
+        $sql = "SELECT COUNT(*) as count FROM tblfbareturns WHERE order_id = ? AND sku = ? ";
         $stmt = $Connect->prepare($sql);
-        $stmt->bind_param("ssss", $amazonOrderId, $ASIN, $MSKU, $FNSKU);
+        $stmt->bind_param("ss", $amazonOrderId, $MSKU);
         $stmt->execute();
         $result = $stmt->get_result();
 
@@ -721,7 +721,7 @@ function connectDatabase($servertype)
     } else if ($servertype === "vps") {
         $hostname = 'localhost';
         $username = 'imsv2_dbims_user';
-        $password = 'imsv2_dbims_user';
+        $password = 'Imsv2_dbims_user';
         $database = 'imsv2_dbims';
         $dsn = "mysql:host=$hostname;dbname=$database";
     } else if ($servertype === "vps-automation") {

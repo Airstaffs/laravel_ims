@@ -726,7 +726,7 @@ function connectDatabase($servertype)
     } else if ($servertype === "vps") {
         $hostname = 'localhost';
         $username = 'imsv2_dbims_user';
-        $password = 'imsv2_dbims_user';
+        $password = 'Imsv2_dbims_user';
         $database = 'imsv2_dbims';
         $dsn = "mysql:host=$hostname;dbname=$database";
     } else if ($servertype === "vps-automation") {

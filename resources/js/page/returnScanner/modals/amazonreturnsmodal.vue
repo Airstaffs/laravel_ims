@@ -29,6 +29,7 @@
                     <div class="return-card-top">
                         <div>
                             <div class="order-id">Order ID: {{ item.amazonOrderId }}</div>
+                            <div v-if="item.type === 'FBM'" class="rma-id">RMA-ID: {{ item.amazon_rma_id }}</div>
                             <div class="meta-line">
                                 <span>{{ item.store_name }}</span>
                                 <span>•</span>
@@ -211,6 +212,13 @@ export default {
 }
 
 .order-id {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 0.2rem;
+}
+
+.rma-id {
     font-size: 0.95rem;
     font-weight: 700;
     color: #111827;
