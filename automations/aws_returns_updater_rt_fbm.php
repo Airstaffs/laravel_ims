@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 session_start();
 
 // Database credentials
-$servertype = "hostinger";
+$servertype = "vps";
 
 $Connect = connectDatabase($servertype);
 
