@@ -732,10 +732,10 @@ function connectDatabase($servertype)
         $password = '>KXF*LTaWd&2';
         $database = 'u298641722_web_ims_refere';
     } else if ($servertype === "vps") {
-        $hostname = 'localhost';
-        $username = 'imsv2_dbims_user';
-        $password = 'Imsv2_dbims_user';
-        $database = 'imsv2_dbims';
+            $hostname = 'localhost';
+            $username = 'imsv2_dbims_user';
+            $password = 'Imsv2_dbims_user';
+            $database = 'imsv2_dbims';
         $dsn = "mysql:host=$hostname;dbname=$database";
     } else if ($servertype === "vps-automation") {
         $hostname = 'localhost';
