@@ -2207,6 +2207,7 @@ export default {
                 { label: "Inventory Statistics", value: "inventorystatistics" },
                 { label: "Reconciliation", value: "reconciliation" },
                 {label: "Supplies & Components", value: "suppliescomponents"},
+                 {label: "Switcheru List", value: "switcheru"},
 
             ],
             subModules: [
@@ -2237,6 +2238,7 @@ export default {
                 { label: "Inventory Statistics", value: "inventorystatistics" },
                 { label: "Reconciliation", value: "reconciliation" },
                 {label: "Supplies & Components", value: "suppliescomponents"},
+                {label: "Switcheru List", value: "switcheru"},
             ],
             userStores: [],
             isSavingPrivileges: false,

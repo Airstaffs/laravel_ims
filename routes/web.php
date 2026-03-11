@@ -63,6 +63,8 @@ use App\Http\Controllers\UserLogsController;
 use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
+use App\Http\Controllers\SwitcheruController;
+
 use App\Http\Middleware\PreventBackHistory;
 use App\Http\Models\Store;
 use App\Models\User;
@@ -736,6 +738,12 @@ Route::prefix('api/supplies-components')->group(function () {
     Route::get('/', [SuppliesComponentsController::class, 'index']);
     Route::get('/stats', [SuppliesComponentsController::class, 'getStats']);
     Route::post('/move-to-labeling', [SuppliesComponentsController::class, 'moveToLabeling']);
+});
+
+
+// Routes for Switcheru Module
+Route::prefix('api/switcherus')->group(function () {
+    Route::get('/', [SwitcheruController::class, 'index']);
 });
 
 // Printer API routes

@@ -55,6 +55,7 @@ class UserSessionController extends Controller
             if ($user->inventorystatistics) $subModules[] = 'inventorystatistics';
             if ($user->reconciliation) $subModules[] = 'reconciliation';
             if ($user->suppliescomponents) $subModules[] = 'suppliescomponents';
+            if ($user->switcheru) $subModules[] = 'switcheru';
               // 🔴 ADDED: Check printer module explicitly
             if ($user->printer) {
                 $subModules[] = 'printer';
@@ -126,7 +127,7 @@ class UserSessionController extends Controller
                     'inventorystatistics' => 'Inventory Statistics',
                     'reconciliation' => 'Reconciliation',
                     'suppliescomponents' => 'Supplies & Components',
-                     
+                     'switcheru' => 'Switcheru List',
                 ]
             ]);
     

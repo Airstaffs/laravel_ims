@@ -116,6 +116,7 @@
                     'printer',
                     'auxiliary',
                     'inventorystatistics',
+                    'switcheru'
 
 
                 ];
@@ -164,6 +165,7 @@
                 'auxiliary' => 'Auxiliary Label',
                 'inventorystatistics' => 'Inventory Statistics',
                 'reconciliation' => 'Reconciliation',
+                'switcheru' => 'Switcheru List',
 
             ];
 

@@ -164,6 +164,7 @@ const modules = ref({
     asinlist: "ASIN List",
     fnsku: "FNSKU List",
     mskucreation: "FNSKU Creation",
+    switcheru: "Switcheru List"
 
 });
 
@@ -195,7 +196,8 @@ const moduleIcons = {
     printer: "pi-print",
     auxiliary: "pi-print",
     inventorystatistics: "pi-chart-bar",
-    reconciliation:"pi-check",
+    reconciliation:"pi-check", 
+    switcheru: "pi-exchange"
 
 };
 
