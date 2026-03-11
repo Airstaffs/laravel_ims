@@ -533,6 +533,7 @@ Route::prefix('api/returns')->group(function () {
     Route::get('stores', [ReturnScannerController::class, 'getStores']);
     Route::get('check-serial', [ReturnScannerController::class, 'checkSerial']);
     Route::post('process-scan', [ReturnScannerController::class, 'processScan']);
+    Route::get('/amazon-returns/list', [ReturnScannerController::class, 'list']);
 });
 
 // Routes for Labeling Function

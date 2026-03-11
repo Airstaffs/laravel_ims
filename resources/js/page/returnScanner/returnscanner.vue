@@ -1,22 +1,36 @@
 <template>
     <div class="vue-container return-module">
         <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
-            <TitlePage title="Return Scanner Module"
-                subtitle="View and manage the status of all incoming customer product returns for processing." />
-            <Button class="mx-4" @click="openScannerModal" severity="secondary" outlined label="Scan Items" size="small" icon="pi pi-barcode" />
+            <TitlePage
+                title="Return Scanner Module"
+                subtitle="View and manage the status of all incoming customer product returns for processing."
+            />
+
+            <Button
+                class="mx-4"
+                @click="openScannerModal"
+                severity="secondary"
+                outlined
+                label="Scan Items"
+                size="small"
+                icon="pi pi-barcode"
+            />
+
+            <Button
+                label="Amazon Returns"
+                icon="pi pi-replay"
+                class="p-button-warning"
+                @click="openAmazonReturnsModal"
+            />
         </div>
 
-        <scanner-component 
-            scanner-title="Return Scanner" 
-            storage-prefix="returnscanner" 
-            :enable-camera="true"
-            :disableImagePreview="true"
-            module="returnscanner" :display-fields="['ReturnID', 'Serial', 'Location']"
+        <scanner-component scanner-title="Return Scanner" storage-prefix="returnscanner" :enable-camera="true"
+            :disableImagePreview="true" module="returnscanner" :display-fields="['ReturnID', 'Serial', 'Location']"
             :api-endpoint="'/api/returns/process-scan'" :hide-button="true" @process-scan="handleScanProcess"
             @hardware-scan="handleHardwareScan" @scanner-opened="handleScannerOpened"
             @scanner-closed="handleScannerClosed" @scanner-reset="handleScannerReset" @mode-changed="handleModeChange"
             ref="scanner">
-            
+
             <template #input-fields>
                 <!-- ReturnID toggle -->
                 <div class="toggle-container">
@@ -30,9 +44,8 @@
                 <!-- ReturnID field -->
                 <div class="input-group" v-if="showReturnIdField">
                     <label>Return ID:</label>
-                    <input type="text" v-model="returnId" placeholder="Enter Return ID..."
-                        @input="handleReturnIdInput" @keyup.enter="focusNextField('serialNumberInput')"
-                        ref="returnIdInput" />
+                    <input type="text" v-model="returnId" placeholder="Enter Return ID..." @input="handleReturnIdInput"
+                        @keyup.enter="focusNextField('serialNumberInput')" ref="returnIdInput" />
                 </div>
 
                 <!-- Multi-Serial Badge -->
@@ -43,15 +56,17 @@
 
                 <!-- ========== INPUT MODE (currentCaptureStep === 0) ========== -->
                 <template v-if="currentCaptureStep === 0">
-                    
+
                     <!-- SERIAL 1 INPUT -->
                     <div class="input-group">
-                        <label>Serial Number: <span v-if="serial1CaptureComplete" class="capture-done-badge">✓ {{ capturedImagesForSerial1.length }} imgs</span></label>
+                        <label>Serial Number: <span v-if="serial1CaptureComplete" class="capture-done-badge">✓ {{
+                            capturedImagesForSerial1.length }} imgs</span></label>
                         <div class="input-with-action">
                             <input type="text" v-model="serialNumber" placeholder="Enter Serial Number..."
                                 @input="handleSerialInput" @keyup.enter="serialNumber ? proceedToImageCapture(1) : null"
                                 ref="serialNumberInput" :class="{ 'input-complete': serial1CaptureComplete }" />
-                            <button v-if="serialNumber && !serial1CaptureComplete" type="button" class="btn-capture-trigger" @click="proceedToImageCapture(1)" title="Capture images">
+                            <button v-if="serialNumber && !serial1CaptureComplete" type="button"
+                                class="btn-capture-trigger" @click="proceedToImageCapture(1)" title="Capture images">
                                 <i class="fas fa-camera"></i>
                             </button>
                         </div>
@@ -59,85 +74,100 @@
 
                     <!-- SERIAL 2 INPUT -->
                     <div class="input-group" v-if="showSecondSerialInput">
-                    <label>
-                        {{ secondSerialLabel }}:
-                        <span v-if="serial2CaptureComplete" class="capture-done-badge">✓ {{ capturedImagesForSerial2.length }} imgs</span>
-                        <span v-if="isDuplicateSerial(secondSerialNumber, 2)" class="serial-duplicate-badge">⚠ Duplicate Serial!</span>
-                    </label>
-                    <div class="input-with-action">
-                        <input type="text" v-model="secondSerialNumber" placeholder="Scan or enter second serial..."
-                            @input="handleSecondSerialInput" @keyup.enter="secondSerialNumber ? proceedToImageCapture(2) : null"
-                            ref="secondSerialInput"
-                            :class="{
-                                'input-complete': serial2CaptureComplete,
-                                'highlight-input': !serial2CaptureComplete && !isDuplicateSerial(secondSerialNumber, 2),
-                                'input-duplicate': isDuplicateSerial(secondSerialNumber, 2)
-                            }" />
-                        <button v-if="secondSerialNumber && !serial2CaptureComplete" type="button" class="btn-capture-trigger" @click="proceedToImageCapture(2)" title="Capture images">
-                            <i class="fas fa-camera"></i>
-                        </button>
-                        <button type="button" class="btn-remove-serial" @click="hideSecondSerial" title="Don't return this serial">
-                            <i class="fas fa-times"></i>
-                        </button>
+                        <label>
+                            {{ secondSerialLabel }}:
+                            <span v-if="serial2CaptureComplete" class="capture-done-badge">✓ {{
+                                capturedImagesForSerial2.length }} imgs</span>
+                            <span v-if="isDuplicateSerial(secondSerialNumber, 2)" class="serial-duplicate-badge">⚠
+                                Duplicate Serial!</span>
+                        </label>
+                        <div class="input-with-action">
+                            <input type="text" v-model="secondSerialNumber" placeholder="Scan or enter second serial..."
+                                @input="handleSecondSerialInput"
+                                @keyup.enter="secondSerialNumber ? proceedToImageCapture(2) : null"
+                                ref="secondSerialInput" :class="{
+                                    'input-complete': serial2CaptureComplete,
+                                    'highlight-input': !serial2CaptureComplete && !isDuplicateSerial(secondSerialNumber, 2),
+                                    'input-duplicate': isDuplicateSerial(secondSerialNumber, 2)
+                                }" />
+                            <button v-if="secondSerialNumber && !serial2CaptureComplete" type="button"
+                                class="btn-capture-trigger" @click="proceedToImageCapture(2)" title="Capture images">
+                                <i class="fas fa-camera"></i>
+                            </button>
+                            <button type="button" class="btn-remove-serial" @click="hideSecondSerial"
+                                title="Don't return this serial">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div v-if="isDuplicateSerial(secondSerialNumber, 2)" class="duplicate-warning-row">
+                            <i class="fas fa-exclamation-circle"></i> This serial was already scanned. Please re-scan
+                            the correct one.
+                        </div>
                     </div>
-                    <div v-if="isDuplicateSerial(secondSerialNumber, 2)" class="duplicate-warning-row">
-                        <i class="fas fa-exclamation-circle"></i> This serial was already scanned. Please re-scan the correct one.
-                    </div>
-                </div>
 
-                <!-- SERIAL 3 INPUT — replace your existing block -->
-                <div class="input-group" v-if="showThirdSerialInput">
-                    <label>
-                        {{ thirdSerialLabel }}:
-                        <span v-if="serial3CaptureComplete" class="capture-done-badge">✓ {{ capturedImagesForSerial3.length }} imgs</span>
-                        <span v-if="isDuplicateSerial(thirdSerialNumber, 3)" class="serial-duplicate-badge">⚠ Duplicate Serial!</span>
-                    </label>
-                    <div class="input-with-action">
-                        <input type="text" v-model="thirdSerialNumber" placeholder="Scan or enter third serial..."
-                            @input="handleThirdSerialInput" @keyup.enter="thirdSerialNumber ? proceedToImageCapture(3) : null"
-                            ref="thirdSerialInput"
-                            :class="{
-                                'input-complete': serial3CaptureComplete,
-                                'input-duplicate': isDuplicateSerial(thirdSerialNumber, 3)
-                            }" />
-                        <button v-if="thirdSerialNumber && !serial3CaptureComplete" type="button" class="btn-capture-trigger" @click="proceedToImageCapture(3)" title="Capture images">
-                            <i class="fas fa-camera"></i>
-                        </button>
-                        <button type="button" class="btn-remove-serial" @click="hideThirdSerial" title="Don't return this serial">
-                            <i class="fas fa-times"></i>
-                        </button>
+                    <!-- SERIAL 3 INPUT — replace your existing block -->
+                    <div class="input-group" v-if="showThirdSerialInput">
+                        <label>
+                            {{ thirdSerialLabel }}:
+                            <span v-if="serial3CaptureComplete" class="capture-done-badge">✓ {{
+                                capturedImagesForSerial3.length }} imgs</span>
+                            <span v-if="isDuplicateSerial(thirdSerialNumber, 3)" class="serial-duplicate-badge">⚠
+                                Duplicate Serial!</span>
+                        </label>
+                        <div class="input-with-action">
+                            <input type="text" v-model="thirdSerialNumber" placeholder="Scan or enter third serial..."
+                                @input="handleThirdSerialInput"
+                                @keyup.enter="thirdSerialNumber ? proceedToImageCapture(3) : null"
+                                ref="thirdSerialInput" :class="{
+                                    'input-complete': serial3CaptureComplete,
+                                    'input-duplicate': isDuplicateSerial(thirdSerialNumber, 3)
+                                }" />
+                            <button v-if="thirdSerialNumber && !serial3CaptureComplete" type="button"
+                                class="btn-capture-trigger" @click="proceedToImageCapture(3)" title="Capture images">
+                                <i class="fas fa-camera"></i>
+                            </button>
+                            <button type="button" class="btn-remove-serial" @click="hideThirdSerial"
+                                title="Don't return this serial">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div v-if="isDuplicateSerial(thirdSerialNumber, 3)" class="duplicate-warning-row">
+                            <i class="fas fa-exclamation-circle"></i> This serial was already scanned. Please re-scan
+                            the correct one.
+                        </div>
                     </div>
-                    <div v-if="isDuplicateSerial(thirdSerialNumber, 3)" class="duplicate-warning-row">
-                        <i class="fas fa-exclamation-circle"></i> This serial was already scanned. Please re-scan the correct one.
-                    </div>
-                </div>
 
-                <!-- SERIAL 4 INPUT — replace your existing block -->
-                <div class="input-group" v-if="showFourthSerialInput">
-                    <label>
-                        {{ fourthSerialLabel }}:
-                        <span v-if="serial4CaptureComplete" class="capture-done-badge">✓ {{ capturedImagesForSerial4.length }} imgs</span>
-                        <span v-if="isDuplicateSerial(fourthSerialNumber, 4)" class="serial-duplicate-badge">⚠ Duplicate Serial!</span>
-                    </label>
-                    <div class="input-with-action">
-                        <input type="text" v-model="fourthSerialNumber" placeholder="Scan or enter fourth serial..."
-                            @input="handleFourthSerialInput" @keyup.enter="fourthSerialNumber ? proceedToImageCapture(4) : null"
-                            ref="fourthSerialInput"
-                            :class="{
-                                'input-complete': serial4CaptureComplete,
-                                'input-duplicate': isDuplicateSerial(fourthSerialNumber, 4)
-                            }" />
-                        <button v-if="fourthSerialNumber && !serial4CaptureComplete" type="button" class="btn-capture-trigger" @click="proceedToImageCapture(4)" title="Capture images">
-                            <i class="fas fa-camera"></i>
-                        </button>
-                        <button type="button" class="btn-remove-serial" @click="hideFourthSerial" title="Don't return this serial">
-                            <i class="fas fa-times"></i>
-                        </button>
+                    <!-- SERIAL 4 INPUT — replace your existing block -->
+                    <div class="input-group" v-if="showFourthSerialInput">
+                        <label>
+                            {{ fourthSerialLabel }}:
+                            <span v-if="serial4CaptureComplete" class="capture-done-badge">✓ {{
+                                capturedImagesForSerial4.length }} imgs</span>
+                            <span v-if="isDuplicateSerial(fourthSerialNumber, 4)" class="serial-duplicate-badge">⚠
+                                Duplicate Serial!</span>
+                        </label>
+                        <div class="input-with-action">
+                            <input type="text" v-model="fourthSerialNumber" placeholder="Scan or enter fourth serial..."
+                                @input="handleFourthSerialInput"
+                                @keyup.enter="fourthSerialNumber ? proceedToImageCapture(4) : null"
+                                ref="fourthSerialInput" :class="{
+                                    'input-complete': serial4CaptureComplete,
+                                    'input-duplicate': isDuplicateSerial(fourthSerialNumber, 4)
+                                }" />
+                            <button v-if="fourthSerialNumber && !serial4CaptureComplete" type="button"
+                                class="btn-capture-trigger" @click="proceedToImageCapture(4)" title="Capture images">
+                                <i class="fas fa-camera"></i>
+                            </button>
+                            <button type="button" class="btn-remove-serial" @click="hideFourthSerial"
+                                title="Don't return this serial">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div v-if="isDuplicateSerial(fourthSerialNumber, 4)" class="duplicate-warning-row">
+                            <i class="fas fa-exclamation-circle"></i> This serial was already scanned. Please re-scan
+                            the correct one.
+                        </div>
                     </div>
-                    <div v-if="isDuplicateSerial(fourthSerialNumber, 4)" class="duplicate-warning-row">
-                        <i class="fas fa-exclamation-circle"></i> This serial was already scanned. Please re-scan the correct one.
-                    </div>
-                </div>
 
                     <!-- LOCATION INPUT -->
                     <div class="input-group" v-if="serialNumber">
@@ -164,8 +194,10 @@
                 <!-- ========== CAPTURE MODE ========== -->
                 <div v-if="currentCaptureStep > 0" class="image-capture-section">
                     <div class="capture-header">
-                        <h4>📸 Capture for Serial {{ currentCaptureStep }}: 
-                            <strong>{{ currentCaptureStep === 1 ? serialNumber : currentCaptureStep === 2 ? secondSerialNumber : currentCaptureStep === 3 ? thirdSerialNumber : fourthSerialNumber }}</strong>
+                        <h4>📸 Capture for Serial {{ currentCaptureStep }}:
+                            <strong>{{ currentCaptureStep === 1 ? serialNumber : currentCaptureStep === 2 ?
+                                secondSerialNumber :
+                                currentCaptureStep === 3 ? thirdSerialNumber : fourthSerialNumber }}</strong>
                         </h4>
                         <p class="capture-instruction">Take up to 12 photos (optional)</p>
                     </div>
@@ -190,7 +222,8 @@
                 <fieldset class="d-flex align-items-center gap-1">
                     <label for="store-select">Store:</label>
                     <Select :options="storeOptions" optionLabel="label" optionValue="value" size="small"
-                        class="select-form" v-model="selectedStore" @change="changeStore" placeholder="Select a Store" />
+                        class="select-form" v-model="selectedStore" @change="changeStore"
+                        placeholder="Select a Store" />
                 </fieldset>
             </div>
             <XDataTable :value="returnHistory" :loading="loading" :columns="columns" :paginator="false"
@@ -198,27 +231,40 @@
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
                         <div v-if="data.capturedImages && data.capturedImages.capturedimg1"
-                            class="gallery-thumbnail position-relative" @click="openImageModal(data)" style="cursor: pointer">
+                            class="gallery-thumbnail position-relative" @click="openImageModal(data)"
+                            style="cursor: pointer">
                             <img :src="`/images/product_images/${data.company || 'Airstaffs'}/${data.capturedImages.capturedimg1}`"
-                                :alt="getDisplayTitle(data)" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;" @error="handleImageError" />
-                            <span v-if="countCapturedImages(data) > 1" class="position-absolute bg-primary text-white rounded-circle"
+                                :alt="getDisplayTitle(data)"
+                                style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;"
+                                @error="handleImageError" />
+                            <span v-if="countCapturedImages(data) > 1"
+                                class="position-absolute bg-primary text-white rounded-circle"
                                 style="top: -5px; right: -5px; min-width: 20px; height: 20px; font-size: 0.65rem; display: flex; align-items: center; justify-content: center; padding: 0 4px;">
                                 +{{ countCapturedImages(data) - 1 }}
                             </span>
                         </div>
-                        <TableGallery v-else :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError" :countAdditionalImages="countAllImages" />
+                        <TableGallery v-else :data="data" :openImageModal="openImageModal"
+                            :handleImageError="handleImageError" :countAdditionalImages="countAllImages" />
                     </div>
                 </template>
-                <template #date="{ data }"><p>{{ formatDate(data.LPNDATE) }}</p></template>
+                <template #date="{ data }">
+                    <p>{{ formatDate(data.LPNDATE) }}</p>
+                </template>
                 <template #returnId="{ data }">{{ data.LPN || "N/A" }}</template>
                 <template #rtNumber="{ data }">{{ formatRTNumber(data.rtcounter, data.storename) }}</template>
-                <template #serialnumberb="{ data }"><p>{{ data.serialnumberb || "-" }}</p></template>
-                <template #status="{ data }">
-                    <Tag :value="data.returnstatus" :severity="data.returnstatus === 'Returned' ? 'success' : 'secondary'" />
+                <template #serialnumberb="{ data }">
+                    <p>{{ data.serialnumberb || "-" }}</p>
                 </template>
-                <template #buyer="{ data }"><p>{{ data.BuyerName || data.costumer_name || "Unknown" }}</p></template>
+                <template #status="{ data }">
+                    <Tag :value="data.returnstatus"
+                        :severity="data.returnstatus === 'Returned' ? 'success' : 'secondary'" />
+                </template>
+                <template #buyer="{ data }">
+                    <p>{{ data.BuyerName || data.costumer_name || "Unknown" }}</p>
+                </template>
                 <template #actions="{ data }">
-                    <Button label="More Details" severity="contrast" icon="pi pi-info-circle" variant="text" class="text-primary" size="small" @click="handleShowDetailsModal(data)" />
+                    <Button label="More Details" severity="contrast" icon="pi pi-info-circle" variant="text"
+                        class="text-primary" size="small" @click="handleShowDetailsModal(data)" />
                 </template>
             </XDataTable>
         </AnimateDiv>
@@ -226,81 +272,120 @@
         <!-- Mobile Cards View -->
         <AnimateDiv :delay="200" class="mobile-view">
             <div class="mobile-cards">
-                <div v-if="loading" class="loading-spinner-mobile"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+                <div v-if="loading" class="loading-spinner-mobile"><i class="fas fa-spinner fa-spin"></i> Loading...
+                </div>
                 <div v-else-if="sortedInventory.length === 0" class="no-data-mobile">No data found</div>
-                <AnimateDiv v-else v-for="(item, index) in returnHistory" :key="index" class="mobile-card" :delay="index * 100">
+                <AnimateDiv v-else v-for="(item, index) in returnHistory" :key="index" class="mobile-card"
+                    :delay="index * 100">
                     <div class="mobile-card-header">
                         <div class="mobile-product-image clickable">
-                            <div v-if="item.capturedImages && item.capturedImages.capturedimg1" class="gallery-thumbnail position-relative" @click="openImageModal(item)" style="cursor: pointer">
-                                <img :src="`/images/product_images/${item.company || 'Airstaffs'}/${item.capturedImages.capturedimg1}`" :alt="getDisplayTitle(item)" class="product-thumbnail clickable-image" @error="handleImageError" />
-                                <div class="image-count-badge" v-if="countCapturedImages(item) > 1">+{{ countCapturedImages(item) - 1 }}</div>
+                            <div v-if="item.capturedImages && item.capturedImages.capturedimg1"
+                                class="gallery-thumbnail position-relative" @click="openImageModal(item)"
+                                style="cursor: pointer">
+                                <img :src="`/images/product_images/${item.company || 'Airstaffs'}/${item.capturedImages.capturedimg1}`"
+                                    :alt="getDisplayTitle(item)" class="product-thumbnail clickable-image"
+                                    @error="handleImageError" />
+                                <div class="image-count-badge" v-if="countCapturedImages(item) > 1">+{{
+                                    countCapturedImages(item) - 1 }}</div>
                             </div>
                             <div v-else @click="openImageModal(item)" style="cursor: pointer">
-                                <img :src="'/images/thumbnails/' + item.img1" :alt="getDisplayTitle(item)" class="product-thumbnail clickable-image" @error="handleImageError($event)" />
-                                <div class="image-count-badge" v-if="countAllImages(item) > 0">+{{ countAllImages(item) }}</div>
+                                <img :src="'/images/thumbnails/' + item.img1" :alt="getDisplayTitle(item)"
+                                    class="product-thumbnail clickable-image" @error="handleImageError($event)" />
+                                <div class="image-count-badge" v-if="countAllImages(item) > 0">+{{ countAllImages(item)
+                                }}</div>
                             </div>
                         </div>
                         <div class="mobile-return-info">
-                            <h5 class="mobile-return-title">Return {{ formatRTNumber(item.rtcounter, item.storename) }}</h5>
+                            <h5 class="mobile-return-title">Return {{ formatRTNumber(item.rtcounter, item.storename) }}
+                            </h5>
                             <div class="mobile-return-date">{{ formatDate(item.LPNDATE) }}</div>
                         </div>
                     </div>
                     <Divider />
                     <div class="mobile-card-details" :style="{ fontSize: '14px' }">
-                        <div class="mobile-detail-row"><span class="fw-semibold">RT#:</span><span class="mobile-detail-value">{{ formatRTNumber(item.rtcounter, item.storename) }}</span></div>
-                        <div class="mobile-detail-row"><span class="fw-semibold">Serial:</span><span class="mobile-detail-value">{{ item.serialnumber }}</span></div>
-                        <div v-if="item.serialnumberb" class="mobile-detail-row"><span class="fw-semibold">Second Serial:</span><span class="mobile-detail-value">{{ item.serialnumberb }}</span></div>
-                        <div class="mobile-detail-row"><span class="fw-semibold">Location:</span><span class="mobile-detail-value">{{ item.warehouselocation || "Floor" }}</span></div>
-                        <div class="mobile-detail-row"><span class="fw-semibold">Status:</span><span :class="['mobile-detail-value', 'status-badge', 'status-' + item.returnstatus]">{{ formatStatus(item.returnstatus) }}</span></div>
-                        <div class="mobile-detail-row"><span class="fw-semibold">Buyer:</span><span class="mobile-detail-value">{{ item.BuyerName || item.costumer_name || "Unknown" }}</span></div>
+                        <div class="mobile-detail-row"><span class="fw-semibold">RT#:</span><span
+                                class="mobile-detail-value">{{
+                                    formatRTNumber(item.rtcounter, item.storename) }}</span></div>
+                        <div class="mobile-detail-row"><span class="fw-semibold">Serial:</span><span
+                                class="mobile-detail-value">{{ item.serialnumber }}</span></div>
+                        <div v-if="item.serialnumberb" class="mobile-detail-row"><span class="fw-semibold">Second
+                                Serial:</span><span class="mobile-detail-value">{{ item.serialnumberb }}</span></div>
+                        <div class="mobile-detail-row"><span class="fw-semibold">Location:</span><span
+                                class="mobile-detail-value">{{ item.warehouselocation || "Floor" }}</span></div>
+                        <div class="mobile-detail-row"><span class="fw-semibold">Status:</span><span
+                                :class="['mobile-detail-value', 'status-badge', 'status-' + item.returnstatus]">{{
+                                    formatStatus(item.returnstatus) }}</span></div>
+                        <div class="mobile-detail-row"><span class="fw-semibold">Buyer:</span><span
+                                class="mobile-detail-value">{{ item.BuyerName || item.costumer_name || "Unknown"
+                                }}</span></div>
                     </div>
                     <Divider />
                     <div class="mobile-card-actions">
-                        <Button @click="handleShowDetailsModal(item)" icon="pi pi-info-circle" label="More Details" size="small" />
+                        <Button @click="handleShowDetailsModal(item)" icon="pi pi-info-circle" label="More Details"
+                            size="small" />
                     </div>
                 </AnimateDiv>
                 <div v-if="returnHistory.length === 0" class="mobile-card">
-                    <div class="mobile-card-details"><div class="mobile-detail-row text-center">No return history found</div></div>
+                    <div class="mobile-card-details">
+                        <div class="mobile-detail-row text-center">No return history found</div>
+                    </div>
                 </div>
             </div>
         </AnimateDiv>
 
         <!-- Details Modal -->
-        <Dialog v-model:visible="viewDetailsModal" modal header="Product Details" class="view-details-dialog" :pt="{ root: { class: 'mobile-fullscreen-dialog' } }" style="width: 50%">
+        <Dialog v-model:visible="viewDetailsModal" modal header="Product Details" class="view-details-dialog"
+            :pt="{ root: { class: 'mobile-fullscreen-dialog' } }" style="width: 50%">
             <div class="row">
-                <div class="col-md-6 mb-4"><Gallery :item="item" /></div>
+                <div class="col-md-6 mb-4">
+                    <Gallery :item="item" />
+                </div>
                 <div class="col-md-6">
                     <div class="details-container">
-                        <div class="item-container"><span>RT#: </span><span>{{ item.rtcounter ? formatRTNumber(item.rtcounter, item.storename || "") : "N/A" }}</span></div>
+                        <div class="item-container"><span>RT#: </span><span>{{ item.rtcounter ?
+                            formatRTNumber(item.rtcounter,
+                                item.storename || "") : "N/A" }}</span></div>
                         <div class="item-container"><span>Return ID: </span><span>{{ item.LPN || "N/A" }}</span></div>
-                        <div class="item-container"><span>Return Date: </span><span>{{ formatDate(item.LPNDATE || null) }}</span></div>
-                        <div class="item-container"><span>Serial Number: </span><span>{{ item.serialnumber || "N/A" }}</span></div>
-                        <div class="item-container"><span>Second Serial: </span><span>{{ item.serialnumberb || "N/A" }}</span></div>
-                        <div class="item-container"><span>Location: </span><span>{{ item.warehouselocation || "Floor" }}</span></div>
-                        <div class="item-container"><span>Status: </span><Tag :value="item.returnstatus" :severity="item.returnstatus === 'Returned' ? 'success' : 'secondary'" /></div>
-                        <div class="item-container"><span>FNSKU: </span><span>{{ item.FNSKUviewer || "N/A" }}</span></div>
+                        <div class="item-container"><span>Return Date: </span><span>{{ formatDate(item.LPNDATE || null)
+                        }}</span></div>
+                        <div class="item-container"><span>Serial Number: </span><span>{{ item.serialnumber || "N/A"
+                        }}</span>
+                        </div>
+                        <div class="item-container"><span>Second Serial: </span><span>{{ item.serialnumberb || "N/A"
+                        }}</span>
+                        </div>
+                        <div class="item-container"><span>Location: </span><span>{{ item.warehouselocation || "Floor"
+                        }}</span>
+                        </div>
+                        <div class="item-container"><span>Status: </span>
+                            <Tag :value="item.returnstatus"
+                                :severity="item.returnstatus === 'Returned' ? 'success' : 'secondary'" />
+                        </div>
+                        <div class="item-container"><span>FNSKU: </span><span>{{ item.FNSKUviewer || "N/A" }}</span>
+                        </div>
                         <div class="item-container"><span>ASIN: </span><span>{{ item.ASINviewer || "N/A" }}</span></div>
-                        <div class="item-container"><span>Buyer: </span><span>{{ item.BuyerName || item.costumer_name || "Unknown" }}</span></div>
+                        <div class="item-container"><span>Buyer: </span><span>{{ item.BuyerName || item.costumer_name ||
+                            "Unknown" }}</span></div>
                     </div>
                 </div>
             </div>
         </Dialog>
 
         <!-- Pagination -->
-        <Paginator
-            :first="first"
-            :rows="perPage"
-            :total-records="totalRecords"
-            :rows-per-page-options="[10, 20, 50]"
+        <Paginator :first="first" :rows="perPage" :total-records="totalRecords" :rows-per-page-options="[10, 20, 50]"
             template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
-            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
-            class="small-paginator"
-            @page="onPageChange"
-        />
+            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}" class="small-paginator"
+            @page="onPageChange" />
 
         <ViewImageGalleryModal :showImageModal="showImageModal" :closeImageModal="closeImageModal"
-            :ProductTitle="ProductTitle" :regularImages="regularImages" :capturedImages="capturedImages" :handleImageError="handleImageError" />
+            :ProductTitle="ProductTitle" :regularImages="regularImages" :capturedImages="capturedImages"
+            :handleImageError="handleImageError" />
+
+
     </div>
+            <AmazonReturnsModal
+    v-model:visible="showAmazonReturnsModal"
+/>
 </template>
 
 <script>
@@ -313,6 +398,7 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
+
 
 const TABLE_COLUMNS = [
     { header: "Gallery", slot: "gallery", style: { width: "4rem", minWidth: "4rem" } },
@@ -483,9 +569,11 @@ export default {
     0% {
         box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7);
     }
+
     70% {
         box-shadow: 0 0 0 10px rgba(255, 193, 7, 0);
     }
+
     100% {
         box-shadow: 0 0 0 0 rgba(255, 193, 7, 0);
     }
@@ -1038,6 +1126,7 @@ export default {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
