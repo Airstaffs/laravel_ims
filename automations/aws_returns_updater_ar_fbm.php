@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 session_start();
 
 // Database credentials
-$servertype = "hostinger";
+$servertype = "vps";
 
 $Connect = connectDatabase($servertype);
 
@@ -724,10 +724,10 @@ function connectDatabase($servertype)
         $password = '>KXF*LTaWd&2';
         $database = 'u298641722_web_ims_refere';
     } else if ($servertype === "vps") {
-        $hostname = 'localhost';
-        $username = 'imsv2_dbims_user';
-        $password = 'imsv2_dbims_user';
-        $database = 'imsv2_dbims';
+            $hostname = 'localhost';
+            $username = 'imsv2_dbims_user';
+            $password = 'Imsv2_dbims_user';
+            $database = 'imsv2_dbims';
         $dsn = "mysql:host=$hostname;dbname=$database";
     } else if ($servertype === "vps-automation") {
         $hostname = 'localhost';
@@ -756,10 +756,11 @@ function connectDatabase($servertype)
 }
 
 // Functions
-function getAWSCredentials($Connect, $storename)
+function getAWSCredentials($Connect)
 {
+    $storename = 'Allrenewed';
     // The id you want to retrieve
-    $sql = "SELECT client_id, client_secret, refresh_token, MerchantID FROM tblstores WHERE storename = $storename";
+    $sql = "SELECT client_id, client_secret, refresh_token, MerchantID FROM tblstores WHERE storename = '$storename'";
     $result = $Connect->query($sql);
     $row = $result->fetch_assoc();
 
