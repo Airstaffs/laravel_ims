@@ -104,12 +104,6 @@ export default {
             first: 0, //paginator internal state
 
             showAmazonReturnsModal: false,
-
-
-            returnIdValidating: false,       // spinner while checking
-            returnIdValidated: false,        // true = found in tblfbmreturns
-            returnIdNotFound: false,         // true = entered but not found
-            returnIdInfo: null,              // { buyerName, itemName, shippedSerial, asin, msku }
         
         };
     },
@@ -514,65 +508,15 @@ async fetchInventory() {
 
         // ========== INPUT HANDLERS ==========
         async handleReturnIdInput() {
-            const id = this.returnId.trim();
-
-            // Reset state on every keystroke
-            this.returnIdValidated = false;
-            this.returnIdNotFound  = false;
-            this.returnIdInfo      = null;
-
-            if (!id || id.length < 5) return;
-
-            // Debounce — same pattern as your serial input
-            if (this.autoVerifyTimeout) {
+            if (!this.showManualInput && this.returnId.trim().length > 5) {
                 clearTimeout(this.autoVerifyTimeout);
-                this.autoVerifyTimeout = null;
+                this.autoVerifyTimeout = setTimeout(() => { 
+                    SoundService?.success?.(); 
+                    this.focusNextField("serialNumberInput"); 
+                }, 500);
             }
-
-            this.autoVerifyTimeout = setTimeout(async () => {
-                await this.validateReturnId(id);
-                this.autoVerifyTimeout = null;
-            }, 500);
         },
-
-
-        async validateReturnId(returnId) {
-                if (!returnId) return;
-
-                this.returnIdValidating = true;
-                this.returnIdValidated  = false;
-                this.returnIdNotFound   = false;
-                this.returnIdInfo       = null;
-
-                try {
-                    const r = await axios.get(`${API_BASE_URL}/api/returns/validate-return-id`, {
-                        params: { return_id: returnId },
-                        withCredentials: true,
-                    });
-
-                    if (r.data.success) {
-                        this.returnIdValidated = true;
-                        this.returnIdInfo      = r.data.info; // { buyerName, itemName, shippedSerial, asin, msku }
-                        SoundService?.success?.();
-
-                        // Auto-focus serial input after a valid Return ID scan
-                        this.$nextTick(() => this.$refs.serialNumberInput?.focus());
-
-                    } else {
-                        // Not found — warn but do NOT block (Return ID is optional)
-                        this.returnIdNotFound = true;
-                        SoundService?.error?.();
-                    }
-
-                } catch (e) {
-                    console.error('Return ID validation error:', e);
-                    this.returnIdNotFound = true;
-                    SoundService?.error?.();
-                } finally {
-                    this.returnIdValidating = false;
-                }
-            },
-                            
+        
        async handleSerialInput() {
         if (!/^[a-zA-Z0-9-]*$/.test(this.serialNumber.trim())) {
             this.$refs.scanner?.showScanError("Invalid Serial Number format");

@@ -18,6 +18,10 @@
                     {{ formatRTNumber(data.rtcounter) }}
                 </template>
 
+                <template #returnId="{ data }">
+                    <span>{{ data.returnid || "—" }}</span>
+                </template>
+
                 <template #buyer="{ data }">
                     <p>{{ data.buyer || "Unknown" }}</p>
                 </template>
@@ -84,6 +88,7 @@
                         </div>
                         <div class="mobile-return-info">
                             <h5 class="mobile-return-title">{{ formatRTNumber(item.rtcounter) }}</h5>
+                            <div class="mobile-return-id" v-if="item.returnid">Return ID: {{ item.returnid }}</div>
                             <div class="mobile-return-date">{{ formatDate(item.created_at) }}</div>
                         </div>
                     </div>
@@ -118,6 +123,12 @@
                             <span class="fw-semibold">Product:</span>
                             <span class="mobile-detail-value">{{ item.product_title }}</span>
                         </div>
+                         
+                        <div class="mobile-detail-row" v-if="item.returnid">
+                            <span class="fw-semibold">Return ID:</span>
+                            <span class="mobile-detail-value">{{ item.returnid }}</span>
+                        </div>
+
                     </div>
 
                     <Divider />
@@ -144,6 +155,7 @@
                 <div class="item-container"><span>RT#:</span><span>{{ formatRTNumber(selectedItem.rtcounter) }}</span></div>
                 <div class="item-container"><span>Buyer:</span><span>{{ selectedItem.buyer || "Unknown" }}</span></div>
                 <div class="item-container"><span>Product:</span><span>{{ selectedItem.product_title || "N/A" }}</span></div>
+                <div class="item-container"><span>Return ID:</span><span>{{ selectedItem.returnid || "N/A" }}</span></div>
                 <div class="item-container"><span>Sent Serial:</span><span class="serial-mono sent-text">{{ selectedItem.sendserial || "N/A" }}</span></div>
                 <div class="item-container"><span>Received Serial:</span><span class="serial-mono received-text">{{ selectedItem.receiveserial || "N/A" }}</span></div>
                 <div class="item-container"><span>Detected:</span><span>{{ formatDate(selectedItem.created_at) }}</span></div>
@@ -188,6 +200,7 @@
             <div class="compare-footer">
                 <div class="compare-meta">
                     <span><strong>RT#:</strong> {{ formatRTNumber(compareItem.rtcounter) }}</span>
+                    <span><strong>Return ID:</strong> {{ compareItem.returnid || "N/A" }}</span>
                     <span><strong>Buyer:</strong> {{ compareItem.buyer || "Unknown" }}</span>
                     <span><strong>Detected:</strong> {{ formatDate(compareItem.created_at) }}</span>
                 </div>
@@ -212,6 +225,7 @@ import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewIm
 const TABLE_COLUMNS = [
     { header: "RT#", slot: "rtNumber", bodyStyle: "font-size: 14px", sortable: true },
     { header: "Product", slot: "productTitle", bodyStyle: "font-size: 14px", sortable: true },
+    { header: "Return ID",       slot: "returnId",        bodyStyle: "font-size: 14px", sortable: true },  // ← NEW
     { header: "Buyer", slot: "buyer", bodyStyle: "font-size: 14px", sortable: true },
     { header: "Date", slot: "date", bodyStyle: "font-size: 14px", sortable: true },
     { header: "Sent Serial", slot: "sentSerial", bodyStyle: "font-size: 14px" },

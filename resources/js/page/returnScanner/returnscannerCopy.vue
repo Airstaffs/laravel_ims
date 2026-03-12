@@ -42,62 +42,10 @@
                 </div>
 
                 <!-- ReturnID field -->
-              <div class="input-group" v-if="showReturnIdField">
+                <div class="input-group" v-if="showReturnIdField">
                     <label>Return ID:</label>
-                    <div class="input-with-action">
-                        <input
-                            type="text"
-                            v-model="returnId"
-                            placeholder="Enter Return ID (Amazon Order ID)..."
-                            @input="handleReturnIdInput"
-                            @keyup.enter="focusNextField('serialNumberInput')"
-                            ref="returnIdInput"
-                            :class="{
-                                'input-complete': returnIdValidated,
-                                'input-duplicate': returnIdNotFound
-                            }"
-                        />
-                        <!-- Spinner -->
-                        <span v-if="returnIdValidating" class="return-id-status">
-                            <i class="fas fa-spinner fa-spin"></i>
-                        </span>
-                        <!-- Valid -->
-                        <span v-else-if="returnIdValidated" class="return-id-status return-id-ok">
-                            <i class="fas fa-check-circle"></i>
-                        </span>
-                        <!-- Not found -->
-                        <span v-else-if="returnIdNotFound" class="return-id-status return-id-warn">
-                            <i class="fas fa-exclamation-triangle"></i>
-                        </span>
-                    </div>
-
-                    <!-- Info card shown when Return ID is found -->
-                    <div v-if="returnIdValidated && returnIdInfo" class="return-id-info-card">
-                        <div class="return-id-info-row">
-                            <i class="fas fa-user"></i>
-                            <span><strong>Buyer:</strong> {{ returnIdInfo.buyerName || 'Unknown' }}</span>
-                        </div>
-                        <div class="return-id-info-row">
-                            <i class="fas fa-box"></i>
-                            <span><strong>Item:</strong> {{ returnIdInfo.itemName || 'N/A' }}</span>
-                        </div>
-                        <div v-if="returnIdInfo.shippedSerial" class="return-id-info-row">
-                            <i class="fas fa-barcode"></i>
-                            <span><strong>Shipped Serial:</strong>
-                                <code class="shipped-serial-badge">{{ returnIdInfo.shippedSerial }}</code>
-                            </span>
-                        </div>
-                        <div class="return-id-info-row">
-                            <i class="fas fa-tag"></i>
-                            <span><strong>ASIN:</strong> {{ returnIdInfo.asin || 'N/A' }}</span>
-                        </div>
-                    </div>
-
-                    <!-- Warning when Return ID not found -->
-                    <div v-if="returnIdNotFound" class="return-id-warn-card">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        Return ID not found in FBM returns — scan will proceed without order validation.
-                    </div>
+                    <input type="text" v-model="returnId" placeholder="Enter Return ID..." @input="handleReturnIdInput"
+                        @keyup.enter="focusNextField('serialNumberInput')" ref="returnIdInput" />
                 </div>
 
                 <!-- Multi-Serial Badge -->
