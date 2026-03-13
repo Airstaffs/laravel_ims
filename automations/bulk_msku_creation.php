@@ -4,7 +4,7 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 set_time_limit(600);
 ini_set('max_execution_time', 600);
-$Connect = new mysqli("localhost", "u298641722_dbims_user", "?cIk=|zRk3T", "u298641722_dbims");
+$Connect = new mysqli("localhost", "imsv2_dbims_user", "Imsv2_dbims_user", "imsv2_dbims");
 /*
 
 $authEndpoint = 'https://api.amazon.com/auth/o2/token';
