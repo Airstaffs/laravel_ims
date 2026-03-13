@@ -151,3 +151,54 @@
     color: #c62828;
 }
 .duplicate-warning-row i { color: #f44336; }
+
+.return-id-status {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    font-size: 18px;
+}
+.return-id-ok   { color: #4caf50; }
+.return-id-warn { color: #ff9800; }
+
+.return-id-info-card {
+    margin-top: 8px;
+    padding: 10px 14px;
+    background: #e8f5e9;
+    border: 1px solid #a5d6a7;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+}
+.return-id-info-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #2e7d32;
+}
+.return-id-info-row i { width: 16px; text-align: center; }
+
+.shipped-serial-badge {
+    background: #1b5e20;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+    margin-left: 4px;
+}
+
+.return-id-warn-card {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #fff3e0;
+    border: 1px solid #ffcc02;
+    border-radius: 8px;
+    color: #e65100;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
