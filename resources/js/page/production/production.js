@@ -3,6 +3,7 @@ import "../../../css/modules.css";
 import "./production.css";
 import { DEFAULT_IMAGE } from "../../constant";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
+import Swal from 'sweetalert2';
 
 export default {
     name: "ProductList",
@@ -669,7 +670,61 @@ export default {
                 this.loading = false;
             }
         },
+
+
+        
+        async moveToLabeling(item) {
+    if (!item || !item.ProductID) return;
+
+    const displayTitle = this.getDisplayTitle(item);
+
+    const result = await Swal.fire({
+        title: 'Move to Labeling?',
+        html: `Are you sure you want to move<br><b>RT# ${item.rtcounter} - ${displayTitle}</b><br>to <b>Labeling Area</b>?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes, move it!',
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+        const response = await axios.post(
+            `${API_BASE_URL}/api/productionArea/move-to-labeling`,
+            { product_ids: [item.ProductID] }
+        );
+
+        if (response.data.success) {
+            Swal.fire({
+                title: 'Moved!',
+                text: `${displayTitle} has been moved to Labeling Area.`,
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false,
+            });
+
+            // Close modal if open
+            this.showEditModal = false;
+
+            // Refresh the table
+            this.fetchInventory();
+        }
+    } catch (error) {
+        console.error('Error moving product to labeling:', error);
+        Swal.fire({
+            title: 'Error',
+            text: error.response?.data?.message || 'Failed to move the product.',
+            icon: 'error',
+        });
+    }
+},
     },
+
+
 
     watch: {
         searchQuery() {

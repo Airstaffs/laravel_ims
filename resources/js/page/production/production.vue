@@ -92,7 +92,8 @@
                     </div>
                 </template>
 
-                <template #actions="{ data }">
+              <template #actions="{ data }">
+                <div class="d-flex flex-column gap-1">
                     <Button
                         size="small"
                         severity="contrast"
@@ -102,7 +103,16 @@
                         class="text-primary"
                         @click="openEditModal(data)"
                     />
-                </template>
+                    <Button
+                        size="small"
+                        severity="warn"
+                        variant="text"
+                        icon="pi pi-arrow-right"
+                        label="To Labeling"
+                        @click="moveToLabeling(data)"
+                    />
+                </div>
+            </template>
             </XDataTable>
         </AnimateDiv>
 
@@ -286,13 +296,21 @@
 
                     <hr />
 
-                    <div class="mobile-card-actions">
+                    <div class="mobile-card-actions d-flex flex-column gap-2">
                         <Button
                             @click="openEditModal(item)"
                             icon="pi pi-info-circle"
                             size="small"
                             severity="info"
                             label="More Details"
+                            :style="{ width: '100%' }"
+                        />
+                        <Button
+                            @click="moveToLabeling(item)"
+                            icon="pi pi-arrow-right"
+                            size="small"
+                            severity="warn"
+                            label="Move to Labeling"
                             :style="{ width: '100%' }"
                         />
                     </div>

@@ -172,4 +172,46 @@ public function index(Request $request)
         ], 500);
     }
 }
+
+public function moveToLabeling(Request $request)
+{
+    try {
+        $request->validate([
+            'product_ids'   => 'required|array|min:1',
+            'product_ids.*' => 'required',
+        ]);
+
+        $productIds = $request->input('product_ids');
+
+        $updated = DB::table($this->productTable)
+            ->whereIn('ProductID', $productIds)
+            ->update([
+                'ProductModuleLoc' => 'Labeling Area',
+                'lastDateUpdate'   => now(),
+            ]);
+
+        Log::info('Products moved to Labeling Area', [
+            'product_ids' => $productIds,
+            'updated'     => $updated,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$updated} product(s) moved to Labeling Area.",
+            'updated' => $updated,
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Error moving products to Labeling Area', [
+            'message' => $e->getMessage(),
+            'trace'   => $e->getTraceAsString(),
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to move products: ' . $e->getMessage(),
+        ], 500);
+    }
+}
+
 }

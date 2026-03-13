@@ -520,6 +520,7 @@ Route::prefix('api/orders')->middleware(['auth'])->group(function () {
 // Routes Production Area
 Route::prefix('api/productionArea')->group(function () {
     Route::get('products', [ProductionAreaController::class, 'index']);
+    Route::post('move-to-labeling', [ProductionAreaController::class, 'moveToLabeling']);
 });
 
 // Routes Packaging
@@ -533,7 +534,7 @@ Route::prefix('api/returns')->group(function () {
     Route::get('stores', [ReturnScannerController::class, 'getStores']);
     Route::get('check-serial', [ReturnScannerController::class, 'checkSerial']);
     Route::post('process-scan', [ReturnScannerController::class, 'processScan']);
-     Route::get('validate-return-id',    [ReturnScannerController::class, 'validateReturnId']);
+    Route::get('validate-return-id',    [ReturnScannerController::class, 'validateReturnId']);
     Route::get('/amazon-returns/list', [ReturnScannerController::class, 'list']);
 });
 
