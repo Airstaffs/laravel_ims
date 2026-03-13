@@ -79,6 +79,28 @@ if ($accessToken) {
 // Print the decoded response (optional - you can remove this if you don't want to print it)
 // print_r(fetchAccessToken($credentials, true));
 
+// Global configuration
+$endpoint = 'https://sellingpartnerapi-na.amazon.com';
+$path = '/fba/inventory/v1/summaries';
+$service = 'execute-api';
+$region = 'us-east-1';
+/*
+    This Code is connected to the FBA (fullfillment by Amazon) inventory API
+*/
+// Ensure necessary keys exist
+if (!isset($credentials['client_id']) || !isset($credentials['client_secret'])) {
+    die("Invalid keys in database.");
+}
+
+
+
+// Fetch data
+$data = fetchDataFromAPI($credentials, $accessToken);
+
+echo "<pre>";
+print_r($data);
+echo "</pre>";
+
 // Functions
 function getAWSCredentials($Connect)
 {
@@ -127,20 +149,6 @@ function fetchAccessToken($credentials, $returnRaw = false)
     }
 
     return $decodedResponse['access_token'] ?? false;
-}
-
-
-// Global configuration
-$endpoint = 'https://sellingpartnerapi-na.amazon.com';
-$path = '/fba/inventory/v1/summaries';
-$service = 'execute-api';
-$region = 'us-east-1';
-/*
-    This Code is connected to the FBA (fullfillment by Amazon) inventory API
-*/
-// Ensure necessary keys exist
-if (!isset($credentials['client_id']) || !isset($credentials['client_secret'])) {
-    die("Invalid keys in database.");
 }
 
 function fetchDataFromAPI($credentials, $accessToken, $nextToken = null)
@@ -539,13 +547,6 @@ function getSignatureKey($key, $dateStamp, $regionName, $serviceName)
     $kSigning = hash_hmac('sha256', 'aws4_request', $kService, true);
     return $kSigning;
 }
-
-// Fetch data
-$data = fetchDataFromAPI($credentials, $accessToken);
-
-echo "<pre>";
-print_r($data);
-echo "</pre>";
 
 // Functions
 $Connect->close();

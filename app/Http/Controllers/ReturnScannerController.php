@@ -1991,13 +1991,17 @@ public function validateReturnId(Request $request)
         $dateFrom = $data['date_from'] ?? null;
         $dateTo = $data['date_to'] ?? null;
         $sortOrder = $data['sort_order'] ?? 'DESC';
-        $rows = $data['rows'] ?? 10;
+        $rows = $data['rows'] ?? 50;
 
         if ($type === 'FBM') {
             $query = DB::table('tblfbmreturns');
 
             if (!empty($amazonOrderId)) {
-                $query->where('amazonOrderId', 'like', '%' . $amazonOrderId . '%');
+                $query->where(function ($q) use ($amazonOrderId) {
+                    $q->where('amazonOrderId', 'like', '%' . $amazonOrderId . '%')
+                        ->orWhere('tracking_id', 'like', '%' . $amazonOrderId . '%')
+                        ->orWhere('amazon_rma_id', 'like', '%' . $amazonOrderId . '%');
+                });
             }
 
             if (!empty($storeName)) {

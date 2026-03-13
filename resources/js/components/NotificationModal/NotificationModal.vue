@@ -1,14 +1,25 @@
 <template>
-    <Dialog v-model:visible="isVisible" modal :closable="true" :draggable="false" class="notification-modal" :style="{
-        width: isMobile ? '100vw' : '900px',
-        height: isMobile ? '100vh' : 'auto',
-    }" :contentStyle="{
-        padding: 0,
-        height: isMobile ? '100vh' : 'auto',
-        maxHeight: isMobile ? '100vh' : '80vh',
-        borderRadius: isMobile ? '0' : '12px',
-        overflow: 'hidden',
-    }" :position="isMobile ? 'center' : 'center'" @show="onModalShow" @hide="onModalHide">
+    <Dialog
+        v-model:visible="isVisible"
+        modal
+        :closable="true"
+        :draggable="false"
+        class="notification-modal"
+        :style="{
+            width: isMobile ? '100vw' : '900px',
+            height: isMobile ? '100vh' : 'auto',
+        }"
+        :contentStyle="{
+            padding: 0,
+            height: isMobile ? '100vh' : 'auto',
+            maxHeight: isMobile ? '100vh' : '80vh',
+            borderRadius: isMobile ? '0' : '12px',
+            overflow: 'hidden',
+        }"
+        :position="isMobile ? 'center' : 'center'"
+        @show="onModalShow"
+        @hide="onModalHide"
+    >
         <template #header>
             <div class="notification-header">
                 <h3>
@@ -19,35 +30,48 @@
         </template>
 
         <div class="notification-content">
-            <!-- Expanded View (List) -->
+            <!-- Expanded View -->
             <div v-if="!selectedNotification" class="expanded-view">
-                <!-- Filter Section -->
                 <div class="filter-section">
                     <label for="moduleFilter">Filter by Module:</label>
-                    <Select v-model="selectedModule" :options="moduleOptions" optionLabel="label" optionValue="value"
-                        placeholder="All" class="module-filter" @change="filterNotifications" />
+                    <Select
+                        v-model="selectedModule"
+                        :options="moduleOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                        placeholder="All"
+                        class="module-filter"
+                        @change="filterNotifications"
+                    />
                 </div>
 
-                <!-- Empty State -->
                 <div v-if="filteredNotifications.length === 0" class="empty-state">
                     <i class="pi pi-bell-slash"></i>
                     <h4>No notifications</h4>
-                    <p v-if="notifications.length === 0">
-                        You're all caught up!
-                    </p>
+                    <p v-if="notifications.length === 0">You're all caught up!</p>
                     <p v-else>No notifications match the selected filter.</p>
-                    <small v-if="notifications.length > 0" style="color: #6c757d; margin-top: 0.5rem">
+
+                    <small
+                        v-if="notifications.length > 0"
+                        style="color: #6c757d; margin-top: 0.5rem"
+                    >
                         Total: {{ notifications.length }} | Showing:
                         {{ filteredNotifications.length }} | Module:
                         {{ selectedModule || "All" }}
                     </small>
                 </div>
 
-                <!-- Desktop Table View -->
                 <div v-else class="notification-table">
-                    <DataTable :value="filteredNotifications" :rowClass="getRowClass" @row-click="onNotificationClick"
-                        stripedRows size="small" responsiveLayout="stack" breakpoint="768px">
-                        <Column field="module" header="Module" style="min-width: 120px"></Column>
+                    <DataTable
+                        :value="filteredNotifications"
+                        :rowClass="getRowClass"
+                        @row-click="onNotificationClick"
+                        stripedRows
+                        size="small"
+                        responsiveLayout="stack"
+                        breakpoint="768px"
+                    >
+                        <Column field="module" header="Module" style="min-width: 120px" />
                         <Column field="title" header="Title" style="min-width: 200px">
                             <template #body="{ data }">
                                 <div class="text-truncate" style="max-width: 260px">
@@ -71,7 +95,10 @@
                         </Column>
                         <Column field="severity" header="Severity" style="min-width: 100px">
                             <template #body="{ data }">
-                                <Tag :severity="getSeverity(data.severity)" :value="data.severity || '—'" />
+                                <Tag
+                                    :severity="getSeverity(data.severity)"
+                                    :value="data.severity || '—'"
+                                />
                             </template>
                         </Column>
                         <Column field="notif_created_at" header="Date" style="min-width: 180px">
@@ -81,11 +108,9 @@
                         </Column>
                     </DataTable>
                 </div>
-
-                <!-- Mobile Card View - REMOVED -->
             </div>
 
-            <!-- Detail View (Single Notification) -->
+            <!-- Detail View -->
             <div v-else class="detail-view">
                 <div class="detail-table">
                     <table>
@@ -100,53 +125,60 @@
                             </tr>
                             <tr>
                                 <th>Subtitle</th>
-                                <td>
-                                    {{ selectedNotification.subtitle || "" }}
-                                </td>
+                                <td>{{ selectedNotification.subtitle || "" }}</td>
                             </tr>
                             <tr>
                                 <th>Content</th>
-                                <td>
-                                    {{ selectedNotification.content || "" }}
-                                </td>
+                                <td>{{ selectedNotification.content || "" }}</td>
                             </tr>
                             <tr>
                                 <th>Severity</th>
                                 <td>
-                                    <Tag :severity="getSeverity(
-                                        selectedNotification.severity
-                                    )
-                                        " :value="selectedNotification.severity" />
+                                    <Tag
+                                        :severity="getSeverity(selectedNotification.severity)"
+                                        :value="selectedNotification.severity"
+                                    />
                                 </td>
                             </tr>
                             <tr>
                                 <th>Date</th>
-                                <td>
-                                    {{
-                                        formatDate(
-                                            selectedNotification.notif_created_at
-                                        )
-                                    }}
-                                </td>
+                                <td>{{ formatDate(selectedNotification.notif_created_at) }}</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
                 <div class="detail-actions">
-                    <Button label="Back" @click="backToList" severity="secondary" size="small"
-                        icon="pi pi-arrow-left" />
+                    <Button
+                        label="Back"
+                        @click="backToList"
+                        severity="secondary"
+                        size="small"
+                        icon="pi pi-arrow-left"
+                    />
 
-                    <!-- Actions from link_data -->
                     <template v-if="selectedNotification?.parsedLinkData?.actions?.length">
-                        <Button v-for="a in selectedNotification.parsedLinkData.actions" :key="a.id"
-                            :label="a.label || 'Action'" size="small" severity="danger" icon="pi pi-check"
-                            @click="handleAction(a)" />
+                        <Button
+                            v-for="a in selectedNotification.parsedLinkData.actions"
+                            :key="a.id"
+                            :label="a.label || 'Action'"
+                            size="small"
+                            severity="danger"
+                            icon="pi pi-check"
+                            :loading="actionLoadingId === a.id"
+                            :disabled="actionLoadingId !== null"
+                            @click="handleAction(a)"
+                        />
                     </template>
 
-                    <!-- Optional fallback: show your old single link button only when no actions exist -->
-                    <Button v-else-if="selectedNotification?.parsedLinkData" :label="getLinkButtonLabel()"
-                        @click="handleLinkAction" severity="primary" size="small" icon="pi pi-external-link" />
+                    <Button
+                        v-else-if="selectedNotification?.parsedLinkData"
+                        :label="getLinkButtonLabel()"
+                        @click="handleLinkAction"
+                        severity="primary"
+                        size="small"
+                        icon="pi pi-external-link"
+                    />
                 </div>
             </div>
         </div>
@@ -190,9 +222,10 @@ export default defineComponent({
             selectedNotification: null,
             selectedModule: "",
             moduleOptions: [{ label: "All", value: "" }],
-            userId: null,
+            currentUserId: null,
             csrfToken: null,
             updateInterval: null,
+            actionLoadingId: null,
         };
     },
     computed: {
@@ -209,23 +242,20 @@ export default defineComponent({
         },
     },
     mounted() {
-        // Get userId from props or fallback to meta/window
         if (!this.userId) {
-            this.userId =
+            this.currentUserId =
                 window.userId ||
                 window.appData?.userId ||
                 document.querySelector('meta[name="user-id"]')?.content;
+        } else {
+            this.currentUserId = this.userId;
         }
 
-        // Get CSRF token
         this.csrfToken =
             window.appData?.csrfToken ||
             document.querySelector('meta[name="csrf-token"]')?.content;
 
-        // Fetch initial data
         this.updateBadge();
-
-        // Start polling for badge updates
         this.startBadgePolling();
     },
     beforeUnmount() {
@@ -233,14 +263,14 @@ export default defineComponent({
     },
     methods: {
         async fetchNotifications() {
-            if (!this.userId) {
+            if (!this.currentUserId) {
                 console.error("User ID not found");
                 return;
             }
 
             try {
                 const response = await fetch(
-                    `/notifications/user/${this.userId}`
+                    `/notifications/user/${this.currentUserId}`
                 );
 
                 if (!response.ok) {
@@ -249,42 +279,25 @@ export default defineComponent({
 
                 const data = await response.json();
 
-                console.log("Fetched notifications:", data); // Debug log
-                console.log("Total notifications:", data.length); // Debug log
-                console.log(
-                    "Read notifications:",
-                    data.filter((n) => n.read_status === "read").length
-                ); // Debug log
-                console.log(
-                    "Unread notifications:",
-                    data.filter((n) => n.read_status === "unread").length
-                ); // Debug log
-
-                this.notifications = data;
+                this.notifications = Array.isArray(data) ? data : [];
                 this.filterNotifications();
                 this.extractModules();
-
-                console.log(
-                    "Filtered notifications:",
-                    this.filteredNotifications
-                ); // Debug log
             } catch (error) {
                 console.error("Error fetching notifications:", error);
-                // Show empty state on error
                 this.notifications = [];
                 this.filteredNotifications = [];
             }
         },
 
         async updateBadge() {
-            if (!this.userId) {
+            if (!this.currentUserId) {
                 console.error("User ID not found");
                 return;
             }
 
             try {
                 const response = await fetch(
-                    `/notifications/unread-count/${this.userId}`
+                    `/notifications/unread-count/${this.currentUserId}`
                 );
 
                 if (!response.ok) {
@@ -292,11 +305,7 @@ export default defineComponent({
                 }
 
                 const data = await response.json();
-
-                console.log("Badge count:", data.unread_count); // Debug log
-
-                // Emit event to update badge in parent component
-                this.$emit("update-badge", data.unread_count);
+                this.$emit("update-badge", data.unread_count || 0);
             } catch (error) {
                 console.error("Error updating badge:", error);
             }
@@ -312,7 +321,7 @@ export default defineComponent({
                     },
                     body: JSON.stringify({
                         notif_id: notifId,
-                        user_id: this.userId,
+                        user_id: this.currentUserId,
                     }),
                 });
 
@@ -329,9 +338,7 @@ export default defineComponent({
         },
 
         extractModules() {
-            const modules = [
-                ...new Set(this.notifications.map((n) => n.module)),
-            ];
+            const modules = [...new Set(this.notifications.map((n) => n.module))];
             this.moduleOptions = [
                 { label: "All", value: "" },
                 ...modules.map((m) => ({ label: m, value: m })),
@@ -351,14 +358,13 @@ export default defineComponent({
         getSeverity(severity) {
             const s = String(severity || "").toLowerCase();
 
-            if (s === "high" || s === "critical") return "danger";
-            if (s === "medium") return "warn";
-            if (s === "low") return "success";
+            if (s === "high" || s === "critical" || s === "danger") return "danger";
+            if (s === "medium" || s === "warning" || s === "warn") return "warn";
+            if (s === "low" || s === "success") return "success";
             return "secondary";
         },
 
         getRowClass(data) {
-            // Only highlight unread notifications
             return data.read_status === "unread"
                 ? "notif-unread-row"
                 : "notif-read-row";
@@ -375,22 +381,17 @@ export default defineComponent({
         async onNotificationClick(event) {
             const notification = event.data;
 
-            // Mark as read
             await this.markAsRead(notification.notif_id);
 
-            // Parse link_data if it exists
             if (notification.link_data) {
                 try {
-                    notification.parsedLinkData = JSON.parse(
-                        notification.link_data
-                    );
+                    notification.parsedLinkData = JSON.parse(notification.link_data);
                 } catch (e) {
                     console.error("Error parsing link_data:", e);
                     notification.parsedLinkData = null;
                 }
             }
 
-            // Show detail view
             this.selectedNotification = notification;
         },
 
@@ -413,15 +414,12 @@ export default defineComponent({
                 case "redirect":
                     this.handleRedirect(linkData);
                     break;
-
                 case "modal":
                     this.handleModal(linkData);
                     break;
-
                 case "custom":
                     this.handleCustom(linkData);
                     break;
-
                 default:
                     console.warn("Unknown link type:", linkData.type);
             }
@@ -432,22 +430,18 @@ export default defineComponent({
             const url = linkData.url;
 
             if (method === "GET") {
-                // Navigate to URL
                 window.location.href = url;
             } else if (method === "POST") {
-                // Create a form and submit it
                 const form = document.createElement("form");
                 form.method = "POST";
                 form.action = url;
 
-                // Add CSRF token
                 const csrfInput = document.createElement("input");
                 csrfInput.type = "hidden";
                 csrfInput.name = "_token";
                 csrfInput.value = this.csrfToken;
                 form.appendChild(csrfInput);
 
-                // Add payload fields
                 if (linkData.payload) {
                     Object.keys(linkData.payload).forEach((key) => {
                         const input = document.createElement("input");
@@ -464,25 +458,20 @@ export default defineComponent({
         },
 
         handleModal(linkData) {
-            // Emit event to parent component to open specific modal
             this.$emit("open-modal", {
                 modalId: linkData.modal_id,
                 data: linkData.data,
             });
 
-            // Close notification modal
             this.isVisible = false;
         },
 
         handleCustom(linkData) {
-            // Emit custom event for parent to handle
             this.$emit("custom-action", linkData);
         },
 
         async backToList() {
             this.selectedNotification = null;
-
-            // Reload notifications to refresh read status
             await this.fetchNotifications();
         },
 
@@ -492,12 +481,10 @@ export default defineComponent({
         },
 
         onModalHide() {
-            // Reset to expanded view
             this.selectedNotification = null;
         },
 
         startBadgePolling() {
-            // Update badge every 30 seconds
             this.updateInterval = setInterval(() => {
                 this.updateBadge();
             }, 30000);
@@ -507,36 +494,6 @@ export default defineComponent({
             if (this.updateInterval) {
                 clearInterval(this.updateInterval);
             }
-        },
-
-        shouldShowFnskuOverride() {
-            if (!this.selectedNotification) return false;
-
-            // Option A (recommended): drive it from link_data.type === "custom"
-            const d = this.selectedNotification.parsedLinkData;
-            if (d?.type === "custom" && d?.action === "fnsku_update_conflict") return true;
-
-            // Option B fallback: detect by module/title keywords
-            const mod = String(this.selectedNotification.module || "").toLowerCase();
-            const title = String(this.selectedNotification.title || "").toLowerCase();
-            return mod.includes("stock") && title.includes("fnsku") && title.includes("conflict");
-        },
-
-        emitFnskuOverride() {
-            const notif = this.selectedNotification;
-            const d = notif?.parsedLinkData || null;
-
-            // Emit to parent. Parent will do the override flow (open modal, run API, etc.)
-            this.$emit("custom-action", {
-                action: "fnsku_update_conflict_override",
-                notif_id: notif?.notif_id,
-                // pass whatever you stored in link_data.data/payload
-                data: d?.data || d?.payload || null,
-                notification: notif, // optional, handy for UI
-            });
-
-            // Optional: close notifications modal after click
-            this.isVisible = false;
         },
 
         handleAction(action) {
@@ -555,6 +512,8 @@ export default defineComponent({
             const url = action.url;
             const payload = action.payload || {};
 
+            this.actionLoadingId = action.id;
+
             try {
                 const resp = await fetch(url, {
                     method,
@@ -570,20 +529,30 @@ export default defineComponent({
                 const data = await resp.json().catch(() => ({}));
 
                 if (!resp.ok || data?.ok === false) {
-                    alert(data?.message || `Request failed (${resp.status})`);
+                    alert(
+                        data?.error ||
+                            data?.message ||
+                            `Request failed (${resp.status})`
+                    );
                     return;
                 }
 
-                alert(data?.message || "Block cleared.");
+                alert(
+                    data?.message ||
+                        (action.id === "approve_apply"
+                            ? "New FNSKU applied successfully."
+                            : "Current FNSKU kept.")
+                );
 
                 await this.updateBadge();
                 await this.fetchNotifications();
 
-                // Optional: go back to list
                 this.selectedNotification = null;
             } catch (e) {
                 console.error(e);
                 alert("An error occurred.");
+            } finally {
+                this.actionLoadingId = null;
             }
         },
     },

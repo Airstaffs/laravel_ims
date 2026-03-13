@@ -64,6 +64,7 @@ use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Controllers\SwitcheruController;
+use App\Http\Controllers\TblFnskuConflictController;
 
 use App\Http\Middleware\PreventBackHistory;
 use App\Http\Models\Store;
@@ -1112,3 +1113,8 @@ Route::get('/debug-charset', function () {
     $result = DB::select("SHOW VARIABLES LIKE 'character_set_connection'");
     return response()->json($result);
 });
+
+
+
+Route::post('/fnsku-conflicts/apply', [TblFnskuConflictController::class, 'apply']);
+Route::post('/fnsku-conflicts/override', [TblFnskuConflictController::class, 'override']);

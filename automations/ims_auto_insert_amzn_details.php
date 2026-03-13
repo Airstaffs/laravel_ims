@@ -274,44 +274,192 @@ foreach ($stores as $store) {
                         // Row already exists in the database
                         $existingRow = $resultCheck->fetch_assoc();
 
-                        // Decide what we are allowed to update
-                        $incomingFnsku = trim((string) $FNSKU);
-                        $incomingStatus = trim((string) $amazon_status);
+                        $existingRowId = (int)($existingRow['FNSKUID'] ?? 0);
+                        $incomingFnsku = trim((string)$FNSKU);
+                        $incomingStatus = trim((string)$amazon_status);
+                        $existingFnsku = trim((string)($existingRow['FNSKU'] ?? ''));
+                        $existingBaseFnsku = extractBaseFnsku($existingFnsku);
+                        $incomingBaseFnsku = extractBaseFnsku($incomingFnsku);
 
-                        // Rule A: If Amazon says Deleted -> ALWAYS mark Deleted
+                        // =========================================================
+                        // 0) HARD BLOCK: if already blocked, notify once/day and skip
+                        // =========================================================
+                        if (isFnskuUpdateBlocked($Connect, $existingRowId, $MSKU, $storename)) {
+
+                            if (!alreadyNotifiedToday($Connect, $existingRowId, $MSKU, $storename)) {
+                                $pendingConflictId = getLatestPendingConflictId($Connect, $MSKU, $storename);
+
+                                $title = "FNSKU update is BLOCKED (needs all-clear). MSKU: {$MSKU}";
+                                $subtitle = "fnsku_update_conflict = 1";
+                                $content = "This MSKU is blocked from syncing because fnsku_update_conflict=1. "
+                                    . "After relabel/verification, clear the conflict flag to allow updates.";
+
+                                $linkData = [
+                                    "type" => "actions",
+                                    "actions" => [
+                                        [
+                                            "id" => "view_conflict",
+                                            "label" => "View Pending Conflict",
+                                            "type" => "redirect",
+                                            "method" => "GET",
+                                            "url" => "/stockroom/fnsku-mismatch?msku={$MSKU}",
+                                        ],
+                                        [
+                                            "id" => "approve_apply",
+                                            "label" => "Approve and Apply FNSKU",
+                                            "type" => "api",
+                                            "method" => "POST",
+                                            "url" => "/api/fnsku-conflicts/apply",
+                                            "payload" => [
+                                                "conflict_id" => $pendingConflictId,
+                                                "msku" => $MSKU,
+                                                "store" => $storename,
+                                            ],
+                                        ],
+                                        [
+                                            "id" => "override_clear",
+                                            "label" => "Override Clear Block",
+                                            "type" => "api",
+                                            "method" => "POST",
+                                            "url" => "/api/fnsku-conflicts/override",
+                                            "payload" => [
+                                                "conflict_id" => $pendingConflictId,
+                                                "msku" => $MSKU,
+                                                "store" => $storename,
+                                            ],
+                                        ],
+                                    ],
+                                    "context" => [
+                                        "conflict_id" => $pendingConflictId,
+                                        "msku" => $MSKU,
+                                        "store" => $storename,
+                                        "amazon_fnsku" => $incomingFnsku,
+                                        "note" => "Blocked until user clears fnsku_update_conflict.",
+                                    ],
+                                ];
+
+                                $userIds = getAllUserIdsToNotify($Connect);
+                                createNotification($Connect, "FNSKU Sync", $title, $subtitle, $content, "warning", $linkData, $userIds);
+                                markNotifiedToday($Connect, $existingRowId, $MSKU, $storename);
+                            }
+
+                            $skipCount++;
+                            updateCronInsertStatus($Connect, $MSKU, $merchantId);
+                            continue;
+                        }
+
+                        // =========================================================
+                        // 1) If Amazon says Deleted -> always mark Deleted
+                        // =========================================================
                         if (strcasecmp($incomingStatus, 'Deleted') === 0) {
-
                             $updateQuery = "UPDATE tblfnsku
-                    SET amazon_status = 'Deleted',
-                        insert_date = ?
-                    WHERE FNSKUID = ?";
+                                            SET amazon_status = 'Deleted',
+                                                insert_date = ?
+                                            WHERE FNSKUID = ?";
                             $stmtUpd = $Connect->prepare($updateQuery);
-                            $stmtUpd->bind_param("si", $currentDateTime, $existingRow['FNSKUID']);
+                            $stmtUpd->bind_param("si", $currentDateTime, $existingRowId);
                             $stmtUpd->execute();
                             $stmtUpd->close();
 
                             $updateCount++;
                             updateCronInsertStatus($Connect, $MSKU, $merchantId);
-
                         } else {
 
-                            // Rule B: If retrieved FNSKU is empty -> DO NOT UPDATE ANYTHING AT ALL
-                            // (you asked: "if retrieved FNSKU is empty then it will not update at all")
+                            // =========================================================
+                            // 2) Empty incoming FNSKU -> skip everything
+                            // =========================================================
                             if ($incomingFnsku === '') {
                                 $skipCount++;
                                 updateCronInsertStatus($Connect, $MSKU, $merchantId);
-                                // optional debug:
-                                // echo "Skip update: empty FNSKU for MSKU {$MSKU} / ASIN {$ASIN}<br>";
                             } else {
 
-                                // Otherwise update ONLY FNSKU + amazon_status (non-deleted)
+                                // =========================================================
+                                // 3) Conflict check BEFORE update
+                                // =========================================================
+                                $chkConflict = checkFnskuConflictTblproduct($Connect, $MSKU, $incomingFnsku);
+
+                                if ($chkConflict['conflict']) {
+                                    setFnskuConflictFlag($Connect, $existingRowId, $MSKU, $storename, true);
+
+                                    $conflictReason = "Amazon FNSKU does not match tblproduct.FNSKUviewer base value, or multiple distinct base FNSKUs exist.";
+
+                                    $conflictId = upsertFnskuConflictRecord(
+                                        $Connect,
+                                        $existingRowId,
+                                        $MSKU,
+                                        $ASIN,
+                                        $storename,
+                                        $existingBaseFnsku,
+                                        $incomingBaseFnsku,
+                                        trim((string)($existingRow['grading'] ?? '')),
+                                        $skucondition,
+                                        $conflictReason
+                                    );
+
+                                    if (!alreadyNotifiedToday($Connect, $existingRowId, $MSKU, $storename)) {
+                                        $title = "FNSKU update conflict! MSKU: {$MSKU}";
+                                        $subtitle = "Relabel required before syncing FNSKU";
+                                        $content = "FNSKU mismatch detected (Amazon vs tblproduct.FNSKUviewer). "
+                                            . "Pending FNSKU change has been logged and requires user action.";
+
+                                        $linkData = [
+                                            "type" => "actions",
+                                            "actions" => [
+                                                [
+                                                    "id" => "approve_apply",
+                                                    "label" => "Apply New FNSKU",
+                                                    "type" => "api",
+                                                    "method" => "POST",
+                                                    "url" => "/api/fnsku-conflicts/apply",
+                                                    "payload" => [
+                                                        "conflict_id" => $conflictId,
+                                                        "msku" => $MSKU,
+                                                        "store" => $storename,
+                                                    ],
+                                                ],
+                                                [
+                                                    "id" => "override_clear",
+                                                    "label" => "Keep Current FNSKU",
+                                                    "type" => "api",
+                                                    "method" => "POST",
+                                                    "url" => "/api/fnsku-conflicts/override",
+                                                    "payload" => [
+                                                        "conflict_id" => $conflictId,
+                                                        "msku" => $MSKU,
+                                                        "store" => $storename,
+                                                    ],
+                                                ],
+                                            ],
+                                            "context" => [
+                                                "conflict_id" => $conflictId,
+                                                "msku" => $MSKU,
+                                                "asin" => $ASIN,
+                                                "store" => $storename,
+                                                "old_fnsku" => $existingBaseFnsku,
+                                                "new_fnsku" => $incomingBaseFnsku,
+                                                "note" => "Pending FNSKU conflict logged. User action required.",
+                                            ],
+                                        ];
+
+                                        $userIds = getAllUserIdsToNotify($Connect);
+                                        createNotification($Connect, "FNSKU Sync", $title, $subtitle, $content, "warning", $linkData, $userIds);
+                                        markNotifiedToday($Connect, $existingRowId, $MSKU, $storename);
+                                    }
+
+                                    $skipCount++;
+                                    updateCronInsertStatus($Connect, $MSKU, $merchantId);
+                                    continue;
+                                }
+
+                                // =========================================================
+                                // 4) SAFE ZONE: no conflict -> update status only
+                                // =========================================================
                                 $updateQuery = "UPDATE tblfnsku
-                        SET 
-                            amazon_status = ?,
-                            insert_date = ?
-                        WHERE FNSKUID = ?";
+                                                SET amazon_status = ?,
+                                                    insert_date = ?
+                                                WHERE FNSKUID = ?";
                                 $stmtUpd = $Connect->prepare($updateQuery);
-                                $stmtUpd->bind_param("ssi", $incomingStatus, $currentDateTime, $existingRow['FNSKUID']);
+                                $stmtUpd->bind_param("ssi", $incomingStatus, $currentDateTime, $existingRowId);
                                 $stmtUpd->execute();
                                 $stmtUpd->close();
 
@@ -1005,4 +1153,307 @@ function mapNewlyCreatedStatusToAmazonStatus($raw): string
         return 'Active';
 
     return 'Problematic';
+}
+
+function extractBaseFnsku(string $fnsku): string
+{
+    $fnsku = trim($fnsku);
+    if ($fnsku === '') {
+        return '';
+    }
+
+    if (preg_match('/^([C-W]|[Y-Z])(\d+)(X.+)$/', $fnsku, $m)) {
+        return $m[3];
+    }
+
+    return $fnsku;
+}
+
+function checkFnskuConflictTblproduct(mysqli $db, string $msku, string $amazonFnsku): array
+{
+    $amazonFnsku = trim($amazonFnsku);
+
+    $sql = "
+        SELECT DISTINCT FNSKUviewer
+        FROM tblproduct
+        WHERE MSKUviewer = ?
+          AND FNSKUviewer IS NOT NULL
+          AND FNSKUviewer <> ''
+          AND (ProductModuleLoc IS NULL OR ProductModuleLoc <> 'SoldList')
+    ";
+    $stmt = $db->prepare($sql);
+    $stmt->bind_param("s", $msku);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    $distinctBase = [];
+    $mismatchCount = 0;
+
+    while ($row = $res->fetch_assoc()) {
+        $raw = trim((string)($row['FNSKUviewer'] ?? ''));
+        if ($raw === '') {
+            continue;
+        }
+
+        $base = extractBaseFnsku($raw);
+        if ($base === '') {
+            continue;
+        }
+
+        $distinctBase[$base] = true;
+
+        if ($amazonFnsku !== '' && $base !== $amazonFnsku) {
+            $mismatchCount++;
+        }
+    }
+
+    $stmt->close();
+
+    $distinctCount = count($distinctBase);
+
+    return [
+        'conflict' => ($mismatchCount > 0 || $distinctCount > 1),
+        'mismatch_count' => $mismatchCount,
+        'distinct_fnsku_count' => $distinctCount,
+        'distinct_base_fnskus' => array_keys($distinctBase),
+    ];
+}
+
+function setFnskuConflictFlag(mysqli $db, int $rowId, string $msku, string $store, bool $isConflict): void
+{
+    $flag = $isConflict ? 1 : 0;
+
+    if ($rowId > 0) {
+        $sql = "
+            UPDATE tblfnsku
+            SET fnsku_update_conflict = ?,
+                fnsku_conflict_detected_at = CASE WHEN ? = 1 THEN NOW() ELSE fnsku_conflict_detected_at END
+            WHERE FNSKUID = ?
+        ";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("iii", $flag, $flag, $rowId);
+    } else {
+        $sql = "
+            UPDATE tblfnsku
+            SET fnsku_update_conflict = ?,
+                fnsku_conflict_detected_at = CASE WHEN ? = 1 THEN NOW() ELSE fnsku_conflict_detected_at END
+            WHERE MSKU = ?
+              AND storename = ?
+        ";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("iiss", $flag, $flag, $msku, $store);
+    }
+
+    $stmt->execute();
+    $stmt->close();
+}
+
+function isFnskuUpdateBlocked(mysqli $db, int $rowId, string $msku, string $store): bool
+{
+    if ($rowId > 0) {
+        $sql = "SELECT fnsku_update_conflict AS f FROM tblfnsku WHERE FNSKUID = ? LIMIT 1";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("i", $rowId);
+    } else {
+        $sql = "SELECT fnsku_update_conflict AS f FROM tblfnsku WHERE MSKU = ? AND storename = ? LIMIT 1";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("ss", $msku, $store);
+    }
+
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $row = $res->fetch_assoc();
+    $stmt->close();
+
+    return ((int)($row['f'] ?? 0) === 1);
+}
+
+function alreadyNotifiedToday(mysqli $db, int $rowId, string $msku, string $store): bool
+{
+    if ($rowId > 0) {
+        $sql = "SELECT fnsku_conflict_last_notified_at AS d FROM tblfnsku WHERE FNSKUID = ? LIMIT 1";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("i", $rowId);
+    } else {
+        $sql = "SELECT fnsku_conflict_last_notified_at AS d FROM tblfnsku WHERE MSKU = ? AND storename = ? LIMIT 1";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("ss", $msku, $store);
+    }
+
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $row = $res->fetch_assoc();
+    $stmt->close();
+
+    $d = (string)($row['d'] ?? '');
+    return (substr($d, 0, 10) === date('Y-m-d'));
+}
+
+function markNotifiedToday(mysqli $db, int $rowId, string $msku, string $store): void
+{
+    $today = date('Y-m-d');
+
+    if ($rowId > 0) {
+        $sql = "UPDATE tblfnsku SET fnsku_conflict_last_notified_at = ? WHERE FNSKUID = ?";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("si", $today, $rowId);
+    } else {
+        $sql = "UPDATE tblfnsku SET fnsku_conflict_last_notified_at = ? WHERE MSKU = ? AND storename = ?";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("sss", $today, $msku, $store);
+    }
+
+    $stmt->execute();
+    $stmt->close();
+}
+
+function upsertFnskuConflictRecord(
+    mysqli $db,
+    int $rowId,
+    string $msku,
+    ?string $asin,
+    string $store,
+    ?string $oldFnsku,
+    ?string $newFnsku,
+    ?string $oldGrading,
+    ?string $newGrading,
+    string $reason = ''
+): int {
+    $asin = trim((string)$asin);
+    $oldFnsku = trim((string)$oldFnsku);
+    $newFnsku = trim((string)$newFnsku);
+    $oldGrading = trim((string)$oldGrading);
+    $newGrading = trim((string)$newGrading);
+
+    $chk = $db->prepare("
+        SELECT id
+        FROM tblfnskuconflicts
+        WHERE MSKU = ?
+          AND storename = ?
+          AND newfnsku = ?
+          AND status = 'pending'
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+    $chk->bind_param("sss", $msku, $store, $newFnsku);
+    $chk->execute();
+    $resChk = $chk->get_result();
+    $existing = $resChk->fetch_assoc();
+    $chk->close();
+
+    if ($existing) {
+        $conflictId = (int)$existing['id'];
+
+        $upd = $db->prepare("
+            UPDATE tblfnskuconflicts
+            SET
+                FNSKUID = ?,
+                ASIN = ?,
+                oldfnsku = ?,
+                oldgrading = ?,
+                newgrading = ?,
+                conflict_reason = ?,
+                updated_at = NOW()
+            WHERE id = ?
+        ");
+        $upd->bind_param(
+            "isssssi",
+            $rowId,
+            $asin,
+            $oldFnsku,
+            $oldGrading,
+            $newGrading,
+            $reason,
+            $conflictId
+        );
+        $upd->execute();
+        $upd->close();
+
+        return $conflictId;
+    }
+
+    $ins = $db->prepare("
+        INSERT INTO tblfnskuconflicts
+        (
+            FNSKUID, MSKU, ASIN, storename,
+            oldfnsku, newfnsku,
+            oldgrading, newgrading,
+            status, conflict_reason,
+            created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, NOW(), NOW())
+    ");
+    $ins->bind_param(
+        "issssssss",
+        $rowId,
+        $msku,
+        $asin,
+        $store,
+        $oldFnsku,
+        $newFnsku,
+        $oldGrading,
+        $newGrading,
+        $reason
+    );
+    $ins->execute();
+    $newId = (int)$ins->insert_id;
+    $ins->close();
+
+    return $newId;
+}
+
+function getLatestPendingConflictId(mysqli $db, string $msku, string $store): int
+{
+    $sql = "
+        SELECT id
+        FROM tblfnskuconflicts
+        WHERE MSKU = ?
+          AND storename = ?
+          AND status = 'pending'
+        ORDER BY id DESC
+        LIMIT 1
+    ";
+    $stmt = $db->prepare($sql);
+    $stmt->bind_param("ss", $msku, $store);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $row = $res->fetch_assoc();
+    $stmt->close();
+
+    return (int)($row['id'] ?? 0);
+}
+
+function getAllUserIdsToNotify(mysqli $db): array
+{
+    return [1, 4, 14, 15, 16, 17, 18, 19, 20, 21, 22, 26];
+}
+
+function createNotification(mysqli $db, string $module, string $title, string $subtitle, string $content, string $severity, array $linkData, array $userIds): void
+{
+    $linkJson = json_encode($linkData, JSON_UNESCAPED_SLASHES);
+
+    $sql = "
+        INSERT INTO tblnotifications (module, title, subtitle, content, severity, created_at, link_data)
+        VALUES (?, ?, ?, ?, ?, NOW(), ?)
+    ";
+    $stmt = $db->prepare($sql);
+    $stmt->bind_param("ssssss", $module, $title, $subtitle, $content, $severity, $linkJson);
+    $stmt->execute();
+    $notifId = (int)$stmt->insert_id;
+    $stmt->close();
+
+    if ($notifId <= 0) {
+        return;
+    }
+
+    $sql2 = "INSERT INTO tblnotificationsuser (notif_id, userid, read_status, created_at) VALUES (?, ?, 'unread', NOW())";
+    $stmt2 = $db->prepare($sql2);
+
+    foreach ($userIds as $uid) {
+        $uid = (int)$uid;
+        $stmt2->bind_param("ii", $notifId, $uid);
+        $stmt2->execute();
+    }
+
+    $stmt2->close();
 }
