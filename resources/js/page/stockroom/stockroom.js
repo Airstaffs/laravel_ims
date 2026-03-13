@@ -2587,6 +2587,7 @@ export default {
 
         openPostAmazonModal() {
             if (!this.hasSelectedItems) {
+                console.log("Posted Sheesh");
                 alert("Please select at least one item.");
                 return;
             }
