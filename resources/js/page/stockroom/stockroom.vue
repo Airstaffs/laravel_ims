@@ -1028,70 +1028,73 @@
         </Dialog>
 
         <!-- Post to Amazon Modal -->
-        <div v-if="showPostAmazonModal" class="modal postAmazon-modal">
-            <div class="modal-overlay" @click="closePostAmazonModal"></div>
+<div v-if="showPostAmazonModal" class="postAmazon-modal">
+    <div class="modal-overlay" @click="closePostAmazonModal"></div>
 
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Post to Amazon</h5>
-                    <button
-                        class="postAmazon-close"
-                        @click="closePostAmazonModal"
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">Post to Amazon</h5>
+            <button class="postAmazon-close" @click="closePostAmazonModal">
+                &times;
+            </button>
+        </div>
+
+        <div class="modal-body" v-if="!isPosting">
+            <form @submit.prevent="submitPostToAmazon">
+                <div class="form-group">
+                    <label>Marketplace</label>
+                    <input
+                        v-model="postForm.marketplace"
+                        class="form-control"
+                        required
+                    />
+                </div>
+
+                <div class="form-group">
+                    <label>Fulfillment Channel</label>
+                    <select
+                        v-model="postForm.fulfillmentChannel"
+                        class="form-control"
+                        required
                     >
-                        &times;
+                        <option disabled value="">Select Fulfillment Channel</option>
+                        <option value="AMAZON_NA">FBA</option>
+                        <option value="DEFAULT">FBM</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Currency</label>
+                    <input
+                        v-model="postForm.currency"
+                        class="form-control"
+                        required
+                    />
+                </div>
+
+                <div class="form-group">
+                    <label>Price</label>
+                    <input
+                        type="number"
+                        v-model.number="postForm.price"
+                        class="form-control"
+                        required
+                    />
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-primary" type="submit">
+                        Submit
                     </button>
                 </div>
-
-                <div class="modal-body" v-if="!isPosting">
-                    <form @submit.prevent="submitPostToAmazon">
-                        <div class="form-group">
-                            <label>Marketplace</label>
-                            <input
-                                v-model="postForm.marketplace"
-                                class="form-control"
-                                required
-                            />
-                        </div>
-                        <select
-                            v-model="postForm.fulfillmentChannel"
-                            class="form-control"
-                            required
-                        >
-                            <option disabled value="">
-                                Select Fulfillment Channel
-                            </option>
-                            <option value="AMAZON_NA">FBA</option>
-                            <option value="DEFAULT">FBM</option>
-                        </select>
-                        <div class="form-group">
-                            <label>Currency</label>
-                            <input
-                                v-model="postForm.currency"
-                                class="form-control"
-                                required
-                            />
-                        </div>
-                        <div class="form-group">
-                            <label>Price</label>
-                            <input
-                                type="number"
-                                v-model="postForm.price"
-                                class="form-control"
-                                required
-                            />
-                        </div>
-                        <div class="modal-footer">
-                            <button class="btn btn-primary" type="submit">
-                                Submit
-                            </button>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-body" v-else>
-                    <p>Processing... Please wait.</p>
-                </div>
-            </div>
+            </form>
         </div>
+
+        <div class="modal-body" v-else>
+            <p>Processing... Please wait.</p>
+        </div>
+    </div>
+</div>
 
         <!-- New Scanned Items Modal -->
         <NewScannedItemModal
@@ -2129,5 +2132,45 @@ export default {
     .p-select {
         width: 100% !important;
     }
+}
+
+.postAmazon-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    position: relative;
+    z-index: 2;
+    background: #fff;
+    width: 500px;
+    max-width: 90vw;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.postAmazon-close {
+    border: none;
+    background: transparent;
+    font-size: 24px;
+    cursor: pointer;
 }
 </style>
