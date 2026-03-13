@@ -806,16 +806,16 @@
                         severity="help"
                     />
                 </div>
-                <div class="flex-shrink-0">
-                    <Button
-                        @click="openPostAmazonModal"
-                        :disabled="!hasSelectedItems"
-                        label="Post to Amazon"
-                        icon="pi pi-check"
-                        size="small"
-                        severity="secondary"
-                    />
-                </div>
+<div class="flex-shrink-0">
+    <Button
+        @click="openPostAmazonModal"
+        :disabled="!hasSelectedItems"
+        label="Post to Amazon"
+        icon="pi pi-check"
+        size="small"
+        severity="secondary"
+    />
+</div>
             </div>
         </Dialog>
 

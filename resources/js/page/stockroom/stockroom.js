@@ -137,7 +137,9 @@ export default {
             perPage: 10, // Default rows per page
             first: 0, //paginator internal state
 
-            isFnskuAvailable: false
+            isFnskuAvailable: false,
+                    showPostAmazonModal: false,
+
         };
     },
     computed: {
@@ -2586,17 +2588,17 @@ export default {
         },
 
         openPostAmazonModal() {
-                            console.log("Posted Sheesh");
+
             if (!this.hasSelectedItems) {
 
                 alert("Please select at least one item.");
                 return;
             }
-            $(this.$refs.postAmazonModal).modal("show");
+                    this.showPostAmazonModal = true;
         },
-        closePostAmazonModal() {
-            $(this.$refs.postAmazonModal).modal("hide");
-        },
+    closePostAmazonModal() {
+        this.showPostAmazonModal = false;
+    },
         async submitPostToAmazon() {
             this.isPosting = true;
             try {
