@@ -8,7 +8,7 @@
                 <SelectButton v-model="filters.type" :options="typeOptions" optionLabel="label" optionValue="value"
                     class="type-toggle" />
 
-                <InputText v-model="filters.amazonOrderId" placeholder="Amazon Order ID" />
+                <InputText v-model="filters.amazonOrderId" placeholder="OID, TrackID, RMAID" />
 
                 <Dropdown v-model="filters.store_name" :options="storeOptions" optionLabel="label" optionValue="value"
                     placeholder="Store" />

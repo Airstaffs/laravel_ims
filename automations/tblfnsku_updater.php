@@ -261,6 +261,16 @@ foreach ($items as $row) {
             if ($chk['conflict']) {
                 // Set conflict flag (blocks updates)
                 setFnskuConflictFlag($Connect, $rowId, $msku, $store, true);
+                $conflictReason = "Amazon FNSKU does not match tblproduct.FNSKUviewer base value, or multiple distinct base FNSKUs exist.";
+                $conflictLogId = upsertFnskuConflictRecord(
+                    $Connect,
+                    $rowId,
+                    $msku,
+                    $store,
+                    $amazonFnsku,
+                    $grading,
+                    $conflictReason
+                );
 
                 // Notify once/day
                 if (!alreadyNotifiedToday($Connect, $rowId, $msku, $store)) {
@@ -270,26 +280,40 @@ foreach ($items as $row) {
                         . "Please relabel the following items based on MSKU ({$msku}).";
 
                     $linkData = [
-                        "type" => "actions",               // (new semantic label; your Vue will render actions list)
+                        "type" => "actions",
                         "actions" => [
                             [
-                                "id" => "clear_block",
-                                "label" => "Clear Block (Override)",
+                                "id" => "approve_apply",
+                                "label" => "Apply New FNSKU",
                                 "type" => "api",
                                 "method" => "POST",
-                                "url" => "/fnsku/clear-block",
+                                "url" => "/api/fnsku-conflicts/apply",
                                 "payload" => [
+                                    "conflict_id" => $conflictLogId,
                                     "msku" => $msku,
                                     "store" => $store,
-                                    "row_id" => $rowId,     // optional but helpful
+                                ],
+                            ],
+                            [
+                                "id" => "override_clear",
+                                "label" => "Keep Current FNSKU",
+                                "type" => "api",
+                                "method" => "POST",
+                                "url" => "/api/fnsku-conflicts/override",
+                                "payload" => [
+                                    "conflict_id" => $conflictLogId,
+                                    "msku" => $msku,
+                                    "store" => $store,
                                 ],
                             ],
                         ],
                         "context" => [
+                            "conflict_id" => $conflictLogId,
                             "msku" => $msku,
                             "store" => $store,
-                            "amazon_fnsku" => $amazonFnsku,
-                            "note" => "Clears fnsku_update_conflict so automation can resume.",
+                            "old_fnsku" => $chk['distinct_base_fnskus'][0] ?? '',
+                            "new_fnsku" => $amazonFnsku,
+                            "note" => "Pending FNSKU conflict logged. User action required.",
                         ],
                     ];
 
@@ -1015,4 +1039,148 @@ function createNotification(mysqli $db, string $module, string $title, string $s
         $stmt2->execute();
     }
     $stmt2->close();
+}
+
+function upsertFnskuConflictRecord(
+    mysqli $db,
+    int $rowId,
+    string $msku,
+    string $store,
+    string $newFnsku,
+    string $newGrading,
+    string $reason = ''
+): int {
+    $asin = '';
+    $oldFnsku = '';
+    $oldGrading = '';
+
+    // Get tblfnsku row data first
+    if ($rowId > 0) {
+        $stmt = $db->prepare("
+            SELECT ASIN, FNSKU, grading
+            FROM tblfnsku
+            WHERE FNSKUID = ?
+            LIMIT 1
+        ");
+        $stmt->bind_param("i", $rowId);
+    } else {
+        $stmt = $db->prepare("
+            SELECT ASIN, FNSKU, grading
+            FROM tblfnsku
+            WHERE MSKU = ? AND storename = ?
+            LIMIT 1
+        ");
+        $stmt->bind_param("ss", $msku, $store);
+    }
+
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $row = $res->fetch_assoc();
+    $stmt->close();
+
+    if ($row) {
+        $asin = trim((string) ($row['ASIN'] ?? ''));
+        $oldGrading = trim((string) ($row['grading'] ?? ''));
+        $oldFnskuRaw = trim((string) ($row['FNSKU'] ?? ''));
+        $oldFnsku = extractBaseFnsku($oldFnskuRaw);
+    }
+
+    // If tblfnsku old FNSKU is empty, fallback to tblproduct
+    if ($oldFnsku === '') {
+        $stmt2 = $db->prepare("
+            SELECT FNSKUviewer
+            FROM tblproduct
+            WHERE MSKUviewer = ?
+              AND FNSKUviewer IS NOT NULL
+              AND FNSKUviewer <> ''
+              AND (ProductModuleLoc IS NULL OR ProductModuleLoc <> 'SoldList')
+            LIMIT 1
+        ");
+        $stmt2->bind_param("s", $msku);
+        $stmt2->execute();
+        $res2 = $stmt2->get_result();
+        $row2 = $res2->fetch_assoc();
+        $stmt2->close();
+
+        if ($row2) {
+            $oldFnsku = extractBaseFnsku((string) $row2['FNSKUviewer']);
+        }
+    }
+
+    // Prevent duplicate pending rows for same MSKU/store/newfnsku
+    $chk = $db->prepare("
+        SELECT id
+        FROM tblfnskuconflicts
+        WHERE MSKU = ?
+          AND storename = ?
+          AND newfnsku = ?
+          AND status = 'pending'
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+    $chk->bind_param("sss", $msku, $store, $newFnsku);
+    $chk->execute();
+    $resChk = $chk->get_result();
+    $existing = $resChk->fetch_assoc();
+    $chk->close();
+
+    if ($existing) {
+        $conflictId = (int) $existing['id'];
+
+        $upd = $db->prepare("
+            UPDATE tblfnskuconflicts
+            SET
+                FNSKUID = ?,
+                ASIN = ?,
+                oldfnsku = ?,
+                oldgrading = ?,
+                newgrading = ?,
+                conflict_reason = ?,
+                updated_at = NOW()
+            WHERE id = ?
+        ");
+        $upd->bind_param(
+            "isssssi",
+            $rowId,
+            $asin,
+            $oldFnsku,
+            $oldGrading,
+            $newGrading,
+            $reason,
+            $conflictId
+        );
+        $upd->execute();
+        $upd->close();
+
+        return $conflictId;
+    }
+
+    $ins = $db->prepare("
+        INSERT INTO tblfnskuconflicts
+        (
+            FNSKUID, MSKU, ASIN, storename,
+            oldfnsku, newfnsku,
+            oldgrading, newgrading,
+            status, conflict_reason,
+            created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, NOW(), NOW())
+    ");
+    $ins->bind_param(
+        "issssssss",
+        $rowId,
+        $msku,
+        $asin,
+        $store,
+        $oldFnsku,
+        $newFnsku,
+        $oldGrading,
+        $newGrading,
+        $reason
+    );
+    $ins->execute();
+    $newId = (int) $ins->insert_id;
+    $ins->close();
+
+    return $newId;
 }
