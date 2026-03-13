@@ -33,81 +33,91 @@ class ReturnScannerController extends BasetablesController
     /**
      * Display a listing of products in return list with joined LPN data
      */
-   public function index(Request $request)
-{
-    $perPage  = $request->input('per_page', 10);
-    $search   = $request->input('search', '');
-    $location = $request->input('location', 'Returnlist');
+    public function index(Request $request)
+    {
+        $perPage = $request->input('per_page', 10);
+        $search = $request->input('search', '');
+        $location = $request->input('location', 'Returnlist');
 
-    try {
-        $products = DB::table($this->productTable.' as prod')
-            ->leftJoin('tbllpn',                          'prod.ProductID',  '=', 'tbllpn.ProdID')
-            ->leftJoin($this->fnskuTable.' as fnsku',     'prod.MSKUviewer', '=', 'fnsku.MSKU')
-            ->leftJoin($this->asinTable.' as asin',       'fnsku.ASIN',      '=', 'asin.ASIN')
-            // ✅ Always join — needed for thumbnail fallback
-            ->leftJoin('tblEbayOrderImages as ebayimgs',  'prod.ProductID',  '=', 'ebayimgs.ProductID')
-            ->select(
-                'prod.ProductID',
-                'prod.rtcounter',
-                'prod.rtid',
-                'prod.serialnumber',
-                'prod.serialnumberb',
-                'prod.FNSKUviewer',
-                'prod.MSKUviewer',
-                'prod.ASINviewer',
-                'prod.warehouselocation',
-                'prod.returnstatus',
-                // ✅ eBay order images — fallback when no captured images exist
-                'ebayimgs.img1',  'ebayimgs.img2',  'ebayimgs.img3',
-                'ebayimgs.img4',  'ebayimgs.img5',  'ebayimgs.img6',
-                'ebayimgs.img7',  'ebayimgs.img8',  'ebayimgs.img9',
-                'ebayimgs.img10', 'ebayimgs.img11', 'ebayimgs.img12',
-                'ebayimgs.img13', 'ebayimgs.img14', 'ebayimgs.img15',
-                'tbllpn.LPN',
-                'tbllpn.LPNDATE',
-                'tbllpn.BuyerName',
-                'fnsku.storename',
-                'fnsku.ASIN',
-                'fnsku.MSKU',
-                'fnsku.FNSKU',
-                DB::raw("COALESCE(
+        try {
+            $products = DB::table($this->productTable . ' as prod')
+                ->leftJoin('tbllpn', 'prod.ProductID', '=', 'tbllpn.ProdID')
+                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.MSKUviewer', '=', 'fnsku.MSKU')
+                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                // ✅ Always join — needed for thumbnail fallback
+                ->leftJoin('tblEbayOrderImages as ebayimgs', 'prod.ProductID', '=', 'ebayimgs.ProductID')
+                ->select(
+                    'prod.ProductID',
+                    'prod.rtcounter',
+                    'prod.rtid',
+                    'prod.serialnumber',
+                    'prod.serialnumberb',
+                    'prod.FNSKUviewer',
+                    'prod.MSKUviewer',
+                    'prod.ASINviewer',
+                    'prod.warehouselocation',
+                    'prod.returnstatus',
+                    // ✅ eBay order images — fallback when no captured images exist
+                    'ebayimgs.img1',
+                    'ebayimgs.img2',
+                    'ebayimgs.img3',
+                    'ebayimgs.img4',
+                    'ebayimgs.img5',
+                    'ebayimgs.img6',
+                    'ebayimgs.img7',
+                    'ebayimgs.img8',
+                    'ebayimgs.img9',
+                    'ebayimgs.img10',
+                    'ebayimgs.img11',
+                    'ebayimgs.img12',
+                    'ebayimgs.img13',
+                    'ebayimgs.img14',
+                    'ebayimgs.img15',
+                    'tbllpn.LPN',
+                    'tbllpn.LPNDATE',
+                    'tbllpn.BuyerName',
+                    'fnsku.storename',
+                    'fnsku.ASIN',
+                    'fnsku.MSKU',
+                    'fnsku.FNSKU',
+                    DB::raw("COALESCE(
                     NULLIF(TRIM(asin.system_title), ''),
                     NULLIF(TRIM(asin.internal), ''),
                     NULLIF(TRIM(prod.ProductTitle), '')
                 ) as ProductTitle"),
-                'asin.internal',
-                'asin.system_title',
-                'asin.metakeyword'
-            )
-            ->where('prod.ProductModuleLoc', $location)
-            ->when($search, function ($query) use ($search) {
-                return $query->where(function ($q) use ($search) {
-                    $q->where('prod.serialnumber',    'like', "%{$search}%")
-                      ->orWhere('prod.FNSKUviewer',   'like', "%{$search}%")
-                      ->orWhere('prod.MSKUviewer',    'like', "%{$search}%")
-                      ->orWhere('prod.rtcounter',     'like', "%{$search}%")
-                      ->orWhere('tbllpn.LPN',         'like', "%{$search}%")
-                      ->orWhere('fnsku.ASIN',         'like', "%{$search}%")
-                      ->orWhere('fnsku.MSKU',         'like', "%{$search}%")
-                      ->orWhere('fnsku.FNSKU',        'like', "%{$search}%")
-                      ->orWhere('asin.internal',      'like', "%{$search}%")
-                      ->orWhere('asin.system_title',  'like', "%{$search}%")
-                      ->orWhere('asin.metakeyword',   'like', "%{$search}%");
-                });
-            })
-            ->orderBy('prod.ProductID', 'desc')
-            ->paginate($perPage);
+                    'asin.internal',
+                    'asin.system_title',
+                    'asin.metakeyword'
+                )
+                ->where('prod.ProductModuleLoc', $location)
+                ->when($search, function ($query) use ($search) {
+                    return $query->where(function ($q) use ($search) {
+                        $q->where('prod.serialnumber', 'like', "%{$search}%")
+                            ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
+                            ->orWhere('prod.MSKUviewer', 'like', "%{$search}%")
+                            ->orWhere('prod.rtcounter', 'like', "%{$search}%")
+                            ->orWhere('tbllpn.LPN', 'like', "%{$search}%")
+                            ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
+                            ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
+                            ->orWhere('fnsku.FNSKU', 'like', "%{$search}%")
+                            ->orWhere('asin.internal', 'like', "%{$search}%")
+                            ->orWhere('asin.system_title', 'like', "%{$search}%")
+                            ->orWhere('asin.metakeyword', 'like', "%{$search}%");
+                    });
+                })
+                ->orderBy('prod.ProductID', 'desc')
+                ->paginate($perPage);
 
-        return response()->json($products);
+            return response()->json($products);
 
-    } catch (\Exception $e) {
-        Log::error('Error fetching return products: ' . $e->getMessage());
-        return response()->json([
-            'error'   => 'Database error occurred',
-            'message' => $e->getMessage(),
-        ], 500);
+        } catch (\Exception $e) {
+            Log::error('Error fetching return products: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Database error occurred',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
-}
 
     /**
      * Get list of store names for the dropdown
@@ -316,710 +326,661 @@ class ReturnScannerController extends BasetablesController
         });
     }
 
-   
 
 
-public function processScan(Request $request)
-{
-    DB::beginTransaction();
 
-    try {
+    public function processScan(Request $request)
+    {
+        DB::beginTransaction();
+
         try {
-            $validatedData = $request->validate([
-                'SerialNumber'           => 'required|string',
-                'SecondSerial'           => 'nullable|string',
-                'ThirdSerial'            => 'nullable|string',
-                'FourthSerial'           => 'nullable|string',
-                'Location'               => 'required|string',
-                'ReturnId'               => 'nullable|string',
-                'SingleSerialMode'       => 'nullable|boolean',
-                'ProductID'              => 'nullable|integer',
-                'FNSKUviewer'            => 'nullable|string',
-                'ScannedSerialPosition'  => 'nullable|string',
-                'TotalSerials'           => 'nullable|integer',
-                'IsMultiSerial'          => 'nullable|boolean',
-                'ScannedPrimarySerial'   => 'nullable|string',
-                'ScannedSecondarySerial' => 'nullable|string',
-                'Images'                 => 'nullable|array',
-                'Images.*.data'          => 'nullable|string',
-                'Images.*.serialIndex'   => 'nullable|integer',
-                'Images.*.serial'        => 'nullable|string',
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed: ' . implode(', ', $e->errors()),
-                'reason'  => 'validation_error'
-            ], 422);
-        }
-
-        $User                  = $this->getCurrentUserName();
-        $serial                = trim($request->input('SerialNumber', ''));
-        $secondSerial          = trim($request->input('SecondSerial', ''));
-        $thirdSerial           = trim($request->input('ThirdSerial', ''));
-        $fourthSerial          = trim($request->input('FourthSerial', ''));
-        $totalExpectedSerials  = $request->input('TotalSerials', 1);
-        $isMultiSerial         = $request->input('IsMultiSerial', false);
-        $location              = trim($request->input('Location', ''));
-        $returnId              = trim($request->input('ReturnId', ''));
-        $singleSerialMode      = (bool) $request->input('SingleSerialMode', false);
-        $productId             = $request->input('ProductID');
-        $fnsku                 = $request->input('FNSKUviewer');
-        $scannedSerialPosition = $request->input('ScannedSerialPosition');
-        $images                = $request->input('Images', []);
-
-        Log::info("Processing return scan", [
-            'serial'               => $serial,
-            'secondSerial'         => $secondSerial,
-            'thirdSerial'          => $thirdSerial,
-            'fourthSerial'         => $fourthSerial,
-            'location'             => $location,
-            'totalExpectedSerials' => $totalExpectedSerials,
-            'imagesCount'          => count($images)
-        ]);
-
-        if (empty($serial)) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Serial Number must be provided',
-                'reason'  => 'missing_identifiers'
-            ], 422);
-        }
-
-        if (!preg_match('/^[a-zA-Z0-9-]+$/', $serial)) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid Serial Number format',
-                'reason'  => 'invalid_serial'
-            ]);
-        }
-
-        if (!empty($secondSerial) && !preg_match('/^[a-zA-Z0-9-]+$/', $secondSerial)) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid Second Serial Number format',
-                'reason'  => 'invalid_second_serial'
-            ]);
-        }
-
-        if (!empty($thirdSerial) && !preg_match('/^[a-zA-Z0-9-]+$/', $thirdSerial)) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid Third Serial Number format',
-                'reason'  => 'invalid_third_serial'
-            ]);
-        }
-
-        if (!empty($fourthSerial) && !preg_match('/^[a-zA-Z0-9-]+$/', $fourthSerial)) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid Fourth Serial Number format',
-                'reason'  => 'invalid_fourth_serial'
-            ]);
-        }
-
-        if (!preg_match('/^L\d{3}[A-G]$/i', $location) && $location !== 'Floor' && $location !== 'L800G') {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid Location Format',
-                'reason'  => 'invalid_location'
-            ]);
-        }
-
-        $serialsToCheck = [$serial];
-        if (!empty($secondSerial) && !$singleSerialMode) $serialsToCheck[] = $secondSerial;
-        if (!empty($thirdSerial)  && !$singleSerialMode) $serialsToCheck[] = $thirdSerial;
-        if (!empty($fourthSerial) && !$singleSerialMode) $serialsToCheck[] = $fourthSerial;
-
-        // ========== RETURN ID VALIDATION ==========
-        $preBuiltSwitcheruRecords    = [];
-        $returnIdAmazonOrderId      = null;
-        $returnIdReasonCode         = null;
-        $returnIdReturnRequestDate  = null;
-        $returnIdBuyerName          = null; // ✅ populated from tbloutboundorders
-        $originalProductFromReturnId = null;
-        $shippedSerials              = [];
-
-        if (!empty($returnId)) {
-            $fbmReturn = DB::table('tblfbmreturns')
-                ->where('amazon_rma_id', $returnId)
-                ->first();
-
-            if ($fbmReturn) {
-                $returnIdAmazonOrderId = $fbmReturn->amazonOrderId ?? null;
-
-                $returnIdReasonCode    = $fbmReturn->return_reason_code ?? null;
-                $returnIdReturnRequestDate = $fbmReturn->return_request_date ?? null;
-
-                if ($returnIdAmazonOrderId) {
-                    $outboundItem = DB::table('tbloutboundordersitem as oi')
-                        ->join('tbloutboundorders as o', 'oi.platform_order_id', '=', 'o.platform_order_id')
-                        ->where('o.platform_order_id', $returnIdAmazonOrderId)
-                        ->where(function ($q) use ($fbmReturn) {
-                            if (!empty($fbmReturn->ASIN)) $q->orWhere('oi.platform_asin', $fbmReturn->ASIN);
-                            if (!empty($fbmReturn->MSKU)) $q->orWhere('oi.platform_sku',  $fbmReturn->MSKU);
-                        })
-                        ->select('oi.outboundorderitemid', 'o.BuyerName') // ✅ 
-                        ->first();
-
-                    // ✅ Save buyer name from order for LPN insert later
-                    if ($outboundItem) {
-                        $returnIdBuyerName = $outboundItem->BuyerName ?? null;
-                    }
-
-                    if ($outboundItem) {
-                        $dispensed = DB::table('tblorderitemdispense as d')
-                            ->join('tblproduct as p', 'd.productid', '=', 'p.ProductID')
-                            ->where('d.orderitemid', $outboundItem->outboundorderitemid)
-                            ->select('p.serialnumber', 'p.serialnumberb', 'p.serialnumberc', 'p.serialnumberd')
-                            ->first();
-
-                        if ($dispensed) {
-                            $isValidSer = fn($s) => !empty($s) && trim($s) !== '' && strtoupper(trim($s)) !== 'N/A';
-
-                            $shippedSerials = array_values(array_filter([
-                                $dispensed->serialnumber,
-                                $dispensed->serialnumberb,
-                                $dispensed->serialnumberc,
-                                $dispensed->serialnumberd,
-                            ], $isValidSer));
-
-                            // ✅ NEW: Find the original product row from the shipped serials
-                            if (!empty($shippedSerials)) {
-                                $originalProductFromReturnId = DB::table($this->productTable)
-                                    ->where(function ($q) use ($shippedSerials) {
-                                        foreach ($shippedSerials as $s) {
-                                            $q->orWhere('serialnumber',  $s)
-                                              ->orWhere('serialnumberb', $s)
-                                              ->orWhere('serialnumberc', $s)
-                                              ->orWhere('serialnumberd', $s);
-                                        }
-                                    })
-                                    ->whereNotIn('ProductModuleLoc', ['Returnlist', 'Merged', 'RTS'])
-                                    ->first();
-
-                                Log::info('✅ Original product found via Return ID chain', [
-                                    'productId'      => $originalProductFromReturnId->ProductID ?? null,
-                                    'shippedSerials' => $shippedSerials,
-                                ]);
-                            }
-
-                            $returnedSerials = array_values(array_filter(
-                                [$serial, $secondSerial, $thirdSerial, $fourthSerial],
-                                fn($s) => !empty(trim($s ?? ''))
-                            ));
-
-                            $shippedLower  = array_map('strtolower', $shippedSerials);
-                            $returnedLower = array_map('strtolower', $returnedSerials);
-                            $hasMatch      = !empty(array_intersect($returnedLower, $shippedLower));
-
-                            if (!$hasMatch) {
-                                Log::warning('⚠️ Return ID serial mismatch — switcheru via Return ID', [
-                                    'shipped'  => $shippedSerials,
-                                    'returned' => $returnedSerials,
-                                ]);
-
-                                $maxPairs = max(count($shippedSerials), count($returnedSerials));
-                                for ($pi = 0; $pi < $maxPairs; $pi++) {
-                                    $send    = $shippedSerials[$pi]  ?? '';
-                                    $receive = $returnedSerials[$pi] ?? '';
-                                    if (!empty($send) || !empty($receive)) {
-                                        $preBuiltSwitcheruRecords[] = [
-                                            'buyer'         => $returnIdBuyerName ?? $buyerName ?? 'Unknown',
-                                            'sendserial'    => $send,
-                                            'receiveserial' => $receive,
-                                            'rtcounter'     => null,
-                                            'created_at'    => null,
-                                            'returnid'      => $returnId,
-                                        ];
-                                    }
-                                }
-                            } else {
-                                Log::info('✅ Return ID serial match confirmed', [
-                                    'shipped'  => $shippedSerials,
-                                    'returned' => $returnedSerials,
-                                ]);
-                            }
-                        }
-                    } else {
-                        Log::warning('⚠️ Return ID found in tblfbmreturns but no matching outbound order item', [
-                            'returnId'      => $returnId,
-                            'amazonOrderId' => $returnIdAmazonOrderId,
-                            'asin'          => $fbmReturn->ASIN ?? null,
-                        ]);
-                    }
-                }
-            } else {
-                Log::warning('⚠️ Return ID not found in tblfbmreturns — skipping Return ID validation', [
-                    'returnId' => $returnId,
+            try {
+                $validatedData = $request->validate([
+                    'SerialNumber' => 'required|string',
+                    'SecondSerial' => 'nullable|string',
+                    'ThirdSerial' => 'nullable|string',
+                    'FourthSerial' => 'nullable|string',
+                    'Location' => 'required|string',
+                    'ReturnId' => 'nullable|string',
+                    'SingleSerialMode' => 'nullable|boolean',
+                    'ProductID' => 'nullable|integer',
+                    'FNSKUviewer' => 'nullable|string',
+                    'ScannedSerialPosition' => 'nullable|string',
+                    'TotalSerials' => 'nullable|integer',
+                    'IsMultiSerial' => 'nullable|boolean',
+                    'ScannedPrimarySerial' => 'nullable|string',
+                    'ScannedSecondarySerial' => 'nullable|string',
+                    'Images' => 'nullable|array',
+                    'Images.*.data' => 'nullable|string',
+                    'Images.*.serialIndex' => 'nullable|integer',
+                    'Images.*.serial' => 'nullable|string',
                 ]);
-            }
-        }
-        // ========== END RETURN ID VALIDATION ==========
-
-        foreach ($serialsToCheck as $serialToCheck) {
-            $existingSerialCheck = DB::table($this->productTable)
-                ->where(function ($query) use ($serialToCheck) {
-                    $query->where('serialnumber',  $serialToCheck)
-                          ->orWhere('serialnumberb', $serialToCheck)
-                          ->orWhere('serialnumberc', $serialToCheck)
-                          ->orWhere('serialnumberd', $serialToCheck);
-                })
-                ->where('ProductModuleLoc', 'Production Area')
-                ->first();
-
-            if ($existingSerialCheck) {
-                $existingLocation          = $existingSerialCheck->ProductModuleLoc;
-                $existingWarehouseLocation = $existingSerialCheck->warehouselocation ?? 'Unknown';
-
+            } catch (\Illuminate\Validation\ValidationException $e) {
                 DB::rollBack();
                 return response()->json([
-                    'success'          => false,
-                    'message'          => "Serial {$serialToCheck} already exists in {$existingLocation} at location {$existingWarehouseLocation}",
-                    'reason'           => 'serial_already_exists',
-                    'existingLocation' => $existingLocation,
-                    'productId'        => $existingSerialCheck->ProductID
+                    'success' => false,
+                    'message' => 'Validation failed: ' . implode(', ', $e->errors()),
+                    'reason' => 'validation_error'
+                ], 422);
+            }
+
+            $User = $this->getCurrentUserName();
+            $serial = trim($request->input('SerialNumber', ''));
+            $secondSerial = trim($request->input('SecondSerial', ''));
+            $thirdSerial = trim($request->input('ThirdSerial', ''));
+            $fourthSerial = trim($request->input('FourthSerial', ''));
+            $totalExpectedSerials = $request->input('TotalSerials', 1);
+            $isMultiSerial = $request->input('IsMultiSerial', false);
+            $location = trim($request->input('Location', ''));
+            $returnId = trim($request->input('ReturnId', ''));
+            $singleSerialMode = (bool) $request->input('SingleSerialMode', false);
+            $productId = $request->input('ProductID');
+            $fnsku = $request->input('FNSKUviewer');
+            $scannedSerialPosition = $request->input('ScannedSerialPosition');
+            $images = $request->input('Images', []);
+
+            Log::info("Processing return scan", [
+                'serial' => $serial,
+                'secondSerial' => $secondSerial,
+                'thirdSerial' => $thirdSerial,
+                'fourthSerial' => $fourthSerial,
+                'location' => $location,
+                'totalExpectedSerials' => $totalExpectedSerials,
+                'imagesCount' => count($images)
+            ]);
+
+            if (empty($serial)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Serial Number must be provided',
+                    'reason' => 'missing_identifiers'
+                ], 422);
+            }
+
+            if (!preg_match('/^[a-zA-Z0-9-]+$/', $serial)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Serial Number format',
+                    'reason' => 'invalid_serial'
                 ]);
             }
-        }
 
-        if (substr($location, 0, 4) === 'L800') {
+            if (!empty($secondSerial) && !preg_match('/^[a-zA-Z0-9-]+$/', $secondSerial)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Second Serial Number format',
+                    'reason' => 'invalid_second_serial'
+                ]);
+            }
+
+            if (!empty($thirdSerial) && !preg_match('/^[a-zA-Z0-9-]+$/', $thirdSerial)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Third Serial Number format',
+                    'reason' => 'invalid_third_serial'
+                ]);
+            }
+
+            if (!empty($fourthSerial) && !preg_match('/^[a-zA-Z0-9-]+$/', $fourthSerial)) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Fourth Serial Number format',
+                    'reason' => 'invalid_fourth_serial'
+                ]);
+            }
+
+            if (!preg_match('/^L\d{3}[A-G]$/i', $location) && $location !== 'Floor' && $location !== 'L800G') {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Location Format',
+                    'reason' => 'invalid_location'
+                ]);
+            }
+
+            $serialsToCheck = [$serial];
+            if (!empty($secondSerial) && !$singleSerialMode)
+                $serialsToCheck[] = $secondSerial;
+            if (!empty($thirdSerial) && !$singleSerialMode)
+                $serialsToCheck[] = $thirdSerial;
+            if (!empty($fourthSerial) && !$singleSerialMode)
+                $serialsToCheck[] = $fourthSerial;
+
+            // ========== RETURN ID VALIDATION ==========
+            $preBuiltSwitcheruRecords = [];
+            $returnIdAmazonOrderId = null;
+            $returnIdReasonCode = null;
+            $returnIdReturnRequestDate = null;
+            $returnIdBuyerName = null; // ✅ populated from tbloutboundorders
+            $originalProductFromReturnId = null;
+            $shippedSerials = [];
+
+            if (!empty($returnId)) {
+                $fbmReturn = DB::table('tblfbmreturns')
+                    ->where('amazon_rma_id', $returnId)
+                    ->first();
+
+                if ($fbmReturn) {
+                    $returnIdAmazonOrderId = $fbmReturn->amazonOrderId ?? null;
+
+                    $returnIdReasonCode = $fbmReturn->return_reason_code ?? null;
+                    $returnIdReturnRequestDate = $fbmReturn->return_request_date ?? null;
+
+                    if ($returnIdAmazonOrderId) {
+                        $outboundItem = DB::table('tbloutboundordersitem as oi')
+                            ->join('tbloutboundorders as o', 'oi.platform_order_id', '=', 'o.platform_order_id')
+                            ->where('o.platform_order_id', $returnIdAmazonOrderId)
+                            ->where(function ($q) use ($fbmReturn) {
+                                if (!empty($fbmReturn->ASIN))
+                                    $q->orWhere('oi.platform_asin', $fbmReturn->ASIN);
+                                if (!empty($fbmReturn->MSKU))
+                                    $q->orWhere('oi.platform_sku', $fbmReturn->MSKU);
+                            })
+                            ->select('oi.outboundorderitemid', 'o.BuyerName') // ✅ 
+                            ->first();
+
+                        // ✅ Save buyer name from order for LPN insert later
+                        if ($outboundItem) {
+                            $returnIdBuyerName = $outboundItem->BuyerName ?? null;
+                        }
+
+                        if ($outboundItem) {
+                            $dispensed = DB::table('tblorderitemdispense as d')
+                                ->join('tblproduct as p', 'd.productid', '=', 'p.ProductID')
+                                ->where('d.orderitemid', $outboundItem->outboundorderitemid)
+                                ->select('p.serialnumber', 'p.serialnumberb', 'p.serialnumberc', 'p.serialnumberd')
+                                ->first();
+
+                            if ($dispensed) {
+                                $isValidSer = fn($s) => !empty($s) && trim($s) !== '' && strtoupper(trim($s)) !== 'N/A';
+
+                                $shippedSerials = array_values(array_filter([
+                                    $dispensed->serialnumber,
+                                    $dispensed->serialnumberb,
+                                    $dispensed->serialnumberc,
+                                    $dispensed->serialnumberd,
+                                ], $isValidSer));
+
+                                // ✅ NEW: Find the original product row from the shipped serials
+                                if (!empty($shippedSerials)) {
+                                    $originalProductFromReturnId = DB::table($this->productTable)
+                                        ->where(function ($q) use ($shippedSerials) {
+                                            foreach ($shippedSerials as $s) {
+                                                $q->orWhere('serialnumber', $s)
+                                                    ->orWhere('serialnumberb', $s)
+                                                    ->orWhere('serialnumberc', $s)
+                                                    ->orWhere('serialnumberd', $s);
+                                            }
+                                        })
+                                        ->whereNotIn('ProductModuleLoc', ['Returnlist', 'Merged', 'RTS'])
+                                        ->first();
+
+                                    Log::info('✅ Original product found via Return ID chain', [
+                                        'productId' => $originalProductFromReturnId->ProductID ?? null,
+                                        'shippedSerials' => $shippedSerials,
+                                    ]);
+                                }
+
+                                $returnedSerials = array_values(array_filter(
+                                    [$serial, $secondSerial, $thirdSerial, $fourthSerial],
+                                    fn($s) => !empty(trim($s ?? ''))
+                                ));
+
+                                $shippedLower = array_map('strtolower', $shippedSerials);
+                                $returnedLower = array_map('strtolower', $returnedSerials);
+                                $hasMatch = !empty(array_intersect($returnedLower, $shippedLower));
+
+                                if (!$hasMatch) {
+                                    Log::warning('⚠️ Return ID serial mismatch — switcheru via Return ID', [
+                                        'shipped' => $shippedSerials,
+                                        'returned' => $returnedSerials,
+                                    ]);
+
+                                    $maxPairs = max(count($shippedSerials), count($returnedSerials));
+                                    for ($pi = 0; $pi < $maxPairs; $pi++) {
+                                        $send = $shippedSerials[$pi] ?? '';
+                                        $receive = $returnedSerials[$pi] ?? '';
+                                        if (!empty($send) || !empty($receive)) {
+                                            $preBuiltSwitcheruRecords[] = [
+                                                'buyer' => $returnIdBuyerName ?? $buyerName ?? 'Unknown',
+                                                'sendserial' => $send,
+                                                'receiveserial' => $receive,
+                                                'rtcounter' => null,
+                                                'created_at' => null,
+                                                'returnid' => $returnId,
+                                            ];
+                                        }
+                                    }
+                                } else {
+                                    Log::info('✅ Return ID serial match confirmed', [
+                                        'shipped' => $shippedSerials,
+                                        'returned' => $returnedSerials,
+                                    ]);
+                                }
+                            }
+                        } else {
+                            Log::warning('⚠️ Return ID found in tblfbmreturns but no matching outbound order item', [
+                                'returnId' => $returnId,
+                                'amazonOrderId' => $returnIdAmazonOrderId,
+                                'asin' => $fbmReturn->ASIN ?? null,
+                            ]);
+                        }
+                    }
+                } else {
+                    Log::warning('⚠️ Return ID not found in tblfbmreturns — skipping Return ID validation', [
+                        'returnId' => $returnId,
+                    ]);
+                }
+            }
+            // ========== END RETURN ID VALIDATION ==========
+
             foreach ($serialsToCheck as $serialToCheck) {
-                $existingProductionItem = DB::table($this->productTable)
+                $existingSerialCheck = DB::table($this->productTable)
                     ->where(function ($query) use ($serialToCheck) {
-                        $query->where('serialnumber',  $serialToCheck)
-                              ->orWhere('serialnumberb', $serialToCheck)
-                              ->orWhere('serialnumberc', $serialToCheck)
-                              ->orWhere('serialnumberd', $serialToCheck);
+                        $query->where('serialnumber', $serialToCheck)
+                            ->orWhere('serialnumberb', $serialToCheck)
+                            ->orWhere('serialnumberc', $serialToCheck)
+                            ->orWhere('serialnumberd', $serialToCheck);
                     })
                     ->where('ProductModuleLoc', 'Production Area')
                     ->first();
 
-                if ($existingProductionItem) {
-                    $existingWarehouseLocation = $existingProductionItem->warehouselocation ?? 'Unknown';
+                if ($existingSerialCheck) {
+                    $existingLocation = $existingSerialCheck->ProductModuleLoc;
+                    $existingWarehouseLocation = $existingSerialCheck->warehouselocation ?? 'Unknown';
 
                     DB::rollBack();
                     return response()->json([
-                        'success'   => false,
-                        'message'   => "Serial {$serialToCheck} already exists in Production Area at location {$existingWarehouseLocation}",
-                        'reason'    => 'serial_already_in_production',
-                        'productId' => $existingProductionItem->ProductID
+                        'success' => false,
+                        'message' => "Serial {$serialToCheck} already exists in {$existingLocation} at location {$existingWarehouseLocation}",
+                        'reason' => 'serial_already_exists',
+                        'existingLocation' => $existingLocation,
+                        'productId' => $existingSerialCheck->ProductID
                     ]);
                 }
             }
-        }
 
-        try {
-            $california_timezone  = new DateTimeZone('America/Los_Angeles');
-            $currentDatetime      = new DateTime('now', $california_timezone);
-            $formatted_datetime   = $currentDatetime->format('Y-m-d h:i A');
-            $currentDate          = date('Y-m-d', strtotime($formatted_datetime));
-            $curentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
-        } catch (\Exception $e) {
-            Log::warning('Error with timezone, using default', ['error' => $e->getMessage()]);
-            $currentDatetime      = new DateTime();
-            $formatted_datetime   = $currentDatetime->format('Y-m-d h:i A');
-            $currentDate          = date('Y-m-d');
-            $curentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
-        }
-
-        foreach ($preBuiltSwitcheruRecords as &$pbr) {
-            $pbr['created_at'] = $curentDatetimeString;
-        }
-        unset($pbr);
-
-        $isSerialKnown = false;
-        $existingItem  = null;
-
-        if ($productId) {
-            $existingItem = DB::table($this->productTable . ' as prod')
-                ->select('prod.*', 'fnsku.ASIN', 'asin.internal as ProductTitle')
-                ->leftJoin($this->fnskuTable . ' as fnsku', function ($join) {
-                    $join->on(DB::raw("CASE 
-                        WHEN prod.FNSKUviewer REGEXP '^[C-Z][0-9]+' 
-                        THEN REGEXP_REPLACE(prod.FNSKUviewer, '^[C-Z][0-9]+', '')
-                        ELSE prod.FNSKUviewer 
-                    END"), '=', 'fnsku.FNSKU');
-                })
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->where('prod.ProductID', $productId)
-                ->whereIn('prod.ProductModuleLoc', ['Stockroom', 'Shipment', 'Soldlist'])
-                ->first();
-
-            if ($existingItem) {
-                $isSerialKnown = true;
-            }
-        }
-
-        if (!$existingItem) {
-            $existingItem = DB::table($this->productTable . ' as prod')
-                ->select('prod.*', 'fnsku.ASIN', 'asin.internal as ProductTitle')
-                ->leftJoin($this->fnskuTable . ' as fnsku', function ($join) {
-                    $join->on(DB::raw("CASE 
-                        WHEN prod.FNSKUviewer REGEXP '^[C-Z][0-9]+' 
-                        THEN REGEXP_REPLACE(prod.FNSKUviewer, '^[C-Z][0-9]+', '')
-                        ELSE prod.FNSKUviewer 
-                    END"), '=', 'fnsku.FNSKU');
-                })
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->where(function ($query) use ($serial, $secondSerial, $thirdSerial, $fourthSerial) {
-                    $query->where('prod.serialnumber',  $serial)
-                          ->orWhere('prod.serialnumberb', $serial)
-                          ->orWhere('prod.serialnumberc', $serial)
-                          ->orWhere('prod.serialnumberd', $serial);
-
-                    if (!empty($secondSerial)) {
-                        $query->orWhere('prod.serialnumber',  $secondSerial)
-                              ->orWhere('prod.serialnumberb', $secondSerial)
-                              ->orWhere('prod.serialnumberc', $secondSerial)
-                              ->orWhere('prod.serialnumberd', $secondSerial);
-                    }
-                    if (!empty($thirdSerial)) {
-                        $query->orWhere('prod.serialnumber',  $thirdSerial)
-                              ->orWhere('prod.serialnumberb', $thirdSerial)
-                              ->orWhere('prod.serialnumberc', $thirdSerial)
-                              ->orWhere('prod.serialnumberd', $thirdSerial);
-                    }
-                    if (!empty($fourthSerial)) {
-                        $query->orWhere('prod.serialnumber',  $fourthSerial)
-                              ->orWhere('prod.serialnumberb', $fourthSerial)
-                              ->orWhere('prod.serialnumberc', $fourthSerial)
-                              ->orWhere('prod.serialnumberd', $fourthSerial);
-                    }
-                })
-                ->whereIn('prod.ProductModuleLoc', ['Stockroom', 'Shipment', 'Soldlist'])
-                ->first();
-
-            if ($existingItem) {
-                $isSerialKnown = true;
-            }
-        }
-
-        if (!$existingItem) {
-            $existingItem = (object) [
-                'ProductID'        => null,
-                'rtcounter'        => null,
-                'rtid'             => null,
-                'itemnumber'       => null,
-                'price'            => null,
-                'costumer_name'    => 'Unknown',
-                'ASIN'             => null,
-                'ASINviewer'       => null,
-                'MSKUviewer'       => null,
-                'FNSKUviewer'      => null,
-                'serialnumber'     => null,
-                'serialnumberb'    => null,
-                'serialnumberc'    => null,
-                'serialnumberd'    => null,
-                'ProductModuleLoc' => null,
-                'ProductTitle'     => null
-            ];
-        }
-
-        if ($isSerialKnown && !$singleSerialMode) {
-            $isValidSerial = function ($s) {
-                return !empty($s) && trim($s) !== '' && strtoupper(trim($s)) !== 'N/A';
-            };
-
-            $dbSerials = [];
-            if ($isValidSerial($existingItem->serialnumber  ?? null)) $dbSerials[1] = $existingItem->serialnumber;
-            if ($isValidSerial($existingItem->serialnumberb ?? null)) $dbSerials[2] = $existingItem->serialnumberb;
-            if ($isValidSerial($existingItem->serialnumberc ?? null)) $dbSerials[3] = $existingItem->serialnumberc;
-            if ($isValidSerial($existingItem->serialnumberd ?? null)) $dbSerials[4] = $existingItem->serialnumberd;
-
-            $totalDbSerials = count($dbSerials);
-
-            if ($totalDbSerials > 1) {
-                $providedSerials = array_filter(
-                    [$serial, $secondSerial, $thirdSerial, $fourthSerial],
-                    fn($s) => !empty(trim($s))
-                );
-
-                $dbSerialsValues    = array_values($dbSerials);
-                $hasAtLeastOneMatch = false;
-
-                foreach ($providedSerials as $provided) {
-                    if (in_array($provided, $dbSerialsValues)) {
-                        $hasAtLeastOneMatch = true;
-                        break;
-                    }
-                }
-
-                if (!$hasAtLeastOneMatch) {
-                    DB::rollBack();
-                    return response()->json([
-                        'success'         => false,
-                        'message'         => "None of the provided serials match this product. Expected serials: " . implode(', ', $dbSerialsValues),
-                        'reason'          => 'wrong_product',
-                        'expectedSerials' => $dbSerialsValues,
-                        'providedSerials' => array_values($providedSerials)
-                    ]);
-                }
-
-                if (count($providedSerials) < $totalDbSerials) {
-                    Log::warning("⚠️ Partial return detected", [
-                        'expected'        => $totalDbSerials,
-                        'provided'        => count($providedSerials),
-                        'dbSerials'       => $dbSerials,
-                        'providedSerials' => $providedSerials,
-                        'productId'       => $existingItem->ProductID
-                    ]);
-                }
-
-                foreach ($providedSerials as $provided) {
-                    if (!in_array($provided, $dbSerialsValues)) {
-                        Log::warning("⚠️ Potential SWITCHERU detected during validation", [
-                            'provided_serial'  => $provided,
-                            'expected_serials' => $dbSerialsValues,
-                            'productId'        => $existingItem->ProductID
-                        ]);
-                    }
-                }
-            }
-        }
-
-        $serialsToProcess = [];
-        if (!$singleSerialMode) {
-            if (!empty($serial))       $serialsToProcess[] = $serial;
-            if (!empty($secondSerial)) $serialsToProcess[] = $secondSerial;
-            if (!empty($thirdSerial))  $serialsToProcess[] = $thirdSerial;
-            if (!empty($fourthSerial)) $serialsToProcess[] = $fourthSerial;
-        } else {
-            $serialsToProcess[] = $serial;
-        }
-
-        $originalItem  = $existingItem;
-        $rtCounter     = $existingItem->rtcounter    ?? null;
-        $rtId          = $existingItem->rtid          ?? null;
-        $itemNumber    = $existingItem->itemnumber    ?? null;
-        $price         = $existingItem->price         ?? null;
-        $buyerName     = $existingItem->costumer_name ?? null;
-        $originalAsin  = $existingItem->ASIN          ?? null;
-        $originalFnsku = $existingItem->FNSKUviewer   ?? null;
-
-       $lpnInsertion = DB::table('tbllpn')->insertGetId([
-            'SERIAL'       => $serial,
-            'LPN'          => $returnId,
-            'LPNDATE'      => $returnIdReturnRequestDate ?? $currentDate,
-            'ProdID'       => $originalItem->ProductID 
-                            ?? ($originalProductFromReturnId->ProductID ?? null),
-            'BuyerName'    => $returnIdBuyerName ?? $buyerName ?? 'Unknown',
-            'REASON'       => $returnIdReasonCode,
-            'receivedDate' => $currentDate,
-        ]);
-
-        $currentLpnId = $lpnInsertion;
-
-        $successCount = 0;
-        $createdItems = [];
-        $newRt        = null;
-
-        // ========== ATTRIBUTE-BASED FNSKU LOGIC ==========
-        foreach ($serialsToProcess as $currentSerial) {
             if (substr($location, 0, 4) === 'L800') {
-                $modulelocation = 'Production Area';
-                $insertedDate   = null;
-            } else {
-                $modulelocation = 'Stockroom';
-                $insertedDate   = $curentDatetimeString;
-            }
-
-            $asinToUse        = $originalAsin;
-            $baseFnskuToUse   = null;
-            $actualFnskuToUse = null;
-            $condition        = null;
-            $storename        = null;
-            $mskuToUse        = null;
-            $color            = null;
-
-            try {
-                if ($originalFnsku) {
-                    $baseFnsku = $this->extractBaseFnsku($originalFnsku);
-
-                    $fnskuInfo = DB::table($this->fnskuTable . ' as fnsku')
-                        ->select('fnsku.*', 'asin.quantityinside', 'asin.color')
-                        ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                        ->where('fnsku.FNSKU', $baseFnsku)
+                foreach ($serialsToCheck as $serialToCheck) {
+                    $existingProductionItem = DB::table($this->productTable)
+                        ->where(function ($query) use ($serialToCheck) {
+                            $query->where('serialnumber', $serialToCheck)
+                                ->orWhere('serialnumberb', $serialToCheck)
+                                ->orWhere('serialnumberc', $serialToCheck)
+                                ->orWhere('serialnumberd', $serialToCheck);
+                        })
+                        ->where('ProductModuleLoc', 'Production Area')
                         ->first();
 
-                    if (!$fnskuInfo) {
-                        Log::warning("FNSKU '{$baseFnsku}' not found in tblFNSKU, attempting fallback via ASINviewer", [
-                            'baseFnsku'     => $baseFnsku,
-                            'originalFnsku' => $originalFnsku,
-                            'serial'        => $currentSerial,
-                            'ASINviewer'    => $existingItem->ASINviewer ?? null
-                        ]);
-
-                        $fallbackAsin = $existingItem->ASINviewer ?? null;
-
-                        if (!$fallbackAsin) {
-                            DB::rollBack();
-                            return response()->json([
-                                'success' => false,
-                                'message' => "FNSKU '{$baseFnsku}' not found in database and no ASINviewer available to fallback",
-                                'reason'  => 'fnsku_not_found_no_asin_fallback',
-                                'details' => ['fnsku' => $baseFnsku, 'serial' => $currentSerial]
-                            ]);
-                        }
-
-                        $asinFallbackInfo = DB::table($this->asinTable)
-                            ->select('quantityinside', 'color')
-                            ->where('ASIN', $fallbackAsin)
-                            ->first();
-
-                        if (!$asinFallbackInfo) {
-                            DB::rollBack();
-                            return response()->json([
-                                'success' => false,
-                                'message' => "FNSKU '{$baseFnsku}' not found and ASIN '{$fallbackAsin}' has no record in tblasin",
-                                'reason'  => 'fnsku_and_asin_not_found',
-                                'details' => ['fnsku' => $baseFnsku, 'asin' => $fallbackAsin, 'serial' => $currentSerial]
-                            ]);
-                        }
-
-                        $color                  = $asinFallbackInfo->color          ?? null;
-                        $quantityInside         = $asinFallbackInfo->quantityinside ?? 1;
-                        $condition              = null;
-                        $storename              = null;
-                        $OriginalFnskuUnitCount = 0;
-                        $mskuToUse              = $existingItem->MSKUviewer ?? null;
-                        $packAsin               = $fallbackAsin;
-
-                        Log::info("✅ Fallback ASIN info retrieved", [
-                            'asin'           => $fallbackAsin,
-                            'color'          => $color,
-                            'quantityinside' => $quantityInside
-                        ]);
-
-                    } else {
-                        $packAsin               = $fnskuInfo->ASIN          ?? null;
-                        $mskuToUse              = $fnskuInfo->MSKU           ?? null;
-                        $condition              = $fnskuInfo->grading        ?? null;
-                        $storename              = $fnskuInfo->storename      ?? null;
-                        $OriginalFnskuUnitCount = $fnskuInfo->Units          ?? 0;
-                        $quantityInside         = $fnskuInfo->quantityinside ?? 1;
-                        $color                  = $fnskuInfo->color          ?? null;
-                    }
-
-                    if (empty($color) || trim($color) === '') {
-                        Log::warning("FNSKU has no color defined", [
-                            'fnsku'  => $baseFnsku,
-                            'asin'   => $packAsin,
-                            'serial' => $currentSerial
-                        ]);
+                    if ($existingProductionItem) {
+                        $existingWarehouseLocation = $existingProductionItem->warehouselocation ?? 'Unknown';
 
                         DB::rollBack();
                         return response()->json([
                             'success' => false,
-                            'message' => "Cannot process return: Product color is not defined in the system for FNSKU '{$baseFnsku}'",
-                            'reason'  => 'missing_color',
-                            'details' => ['fnsku' => $baseFnsku, 'asin' => $packAsin, 'serial' => $currentSerial, 'condition' => $condition]
+                            'message' => "Serial {$serialToCheck} already exists in Production Area at location {$existingWarehouseLocation}",
+                            'reason' => 'serial_already_in_production',
+                            'productId' => $existingProductionItem->ProductID
                         ]);
                     }
+                }
+            }
 
-                    if ($fnskuInfo && (empty($storename) || trim($storename) === '')) {
-                        Log::warning("FNSKU has no store name defined", [
-                            'fnsku'  => $baseFnsku,
-                            'asin'   => $packAsin,
-                            'serial' => $currentSerial
-                        ]);
+            try {
+                $california_timezone = new DateTimeZone('America/Los_Angeles');
+                $currentDatetime = new DateTime('now', $california_timezone);
+                $formatted_datetime = $currentDatetime->format('Y-m-d h:i A');
+                $currentDate = date('Y-m-d', strtotime($formatted_datetime));
+                $curentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
+            } catch (\Exception $e) {
+                Log::warning('Error with timezone, using default', ['error' => $e->getMessage()]);
+                $currentDatetime = new DateTime();
+                $formatted_datetime = $currentDatetime->format('Y-m-d h:i A');
+                $currentDate = date('Y-m-d');
+                $curentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
+            }
 
+            foreach ($preBuiltSwitcheruRecords as &$pbr) {
+                $pbr['created_at'] = $curentDatetimeString;
+            }
+            unset($pbr);
+
+            $isSerialKnown = false;
+            $existingItem = null;
+
+            if ($productId) {
+                $existingItem = DB::table($this->productTable . ' as prod')
+                    ->select('prod.*', 'fnsku.ASIN', 'asin.internal as ProductTitle')
+                    ->leftJoin($this->fnskuTable . ' as fnsku', function ($join) {
+                        $join->on(DB::raw("CASE 
+                        WHEN prod.FNSKUviewer REGEXP '^[C-Z][0-9]+' 
+                        THEN REGEXP_REPLACE(prod.FNSKUviewer, '^[C-Z][0-9]+', '')
+                        ELSE prod.FNSKUviewer 
+                    END"), '=', 'fnsku.FNSKU');
+                    })
+                    ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                    ->where('prod.ProductID', $productId)
+                    ->whereIn('prod.ProductModuleLoc', ['Stockroom', 'Shipment', 'Soldlist'])
+                    ->first();
+
+                if ($existingItem) {
+                    $isSerialKnown = true;
+                }
+            }
+
+            if (!$existingItem) {
+                $existingItem = DB::table($this->productTable . ' as prod')
+                    ->select('prod.*', 'fnsku.ASIN', 'asin.internal as ProductTitle')
+                    ->leftJoin($this->fnskuTable . ' as fnsku', function ($join) {
+                        $join->on(DB::raw("CASE 
+                        WHEN prod.FNSKUviewer REGEXP '^[C-Z][0-9]+' 
+                        THEN REGEXP_REPLACE(prod.FNSKUviewer, '^[C-Z][0-9]+', '')
+                        ELSE prod.FNSKUviewer 
+                    END"), '=', 'fnsku.FNSKU');
+                    })
+                    ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                    ->where(function ($query) use ($serial, $secondSerial, $thirdSerial, $fourthSerial) {
+                        $query->where('prod.serialnumber', $serial)
+                            ->orWhere('prod.serialnumberb', $serial)
+                            ->orWhere('prod.serialnumberc', $serial)
+                            ->orWhere('prod.serialnumberd', $serial);
+
+                        if (!empty($secondSerial)) {
+                            $query->orWhere('prod.serialnumber', $secondSerial)
+                                ->orWhere('prod.serialnumberb', $secondSerial)
+                                ->orWhere('prod.serialnumberc', $secondSerial)
+                                ->orWhere('prod.serialnumberd', $secondSerial);
+                        }
+                        if (!empty($thirdSerial)) {
+                            $query->orWhere('prod.serialnumber', $thirdSerial)
+                                ->orWhere('prod.serialnumberb', $thirdSerial)
+                                ->orWhere('prod.serialnumberc', $thirdSerial)
+                                ->orWhere('prod.serialnumberd', $thirdSerial);
+                        }
+                        if (!empty($fourthSerial)) {
+                            $query->orWhere('prod.serialnumber', $fourthSerial)
+                                ->orWhere('prod.serialnumberb', $fourthSerial)
+                                ->orWhere('prod.serialnumberc', $fourthSerial)
+                                ->orWhere('prod.serialnumberd', $fourthSerial);
+                        }
+                    })
+                    ->whereIn('prod.ProductModuleLoc', ['Stockroom', 'Shipment', 'Soldlist'])
+                    ->first();
+
+                if ($existingItem) {
+                    $isSerialKnown = true;
+                }
+            }
+
+            if (!$existingItem) {
+                $existingItem = (object) [
+                    'ProductID' => null,
+                    'rtcounter' => null,
+                    'rtid' => null,
+                    'itemnumber' => null,
+                    'price' => null,
+                    'costumer_name' => 'Unknown',
+                    'ASIN' => null,
+                    'ASINviewer' => null,
+                    'MSKUviewer' => null,
+                    'FNSKUviewer' => null,
+                    'serialnumber' => null,
+                    'serialnumberb' => null,
+                    'serialnumberc' => null,
+                    'serialnumberd' => null,
+                    'ProductModuleLoc' => null,
+                    'ProductTitle' => null
+                ];
+            }
+
+            if ($isSerialKnown && !$singleSerialMode) {
+                $isValidSerial = function ($s) {
+                    return !empty($s) && trim($s) !== '' && strtoupper(trim($s)) !== 'N/A';
+                };
+
+                $dbSerials = [];
+                if ($isValidSerial($existingItem->serialnumber ?? null))
+                    $dbSerials[1] = $existingItem->serialnumber;
+                if ($isValidSerial($existingItem->serialnumberb ?? null))
+                    $dbSerials[2] = $existingItem->serialnumberb;
+                if ($isValidSerial($existingItem->serialnumberc ?? null))
+                    $dbSerials[3] = $existingItem->serialnumberc;
+                if ($isValidSerial($existingItem->serialnumberd ?? null))
+                    $dbSerials[4] = $existingItem->serialnumberd;
+
+                $totalDbSerials = count($dbSerials);
+
+                if ($totalDbSerials > 1) {
+                    $providedSerials = array_filter(
+                        [$serial, $secondSerial, $thirdSerial, $fourthSerial],
+                        fn($s) => !empty(trim($s))
+                    );
+
+                    $dbSerialsValues = array_values($dbSerials);
+                    $hasAtLeastOneMatch = false;
+
+                    foreach ($providedSerials as $provided) {
+                        if (in_array($provided, $dbSerialsValues)) {
+                            $hasAtLeastOneMatch = true;
+                            break;
+                        }
+                    }
+
+                    if (!$hasAtLeastOneMatch) {
                         DB::rollBack();
                         return response()->json([
                             'success' => false,
-                            'message' => "Cannot process return: Store name is not defined in the system for FNSKU '{$baseFnsku}'",
-                            'reason'  => 'missing_storename',
-                            'details' => ['fnsku' => $baseFnsku, 'asin' => $packAsin, 'serial' => $currentSerial, 'condition' => $condition, 'color' => $color]
+                            'message' => "None of the provided serials match this product. Expected serials: " . implode(', ', $dbSerialsValues),
+                            'reason' => 'wrong_product',
+                            'expectedSerials' => $dbSerialsValues,
+                            'providedSerials' => array_values($providedSerials)
                         ]);
                     }
 
-                    Log::info("FNSKU Info", [
-                        'FNSKU'          => $baseFnsku,
-                        'ASIN'           => $packAsin,
-                        'quantityinside' => $quantityInside,
-                        'color'          => $color,
-                        'condition'      => $condition,
-                        'storename'      => $storename,
-                        'units'          => $OriginalFnskuUnitCount
-                    ]);
+                    if (count($providedSerials) < $totalDbSerials) {
+                        Log::warning("⚠️ Partial return detected", [
+                            'expected' => $totalDbSerials,
+                            'provided' => count($providedSerials),
+                            'dbSerials' => $dbSerials,
+                            'providedSerials' => $providedSerials,
+                            'productId' => $existingItem->ProductID
+                        ]);
+                    }
 
-                    if ($quantityInside > 1) {
-                        Log::info("Pack detected: ASIN {$packAsin} has {$quantityInside} items inside");
+                    foreach ($providedSerials as $provided) {
+                        if (!in_array($provided, $dbSerialsValues)) {
+                            Log::warning("⚠️ Potential SWITCHERU detected during validation", [
+                                'provided_serial' => $provided,
+                                'expected_serials' => $dbSerialsValues,
+                                'productId' => $existingItem->ProductID
+                            ]);
+                        }
+                    }
+                }
+            }
 
-                        $singleItem = DB::table($this->fnskuTable . ' as fnsku')
-                            ->select('fnsku.*', 'asin.ASIN as single_asin', 'asin.color', 'asin.quantityinside')
+            $serialsToProcess = [];
+            if (!$singleSerialMode) {
+                if (!empty($serial))
+                    $serialsToProcess[] = $serial;
+                if (!empty($secondSerial))
+                    $serialsToProcess[] = $secondSerial;
+                if (!empty($thirdSerial))
+                    $serialsToProcess[] = $thirdSerial;
+                if (!empty($fourthSerial))
+                    $serialsToProcess[] = $fourthSerial;
+            } else {
+                $serialsToProcess[] = $serial;
+            }
+
+            $originalItem = $existingItem;
+            $rtCounter = $existingItem->rtcounter ?? null;
+            $rtId = $existingItem->rtid ?? null;
+            $itemNumber = $existingItem->itemnumber ?? null;
+            $price = $existingItem->price ?? null;
+            $buyerName = $existingItem->costumer_name ?? null;
+            $originalAsin = $existingItem->ASIN ?? null;
+            $originalFnsku = $existingItem->FNSKUviewer ?? null;
+
+            $lpnInsertion = DB::table('tbllpn')->insertGetId([
+                'SERIAL' => $serial,
+                'LPN' => $returnId,
+                'LPNDATE' => $returnIdReturnRequestDate ?? $currentDate,
+                'ProdID' => $originalItem->ProductID
+                    ?? ($originalProductFromReturnId->ProductID ?? null),
+                'BuyerName' => $returnIdBuyerName ?? $buyerName ?? 'Unknown',
+                'REASON' => $returnIdReasonCode,
+                'receivedDate' => $currentDate,
+            ]);
+
+            $currentLpnId = $lpnInsertion;
+
+            $successCount = 0;
+            $createdItems = [];
+            $newRt = null;
+
+            // ========== ATTRIBUTE-BASED FNSKU LOGIC ==========
+            foreach ($serialsToProcess as $currentSerial) {
+                if (substr($location, 0, 4) === 'L800') {
+                    $modulelocation = 'Production Area';
+                    $insertedDate = null;
+                } else {
+                    $modulelocation = 'Stockroom';
+                    $insertedDate = $curentDatetimeString;
+                }
+
+                $asinToUse = $originalAsin;
+                $baseFnskuToUse = null;
+                $actualFnskuToUse = null;
+                $condition = null;
+                $storename = null;
+                $mskuToUse = null;
+                $color = null;
+
+                try {
+                    if ($originalFnsku) {
+                        $baseFnsku = $this->extractBaseFnsku($originalFnsku);
+
+                        $fnskuInfo = DB::table($this->fnskuTable . ' as fnsku')
+                            ->select('fnsku.*', 'asin.quantityinside', 'asin.color')
                             ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                            ->where('asin.quantityinside', 1)
-                            ->where('asin.color', $color)
-                            ->where('fnsku.grading', $condition)
-                            ->where('fnsku.storename', $storename)
-                            ->where('fnsku.fnsku_status', 'Available')
-                            ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted'])
-                            ->where('fnsku.LimitStatus', 'False')
-                            ->where('fnsku.Units', '>', 0)
-                            ->orderByDesc('fnsku.FNSKUID')
+                            ->where('fnsku.FNSKU', $baseFnsku)
                             ->first();
 
-                        if (!$singleItem) {
+                        if (!$fnskuInfo) {
+                            Log::warning("FNSKU '{$baseFnsku}' not found in tblFNSKU, attempting fallback via ASINviewer", [
+                                'baseFnsku' => $baseFnsku,
+                                'originalFnsku' => $originalFnsku,
+                                'serial' => $currentSerial,
+                                'ASINviewer' => $existingItem->ASINviewer ?? null
+                            ]);
+
+                            $fallbackAsin = $existingItem->ASINviewer ?? null;
+
+                            if (!$fallbackAsin) {
+                                DB::rollBack();
+                                return response()->json([
+                                    'success' => false,
+                                    'message' => "FNSKU '{$baseFnsku}' not found in database and no ASINviewer available to fallback",
+                                    'reason' => 'fnsku_not_found_no_asin_fallback',
+                                    'details' => ['fnsku' => $baseFnsku, 'serial' => $currentSerial]
+                                ]);
+                            }
+
+                            $asinFallbackInfo = DB::table($this->asinTable)
+                                ->select('quantityinside', 'color')
+                                ->where('ASIN', $fallbackAsin)
+                                ->first();
+
+                            if (!$asinFallbackInfo) {
+                                DB::rollBack();
+                                return response()->json([
+                                    'success' => false,
+                                    'message' => "FNSKU '{$baseFnsku}' not found and ASIN '{$fallbackAsin}' has no record in tblasin",
+                                    'reason' => 'fnsku_and_asin_not_found',
+                                    'details' => ['fnsku' => $baseFnsku, 'asin' => $fallbackAsin, 'serial' => $currentSerial]
+                                ]);
+                            }
+
+                            $color = $asinFallbackInfo->color ?? null;
+                            $quantityInside = $asinFallbackInfo->quantityinside ?? 1;
+                            $condition = null;
+                            $storename = null;
+                            $OriginalFnskuUnitCount = 0;
+                            $mskuToUse = $existingItem->MSKUviewer ?? null;
+                            $packAsin = $fallbackAsin;
+
+                            Log::info("✅ Fallback ASIN info retrieved", [
+                                'asin' => $fallbackAsin,
+                                'color' => $color,
+                                'quantityinside' => $quantityInside
+                            ]);
+
+                        } else {
+                            $packAsin = $fnskuInfo->ASIN ?? null;
+                            $mskuToUse = $fnskuInfo->MSKU ?? null;
+                            $condition = $fnskuInfo->grading ?? null;
+                            $storename = $fnskuInfo->storename ?? null;
+                            $OriginalFnskuUnitCount = $fnskuInfo->Units ?? 0;
+                            $quantityInside = $fnskuInfo->quantityinside ?? 1;
+                            $color = $fnskuInfo->color ?? null;
+                        }
+
+                        if (empty($color) || trim($color) === '') {
+                            Log::warning("FNSKU has no color defined", [
+                                'fnsku' => $baseFnsku,
+                                'asin' => $packAsin,
+                                'serial' => $currentSerial
+                            ]);
+
+                            DB::rollBack();
+                            return response()->json([
+                                'success' => false,
+                                'message' => "Cannot process return: Product color is not defined in the system for FNSKU '{$baseFnsku}'",
+                                'reason' => 'missing_color',
+                                'details' => ['fnsku' => $baseFnsku, 'asin' => $packAsin, 'serial' => $currentSerial, 'condition' => $condition]
+                            ]);
+                        }
+
+                        if ($fnskuInfo && (empty($storename) || trim($storename) === '')) {
+                            Log::warning("FNSKU has no store name defined", [
+                                'fnsku' => $baseFnsku,
+                                'asin' => $packAsin,
+                                'serial' => $currentSerial
+                            ]);
+
+                            DB::rollBack();
+                            return response()->json([
+                                'success' => false,
+                                'message' => "Cannot process return: Store name is not defined in the system for FNSKU '{$baseFnsku}'",
+                                'reason' => 'missing_storename',
+                                'details' => ['fnsku' => $baseFnsku, 'asin' => $packAsin, 'serial' => $currentSerial, 'condition' => $condition, 'color' => $color]
+                            ]);
+                        }
+
+                        Log::info("FNSKU Info", [
+                            'FNSKU' => $baseFnsku,
+                            'ASIN' => $packAsin,
+                            'quantityinside' => $quantityInside,
+                            'color' => $color,
+                            'condition' => $condition,
+                            'storename' => $storename,
+                            'units' => $OriginalFnskuUnitCount
+                        ]);
+
+                        if ($quantityInside > 1) {
+                            Log::info("Pack detected: ASIN {$packAsin} has {$quantityInside} items inside");
+
                             $singleItem = DB::table($this->fnskuTable . ' as fnsku')
                                 ->select('fnsku.*', 'asin.ASIN as single_asin', 'asin.color', 'asin.quantityinside')
                                 ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                                 ->where('asin.quantityinside', 1)
-                                ->whereRaw('LOWER(TRIM(asin.color)) = LOWER(TRIM(?))', [$color])
-                                ->where('fnsku.grading', $condition)
-                                ->where('fnsku.storename', $storename)
-                                ->where('fnsku.fnsku_status', 'Available')
-                                ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted'])
-                                ->where('fnsku.LimitStatus', 'False')
-                                ->where('fnsku.Units', '>', 0)
-                                ->orderByDesc('fnsku.FNSKUID')
-                                ->first();
-                        }
-
-                        if ($singleItem) {
-                            $baseFnskuToUse = $singleItem->FNSKU;
-                            $asinToUse      = $singleItem->single_asin;
-                            $mskuToUse      = $singleItem->MSKU;
-                            $condition      = $singleItem->grading;
-                            $storename      = $singleItem->storename;
-                        } else {
-                            DB::rollBack();
-                            return response()->json([
-                                'success' => false,
-                                'message' => "Cannot process multi-pack: No single-unit FNSKU available with matching attributes\n\n" .
-                                    "Pack Details:\n• ASIN: {$packAsin}\n• FNSKU: {$baseFnsku}\n• Quantity Inside: {$quantityInside}\n\n" .
-                                    "Required Single-Unit Must Have:\n• Quantity Inside: 1\n• Color: '{$color}'\n• Condition: '{$condition}'\n• Store: '{$storename}'\n• Status: Available with units > 0\n\n" .
-                                    "Please create a single-unit FNSKU with these exact attributes.",
-                                'reason'  => 'no_single_unit_available',
-                                'details' => [
-                                    'pack_asin'                  => $packAsin,
-                                    'pack_fnsku'                 => $baseFnsku,
-                                    'pack_quantity_inside'       => $quantityInside,
-                                    'required_single_attributes' => [
-                                        'quantity_inside' => 1,
-                                        'color'           => $color,
-                                        'grading'         => $condition,
-                                        'storename'       => $storename
-                                    ],
-                                    'serial' => $currentSerial
-                                ]
-                            ]);
-                        }
-
-                    } else {
-                        if ($fnskuInfo && (strtolower($fnskuInfo->fnsku_status ?? '') !== 'available' || $OriginalFnskuUnitCount <= 0)) {
-                            $alternativeFnsku = DB::table($this->fnskuTable . ' as fnsku')
-                                ->select('fnsku.*', 'asin.ASIN as single_asin')
-                                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                                ->where('asin.quantityinside', 1)
-                                ->whereRaw('LOWER(TRIM(asin.color)) = LOWER(TRIM(?))', [$color])
+                                ->where('asin.color', $color)
                                 ->where('fnsku.grading', $condition)
                                 ->where('fnsku.storename', $storename)
                                 ->where('fnsku.fnsku_status', 'Available')
@@ -1029,559 +990,647 @@ public function processScan(Request $request)
                                 ->orderByDesc('fnsku.FNSKUID')
                                 ->first();
 
-                            if ($alternativeFnsku) {
-                                $baseFnskuToUse = $alternativeFnsku->FNSKU;
-                                $asinToUse      = $alternativeFnsku->single_asin;
-                                $mskuToUse      = $alternativeFnsku->MSKU;
-                                $storename      = $alternativeFnsku->storename;
+                            if (!$singleItem) {
+                                $singleItem = DB::table($this->fnskuTable . ' as fnsku')
+                                    ->select('fnsku.*', 'asin.ASIN as single_asin', 'asin.color', 'asin.quantityinside')
+                                    ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                                    ->where('asin.quantityinside', 1)
+                                    ->whereRaw('LOWER(TRIM(asin.color)) = LOWER(TRIM(?))', [$color])
+                                    ->where('fnsku.grading', $condition)
+                                    ->where('fnsku.storename', $storename)
+                                    ->where('fnsku.fnsku_status', 'Available')
+                                    ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted'])
+                                    ->where('fnsku.LimitStatus', 'False')
+                                    ->where('fnsku.Units', '>', 0)
+                                    ->orderByDesc('fnsku.FNSKUID')
+                                    ->first();
+                            }
+
+                            if ($singleItem) {
+                                $baseFnskuToUse = $singleItem->FNSKU;
+                                $asinToUse = $singleItem->single_asin;
+                                $mskuToUse = $singleItem->MSKU;
+                                $condition = $singleItem->grading;
+                                $storename = $singleItem->storename;
                             } else {
                                 DB::rollBack();
                                 return response()->json([
                                     'success' => false,
-                                    'message' => "FNSKU '{$baseFnsku}' is not available (Status: " . ($fnskuInfo->fnsku_status ?? 'unknown') .
-                                        ", Units: {$OriginalFnskuUnitCount}). No alternative single-unit FNSKU found with matching color '{$color}', condition '{$condition}', and store '{$storename}'.",
-                                    'reason'  => 'fnsku_not_available',
+                                    'message' => "Cannot process multi-pack: No single-unit FNSKU available with matching attributes\n\n" .
+                                        "Pack Details:\n• ASIN: {$packAsin}\n• FNSKU: {$baseFnsku}\n• Quantity Inside: {$quantityInside}\n\n" .
+                                        "Required Single-Unit Must Have:\n• Quantity Inside: 1\n• Color: '{$color}'\n• Condition: '{$condition}'\n• Store: '{$storename}'\n• Status: Available with units > 0\n\n" .
+                                        "Please create a single-unit FNSKU with these exact attributes.",
+                                    'reason' => 'no_single_unit_available',
                                     'details' => [
-                                        'fnsku'              => $baseFnsku,
-                                        'asin'               => $packAsin,
-                                        'current_status'     => $fnskuInfo->fnsku_status ?? 'unknown',
-                                        'current_units'      => $OriginalFnskuUnitCount,
-                                        'required_color'     => $color,
-                                        'required_grading'   => $condition,
-                                        'required_storename' => $storename,
-                                        'serial'             => $currentSerial
+                                        'pack_asin' => $packAsin,
+                                        'pack_fnsku' => $baseFnsku,
+                                        'pack_quantity_inside' => $quantityInside,
+                                        'required_single_attributes' => [
+                                            'quantity_inside' => 1,
+                                            'color' => $color,
+                                            'grading' => $condition,
+                                            'storename' => $storename
+                                        ],
+                                        'serial' => $currentSerial
                                     ]
                                 ]);
                             }
 
-                        } elseif (!$fnskuInfo && $OriginalFnskuUnitCount <= 0) {
-                            $alternativeFnsku = DB::table($this->fnskuTable . ' as fnsku')
-                                ->select('fnsku.*', 'asin.ASIN as single_asin')
-                                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                                ->where('asin.quantityinside', 1)
-                                ->whereRaw('LOWER(TRIM(asin.color)) = LOWER(TRIM(?))', [$color])
-                                ->where('fnsku.fnsku_status', 'Available')
-                                ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted'])
-                                ->where('fnsku.LimitStatus', 'False')
-                                ->where('fnsku.Units', '>', 0)
-                                ->orderByDesc('fnsku.FNSKUID')
-                                ->first();
-
-                            if ($alternativeFnsku) {
-                                $baseFnskuToUse = $alternativeFnsku->FNSKU;
-                                $asinToUse      = $alternativeFnsku->single_asin;
-                                $mskuToUse      = $alternativeFnsku->MSKU;
-                                $condition      = $alternativeFnsku->grading;
-                                $storename      = $alternativeFnsku->storename;
-                            } else {
-                                DB::rollBack();
-                                return response()->json([
-                                    'success' => false,
-                                    'message' => "FNSKU '{$baseFnsku}' not found in database and no alternative FNSKU found with color '{$color}'.",
-                                    'reason'  => 'fnsku_not_found_no_alternative',
-                                    'details' => ['fnsku' => $baseFnsku, 'asin' => $packAsin, 'required_color' => $color, 'serial' => $currentSerial]
-                                ]);
-                            }
-
                         } else {
-                            $baseFnskuToUse = $fnskuInfo->FNSKU;
-                            $asinToUse      = $packAsin;
-                            $storename      = $fnskuInfo->storename;
+                            if ($fnskuInfo && (strtolower($fnskuInfo->fnsku_status ?? '') !== 'available' || $OriginalFnskuUnitCount <= 0)) {
+                                $alternativeFnsku = DB::table($this->fnskuTable . ' as fnsku')
+                                    ->select('fnsku.*', 'asin.ASIN as single_asin')
+                                    ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                                    ->where('asin.quantityinside', 1)
+                                    ->whereRaw('LOWER(TRIM(asin.color)) = LOWER(TRIM(?))', [$color])
+                                    ->where('fnsku.grading', $condition)
+                                    ->where('fnsku.storename', $storename)
+                                    ->where('fnsku.fnsku_status', 'Available')
+                                    ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted'])
+                                    ->where('fnsku.LimitStatus', 'False')
+                                    ->where('fnsku.Units', '>', 0)
+                                    ->orderByDesc('fnsku.FNSKUID')
+                                    ->first();
+
+                                if ($alternativeFnsku) {
+                                    $baseFnskuToUse = $alternativeFnsku->FNSKU;
+                                    $asinToUse = $alternativeFnsku->single_asin;
+                                    $mskuToUse = $alternativeFnsku->MSKU;
+                                    $storename = $alternativeFnsku->storename;
+                                } else {
+                                    DB::rollBack();
+                                    return response()->json([
+                                        'success' => false,
+                                        'message' => "FNSKU '{$baseFnsku}' is not available (Status: " . ($fnskuInfo->fnsku_status ?? 'unknown') .
+                                            ", Units: {$OriginalFnskuUnitCount}). No alternative single-unit FNSKU found with matching color '{$color}', condition '{$condition}', and store '{$storename}'.",
+                                        'reason' => 'fnsku_not_available',
+                                        'details' => [
+                                            'fnsku' => $baseFnsku,
+                                            'asin' => $packAsin,
+                                            'current_status' => $fnskuInfo->fnsku_status ?? 'unknown',
+                                            'current_units' => $OriginalFnskuUnitCount,
+                                            'required_color' => $color,
+                                            'required_grading' => $condition,
+                                            'required_storename' => $storename,
+                                            'serial' => $currentSerial
+                                        ]
+                                    ]);
+                                }
+
+                            } elseif (!$fnskuInfo && $OriginalFnskuUnitCount <= 0) {
+                                $alternativeFnsku = DB::table($this->fnskuTable . ' as fnsku')
+                                    ->select('fnsku.*', 'asin.ASIN as single_asin')
+                                    ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                                    ->where('asin.quantityinside', 1)
+                                    ->whereRaw('LOWER(TRIM(asin.color)) = LOWER(TRIM(?))', [$color])
+                                    ->where('fnsku.fnsku_status', 'Available')
+                                    ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted'])
+                                    ->where('fnsku.LimitStatus', 'False')
+                                    ->where('fnsku.Units', '>', 0)
+                                    ->orderByDesc('fnsku.FNSKUID')
+                                    ->first();
+
+                                if ($alternativeFnsku) {
+                                    $baseFnskuToUse = $alternativeFnsku->FNSKU;
+                                    $asinToUse = $alternativeFnsku->single_asin;
+                                    $mskuToUse = $alternativeFnsku->MSKU;
+                                    $condition = $alternativeFnsku->grading;
+                                    $storename = $alternativeFnsku->storename;
+                                } else {
+                                    DB::rollBack();
+                                    return response()->json([
+                                        'success' => false,
+                                        'message' => "FNSKU '{$baseFnsku}' not found in database and no alternative FNSKU found with color '{$color}'.",
+                                        'reason' => 'fnsku_not_found_no_alternative',
+                                        'details' => ['fnsku' => $baseFnsku, 'asin' => $packAsin, 'required_color' => $color, 'serial' => $currentSerial]
+                                    ]);
+                                }
+
+                            } else {
+                                $baseFnskuToUse = $fnskuInfo->FNSKU;
+                                $asinToUse = $packAsin;
+                                $storename = $fnskuInfo->storename;
+                            }
                         }
+
+                    } else {
+                        if ($isSerialKnown) {
+                            DB::rollBack();
+                            return response()->json([
+                                'success' => false,
+                                'message' => "Cannot process: Original product has no FNSKU assigned",
+                                'reason' => 'missing_fnsku',
+                                'details' => ['serial' => $currentSerial, 'product_id' => $productId, 'asin' => $originalAsin]
+                            ]);
+                        }
+
+                        Log::warning("⚠️ Unknown serial — inserting as new item AND recording as switcheru", [
+                            'serial' => $currentSerial,
+                            'hasPreBuiltSwitcheru' => !empty($preBuiltSwitcheruRecords),
+                            'returnId' => $returnId,
+                        ]);
+
+                        $maxRt = DB::table($this->productTable)->max('rtcounter');
+                        $newRt = $maxRt + 1;
+
+                        $unknownModuleLoc = 'Production Area';
+                        $unknownInsertDate = null;
+
+                        $newItemId = DB::table($this->productTable)->insertGetId([
+                            'rtcounter' => $newRt,
+                            'rtid' => $rtId,
+                            'itemnumber' => $itemNumber,
+                            'Username' => $User,
+                            'serialnumber' => $currentSerial,
+                            'ProductModuleLoc' => $unknownModuleLoc,
+                            'quantity' => 1,
+                            'price' => $price,
+                            'lpnID' => $currentLpnId,
+                            'warehouselocation' => $location,
+                            'FNSKUviewer' => null,
+                            'stockroom_insert_date' => $unknownInsertDate,
+                            'validation_status' => 'switcheru',
+                            'ASINviewer' => null,
+                            'MSKUviewer' => null,
+                        ]);
+
+                        DB::table($this->itemProcessHistoryTable)->insert([
+                            'rtcounter' => $newRt,
+                            'employeeName' => $User,
+                            'editDate' => $curentDatetimeString,
+                            'Module' => 'Scan Return Module',
+                            'Action' => 'Scanned unknown serial (SWITCHERU) and inserted to ' . $unknownModuleLoc
+                        ]);
+
+                        $createdItems[] = [
+                            'id' => $newItemId,
+                            'serial' => $currentSerial,
+                            'base_fnsku' => null,
+                            'actual_fnsku' => null,
+                            'msku' => null,
+                            'asin' => null,
+                            'location' => $unknownModuleLoc,
+                            'rt' => $newRt
+                        ];
+
+                        $successCount++;
+                        continue;
                     }
 
-                } else {
-                    if ($isSerialKnown) {
+                    if ($baseFnskuToUse && $mskuToUse) {
+                        $fnskuGenerationInfo = $this->getNextAvailableFnsku(
+                            $baseFnskuToUse,
+                            $mskuToUse,
+                            $asinToUse,
+                            $condition,
+                            $storename
+                        );
+
+                        $actualFnskuToUse = $fnskuGenerationInfo['actual_fnsku'];
+
+                        Log::info('✅ Generated prefixed FNSKU', [
+                            'base_fnsku' => $baseFnskuToUse,
+                            'actual_fnsku' => $actualFnskuToUse,
+                            'msku' => $mskuToUse,
+                            'asin' => $asinToUse,
+                            'times_used' => $fnskuGenerationInfo['times_used'],
+                            'remaining_units' => $fnskuGenerationInfo['remaining_units'],
+                            'color' => $color,
+                            'condition' => $condition,
+                            'storename' => $storename
+                        ]);
+
+                        $maxRt = DB::table($this->productTable)->max('rtcounter');
+                        $newRt = $maxRt + 1;
+
+                        $newItemId = DB::table($this->productTable)->insertGetId([
+                            'rtcounter' => $newRt,
+                            'rtid' => $rtId,
+                            'itemnumber' => $itemNumber,
+                            'Username' => $User,
+                            'serialnumber' => $currentSerial,
+                            'ProductModuleLoc' => $modulelocation,
+                            'quantity' => 1,
+                            'price' => $price,
+                            'lpnID' => $currentLpnId,
+                            'warehouselocation' => $location,
+                            'FNSKUviewer' => $actualFnskuToUse,
+                            'stockroom_insert_date' => $insertedDate,
+                            'validation_status' => 'validated',
+                            'ASINviewer' => $asinToUse,
+                            'MSKUviewer' => $mskuToUse
+                        ]);
+
+                        DB::table($this->itemProcessHistoryTable)->insert([
+                            'rtcounter' => $newRt,
+                            'employeeName' => $User,
+                            'editDate' => $curentDatetimeString,
+                            'Module' => 'Scan Return Module',
+                            'Action' => 'Scanned and insert to ' . $modulelocation
+                        ]);
+
+                        $this->updateFnskuUnits($mskuToUse, $baseFnskuToUse, $asinToUse, $condition, $storename);
+
+                        $createdItems[] = [
+                            'id' => $newItemId,
+                            'serial' => $currentSerial,
+                            'base_fnsku' => $baseFnskuToUse,
+                            'actual_fnsku' => $actualFnskuToUse,
+                            'msku' => $mskuToUse,
+                            'asin' => $asinToUse,
+                            'location' => $modulelocation,
+                            'rt' => $newRt
+                        ];
+
+                        $successCount++;
+                    } else {
+                        Log::error("❌ No FNSKU or MSKU found for serial: {$currentSerial}");
                         DB::rollBack();
                         return response()->json([
                             'success' => false,
-                            'message' => "Cannot process: Original product has no FNSKU assigned",
-                            'reason'  => 'missing_fnsku',
-                            'details' => ['serial' => $currentSerial, 'product_id' => $productId, 'asin' => $originalAsin]
+                            'message' => "Failed to assign FNSKU for serial: {$currentSerial}",
+                            'reason' => 'fnsku_assignment_failed',
+                            'details' => ['serial' => $currentSerial, 'fnsku' => $baseFnskuToUse, 'msku' => $mskuToUse]
                         ]);
                     }
 
-                    Log::warning("⚠️ Unknown serial — inserting as new item AND recording as switcheru", [
-                        'serial'               => $currentSerial,
-                        'hasPreBuiltSwitcheru' => !empty($preBuiltSwitcheruRecords),
-                        'returnId'             => $returnId,
+                } catch (\Exception $e) {
+                    Log::error('Error processing serial ' . $currentSerial, [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
                     ]);
-
-                    $maxRt = DB::table($this->productTable)->max('rtcounter');
-                    $newRt = $maxRt + 1;
-
-                    $unknownModuleLoc  = 'Production Area';
-                    $unknownInsertDate = null;
-
-                    $newItemId = DB::table($this->productTable)->insertGetId([
-                        'rtcounter'             => $newRt,
-                        'rtid'                  => $rtId,
-                        'itemnumber'            => $itemNumber,
-                        'Username'              => $User,
-                        'serialnumber'          => $currentSerial,
-                        'ProductModuleLoc'      => $unknownModuleLoc,
-                        'quantity'              => 1,
-                        'price'                 => $price,
-                        'lpnID'                 => $currentLpnId,
-                        'warehouselocation'     => $location,
-                        'FNSKUviewer'           => null,
-                        'stockroom_insert_date' => $unknownInsertDate,
-                        'validation_status'     => 'switcheru',
-                        'ASINviewer'            => null,
-                        'MSKUviewer'            => null,
-                    ]);
-
-                    DB::table($this->itemProcessHistoryTable)->insert([
-                        'rtcounter'    => $newRt,
-                        'employeeName' => $User,
-                        'editDate'     => $curentDatetimeString,
-                        'Module'       => 'Scan Return Module',
-                        'Action'       => 'Scanned unknown serial (SWITCHERU) and inserted to ' . $unknownModuleLoc
-                    ]);
-
-                    $createdItems[] = [
-                        'id'           => $newItemId,
-                        'serial'       => $currentSerial,
-                        'base_fnsku'   => null,
-                        'actual_fnsku' => null,
-                        'msku'         => null,
-                        'asin'         => null,
-                        'location'     => $unknownModuleLoc,
-                        'rt'           => $newRt
-                    ];
-
-                    $successCount++;
-                    continue;
-                }
-
-                if ($baseFnskuToUse && $mskuToUse) {
-                    $fnskuGenerationInfo = $this->getNextAvailableFnsku(
-                        $baseFnskuToUse,
-                        $mskuToUse,
-                        $asinToUse,
-                        $condition,
-                        $storename
-                    );
-
-                    $actualFnskuToUse = $fnskuGenerationInfo['actual_fnsku'];
-
-                    Log::info('✅ Generated prefixed FNSKU', [
-                        'base_fnsku'      => $baseFnskuToUse,
-                        'actual_fnsku'    => $actualFnskuToUse,
-                        'msku'            => $mskuToUse,
-                        'asin'            => $asinToUse,
-                        'times_used'      => $fnskuGenerationInfo['times_used'],
-                        'remaining_units' => $fnskuGenerationInfo['remaining_units'],
-                        'color'           => $color,
-                        'condition'       => $condition,
-                        'storename'       => $storename
-                    ]);
-
-                    $maxRt = DB::table($this->productTable)->max('rtcounter');
-                    $newRt = $maxRt + 1;
-
-                    $newItemId = DB::table($this->productTable)->insertGetId([
-                        'rtcounter'             => $newRt,
-                        'rtid'                  => $rtId,
-                        'itemnumber'            => $itemNumber,
-                        'Username'              => $User,
-                        'serialnumber'          => $currentSerial,
-                        'ProductModuleLoc'      => $modulelocation,
-                        'quantity'              => 1,
-                        'price'                 => $price,
-                        'lpnID'                 => $currentLpnId,
-                        'warehouselocation'     => $location,
-                        'FNSKUviewer'           => $actualFnskuToUse,
-                        'stockroom_insert_date' => $insertedDate,
-                        'validation_status'     => 'validated',
-                        'ASINviewer'            => $asinToUse,
-                        'MSKUviewer'            => $mskuToUse
-                    ]);
-
-                    DB::table($this->itemProcessHistoryTable)->insert([
-                        'rtcounter'    => $newRt,
-                        'employeeName' => $User,
-                        'editDate'     => $curentDatetimeString,
-                        'Module'       => 'Scan Return Module',
-                        'Action'       => 'Scanned and insert to ' . $modulelocation
-                    ]);
-
-                    $this->updateFnskuUnits($mskuToUse, $baseFnskuToUse, $asinToUse, $condition, $storename);
-
-                    $createdItems[] = [
-                        'id'           => $newItemId,
-                        'serial'       => $currentSerial,
-                        'base_fnsku'   => $baseFnskuToUse,
-                        'actual_fnsku' => $actualFnskuToUse,
-                        'msku'         => $mskuToUse,
-                        'asin'         => $asinToUse,
-                        'location'     => $modulelocation,
-                        'rt'           => $newRt
-                    ];
-
-                    $successCount++;
-                } else {
-                    Log::error("❌ No FNSKU or MSKU found for serial: {$currentSerial}");
                     DB::rollBack();
                     return response()->json([
                         'success' => false,
-                        'message' => "Failed to assign FNSKU for serial: {$currentSerial}",
-                        'reason'  => 'fnsku_assignment_failed',
-                        'details' => ['serial' => $currentSerial, 'fnsku' => $baseFnskuToUse, 'msku' => $mskuToUse]
+                        'message' => 'Error processing serial: ' . $e->getMessage(),
+                        'reason' => 'processing_error',
+                        'details' => ['serial' => $currentSerial]
+                    ]);
+                }
+            }
+            // ========== END OF ATTRIBUTE-BASED FNSKU LOGIC ==========
+
+            // ========== SWITCHERU DETECTION ==========
+            $switcheruRecords = [];
+            $switcheruFound = false;
+            $serialsNotReturned = [];
+            $newSwitchedSerials = [];
+
+            if (!$isSerialKnown) {
+                if (!empty($preBuiltSwitcheruRecords)) {
+                    Log::info("⚠️ Skipping unknown serial switcheru — already captured via Return ID mismatch", [
+                        'receiveserial' => $serial,
+                        'preBuiltSwitcheruRecords' => $preBuiltSwitcheruRecords,
+                    ]);
+                    $switcheruFound = true;
+                    $newSwitchedSerials[] = $serial;
+                } else {
+                    $switcheruRecords[] = [
+                        'buyer' => $buyerName ?? 'Unknown',
+                        'sendserial' => '',
+                        'receiveserial' => $serial,
+                        'rtcounter' => null,
+                        'returnid' => !empty($returnId) ? $returnId : null,
+                        'created_at' => $curentDatetimeString
+                    ];
+                    $switcheruFound = true;
+                    $newSwitchedSerials[] = $serial;
+
+                    Log::info("✅ Switcheru detected: Unknown serial (no Return ID context)", ['receiveserial' => $serial]);
+                }
+
+            } else if (!$singleSerialMode) {
+                $isValidSerial = function ($s) {
+                    return !empty($s) && trim($s) !== '' && strtoupper(trim($s)) !== 'N/A';
+                };
+
+                $dbSerials = [];
+                if ($isValidSerial($existingItem->serialnumber ?? null))
+                    $dbSerials[1] = $existingItem->serialnumber;
+                if ($isValidSerial($existingItem->serialnumberb ?? null))
+                    $dbSerials[2] = $existingItem->serialnumberb;
+                if ($isValidSerial($existingItem->serialnumberc ?? null))
+                    $dbSerials[3] = $existingItem->serialnumberc;
+                if ($isValidSerial($existingItem->serialnumberd ?? null))
+                    $dbSerials[4] = $existingItem->serialnumberd;
+
+                $receivedSerials = [];
+                if ($isValidSerial($serial))
+                    $receivedSerials[1] = $serial;
+                if ($isValidSerial($secondSerial))
+                    $receivedSerials[2] = $secondSerial;
+                if ($isValidSerial($thirdSerial))
+                    $receivedSerials[3] = $thirdSerial;
+                if ($isValidSerial($fourthSerial))
+                    $receivedSerials[4] = $fourthSerial;
+
+                $dbSerialValues = array_values($dbSerials);
+                $receivedSerialValues = array_values($receivedSerials);
+
+                foreach ($dbSerials as $idx => $dbSerial) {
+                    if (!in_array($dbSerial, $receivedSerialValues)) {
+                        $serialsNotReturned[$idx] = $dbSerial;
+                    }
+                }
+
+                foreach ($receivedSerials as $idx => $receivedSerial) {
+                    if (!in_array($receivedSerial, $dbSerialValues)) {
+                        $newSwitchedSerials[$idx] = $receivedSerial;
+                    }
+                }
+
+                Log::info("✅ Switcheru Analysis", [
+                    'dbSerials' => $dbSerials,
+                    'receivedSerials' => $receivedSerials,
+                    'serialsNotReturned' => $serialsNotReturned,
+                    'newSwitchedSerials' => $newSwitchedSerials
+                ]);
+
+                if (!empty($serialsNotReturned) && !empty($newSwitchedSerials)) {
+                    $switcheruFound = true;
+                    $notReturnedList = array_values($serialsNotReturned);
+                    $newSwitchedList = array_values($newSwitchedSerials);
+                    $maxCount = max(count($notReturnedList), count($newSwitchedList));
+
+                    for ($i = 0; $i < $maxCount; $i++) {
+                        $sendSerial = $notReturnedList[$i] ?? '';
+                        $receiveSerial = $newSwitchedList[$i] ?? '';
+
+                        if (!empty($sendSerial) || !empty($receiveSerial)) {
+                            $switcheruRecords[] = [
+                                'buyer' => $buyerName ?? 'Unknown',
+                                'sendserial' => $sendSerial,
+                                'receiveserial' => $receiveSerial,
+                                'rtcounter' => $rtCounter,
+                                'returnid' => !empty($returnId) ? $returnId : null,
+                                'created_at' => $curentDatetimeString
+                            ];
+                        }
+                    }
+
+                    Log::info("✅ Switcheru Records Created", ['count' => count($switcheruRecords), 'records' => $switcheruRecords]);
+
+                } else if (!empty($serialsNotReturned) && empty($newSwitchedSerials)) {
+                    Log::info("ℹ️ Partial return detected (NOT switcheru)", [
+                        'serialsNotReturned' => $serialsNotReturned,
+                        'totalDbSerials' => count($dbSerials),
+                        'totalReceivedSerials' => count($receivedSerials)
+                    ]);
+                }
+            }
+
+            // ========== COMMIT ==========
+            if ($successCount == count($serialsToProcess) || !empty($preBuiltSwitcheruRecords) || $switcheruFound) {
+
+                if ($isSerialKnown && $originalItem->ProductID) {
+                    DB::table($this->itemProcessHistoryTable)->insert([
+                        'rtcounter' => $rtCounter,
+                        'employeeName' => $User,
+                        'editDate' => $curentDatetimeString,
+                        'Module' => 'Scanner Return Module',
+                        'Action' => 'Return Item'
+                    ]);
+
+                    $updateData = [
+                        'ProductModuleLoc' => 'Returnlist',
+                        'returnstatus' => 'Returned'
+                    ];
+
+                    if ($switcheruFound && !empty($serialsNotReturned)) {
+                        foreach ($serialsNotReturned as $idx => $notReturnedSerial) {
+                            switch ($idx) {
+                                case 1:
+                                    $updateData['serialnumber'] = null;
+                                    break;
+                                case 2:
+                                    $updateData['serialnumberb'] = null;
+                                    break;
+                                case 3:
+                                    $updateData['serialnumberc'] = null;
+                                    break;
+                                case 4:
+                                    $updateData['serialnumberd'] = null;
+                                    break;
+                            }
+                        }
+                    } else if (!empty($serialsNotReturned) && empty($newSwitchedSerials)) {
+                        foreach ($serialsNotReturned as $idx => $notReturnedSerial) {
+                            switch ($idx) {
+                                case 1:
+                                    $updateData['serialnumber'] = null;
+                                    break;
+                                case 2:
+                                    $updateData['serialnumberb'] = null;
+                                    break;
+                                case 3:
+                                    $updateData['serialnumberc'] = null;
+                                    break;
+                                case 4:
+                                    $updateData['serialnumberd'] = null;
+                                    break;
+                            }
+                        }
+                    }
+
+                    DB::table($this->productTable)
+                        ->where('ProductID', $originalItem->ProductID)
+                        ->update($updateData);
+
+                    if ($originalFnsku && $mskuToUse) {
+                        $baseFnsku = $this->extractBaseFnsku($originalFnsku);
+                        $originalLocation = $originalItem->ProductModuleLoc ?? null;
+
+                        if (in_array($originalLocation, ['Stockroom', 'Shipment'])) {
+                            $this->returnFnskuUnits($mskuToUse, $baseFnsku);
+                            Log::info("Restored units to original FNSKU {$baseFnsku} (item was in {$originalLocation})");
+                        } else {
+                            Log::info("Skipped FNSKU unit restore for {$baseFnsku} - item was in {$originalLocation}");
+                        }
+                    }
+
+                    DB::table('tbldoneshipping')
+                        ->where('Prodid', $originalItem->ProductID)
+                        ->delete();
+
+                    $actionMessage = ($singleSerialMode && !empty($existingItem->serialnumberb))
+                        ? 'Item returned with only one serial and added to Return List'
+                        : 'Item returned and added to Return List';
+
+                    if ($switcheruFound) {
+                        $actionMessage .= ' - SWITCHERU DETECTED';
+                        if (!empty($serialsNotReturned))
+                            $actionMessage .= ' - Not returned: ' . implode(', ', $serialsNotReturned);
+                        if (!empty($newSwitchedSerials))
+                            $actionMessage .= ' - Switched in: ' . implode(', ', $newSwitchedSerials);
+                    } else if (!empty($serialsNotReturned)) {
+                        $actionMessage .= ' - Partial return - Missing: ' . implode(', ', $serialsNotReturned);
+                    }
+
+                    DB::table($this->itemProcessHistoryTable)->insert([
+                        'rtcounter' => $originalItem->rtcounter,
+                        'employeeName' => $User,
+                        'editDate' => $curentDatetimeString,
+                        'Module' => 'Returnlist',
+                        'Action' => $actionMessage,
                     ]);
                 }
 
-            } catch (\Exception $e) {
-                Log::error('Error processing serial ' . $currentSerial, [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
+                DB::commit();
+
+                // ========== POST-COMMIT: switcheru records ==========
+                if ($switcheruFound && !empty($switcheruRecords)) {
+                    $insertedCount = 0;
+                    foreach ($switcheruRecords as $switcheruRecord) {
+                        try {
+                            DB::table('tblswitcherus')->insert($switcheruRecord);
+                            $insertedCount++;
+                            Log::info("✅ Switcheru record inserted", $switcheruRecord);
+                        } catch (\Exception $e) {
+                            Log::error("❌ Failed to insert switcheru", ['error' => $e->getMessage(), 'record' => $switcheruRecord]);
+                        }
+                    }
+                    Log::info("✅ Total switcheru records inserted: {$insertedCount}");
+                }
+
+                if (!empty($preBuiltSwitcheruRecords)) {
+                    foreach ($preBuiltSwitcheruRecords as &$pbr) {
+                        $pbr['rtcounter'] = $newRt ?? null;
+                        try {
+                            DB::table('tblswitcherus')->insert($pbr);
+                            Log::info('✅ Pre-built switcheru inserted (Return ID mismatch)', $pbr);
+                        } catch (\Exception $e) {
+                            Log::error('❌ Failed to insert pre-built switcheru', ['error' => $e->getMessage(), 'record' => $pbr]);
+                        }
+                    }
+                    unset($pbr);
+                }
+
+                // ========== POST-COMMIT: Move original product to Returnlist via Return ID ==========
+                // This handles the case where the scanned serial is unknown (switcheru) but we found
+                // the original product via the Return ID chain — it still needs to be moved to Returnlist
+                if ($originalProductFromReturnId && $originalProductFromReturnId->ProductID) {
+                    try {
+                        $origFnsku = $originalProductFromReturnId->FNSKUviewer ?? null;
+                        $origMsku = $originalProductFromReturnId->MSKUviewer ?? null;
+                        $origLoc = $originalProductFromReturnId->ProductModuleLoc ?? null;
+
+                        DB::table($this->productTable)
+                            ->where('ProductID', $originalProductFromReturnId->ProductID)
+                            ->update([
+                                'ProductModuleLoc' => 'Returnlist',
+                                'returnstatus' => 'Returned',
+                            ]);
+
+                        DB::table($this->itemProcessHistoryTable)->insert([
+                            'rtcounter' => $originalProductFromReturnId->rtcounter,
+                            'employeeName' => $User,
+                            'editDate' => $curentDatetimeString,
+                            'Module' => 'Returnlist',
+                            'Action' => 'Item moved to Returnlist via Return ID — received serial: ' . $serial
+                                . (!empty($preBuiltSwitcheruRecords) ? ' (SWITCHERU DETECTED)' : ''),
+                        ]);
+
+                        // Restore FNSKU units only if item was in Stockroom or Shipment
+                        if ($origFnsku && $origMsku && in_array($origLoc, ['Stockroom', 'Shipment'])) {
+                            $this->returnFnskuUnits($origMsku, $origFnsku);
+                            Log::info("✅ Restored FNSKU units for original product via Return ID", [
+                                'productId' => $originalProductFromReturnId->ProductID,
+                                'fnsku' => $origFnsku,
+                                'msku' => $origMsku,
+                                'location' => $origLoc,
+                            ]);
+                        }
+
+                        // Remove from done shipping
+                        DB::table('tbldoneshipping')
+                            ->where('Prodid', $originalProductFromReturnId->ProductID)
+                            ->delete();
+
+                        Log::info("✅ Original product moved to Returnlist via Return ID", [
+                            'productId' => $originalProductFromReturnId->ProductID,
+                            'rtcounter' => $originalProductFromReturnId->rtcounter,
+                            'shippedSerials' => $shippedSerials,
+                            'returnedSerial' => $serial,
+                            'wasSwitcheru' => !empty($preBuiltSwitcheruRecords),
+                        ]);
+
+                    } catch (\Exception $e) {
+                        Log::error("❌ Failed to update original product to Returnlist via Return ID", [
+                            'error' => $e->getMessage(),
+                            'productId' => $originalProductFromReturnId->ProductID ?? null,
+                        ]);
+                    }
+                }
+                // ========== END POST-COMMIT ==========
+
+                $successMessage = "Successfully processed " . count($serialsToProcess) . " items";
+                if ($switcheruFound) {
+                    $successMessage .= " - ⚠️ SWITCHERU DETECTED (" . count($switcheruRecords) . " record(s))";
+                } else if (!empty($serialsNotReturned) && empty($newSwitchedSerials)) {
+                    $successMessage .= " - ℹ️ Partial return (" . count($serialsNotReturned) . " item(s) not returned)";
+                }
+                if (!empty($preBuiltSwitcheruRecords)) {
+                    $successMessage .= " - ⚠️ SWITCHERU via Return ID (" . count($preBuiltSwitcheruRecords) . " record(s))";
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => $successMessage,
+                    'item' => [
+                        'serial_number' => $serial,
+                        'second_serial' => $secondSerial,
+                        'third_serial' => $thirdSerial,
+                        'fourth_serial' => $fourthSerial,
+                        'location' => $location,
+                        'return_id' => $returnId,
+                        'lpn_id' => $currentLpnId,
+                        'status' => 'Returned',
+                        'original_location' => $existingItem->ProductModuleLoc,
+                        'single_serial_mode' => $singleSerialMode && !empty($existingItem->serialnumberb),
+                        'fnsku' => $originalFnsku,
+                        'product_id' => $existingItem->ProductID,
+                        'switcheru_found' => $switcheruFound || !empty($preBuiltSwitcheruRecords),
+                        'is_serial_known' => $isSerialKnown,
+                        'total_serials_processed' => count($serialsToProcess)
+                    ],
+                    'createdItems' => $createdItems,
+                    'imagesReceived' => count($images),
+                    'switcheru' => [
+                        'detected' => $switcheruFound,
+                        'count' => count($switcheruRecords),
+                        'records' => $switcheruRecords,
+                        'serialsNotReturned' => array_values($serialsNotReturned),
+                        'newSwitchedSerials' => array_values($newSwitchedSerials),
+                        'returnIdMismatch' => [
+                            'detected' => !empty($preBuiltSwitcheruRecords),
+                            'count' => count($preBuiltSwitcheruRecords),
+                            'records' => $preBuiltSwitcheruRecords,
+                        ],
+                    ]
                 ]);
+
+            } else {
                 DB::rollBack();
                 return response()->json([
                     'success' => false,
-                    'message' => 'Error processing serial: ' . $e->getMessage(),
-                    'reason'  => 'processing_error',
-                    'details' => ['serial' => $currentSerial]
-                ]);
-            }
-        }
-        // ========== END OF ATTRIBUTE-BASED FNSKU LOGIC ==========
-
-        // ========== SWITCHERU DETECTION ==========
-        $switcheruRecords   = [];
-        $switcheruFound     = false;
-        $serialsNotReturned = [];
-        $newSwitchedSerials = [];
-
-        if (!$isSerialKnown) {
-            if (!empty($preBuiltSwitcheruRecords)) {
-                Log::info("⚠️ Skipping unknown serial switcheru — already captured via Return ID mismatch", [
-                    'receiveserial'            => $serial,
-                    'preBuiltSwitcheruRecords' => $preBuiltSwitcheruRecords,
-                ]);
-                $switcheruFound       = true;
-                $newSwitchedSerials[] = $serial;
-            } else {
-                $switcheruRecords[] = [
-                    'buyer'         => $buyerName ?? 'Unknown',
-                    'sendserial'    => '',
-                    'receiveserial' => $serial,
-                    'rtcounter'     => null,
-                    'returnid'      => !empty($returnId) ? $returnId : null,
-                    'created_at'    => $curentDatetimeString
-                ];
-                $switcheruFound       = true;
-                $newSwitchedSerials[] = $serial;
-
-                Log::info("✅ Switcheru detected: Unknown serial (no Return ID context)", ['receiveserial' => $serial]);
-            }
-
-        } else if (!$singleSerialMode) {
-            $isValidSerial = function ($s) {
-                return !empty($s) && trim($s) !== '' && strtoupper(trim($s)) !== 'N/A';
-            };
-
-            $dbSerials = [];
-            if ($isValidSerial($existingItem->serialnumber  ?? null)) $dbSerials[1] = $existingItem->serialnumber;
-            if ($isValidSerial($existingItem->serialnumberb ?? null)) $dbSerials[2] = $existingItem->serialnumberb;
-            if ($isValidSerial($existingItem->serialnumberc ?? null)) $dbSerials[3] = $existingItem->serialnumberc;
-            if ($isValidSerial($existingItem->serialnumberd ?? null)) $dbSerials[4] = $existingItem->serialnumberd;
-
-            $receivedSerials = [];
-            if ($isValidSerial($serial))       $receivedSerials[1] = $serial;
-            if ($isValidSerial($secondSerial)) $receivedSerials[2] = $secondSerial;
-            if ($isValidSerial($thirdSerial))  $receivedSerials[3] = $thirdSerial;
-            if ($isValidSerial($fourthSerial)) $receivedSerials[4] = $fourthSerial;
-
-            $dbSerialValues       = array_values($dbSerials);
-            $receivedSerialValues = array_values($receivedSerials);
-
-            foreach ($dbSerials as $idx => $dbSerial) {
-                if (!in_array($dbSerial, $receivedSerialValues)) {
-                    $serialsNotReturned[$idx] = $dbSerial;
-                }
-            }
-
-            foreach ($receivedSerials as $idx => $receivedSerial) {
-                if (!in_array($receivedSerial, $dbSerialValues)) {
-                    $newSwitchedSerials[$idx] = $receivedSerial;
-                }
-            }
-
-            Log::info("✅ Switcheru Analysis", [
-                'dbSerials'          => $dbSerials,
-                'receivedSerials'    => $receivedSerials,
-                'serialsNotReturned' => $serialsNotReturned,
-                'newSwitchedSerials' => $newSwitchedSerials
-            ]);
-
-            if (!empty($serialsNotReturned) && !empty($newSwitchedSerials)) {
-                $switcheruFound  = true;
-                $notReturnedList = array_values($serialsNotReturned);
-                $newSwitchedList = array_values($newSwitchedSerials);
-                $maxCount        = max(count($notReturnedList), count($newSwitchedList));
-
-                for ($i = 0; $i < $maxCount; $i++) {
-                    $sendSerial    = $notReturnedList[$i] ?? '';
-                    $receiveSerial = $newSwitchedList[$i] ?? '';
-
-                    if (!empty($sendSerial) || !empty($receiveSerial)) {
-                        $switcheruRecords[] = [
-                            'buyer'         => $buyerName ?? 'Unknown',
-                            'sendserial'    => $sendSerial,
-                            'receiveserial' => $receiveSerial,
-                            'rtcounter'     => $rtCounter,
-                            'returnid'      => !empty($returnId) ? $returnId : null,
-                            'created_at'    => $curentDatetimeString
-                        ];
-                    }
-                }
-
-                Log::info("✅ Switcheru Records Created", ['count' => count($switcheruRecords), 'records' => $switcheruRecords]);
-
-            } else if (!empty($serialsNotReturned) && empty($newSwitchedSerials)) {
-                Log::info("ℹ️ Partial return detected (NOT switcheru)", [
-                    'serialsNotReturned'   => $serialsNotReturned,
-                    'totalDbSerials'       => count($dbSerials),
-                    'totalReceivedSerials' => count($receivedSerials)
-                ]);
-            }
-        }
-
-        // ========== COMMIT ==========
-        if ($successCount == count($serialsToProcess) || !empty($preBuiltSwitcheruRecords) || $switcheruFound) {
-
-            if ($isSerialKnown && $originalItem->ProductID) {
-                DB::table($this->itemProcessHistoryTable)->insert([
-                    'rtcounter'    => $rtCounter,
-                    'employeeName' => $User,
-                    'editDate'     => $curentDatetimeString,
-                    'Module'       => 'Scanner Return Module',
-                    'Action'       => 'Return Item'
-                ]);
-
-                $updateData = [
-                    'ProductModuleLoc' => 'Returnlist',
-                    'returnstatus'     => 'Returned'
-                ];
-
-                if ($switcheruFound && !empty($serialsNotReturned)) {
-                    foreach ($serialsNotReturned as $idx => $notReturnedSerial) {
-                        switch ($idx) {
-                            case 1: $updateData['serialnumber']  = null; break;
-                            case 2: $updateData['serialnumberb'] = null; break;
-                            case 3: $updateData['serialnumberc'] = null; break;
-                            case 4: $updateData['serialnumberd'] = null; break;
-                        }
-                    }
-                } else if (!empty($serialsNotReturned) && empty($newSwitchedSerials)) {
-                    foreach ($serialsNotReturned as $idx => $notReturnedSerial) {
-                        switch ($idx) {
-                            case 1: $updateData['serialnumber']  = null; break;
-                            case 2: $updateData['serialnumberb'] = null; break;
-                            case 3: $updateData['serialnumberc'] = null; break;
-                            case 4: $updateData['serialnumberd'] = null; break;
-                        }
-                    }
-                }
-
-                DB::table($this->productTable)
-                    ->where('ProductID', $originalItem->ProductID)
-                    ->update($updateData);
-
-                if ($originalFnsku && $mskuToUse) {
-                    $baseFnsku        = $this->extractBaseFnsku($originalFnsku);
-                    $originalLocation = $originalItem->ProductModuleLoc ?? null;
-
-                    if (in_array($originalLocation, ['Stockroom', 'Shipment'])) {
-                        $this->returnFnskuUnits($mskuToUse, $baseFnsku);
-                        Log::info("Restored units to original FNSKU {$baseFnsku} (item was in {$originalLocation})");
-                    } else {
-                        Log::info("Skipped FNSKU unit restore for {$baseFnsku} - item was in {$originalLocation}");
-                    }
-                }
-
-                DB::table('tbldoneshipping')
-                    ->where('Prodid', $originalItem->ProductID)
-                    ->delete();
-
-                $actionMessage = ($singleSerialMode && !empty($existingItem->serialnumberb))
-                    ? 'Item returned with only one serial and added to Return List'
-                    : 'Item returned and added to Return List';
-
-                if ($switcheruFound) {
-                    $actionMessage .= ' - SWITCHERU DETECTED';
-                    if (!empty($serialsNotReturned)) $actionMessage .= ' - Not returned: '  . implode(', ', $serialsNotReturned);
-                    if (!empty($newSwitchedSerials)) $actionMessage .= ' - Switched in: '   . implode(', ', $newSwitchedSerials);
-                } else if (!empty($serialsNotReturned)) {
-                    $actionMessage .= ' - Partial return - Missing: ' . implode(', ', $serialsNotReturned);
-                }
-
-                DB::table($this->itemProcessHistoryTable)->insert([
-                    'rtcounter'    => $originalItem->rtcounter,
-                    'employeeName' => $User,
-                    'editDate'     => $curentDatetimeString,
-                    'Module'       => 'Returnlist',
-                    'Action'       => $actionMessage,
+                    'message' => 'Error processing items. Only ' . $successCount . ' out of ' . count($serialsToProcess) . ' processed.',
+                    'reason' => 'fnsku_not_available',
+                    'items_processed' => $successCount,
+                    'total_items' => count($serialsToProcess)
                 ]);
             }
 
-            DB::commit();
-
-            // ========== POST-COMMIT: switcheru records ==========
-            if ($switcheruFound && !empty($switcheruRecords)) {
-                $insertedCount = 0;
-                foreach ($switcheruRecords as $switcheruRecord) {
-                    try {
-                        DB::table('tblswitcherus')->insert($switcheruRecord);
-                        $insertedCount++;
-                        Log::info("✅ Switcheru record inserted", $switcheruRecord);
-                    } catch (\Exception $e) {
-                        Log::error("❌ Failed to insert switcheru", ['error' => $e->getMessage(), 'record' => $switcheruRecord]);
-                    }
-                }
-                Log::info("✅ Total switcheru records inserted: {$insertedCount}");
-            }
-
-            if (!empty($preBuiltSwitcheruRecords)) {
-                foreach ($preBuiltSwitcheruRecords as &$pbr) {
-                    $pbr['rtcounter'] = $newRt ?? null;
-                    try {
-                        DB::table('tblswitcherus')->insert($pbr);
-                        Log::info('✅ Pre-built switcheru inserted (Return ID mismatch)', $pbr);
-                    } catch (\Exception $e) {
-                        Log::error('❌ Failed to insert pre-built switcheru', ['error' => $e->getMessage(), 'record' => $pbr]);
-                    }
-                }
-                unset($pbr);
-            }
-
-            // ========== POST-COMMIT: Move original product to Returnlist via Return ID ==========
-            // This handles the case where the scanned serial is unknown (switcheru) but we found
-            // the original product via the Return ID chain — it still needs to be moved to Returnlist
-            if ($originalProductFromReturnId && $originalProductFromReturnId->ProductID) {
-                try {
-                    $origFnsku = $originalProductFromReturnId->FNSKUviewer ?? null;
-                    $origMsku  = $originalProductFromReturnId->MSKUviewer  ?? null;
-                    $origLoc   = $originalProductFromReturnId->ProductModuleLoc ?? null;
-
-                    DB::table($this->productTable)
-                        ->where('ProductID', $originalProductFromReturnId->ProductID)
-                        ->update([
-                            'ProductModuleLoc' => 'Returnlist',
-                            'returnstatus'     => 'Returned',
-                        ]);
-
-                    DB::table($this->itemProcessHistoryTable)->insert([
-                        'rtcounter'    => $originalProductFromReturnId->rtcounter,
-                        'employeeName' => $User,
-                        'editDate'     => $curentDatetimeString,
-                        'Module'       => 'Returnlist',
-                        'Action'       => 'Item moved to Returnlist via Return ID — received serial: ' . $serial
-                            . (!empty($preBuiltSwitcheruRecords) ? ' (SWITCHERU DETECTED)' : ''),
-                    ]);
-
-                    // Restore FNSKU units only if item was in Stockroom or Shipment
-                    if ($origFnsku && $origMsku && in_array($origLoc, ['Stockroom', 'Shipment'])) {
-                        $this->returnFnskuUnits($origMsku, $origFnsku);
-                        Log::info("✅ Restored FNSKU units for original product via Return ID", [
-                            'productId' => $originalProductFromReturnId->ProductID,
-                            'fnsku'     => $origFnsku,
-                            'msku'      => $origMsku,
-                            'location'  => $origLoc,
-                        ]);
-                    }
-
-                    // Remove from done shipping
-                    DB::table('tbldoneshipping')
-                        ->where('Prodid', $originalProductFromReturnId->ProductID)
-                        ->delete();
-
-                    Log::info("✅ Original product moved to Returnlist via Return ID", [
-                        'productId'      => $originalProductFromReturnId->ProductID,
-                        'rtcounter'      => $originalProductFromReturnId->rtcounter,
-                        'shippedSerials' => $shippedSerials,
-                        'returnedSerial' => $serial,
-                        'wasSwitcheru'   => !empty($preBuiltSwitcheruRecords),
-                    ]);
-
-                } catch (\Exception $e) {
-                    Log::error("❌ Failed to update original product to Returnlist via Return ID", [
-                        'error'     => $e->getMessage(),
-                        'productId' => $originalProductFromReturnId->ProductID ?? null,
-                    ]);
-                }
-            }
-            // ========== END POST-COMMIT ==========
-
-            $successMessage = "Successfully processed " . count($serialsToProcess) . " items";
-            if ($switcheruFound) {
-                $successMessage .= " - ⚠️ SWITCHERU DETECTED (" . count($switcheruRecords) . " record(s))";
-            } else if (!empty($serialsNotReturned) && empty($newSwitchedSerials)) {
-                $successMessage .= " - ℹ️ Partial return (" . count($serialsNotReturned) . " item(s) not returned)";
-            }
-            if (!empty($preBuiltSwitcheruRecords)) {
-                $successMessage .= " - ⚠️ SWITCHERU via Return ID (" . count($preBuiltSwitcheruRecords) . " record(s))";
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => $successMessage,
-                'item'    => [
-                    'serial_number'           => $serial,
-                    'second_serial'           => $secondSerial,
-                    'third_serial'            => $thirdSerial,
-                    'fourth_serial'           => $fourthSerial,
-                    'location'                => $location,
-                    'return_id'               => $returnId,
-                    'lpn_id'                  => $currentLpnId,
-                    'status'                  => 'Returned',
-                    'original_location'       => $existingItem->ProductModuleLoc,
-                    'single_serial_mode'      => $singleSerialMode && !empty($existingItem->serialnumberb),
-                    'fnsku'                   => $originalFnsku,
-                    'product_id'              => $existingItem->ProductID,
-                    'switcheru_found'         => $switcheruFound || !empty($preBuiltSwitcheruRecords),
-                    'is_serial_known'         => $isSerialKnown,
-                    'total_serials_processed' => count($serialsToProcess)
-                ],
-                'createdItems'   => $createdItems,
-                'imagesReceived' => count($images),
-                'switcheru'      => [
-                    'detected'           => $switcheruFound,
-                    'count'              => count($switcheruRecords),
-                    'records'            => $switcheruRecords,
-                    'serialsNotReturned' => array_values($serialsNotReturned),
-                    'newSwitchedSerials' => array_values($newSwitchedSerials),
-                    'returnIdMismatch'   => [
-                        'detected' => !empty($preBuiltSwitcheruRecords),
-                        'count'    => count($preBuiltSwitcheruRecords),
-                        'records'  => $preBuiltSwitcheruRecords,
-                    ],
-                ]
-            ]);
-
-        } else {
+        } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Unhandled error in processScan', ['error' => $e->getMessage()]);
+
             return response()->json([
-                'success'         => false,
-                'message'         => 'Error processing items. Only ' . $successCount . ' out of ' . count($serialsToProcess) . ' processed.',
-                'reason'          => 'fnsku_not_available',
-                'items_processed' => $successCount,
-                'total_items'     => count($serialsToProcess)
-            ]);
+                'success' => false,
+                'message' => 'Error processing scan: ' . $e->getMessage(),
+                'reason' => 'server_error'
+            ], 500);
         }
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        Log::error('Unhandled error in processScan', ['error' => $e->getMessage()]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Error processing scan: ' . $e->getMessage(),
-            'reason'  => 'server_error'
-        ], 500);
     }
-}
 
     /**
      * Get the next available FNSKU with usage prefix
@@ -1869,85 +1918,87 @@ public function processScan(Request $request)
 
 
 
-public function validateReturnId(Request $request)
-{
-    $returnId = trim($request->get('return_id', ''));
+    public function validateReturnId(Request $request)
+    {
+        $returnId = trim($request->get('return_id', ''));
 
-    if (!$returnId) {
-        return response()->json(['success' => false, 'message' => 'No Return ID provided']);
-    }
-
-    try {
-        $fbmReturn = DB::table('tblfbmreturns')
-            ->where('amazon_rma_id', $returnId)
-            ->first();
-
-        if (!$fbmReturn) {
-            return response()->json(['success' => false, 'message' => 'Return ID not found']);
+        if (!$returnId) {
+            return response()->json(['success' => false, 'message' => 'No Return ID provided']);
         }
 
-        $amazonOrderId = $fbmReturn->amazonOrderId ?? null;
-        $buyerName     = null;
-        $shippedSerial = null;
-
-        if ($amazonOrderId) {
-            $outboundItem = DB::table('tbloutboundordersitem as oi')
-                ->join('tbloutboundorders as o', 'oi.platform_order_id', '=', 'o.platform_order_id')
-                ->where('o.platform_order_id', $amazonOrderId)
-                ->where(function ($q) use ($fbmReturn) {
-                    if (!empty($fbmReturn->ASIN)) $q->orWhere('oi.platform_asin', $fbmReturn->ASIN);
-                    if (!empty($fbmReturn->MSKU)) $q->orWhere('oi.platform_sku',  $fbmReturn->MSKU);
-                })
-                ->select('oi.outboundorderitemid', 'o.BuyerName') // ✅ grab BuyerName from tbloutboundorders
+        try {
+            $fbmReturn = DB::table('tblfbmreturns')
+                ->where('amazon_rma_id', $returnId)
                 ->first();
 
-            // ✅ Assign buyer name from the order record
-            if ($outboundItem) {
-                $buyerName = $outboundItem->BuyerName ?? null;
+            if (!$fbmReturn) {
+                return response()->json(['success' => false, 'message' => 'Return ID not found']);
             }
 
-            if ($outboundItem) {
-                $dispensed = DB::table('tblorderitemdispense as d')
-                    ->join('tblproduct as p', 'd.productid', '=', 'p.ProductID')
-                    ->where('d.orderitemid', $outboundItem->outboundorderitemid)
-                    ->select('p.serialnumber', 'p.serialnumberb', 'p.serialnumberc', 'p.serialnumberd')
+            $amazonOrderId = $fbmReturn->amazonOrderId ?? null;
+            $buyerName = null;
+            $shippedSerial = null;
+
+            if ($amazonOrderId) {
+                $outboundItem = DB::table('tbloutboundordersitem as oi')
+                    ->join('tbloutboundorders as o', 'oi.platform_order_id', '=', 'o.platform_order_id')
+                    ->where('o.platform_order_id', $amazonOrderId)
+                    ->where(function ($q) use ($fbmReturn) {
+                        if (!empty($fbmReturn->ASIN))
+                            $q->orWhere('oi.platform_asin', $fbmReturn->ASIN);
+                        if (!empty($fbmReturn->MSKU))
+                            $q->orWhere('oi.platform_sku', $fbmReturn->MSKU);
+                    })
+                    ->select('oi.outboundorderitemid', 'o.BuyerName') // ✅ grab BuyerName from tbloutboundorders
                     ->first();
 
-                if ($dispensed) {
-                    $isValid = fn($s) => !empty($s) && trim($s) !== '' && strtoupper(trim($s)) !== 'N/A';
+                // ✅ Assign buyer name from the order record
+                if ($outboundItem) {
+                    $buyerName = $outboundItem->BuyerName ?? null;
+                }
 
-                    // ✅ FIX: use $all consistently — not $shippedSerials (undefined here)
-                    $all = array_values(array_filter([
-                        $dispensed->serialnumber,
-                        $dispensed->serialnumberb,
-                        $dispensed->serialnumberc,
-                        $dispensed->serialnumberd,
-                    ], $isValid));
+                if ($outboundItem) {
+                    $dispensed = DB::table('tblorderitemdispense as d')
+                        ->join('tblproduct as p', 'd.productid', '=', 'p.ProductID')
+                        ->where('d.orderitemid', $outboundItem->outboundorderitemid)
+                        ->select('p.serialnumber', 'p.serialnumberb', 'p.serialnumberc', 'p.serialnumberd')
+                        ->first();
 
-                    $shippedSerial = implode(', ', $all);
+                    if ($dispensed) {
+                        $isValid = fn($s) => !empty($s) && trim($s) !== '' && strtoupper(trim($s)) !== 'N/A';
+
+                        // ✅ FIX: use $all consistently — not $shippedSerials (undefined here)
+                        $all = array_values(array_filter([
+                            $dispensed->serialnumber,
+                            $dispensed->serialnumberb,
+                            $dispensed->serialnumberc,
+                            $dispensed->serialnumberd,
+                        ], $isValid));
+
+                        $shippedSerial = implode(', ', $all);
+                    }
                 }
             }
+
+            return response()->json([
+                'success' => true,
+                'info' => [
+                    'buyerName' => $buyerName ?? 'Unknown',
+                    'itemName' => $fbmReturn->item_name ?? null,
+                    'asin' => $fbmReturn->ASIN ?? null,
+                    'msku' => $fbmReturn->MSKU ?? null,
+                    'amazonOrderId' => $amazonOrderId,
+                    'shippedSerial' => $shippedSerial,
+                    'returnReason' => $fbmReturn->return_reason_code ?? null,
+                    'storeName' => $fbmReturn->store_name ?? null,
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('validateReturnId error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Server error'], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'info'    => [
-                'buyerName'     => $buyerName ?? 'Unknown',
-                'itemName'      => $fbmReturn->item_name          ?? null,
-                'asin'          => $fbmReturn->ASIN               ?? null,
-                'msku'          => $fbmReturn->MSKU               ?? null,
-                'amazonOrderId' => $amazonOrderId,
-                'shippedSerial' => $shippedSerial,
-                'returnReason'  => $fbmReturn->return_reason_code ?? null,
-                'storeName'     => $fbmReturn->store_name         ?? null,
-            ],
-        ]);
-
-    } catch (\Exception $e) {
-        Log::error('validateReturnId error: ' . $e->getMessage());
-        return response()->json(['success' => false, 'message' => 'Server error'], 500);
     }
-}
     public function updateFnskuLimitStatus($asin, $msku)
     {
 
@@ -1986,8 +2037,8 @@ public function validateReturnId(Request $request)
         ]);
 
         $type = $data['type'];
-        $amazonOrderId = $data['amazonOrderId'] ?? null;
-        $storeName = $data['store_name'] ?? null;
+        $amazonOrderId = isset($data['amazonOrderId']) ? trim($data['amazonOrderId']) : null;
+        $storeName = isset($data['store_name']) ? trim($data['store_name']) : null;
         $dateFrom = $data['date_from'] ?? null;
         $dateTo = $data['date_to'] ?? null;
         $sortOrder = $data['sort_order'] ?? 'DESC';
