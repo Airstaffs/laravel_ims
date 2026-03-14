@@ -2148,7 +2148,7 @@ class StockroomController extends BasetablesController
                                 'subtitle' => $amzncondition,
                                 'content' => $r['reasons'][0]['message'] ?? 'Blocked by Amazon',
                                 'severity' => 'action_required',
-                                'user_ids' => [session('userid')],
+                                'user_ids' => ['user_ids' => [Auth::id()]],
                             ]);
 
                             DB::table('tblfnsku')

@@ -1118,3 +1118,12 @@ Route::get('/debug-charset', function () {
 
 Route::post('/fnsku-conflicts/apply', [TblFnskuConflictController::class, 'apply']);
 Route::post('/fnsku-conflicts/override', [TblFnskuConflictController::class, 'override']);
+
+Route::get('/debug-session', function () {
+    return response()->json([
+        'session_userid' => session('userid'),
+        'auth_id' => auth()->id(),
+        'auth_user' => auth()->user(),
+        'full_session' => session()->all(),
+    ]);
+});
