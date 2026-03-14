@@ -2047,6 +2047,8 @@ class StockroomController extends BasetablesController
                 continue;
             }
 
+            $status = trim($fnsku->amazon_status);
+
             if (in_array($status, ['Not Existed', 'Notposted'])) {
                 $readyToPost[] = $product;
             } elseif ($status === 'Active') {
