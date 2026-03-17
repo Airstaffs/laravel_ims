@@ -137,7 +137,8 @@ export default {
             perPage: 10, // Default rows per page
             first: 0, //paginator internal state
 
-            isFnskuAvailable: false
+            isFnskuAvailable: false,
+            showPostAmazonModal: false,
         };
     },
     computed: {
@@ -1776,9 +1777,9 @@ export default {
                 this.serialCheckMessage = "";
             } finally {
                 this.checkingSerial = false;
-                
-                if(this.showManualInput) {
-                    this.focusNextField("fnskuInput")
+
+                if (this.showManualInput) {
+                    this.focusNextField("fnskuInput");
                 }
             }
         },
@@ -1869,7 +1870,7 @@ export default {
                     if (isAvailable) {
                         // Play success sound if FNSKU is valid and available
                         SoundService.success();
-                        
+
                         this.isFnskuAvailable = true;
                         // Focus on location field
                         this.focusNextField("locationInput");
@@ -2586,14 +2587,15 @@ export default {
         },
 
         openPostAmazonModal() {
+            console.log(this.hasSelectedItems);
             if (!this.hasSelectedItems) {
                 alert("Please select at least one item.");
                 return;
             }
-            $(this.$refs.postAmazonModal).modal("show");
+            this.showPostAmazonModal = true;
         },
         closePostAmazonModal() {
-            $(this.$refs.postAmazonModal).modal("hide");
+            this.showPostAmazonModal = false;
         },
         async submitPostToAmazon() {
             this.isPosting = true;
@@ -2618,6 +2620,14 @@ export default {
 
                 if (response.data.success) {
                     alert("Items successfully posted to Amazon.");
+                    this.showPostAmazonModal = false;
+
+                    this.postForm = {
+                        marketplace: "",
+                        fulfillmentChannel: "",
+                        currency: "",
+                        price: "",
+                    };
                 } else {
                     alert(
                         "Error: " + (response.data.message || "Unknown error."),
