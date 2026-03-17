@@ -273,19 +273,18 @@
     </Dialog>
 
     <Dialog v-model:visible="automationModal.visible" modal :draggable="false" :closable="true"
-        header="Amazon Automated Pricing" :style="{ width: '1100px', maxWidth: '98vw' }"
-        :contentStyle="{ padding: '0' }">
-
+        header="Amazon Automated Pricing" :style="{ width: '1200px', maxWidth: '98vw' }"
+        :contentStyle="{ padding: '0' }" class="automation-pricing-modal">
         <!-- Header -->
         <div class="auto-head">
             <div class="auto-head-left">
-                <div class="font-medium">Create / Update Automation</div>
+                <div class="font-medium text-lg">Create / Update Automation</div>
                 <div class="text-500 text-sm mt-1">
-                    Assign MSKUs by searching <b>tblfnsku</b> (MSKU/FNSKU/ASIN) and filtering by store.
+                    Configure run times, pricing windows, and assign MSKUs from <b>tblfnsku</b>.
                 </div>
             </div>
 
-            <div class="auto-head-right flex gap-2 align-items-end">
+            <div class="auto-head-right flex gap-2 align-items-end flex-wrap">
                 <div style="min-width: 320px;">
                     <label class="auto-label">Automation</label>
                     <Dropdown v-model="automationModal.selectedAutomationId" :options="automationModal.list"
@@ -313,93 +312,121 @@
         <div class="auto-body">
             <!-- Left -->
             <div class="auto-left">
+                <!-- Trigger Settings -->
                 <div class="auto-card">
-                    <div class="auto-card-title">Triggers</div>
+                    <div class="auto-card-title">Trigger Settings</div>
 
-                    <div class="auto-form">
+                    <div class="auto-form-grid">
+                        <div class="auto-field">
+                            <label class="auto-label">Automation Name</label>
+                            <InputText v-model="automationModal.name" class="w-full p-inputtext-sm"
+                                placeholder="Example: Daily Morning Repricing" />
+                        </div>
+
                         <div class="auto-field">
                             <label class="auto-label">Timezone</label>
                             <InputText v-model="automationModal.timezone" class="w-full p-inputtext-sm"
                                 placeholder="America/Los_Angeles" />
                         </div>
+                    </div>
 
-                        <div class="auto-field">
-                            <label class="auto-label">Run Times (HH:mm)</label>
+                    <div class="auto-field mt-3">
+                        <label class="auto-label">Run Times (HH:mm)</label>
 
-                            <div class="trigger-list">
-                                <div v-for="(t, idx) in automationModal.triggers" :key="idx" class="trigger-row">
-                                    <InputText v-model="automationModal.triggers[idx]"
-                                        class="p-inputtext-sm trigger-input" placeholder="09:00" />
-                                    <Button icon="pi pi-trash" class="p-button-sm" severity="danger" text
-                                        :disabled="automationModal.triggers.length <= 1" @click="removeTrigger(idx)" />
+                        <div class="trigger-list">
+                            <div v-for="(t, idx) in automationModal.triggers" :key="'trigger-' + idx"
+                                class="trigger-row">
+                                <div class="trigger-index">
+                                    #{{ idx + 1 }}
                                 </div>
-                            </div>
 
-                            <div class="mt-2">
-                                <Button label="Add Time" icon="pi pi-plus" class="p-button-sm" severity="secondary"
-                                    @click="addTrigger" />
-                            </div>
+                                <InputText v-model="automationModal.triggers[idx]" class="p-inputtext-sm trigger-input"
+                                    placeholder="09:00" />
 
-                            <small class="text-500">
-                                Examples: 09:00, 10:00, 14:00, 18:00. These are local to the chosen timezone.
-                            </small>
+                                <Button icon="pi pi-trash" class="p-button-sm" severity="danger" text
+                                    :disabled="automationModal.triggers.length <= 1" @click="removeTrigger(idx)" />
+                            </div>
                         </div>
+
+                        <div class="mt-2">
+                            <Button label="Add Time" icon="pi pi-plus" class="p-button-sm" severity="secondary"
+                                @click="addTrigger" />
+                        </div>
+
+                        <small class="text-500 block mt-2">
+                            Examples: 09:00, 10:00, 14:00, 18:00. These run based on the selected timezone.
+                        </small>
                     </div>
                 </div>
 
+                <!-- Pricing Rules -->
                 <div class="auto-card">
-                    <div class="auto-card-title">Pricing Rules</div>
+                    <div class="auto-card-top">
+                        <div class="auto-card-title">Pricing Rules</div>
 
-                    <div class="auto-form">
-                        <div class="rules-table">
-                            <div class="rules-head">
-                                <div class="rules-col">Min</div>
-                                <div class="rules-col">Max</div>
-                                <div class="rules-col">Delta</div>
-                                <div class="rules-col rules-col-actions"></div>
-                            </div>
-
-                            <div v-for="(r, idx) in automationModal.rules" :key="idx" class="rules-row">
-                                <InputText v-model="automationModal.rules[idx].min" class="p-inputtext-sm"
-                                    placeholder="100" />
-                                <InputText v-model="automationModal.rules[idx].max" class="p-inputtext-sm"
-                                    placeholder="200" />
-                                <InputText v-model="automationModal.rules[idx].delta" class="p-inputtext-sm"
-                                    placeholder="-50" />
-
-                                <Button icon="pi pi-trash" class="p-button-sm" severity="danger" text
-                                    :disabled="automationModal.rules.length <= 1" @click="removeRule(idx)" />
-                            </div>
-                        </div>
-
-                        <div class="flex gap-2 mt-2">
+                        <div class="flex gap-2">
                             <Button label="Add Rule" icon="pi pi-plus" class="p-button-sm" severity="secondary"
                                 @click="addRule" />
                             <Button label="Sort by Min" icon="pi pi-sort-amount-up" class="p-button-sm"
                                 severity="secondary" @click="sortRules" />
                         </div>
+                    </div>
 
-                        <div class="auto-field mt-3">
-                            <label class="auto-label">Default Delta (if no rule matches)</label>
-                            <InputText v-model="automationModal.defaultDelta" class="w-full p-inputtext-sm"
-                                placeholder="0" />
+                    <div class="rules-table-wrap">
+                        <div class="rules-head">
+                            <div class="rules-col">Start</div>
+                            <div class="rules-col">End</div>
+                            <div class="rules-col">Min</div>
+                            <div class="rules-col">Max</div>
+                            <div class="rules-col">Delta</div>
+                            <div class="rules-col actions">Action</div>
                         </div>
 
-                        <small class="text-500">
-                            Matching suggestion: first rule that matches wins (min &lt;= price &lt; max).
-                        </small>
+                        <div v-for="(r, idx) in automationModal.rules" :key="'rule-' + idx" class="rules-row">
+                            <InputText v-model="automationModal.rules[idx].start" class="p-inputtext-sm w-full"
+                                placeholder="09:00" />
+
+                            <InputText v-model="automationModal.rules[idx].end" class="p-inputtext-sm w-full"
+                                placeholder="10:00" />
+
+                            <InputText v-model="automationModal.rules[idx].min" class="p-inputtext-sm w-full"
+                                placeholder="100" />
+
+                            <InputText v-model="automationModal.rules[idx].max" class="p-inputtext-sm w-full"
+                                placeholder="200" />
+
+                            <InputText v-model="automationModal.rules[idx].delta" class="p-inputtext-sm w-full"
+                                placeholder="-50" />
+
+                            <Button icon="pi pi-trash" class="p-button-sm" severity="danger" text
+                                :disabled="automationModal.rules.length <= 1" @click="removeRule(idx)" />
+                        </div>
                     </div>
+
+                    <div class="auto-field mt-3">
+                        <label class="auto-label">Default Delta (if no rule matches)</label>
+                        <InputText v-model="automationModal.defaultDelta" class="w-full p-inputtext-sm"
+                            placeholder="0" />
+                    </div>
+
+                    <small class="text-500 block mt-2">
+                        Suggested logic: filter by current time window first, then apply the first matching price band
+                        where <b>min ≤ price ≤ max</b>.
+                    </small>
                 </div>
             </div>
 
             <!-- Right -->
             <div class="auto-right">
                 <div class="auto-card">
-                    <div class="auto-card-title">Assigned to this Automation</div>
+                    <div class="auto-card-title">Assigned MSKUs</div>
 
                     <div class="auto-assigned">
                         <div class="auto-assigned-top">
-                            <div class="text-500 text-sm">{{ assignedCount }} selected</div>
+                            <div class="text-500 text-sm">
+                                {{ assignedCount }} selected
+                            </div>
+
                             <Button label="Clear Selected" icon="pi pi-times" severity="secondary" class="p-button-sm"
                                 :disabled="assignedCount === 0" @click="automationModal.selectedRows = []" />
                         </div>
@@ -413,6 +440,7 @@
                                         <span><b>FNSKU</b> {{ r.FNSKU || '—' }}</span>
                                     </div>
                                 </div>
+
                                 <Button icon="pi pi-trash" text severity="danger" class="p-button-sm"
                                     @click="removeAssigned(r)" />
                             </div>
@@ -420,6 +448,29 @@
 
                         <div v-else class="text-500 p-2">
                             No assigned MSKUs yet. Search tblfnsku and select rows.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="auto-card">
+                    <div class="auto-card-title">Summary</div>
+
+                    <div class="auto-summary">
+                        <div class="summary-row">
+                            <span>Triggers</span>
+                            <b>{{ automationModal.triggers?.length || 0 }}</b>
+                        </div>
+                        <div class="summary-row">
+                            <span>Rules</span>
+                            <b>{{ automationModal.rules?.length || 0 }}</b>
+                        </div>
+                        <div class="summary-row">
+                            <span>Assigned</span>
+                            <b>{{ assignedCount }}</b>
+                        </div>
+                        <div class="summary-row">
+                            <span>Timezone</span>
+                            <b>{{ automationModal.timezone || '—' }}</b>
                         </div>
                     </div>
                 </div>
@@ -475,6 +526,7 @@ export default {
     },
 
     emits: ["update:visible", "applied"],
+
     data() {
         return {
             loading: false,
@@ -482,7 +534,7 @@ export default {
             page: {
                 nextToken: null,
                 prevToken: null,
-                stack: [], // store previous page tokens to support Prev
+                stack: [],
             },
             filters: {
                 store: "Renovartech",
@@ -524,28 +576,27 @@ export default {
                 list: [],
                 selectedAutomationId: null,
 
-                // base identity
                 id: null,
+                name: "",
                 store: "Renovartech",
                 marketplaceIds: ["ATVPDKIKX0DER"],
                 timezone: "America/Los_Angeles",
                 isEnabled: 1,
 
-                // NEW: multiple times per day
-                triggers: ["09:00"], // array of "HH:mm"
+                triggers: ["09:00"],
 
-                // NEW: rule tiers (range -> delta)
-                // Interpretation: if current_price >= min && current_price < max then delta applies
                 rules: [
-                    { min: "200", max: "400", delta: "50" },
-                    { min: "100", max: "200", delta: "-50" },
-                    { min: "400", max: "500", delta: "200" },
+                    {
+                        start: "09:00",
+                        end: "10:00",
+                        min: "200",
+                        max: "400",
+                        delta: "50",
+                    },
                 ],
 
-                // optional fallback if no rule matches
                 defaultDelta: "0",
 
-                // tblfnsku search
                 search: {
                     q: "",
                     loading: false,
@@ -560,11 +611,13 @@ export default {
             },
         };
     },
+
     computed: {
         visibleProxy: {
             get() { return this.visible; },
             set(v) { this.$emit("update:visible", v); },
         },
+
         identifierTypeOptions() {
             return [
                 { label: "SKU", value: "SKU" },
@@ -578,6 +631,7 @@ export default {
                 { label: "UPC", value: "UPC" },
             ];
         },
+
         sortByOptions() {
             return [
                 { label: "lastUpdatedDate", value: "lastUpdatedDate" },
@@ -585,65 +639,71 @@ export default {
                 { label: "sku", value: "sku" },
             ];
         },
+
         sortOrderOptions() {
             return [
                 { label: "DESC", value: "DESC" },
                 { label: "ASC", value: "ASC" },
             ];
         },
+
         pageSizeOptions() {
-            return [10, 20, 30, 50, 100, 200].map(n => ({ label: String(n), value: n }));
+            return [10, 20, 30, 50, 100, 200].map(n => ({
+                label: String(n),
+                value: n,
+            }));
         },
+
         hasPendingChanges() {
             return this.rows.some(r => this.isValidInt(r.newQty) || this.isValidMoney(r.newPrice));
         },
+
         assignedCount() {
             return (this.automationModal.selectedRows || []).length;
         },
+
         automationCanSave() {
             const a = this.automationModal;
-
             if (!a.store) return false;
-            if (!Array.isArray(a.marketplaceIds) || a.marketplaceIds.length < 1) return false;
             if (!a.timezone) return false;
-
-            // triggers must be HH:mm
-            const timeOk = (t) => /^\d{2}:\d{2}$/.test(String(t || ""));
+            if (!Array.isArray(a.marketplaceIds) || a.marketplaceIds.length < 1) return false;
             if (!Array.isArray(a.triggers) || a.triggers.length < 1) return false;
-            if (!a.triggers.every(timeOk)) return false;
+            if (!Array.isArray(a.rules) || a.rules.length < 1) return false;
+            if (!Array.isArray(a.selectedRows) || a.selectedRows.length < 1) return false;
 
-            // rules validate
+            const timeOk = (t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(t || "").trim());
+
             const num = (v) => {
                 const n = Number(String(v ?? "").trim());
                 return Number.isFinite(n) ? n : null;
             };
 
-            if (!Array.isArray(a.rules) || a.rules.length < 1) return false;
+            for (const t of a.triggers) {
+                if (!timeOk(t)) return false;
+            }
+
             for (const r of a.rules) {
+                const start = String(r.start || "").trim();
+                const end = String(r.end || "").trim();
                 const min = num(r.min);
                 const max = num(r.max);
                 const delta = num(r.delta);
+
+                if (!timeOk(start) || !timeOk(end)) return false;
+                if (start === end) return false;
                 if (min === null || max === null || delta === null) return false;
                 if (!(min < max)) return false;
             }
 
-            // assigned MSKUs
-            if (!Array.isArray(a.selectedRows) || a.selectedRows.length < 1) return false;
-
             return true;
         },
+
         marketplaceOptions() {
             return [
                 { label: "US (ATVPDKIKX0DER)", value: "ATVPDKIKX0DER" },
-                // add later if needed
             ];
         },
-        frequencyOptions() {
-            return [
-                { label: "DAILY", value: "DAILY" },
-                { label: "ONCE", value: "ONCE" },
-            ];
-        },
+
         enabledOptions() {
             return [
                 { label: "Yes", value: 1 },
@@ -651,21 +711,18 @@ export default {
             ];
         },
     },
+
     methods: {
         onClose() {
             this._suppressAutosave = true;
 
-            // cancel any pending debounced saves & revert edits
             (this.rows || []).forEach(r => {
                 if (r._saveTimer) clearTimeout(r._saveTimer);
 
-                // revert editing state (do NOT touch currentQty/currentPrice)
                 r.newQty = "";
                 r.newPrice = "";
                 r._touchedQty = false;
                 r._touchedPrice = false;
-
-                // clear UI statuses
                 r._savingQty = false;
                 r._savingPrice = false;
                 r._savedQty = false;
@@ -674,10 +731,7 @@ export default {
                 r._errorPrice = "";
             });
 
-            // close dialog
             this.visibleProxy = false;
-
-            // re-enable autosave for next open
             setTimeout(() => { this._suppressAutosave = false; }, 0);
         },
 
@@ -723,7 +777,6 @@ export default {
             this.loading = true;
             try {
                 const res = await axios.post(`${API_BASE_URL}/amazon/search-listings`, payload);
-
                 const raw = res?.data?.data || res?.data || {};
                 const mapped = this.mapSearchListingsResponse(raw);
 
@@ -738,18 +791,14 @@ export default {
 
         async goNext() {
             if (!this.page.nextToken) return;
-
-            // push current token state for Prev behavior
             this.page.stack.push(this.page.prevToken);
             this.page.prevToken = this.page.nextToken;
-
             await this.fetchByPageToken(this.page.nextToken);
         },
 
         async goPrev() {
             const prev = this.page.stack.pop();
             if (!prev) return;
-
             this.page.prevToken = prev;
             await this.fetchByPageToken(prev);
         },
@@ -765,7 +814,6 @@ export default {
                 sortOrder: this.filters.sortOrder,
                 pageSize: this.filters.pageSize,
                 pageToken: token,
-                // identifiers not needed when paging token is used, but ok to include if you want consistency
                 identifiersType: this.filters.identifiersType,
                 identifiers,
             };
@@ -785,9 +833,7 @@ export default {
             }
         },
 
-        // ---- Mapping (Amazon JSON -> rows) ----
         mapSearchListingsResponse(raw) {
-            // Amazon commonly returns: { items: [...], pagination: { nextToken } }
             const items = raw?.items || raw?.payload?.items || [];
             const nextToken =
                 raw?.pagination?.nextToken ||
@@ -796,7 +842,6 @@ export default {
 
             const rows = (items || []).map((it) => {
                 const sku = it?.sku || it?.summaries?.[0]?.sku || null;
-
                 const asin =
                     it?.asin ||
                     it?.summaries?.[0]?.asin ||
@@ -830,22 +875,18 @@ export default {
                     it?.attributes?.condition_type?.[0]?.value ||
                     null;
 
-                // fulfillmentAvailability often: [{ fulfillmentChannelCode: "DEFAULT", quantity: 7 }]
                 const fa = it?.fulfillmentAvailability || it?.attributes?.fulfillment_availability || [];
                 const faArr = Array.isArray(fa) ? fa : [];
 
-                // FBM quantity (DEFAULT)
                 const fbmEntry = faArr.find(x => x?.fulfillmentChannelCode === "DEFAULT");
                 const currentQty = fbmEntry?.quantity ?? null;
 
-                // FBA quantity = sum of non-DEFAULT channels
                 const fbaEntries = faArr.filter(x => x?.fulfillmentChannelCode && x?.fulfillmentChannelCode !== "DEFAULT");
                 const fbaQty = fbaEntries.reduce((sum, x) => sum + (Number(x?.quantity) || 0), 0);
 
                 const hasFBM = !!fbmEntry;
                 const hasFBA = fbaEntries.length > 0;
 
-                // offers sometimes: [{ price: { amount, currencyCode } }]
                 const offers = it?.offers || [];
                 const currentPrice =
                     offers?.[0]?.price?.amount ??
@@ -864,7 +905,6 @@ export default {
 
                 return {
                     raw: it,
-
                     sku,
                     asin,
                     title,
@@ -872,29 +912,20 @@ export default {
                     status,
                     lastUpdatedDate,
                     conditionType,
-
-                    // IMS qty
                     imsQty,
                     imsQtyDisplay: (imsQty === null || imsQty === undefined) ? "—" : imsQty,
                     imsMatchedBy,
-
-                    // quantities
                     currentQty,
                     fbaQty,
                     fbaQtyDisplay: hasFBA ? fbaQty : "—",
                     fbaChannels: fbaEntries.map(x => x.fulfillmentChannelCode).slice(0, 2),
                     hasFBM,
                     hasFBA,
-
-                    // pricing
                     currentPrice,
                     currency,
-
                     issues,
-
                     newQty: "",
                     newPrice: "",
-
                     _touchedQty: false,
                     _touchedPrice: false,
                     _savingQty: false,
@@ -923,7 +954,6 @@ export default {
         },
 
         applyUpdates() {
-            // This emits what you need for the next endpoint (PATCH quantities/prices)
             const updates = this.rows
                 .filter(r => this.isValidInt(r.newQty) || this.isValidMoney(r.newPrice))
                 .map(r => ({
@@ -955,24 +985,20 @@ export default {
                 row.newPrice = "";
                 row._touchedPrice = true;
             }
-            this.queueAutoSave(row); // clearing also autosaves
+            this.queueAutoSave(row);
         },
 
         queueAutoSave(row) {
-            // Debounce per-row so typing doesn't spam API
             if (row._saveTimer) clearTimeout(row._saveTimer);
             row._saveTimer = setTimeout(() => this.autoSaveRow(row), 450);
         },
 
-        // Allow 0 and empty ("").
-        // Empty means "clear" -> send null + a flag so backend can decide.
         parseQty(v) {
             if (v === null || v === undefined) return { value: null, cleared: true };
             const s = String(v).trim();
             if (s === "") return { value: null, cleared: true };
             const n = Number(s);
             if (!Number.isFinite(n)) return { value: null, invalid: true };
-            // allow 0+
             if (!Number.isInteger(n) || n < 0) return { value: null, invalid: true };
             return { value: n, cleared: false };
         },
@@ -986,86 +1012,46 @@ export default {
             return { value: n, cleared: false };
         },
 
-        catch(err) {
-            const msg =
-                err?.response?.data?.message ||
-                err?.response?.data?.error ||
-                err?.response?.data?.errors?.[0]?.message ||
-                "Save failed";
-
-            if (row._touchedQty) {
-                row._errorQty = msg;
-                this.autoDismissError(row, "qty");
-            }
-
-            if (row._touchedPrice) {
-                row._errorPrice = msg;
-                this.autoDismissError(row, "price");
-            }
-        },
-
         autoDismissError(row, field) {
             const key = field === "qty" ? "_errorQty" : "_errorPrice";
-
             if (!row[key]) return;
 
-            // clear any existing timer
             if (!row._errorTimer) row._errorTimer = {};
-            if (row._errorTimer[field]) {
-                clearTimeout(row._errorTimer[field]);
-            }
+            if (row._errorTimer[field]) clearTimeout(row._errorTimer[field]);
 
             row._errorTimer[field] = setTimeout(() => {
                 row[key] = "";
-            }, 5000); // 5 seconds
+            }, 5000);
         },
 
         async autoSaveRow(row) {
             const touched = row._touchedQty || row._touchedPrice;
-            if (!touched) return;
-
-            // if we're closing, cancel autosave
-            if (this._suppressAutosave) return;
+            if (!touched || this._suppressAutosave) return;
 
             const qty = row._touchedQty ? this.parseQty(row.newQty) : null;
             const price = row._touchedPrice ? this.parsePrice(row.newPrice) : null;
 
-            // client validation
             if (qty?.invalid) { row._errorQty = "Invalid quantity"; return; }
             if (price?.invalid) { row._errorPrice = "Invalid price"; return; }
 
-            // ---- NEW: skip "empty -> empty" ----
-            // qty cleared AND already null/empty in current display => do nothing, no errors
             if (row._touchedQty && qty?.cleared && (row.currentQty === null || row.currentQty === undefined || row.currentQty === "")) {
                 row._touchedQty = false;
                 row._errorQty = "";
                 row.newQty = "";
             }
 
-            // price cleared AND already null/empty => do nothing, no errors
             if (row._touchedPrice && price?.cleared && (row.currentPrice === null || row.currentPrice === undefined || row.currentPrice === "")) {
                 row._touchedPrice = false;
                 row._errorPrice = "";
                 row.newPrice = "";
             }
 
-            // After skipping no-op clears, if nothing is still touched, bail out.
             if (!row._touchedQty && !row._touchedPrice) return;
 
-            // clear old states
             row._errorQty = "";
             row._errorPrice = "";
             row._savedQty = false;
             row._savedPrice = false;
-
-            if (row._touchedPrice) {
-                row._savedPrice = true;
-            }
-            if (row._touchedQty) {
-                row._savedQty = true;
-            }
-
-            this.resetRowStatus(row, row._touchedPrice ? "price" : "qty");
 
             if (row._touchedQty) row._savingQty = true;
             if (row._touchedPrice) row._savingPrice = true;
@@ -1076,20 +1062,19 @@ export default {
                     marketplaceIds: this.filters.marketplaceIds,
                     sku: row.sku,
                     asin: row.asin,
-
                     ...(row._touchedQty ? { quantity: qty.value, quantityCleared: qty.cleared } : {}),
                     ...(row._touchedPrice ? { price: price.value, priceCleared: price.cleared, currency: row.currency || "USD" } : {}),
                 };
 
                 await axios.post(`${API_BASE_URL}/amazon/listings/update-one`, payload);
 
-                // success UI updates...
                 if (row._touchedQty) {
                     row._savedQty = true;
                     row._touchedQty = false;
                     row.currentQty = qty.cleared ? null : qty.value;
                     row.newQty = "";
                 }
+
                 if (row._touchedPrice) {
                     row._savedPrice = true;
                     row._touchedPrice = false;
@@ -1103,18 +1088,19 @@ export default {
                 }, 1200);
 
             } catch (err) {
-                // ---- NEW: If cleared + amazon complains, don't show error (treat as no-op) ----
                 const isEmptyPatchError =
-                    err?.response?.data?.errors?.some(e => String(e?.message || "").toLowerCase().includes("invalid empty value"));
+                    err?.response?.data?.errors?.some(e =>
+                        String(e?.message || "").toLowerCase().includes("invalid empty value")
+                    );
 
                 if (isEmptyPatchError && ((qty && qty.cleared) || (price && price.cleared))) {
-                    // silently cancel changes
                     if (row._touchedQty && qty?.cleared) { row._touchedQty = false; row.newQty = ""; }
                     if (row._touchedPrice && price?.cleared) { row._touchedPrice = false; row.newPrice = ""; }
                     return;
                 }
 
                 const msg = err?.response?.data?.message || err?.response?.data?.error || "Save failed";
+
                 if (row._touchedPrice) {
                     row._errorPrice = msg;
                     this.resetRowStatus(row, "price");
@@ -1124,7 +1110,6 @@ export default {
                     row._errorQty = msg;
                     this.resetRowStatus(row, "qty");
                 }
-
             } finally {
                 row._savingQty = false;
                 row._savingPrice = false;
@@ -1145,12 +1130,12 @@ export default {
         async copyIssuesToClipboard() {
             try {
                 const lines = (this.issuesModal.issues || []).map((it, idx) => {
-                    const msg = it.message || it.summary || '';
-                    const code = it.code ? `(${it.code})` : '';
+                    const msg = it.message || it.summary || "";
+                    const code = it.code ? `(${it.code})` : "";
                     return `#${idx + 1} ${code} ${msg}`.trim();
                 });
 
-                const header = `SKU: ${this.issuesModal.sku || '—'} | ASIN: ${this.issuesModal.asin || '—'}\n`;
+                const header = `SKU: ${this.issuesModal.sku || "—"} | ASIN: ${this.issuesModal.asin || "—"}\n`;
                 const text = header + lines.join("\n");
 
                 await navigator.clipboard.writeText(text);
@@ -1161,22 +1146,18 @@ export default {
 
         resetRowStatus(row, field) {
             const isQty = field === "qty";
-
             const savingKey = isQty ? "_savingQty" : "_savingPrice";
             const savedKey = isQty ? "_savedQty" : "_savedPrice";
             const errorKey = isQty ? "_errorQty" : "_errorPrice";
 
-            // stop spinner immediately
             row[savingKey] = false;
 
-            // clear success after 1.5s
             if (row[savedKey]) {
                 setTimeout(() => {
                     row[savedKey] = false;
                 }, 1500);
             }
 
-            // clear error after 5s
             if (row[errorKey]) {
                 setTimeout(() => {
                     row[errorKey] = "";
@@ -1190,28 +1171,29 @@ export default {
             this.automationModal.visible = true;
             this.automationModal.store = store;
 
-            // keep marketplace default, but ensure array exists
             if (!Array.isArray(this.automationModal.marketplaceIds) || !this.automationModal.marketplaceIds.length) {
                 this.automationModal.marketplaceIds = ["ATVPDKIKX0DER"];
             }
+
             await this.loadAutomationList();
             this.resetFnskuSearch();
             this.newAutomation();
-
         },
 
         async loadAutomationList() {
             const a = this.automationModal;
             a.loading = true;
+
             try {
                 const res = await axios.get(`${API_BASE_URL}/amazon/paa/automations`, {
                     params: { store: a.store }
                 });
 
                 const rows = res?.data?.rows || [];
+
                 a.list = rows.map(x => ({
                     id: x.id,
-                    label: `#${x.id} • ${x.time_local} • ${x.frequency} • delta ${x.delta} • ${x.is_enabled ? "ON" : "OFF"}`,
+                    label: `#${x.id} • ${x.name || "Unnamed"} • ${Number(x.is_enabled) ? "ON" : "OFF"}`
                 }));
             } catch (err) {
                 console.error("loadAutomationList error:", err?.response?.data || err);
@@ -1222,7 +1204,6 @@ export default {
         },
 
         async onAutomationStoreChanged() {
-            // when store changes, reset selection + reload list
             this.automationModal.selectedAutomationId = null;
             this.automationModal.id = null;
             this.automationModal.assigned = [];
@@ -1258,93 +1239,13 @@ export default {
 
                 const res = await axios.post(`${API_BASE_URL}/amazon/automation/fnsku-search`, payload);
                 const raw = res?.data?.data || res?.data || {};
-                const rows = raw?.rows || [];
-                const hasMore = !!raw?.hasMore;
-
-                s.rows = rows;
+                s.rows = raw?.rows || [];
                 s.page = page;
-                s.hasMore = hasMore;
+                s.hasMore = !!raw?.hasMore;
             } catch (err) {
                 console.error("fnsku search error:", err?.response?.data || err);
             } finally {
                 s.loading = false;
-            }
-        },
-
-        normalizeNumberOrNull(v) {
-            const s = String(v ?? "").trim();
-            if (!s) return null;
-            const n = Number(s);
-            return Number.isFinite(n) ? n : null;
-        },
-
-        async saveAutomation() {
-            const a = this.automationModal;
-
-            const payload = {
-                id: a.id,
-                store: a.store,
-                marketplace_ids: a.marketplaceIds,
-                timezone: a.timezone,
-                is_enabled: a.isEnabled ? 1 : 0,
-
-                triggers: a.triggers.map(t => String(t).trim()),
-                rules: a.rules.map(r => ({
-                    min: Number(r.min),
-                    max: Number(r.max),
-                    delta: Number(r.delta),
-                })),
-                default_delta: Number(a.defaultDelta) || 0,
-
-                items: (a.selectedRows || [])
-                    .map(r => ({ msku: String(r.MSKU || "").trim() }))
-                    .filter(x => x.msku),
-            };
-
-            // endpoint later
-            await axios.post(`${API_BASE_URL}/amazon/paa/save`, payload);
-        },
-
-        async onSelectAutomation() {
-            const a = this.automationModal;
-            const id = a.selectedAutomationId;
-            if (!id) return;
-
-            a.loading = true;
-            try {
-                const res = await axios.get(`${API_BASE_URL}/amazon/paa/automation/${id}`);
-                const row = res?.data?.automation;
-                const items = res?.data?.items || [];
-
-                // fill fields
-                a.id = row.id;
-                a.store = row.store;
-                a.marketplaceIds = this.safeJsonArray(row.marketplace_ids) || ["ATVPDKIKX0DER"];
-                a.timezone = row.timezone;
-                a.timeLocal = row.time_local;
-                a.frequency = row.frequency;
-                a.delta = String(row.delta ?? "0.00");
-                a.isEnabled = row.is_enabled ? 1 : 0;
-
-                // assigned from DB
-                a.assigned = items;
-
-                // reflect assigned into selectedRows UI list
-                // (we only need MSKU for saving; other fields are optional)
-                a.selectedRows = items
-                    .filter(x => Number(x.is_active) === 1)
-                    .map(x => ({
-                        FNSKUID: `assigned-${x.id}`, // fake key for DataTable selection
-                        MSKU: x.msku,
-                        FNSKU: null,
-                        ASIN: null,
-                        storename: a.store,
-                    }));
-
-            } catch (err) {
-                console.error("load automation error:", err?.response?.data || err);
-            } finally {
-                a.loading = false;
             }
         },
 
@@ -1358,27 +1259,144 @@ export default {
             }
         },
 
+        safeJsonObject(v) {
+            try {
+                if (v && typeof v === "object" && !Array.isArray(v)) return v;
+                if (typeof v === "string") return JSON.parse(v);
+                return null;
+            } catch {
+                return null;
+            }
+        },
+
         newAutomation() {
             const a = this.automationModal;
 
             a.selectedAutomationId = null;
             a.id = null;
+            a.name = "";
             a.timezone = "America/Los_Angeles";
-            a.timeLocal = "09:00";
-            a.frequency = "DAILY";
-            a.delta = "0.00";
             a.isEnabled = 1;
-
+            a.triggers = ["09:00"];
+            a.rules = [
+                {
+                    start: "09:00",
+                    end: "10:00",
+                    min: "",
+                    max: "",
+                    delta: "",
+                }
+            ];
+            a.defaultDelta = "0";
             a.assigned = [];
             a.selectedRows = [];
+
             this.resetFnskuSearch();
+        },
+
+        async saveAutomation() {
+            const a = this.automationModal;
+            a.saving = true;
+
+            try {
+                const payload = {
+                    id: a.id,
+                    name: a.name,
+                    store: a.store,
+                    marketplace_ids: a.marketplaceIds,
+                    timezone: a.timezone,
+                    is_enabled: a.isEnabled ? 1 : 0,
+
+                    triggers: (a.triggers || [])
+                        .map(t => String(t || "").trim())
+                        .filter(Boolean),
+
+                    rules: (a.rules || []).map(r => ({
+                        start: String(r.start || "").trim(),
+                        end: String(r.end || "").trim(),
+                        min: Number(r.min),
+                        max: Number(r.max),
+                        delta: Number(r.delta),
+                    })),
+
+                    default_delta: Number(a.defaultDelta || 0),
+
+                    items: (a.selectedRows || [])
+                        .map(r => ({ msku: String(r.MSKU || "").trim() }))
+                        .filter(x => x.msku),
+                };
+
+                const res = await axios.post(`${API_BASE_URL}/amazon/paa/save`, payload);
+                const savedId = res?.data?.id || res?.data?.automation_id || a.id;
+
+                await this.loadAutomationList();
+
+                if (savedId) {
+                    a.selectedAutomationId = savedId;
+                    await this.onSelectAutomation();
+                }
+            } catch (err) {
+                console.error("saveAutomation error:", err?.response?.data || err);
+            } finally {
+                a.saving = false;
+            }
+        },
+
+        async onSelectAutomation() {
+            const a = this.automationModal;
+            const id = a.selectedAutomationId;
+            if (!id) return;
+
+            a.loading = true;
+            try {
+                const res = await axios.get(`${API_BASE_URL}/amazon/paa/automation/${id}`);
+                const row = res?.data?.automation || {};
+                const items = res?.data?.items || [];
+
+                a.id = row.id || null;
+                a.name = row.name || "";
+                a.store = row.store || "Renovartech";
+                a.marketplaceIds = this.safeJsonArray(row.marketplace_ids) || ["ATVPDKIKX0DER"];
+                a.timezone = row.timezone || "America/Los_Angeles";
+                a.isEnabled = Number(row.is_enabled) ? 1 : 0;
+
+                a.triggers = this.safeJsonArray(row.triggers) || ["09:00"];
+
+                a.rules = this.safeJsonArray(row.rules) || [
+                    {
+                        start: "09:00",
+                        end: "10:00",
+                        min: "",
+                        max: "",
+                        delta: "",
+                    }
+                ];
+
+                a.defaultDelta = String(row.default_delta ?? "0");
+
+                a.assigned = items;
+
+                a.selectedRows = items
+                    .filter(x => Number(x.is_active) === 1)
+                    .map(x => ({
+                        FNSKUID: `assigned-${x.id}`,
+                        MSKU: x.msku,
+                        FNSKU: x.fnsku || null,
+                        ASIN: x.asin || null,
+                        storename: a.store,
+                    }));
+
+            } catch (err) {
+                console.error("load automation error:", err?.response?.data || err);
+            } finally {
+                a.loading = false;
+            }
         },
 
         async deleteAutomation() {
             const a = this.automationModal;
             if (!a.id) return;
 
-            // simple confirm (no fancy confirm dialog)
             if (!confirm(`Delete automation #${a.id}? This will remove its MSKU list and runs/items via FK cascade.`)) return;
 
             a.deleting = true;
@@ -1396,23 +1414,33 @@ export default {
         addTrigger() {
             this.automationModal.triggers.push("09:00");
         },
+
         removeTrigger(idx) {
             if (this.automationModal.triggers.length <= 1) return;
             this.automationModal.triggers.splice(idx, 1);
         },
 
         addRule() {
-            this.automationModal.rules.push({ min: "", max: "", delta: "" });
+            this.automationModal.rules.push({
+                start: "",
+                end: "",
+                min: "",
+                max: "",
+                delta: "",
+            });
         },
+
         removeRule(idx) {
             if (this.automationModal.rules.length <= 1) return;
             this.automationModal.rules.splice(idx, 1);
         },
+
         sortRules() {
             const toNum = (v) => {
                 const n = Number(String(v ?? "").trim());
                 return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
             };
+
             this.automationModal.rules.sort((a, b) => toNum(a.min) - toNum(b.min));
         },
     },
@@ -1835,5 +1863,205 @@ export default {
 
 .rules-col-actions {
     text-align: right;
+}
+
+.automation-pricing-modal .auto-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+}
+
+.automation-pricing-modal .auto-head-left {
+    flex: 1;
+    min-width: 0;
+}
+
+.automation-pricing-modal .auto-head-right {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.automation-pricing-modal .auto-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: #f8fafc;
+    max-height: 70vh;
+    overflow: auto;
+}
+
+.automation-pricing-modal .auto-left,
+.automation-pricing-modal .auto-right {
+    min-width: 0;
+}
+
+.automation-pricing-modal .auto-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.automation-pricing-modal .auto-card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.automation-pricing-modal .auto-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.automation-pricing-modal .auto-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.automation-pricing-modal .auto-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.automation-pricing-modal .auto-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.automation-pricing-modal .trigger-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.automation-pricing-modal .trigger-row {
+    display: grid;
+    grid-template-columns: 50px minmax(0, 1fr) 40px;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.automation-pricing-modal .trigger-index {
+    font-size: 0.8rem;
+    color: #6b7280;
+    text-align: center;
+}
+
+.automation-pricing-modal .trigger-input {
+    width: 100%;
+}
+
+.automation-pricing-modal .rules-table-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.automation-pricing-modal .rules-head,
+.automation-pricing-modal .rules-row {
+    display: grid;
+    grid-template-columns: 110px 110px 1fr 1fr 1fr 70px;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.automation-pricing-modal .rules-head {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #6b7280;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.automation-pricing-modal .rules-col.actions {
+    text-align: center;
+}
+
+.automation-pricing-modal .rules-row {
+    padding: 0.35rem 0;
+}
+
+.automation-pricing-modal .auto-assigned-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.automation-pricing-modal .auto-assigned-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 420px;
+    overflow: auto;
+}
+
+.automation-pricing-modal .auto-assigned-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 0.75rem;
+    background: #fafafa;
+}
+
+.automation-pricing-modal .auto-assigned-main {
+    min-width: 0;
+    flex: 1;
+}
+
+.automation-pricing-modal .auto-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.automation-pricing-modal .summary-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: 0.9rem;
+}
+
+.automation-pricing-modal .auto-foot {
+    display: flex;
+    justify-content: flex-end;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid #e5e7eb;
+    background: #fff;
+}
+
+@media (max-width: 960px) {
+    .automation-pricing-modal .auto-body {
+        grid-template-columns: 1fr;
+    }
+
+    .automation-pricing-modal .auto-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .automation-pricing-modal .rules-head,
+    .automation-pricing-modal .rules-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .automation-pricing-modal .trigger-row {
+        grid-template-columns: 40px minmax(0, 1fr) 40px;
+    }
 }
 </style>
