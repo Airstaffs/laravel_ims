@@ -820,53 +820,53 @@ class ReturnScannerController extends BasetablesController
             }
 
     $originalItem  = $existingItem;
-$rtCounter     = $existingItem->rtcounter    ?? null;
-$rtId          = $existingItem->rtid          ?? null;
-$itemNumber    = $existingItem->itemnumber    ?? null;
-$price         = $existingItem->price         ?? null;
-$buyerName     = $existingItem->costumer_name ?? null;
-$originalAsin  = $existingItem->ASIN          ?? null;
-$originalFnsku = $existingItem->FNSKUviewer   ?? null;
+    $rtCounter     = $existingItem->rtcounter    ?? null;
+    $rtId          = $existingItem->rtid          ?? null;
+    $itemNumber    = $existingItem->itemnumber    ?? null;
+    $price         = $existingItem->price         ?? null;
+    $buyerName     = $existingItem->costumer_name ?? null;
+    $originalAsin  = $existingItem->ASIN          ?? null;
+    $originalFnsku = $existingItem->FNSKUviewer   ?? null;
 
-// ✅ Determine original product data for LPN
-$lpnProdId = $originalItem->ProductID;
-$lpnSerial = $serial;
+    // ✅ Determine original product data for LPN
+    $lpnProdId = $originalItem->ProductID;
+    $lpnSerial = $serial;
 
-if (!$lpnProdId && $originalProductFromReturnId) {
-    $lpnProdId = $originalProductFromReturnId->ProductID ?? null;
-    $lpnSerial = $originalProductFromReturnId->serialnumber ?? $serial;
-}
+    if (!$lpnProdId && $originalProductFromReturnId) {
+        $lpnProdId = $originalProductFromReturnId->ProductID ?? null;
+        $lpnSerial = $originalProductFromReturnId->serialnumber ?? $serial;
+    }
 
-// ✅ If still no ProdID, try getting it directly from tblorderitemdispense (no ProductModuleLoc filter)
-if (!$lpnProdId && !empty($returnId) && isset($outboundItem) && $outboundItem) {
-    $dispensedProductId = DB::table('tblorderitemdispense')
-        ->where('orderitemid', $outboundItem->outboundorderitemid)
-        ->value('productid');
+    // ✅ If still no ProdID, try getting it directly from tblorderitemdispense (no ProductModuleLoc filter)
+    if (!$lpnProdId && !empty($returnId) && isset($outboundItem) && $outboundItem) {
+        $dispensedProductId = DB::table('tblorderitemdispense')
+            ->where('orderitemid', $outboundItem->outboundorderitemid)
+            ->value('productid');
 
-    if ($dispensedProductId) {
-        $lpnProdId = $dispensedProductId;
+        if ($dispensedProductId) {
+            $lpnProdId = $dispensedProductId;
 
-        $origProd = DB::table($this->productTable)
-            ->where('ProductID', $dispensedProductId)
-            ->first();
+            $origProd = DB::table($this->productTable)
+                ->where('ProductID', $dispensedProductId)
+                ->first();
 
-        if ($origProd) {
-            $lpnSerial = $origProd->serialnumber ?? $serial;
+            if ($origProd) {
+                $lpnSerial = $origProd->serialnumber ?? $serial;
+            }
         }
     }
-}
 
-$lpnInsertion = DB::table('tbllpn')->insertGetId([
-    'SERIAL'       => $lpnSerial,
-    'LPN'          => $returnId,
-    'LPNDATE'      => $returnIdReturnRequestDate ?? $currentDate,
-    'ProdID'       => $lpnProdId,
-    'BuyerName'    => $returnIdBuyerName ?? $buyerName ?? 'Unknown',
-    'REASON'       => $returnIdReasonCode,
-    'receivedDate' => $currentDate,
-]);
+    $lpnInsertion = DB::table('tbllpn')->insertGetId([
+        'SERIAL'       => $lpnSerial,
+        'LPN'          => $returnId,
+        'LPNDATE'      => $returnIdReturnRequestDate ?? $currentDate,
+        'ProdID'       => $lpnProdId,
+        'BuyerName'    => $returnIdBuyerName ?? $buyerName ?? 'Unknown',
+        'REASON'       => $returnIdReasonCode,
+        'receivedDate' => $currentDate,
+    ]);
 
-        $currentLpnId = $lpnInsertion;
+            $currentLpnId = $lpnInsertion;
 
             $successCount = 0;
             $createdItems = [];
