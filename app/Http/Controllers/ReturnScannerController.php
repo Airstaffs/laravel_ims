@@ -66,6 +66,7 @@ class ReturnScannerController extends BasetablesController
                 'tbllpn.LPN',
                 'tbllpn.LPNDATE',
                 'tbllpn.BuyerName',
+                'tbllpn.REASON', 
                 'fnsku.storename',
                 'fnsku.ASIN',
                 'fnsku.MSKU',
@@ -795,27 +796,54 @@ public function processScan(Request $request)
             $serialsToProcess[] = $serial;
         }
 
-        $originalItem  = $existingItem;
-        $rtCounter     = $existingItem->rtcounter    ?? null;
-        $rtId          = $existingItem->rtid          ?? null;
-        $itemNumber    = $existingItem->itemnumber    ?? null;
-        $price         = $existingItem->price         ?? null;
-        $buyerName     = $existingItem->costumer_name ?? null;
-        $originalAsin  = $existingItem->ASIN          ?? null;
-        $originalFnsku = $existingItem->FNSKUviewer   ?? null;
+    $originalItem  = $existingItem;
+$rtCounter     = $existingItem->rtcounter    ?? null;
+$rtId          = $existingItem->rtid          ?? null;
+$itemNumber    = $existingItem->itemnumber    ?? null;
+$price         = $existingItem->price         ?? null;
+$buyerName     = $existingItem->costumer_name ?? null;
+$originalAsin  = $existingItem->ASIN          ?? null;
+$originalFnsku = $existingItem->FNSKUviewer   ?? null;
 
-       $lpnInsertion = DB::table('tbllpn')->insertGetId([
-            'SERIAL'       => $serial,
-            'LPN'          => $returnId,
-            'LPNDATE'      => $returnIdReturnRequestDate ?? $currentDate,
-            'ProdID'       => $originalItem->ProductID 
-                            ?? ($originalProductFromReturnId->ProductID ?? null),
-            'BuyerName'    => $returnIdBuyerName ?? $buyerName ?? 'Unknown',
-            'REASON'       => $returnIdReasonCode,
-            'receivedDate' => $currentDate,
-        ]);
+// ✅ Determine original product data for LPN
+$lpnProdId = $originalItem->ProductID;
+$lpnSerial = $serial;
 
-        $currentLpnId = $lpnInsertion;
+if (!$lpnProdId && $originalProductFromReturnId) {
+    $lpnProdId = $originalProductFromReturnId->ProductID ?? null;
+    $lpnSerial = $originalProductFromReturnId->serialnumber ?? $serial;
+}
+
+// ✅ If still no ProdID, try getting it directly from tblorderitemdispense (no ProductModuleLoc filter)
+if (!$lpnProdId && !empty($returnId) && isset($outboundItem) && $outboundItem) {
+    $dispensedProductId = DB::table('tblorderitemdispense')
+        ->where('orderitemid', $outboundItem->outboundorderitemid)
+        ->value('productid');
+
+    if ($dispensedProductId) {
+        $lpnProdId = $dispensedProductId;
+
+        $origProd = DB::table($this->productTable)
+            ->where('ProductID', $dispensedProductId)
+            ->first();
+
+        if ($origProd) {
+            $lpnSerial = $origProd->serialnumber ?? $serial;
+        }
+    }
+}
+
+$lpnInsertion = DB::table('tbllpn')->insertGetId([
+    'SERIAL'       => $lpnSerial,
+    'LPN'          => $returnId,
+    'LPNDATE'      => $returnIdReturnRequestDate ?? $currentDate,
+    'ProdID'       => $lpnProdId,
+    'BuyerName'    => $returnIdBuyerName ?? $buyerName ?? 'Unknown',
+    'REASON'       => $returnIdReasonCode,
+    'receivedDate' => $currentDate,
+]);
+
+$currentLpnId = $lpnInsertion;
 
         $successCount = 0;
         $createdItems = [];

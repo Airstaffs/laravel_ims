@@ -314,6 +314,9 @@
                 <template #buyer="{ data }">
                     <p>{{ data.BuyerName || data.costumer_name || "Unknown" }}</p>
                 </template>
+                <template #reason="{ data }">
+                    <p>{{ data.REASON || "N/A" }}</p>
+                </template>
                 <template #actions="{ data }">
                     <Button label="More Details" severity="contrast" icon="pi pi-info-circle" variant="text"
                         class="text-primary" size="small" @click="handleShowDetailsModal(data)" />
@@ -370,6 +373,10 @@
                         <div class="mobile-detail-row"><span class="fw-semibold">Buyer:</span><span
                                 class="mobile-detail-value">{{ item.BuyerName || item.costumer_name || "Unknown"
                                 }}</span></div>
+                        <div class="mobile-detail-row"><span class="fw-semibold">Return Reason:</span><span
+                                class="mobile-detail-value">{{ item.REASON || "N/A"
+                                }}</span></div>
+
                     </div>
                     <Divider />
                     <div class="mobile-card-actions">
@@ -418,6 +425,8 @@
                         <div class="item-container"><span>ASIN: </span><span>{{ item.ASINviewer || "N/A" }}</span></div>
                         <div class="item-container"><span>Buyer: </span><span>{{ item.BuyerName || item.costumer_name ||
                             "Unknown" }}</span></div>
+                        <div class="item-container"><span>Return Reason: </span><span>{{ item.REASON || "N/A" }}</span></div>
+
                     </div>
                 </div>
             </div>
@@ -461,6 +470,7 @@ const TABLE_COLUMNS = [
     { field: "serialnumberb", header: "Second Serial", slot: "serialnumberb", bodyStyle: "font-size: 14px", sortable: true },
     { field: "returnstatus", header: "Status", slot: "status", bodyStyle: "font-size: 14px", sortable: true },
     { header: "Buyer", slot: "buyer", bodyStyle: "font-size: 14px", sortable: true },
+    {field: 'REASON',header: 'Return Reason',slot: 'reason', sortable: true },
 
     //  { header: "Actions", slot: "actions", bodyStyle: "font-size: 14px" },
 ];
