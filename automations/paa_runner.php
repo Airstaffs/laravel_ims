@@ -2,27 +2,32 @@
 /**
  * PAA Runner (Native PHP)
  *
- * cPanel cron example:
- * php /home/USER/public_html/laravel_ims/cron/paa_runner.php
+ * Behavior:
+ * - Cron runs every 5 minutes.
+ * - No trigger scheduling is used.
+ * - Each rule has:
+ *      start, end, min, max, delta
+ * - While inside a rule window:
+ *      adjust prices in batches
+ * - After that window ends:
+ *      restore all adjusted items back to original_price
+ * - A run can continue across many cron ticks until fully done.
  *
- * Requires tables:
- *  - tbl_paa_automations
- *  - tbl_paa_automation_items
- *  - tbl_paa_runs
- *  - tbl_paa_run_items
+ * IMPORTANT REQUIRED DB CHANGES
  *
- * Notes:
- * - Supports new automation model:
- *      triggers_json => ["09:00","14:00","18:00"]
- *      rules_json => [
- *          {"start":"09:00","end":"10:00","min":200,"max":400,"delta":50},
- *          {"start":"10:00","end":"11:00","min":100,"max":200,"delta":-50}
- *      ]
- *      default_delta => 0
- * - Keeps legacy fallback support for:
- *      time_local
- *      delta
- *      frequency
+ * 1) tbl_paa_runs
+ * --------------------------------------------------
+ * ALTER TABLE tbl_paa_runs
+ * ADD COLUMN phase ENUM('adjust','restore','done') NOT NULL DEFAULT 'adjust' AFTER status,
+ * ADD COLUMN window_start VARCHAR(5) DEFAULT NULL AFTER phase,
+ * ADD COLUMN window_end VARCHAR(5) DEFAULT NULL AFTER window_start;
+ *
+ * 2) tbl_paa_run_items
+ * --------------------------------------------------
+ * ALTER TABLE tbl_paa_run_items
+ * ADD COLUMN original_price DECIMAL(10,2) DEFAULT NULL AFTER current_price,
+ * ADD COLUMN adjusted_at_utc DATETIME DEFAULT NULL AFTER processed_at_utc,
+ * ADD COLUMN restored_at_utc DATETIME DEFAULT NULL AFTER adjusted_at_utc;
  */
 
 date_default_timezone_set('UTC');
@@ -112,13 +117,7 @@ function db()
     }
 
     $mysqli->set_charset('utf8mb4');
-
     return $mysqli;
-}
-
-function nowUtcStr()
-{
-    return gmdate('Y-m-d H:i:s');
 }
 
 function logg($msg)
@@ -128,7 +127,7 @@ function logg($msg)
 }
 
 // ----------------------------------------------------
-// JSON / TIME / RULE HELPERS
+// JSON / TIME HELPERS
 // ----------------------------------------------------
 
 function safe_json_array($v)
@@ -148,30 +147,6 @@ function safe_json_array($v)
 
     $j = json_decode($s, true);
     return is_array($j) ? $j : [];
-}
-
-function normalize_triggers($triggers)
-{
-    $out = [];
-
-    foreach ((array) $triggers as $t) {
-        $t = trim((string) $t);
-
-        if ($t === '') {
-            continue;
-        }
-
-        if (!preg_match('/^\d{2}:\d{2}$/', $t)) {
-            continue;
-        }
-
-        $out[$t] = true;
-    }
-
-    $out = array_keys($out);
-    sort($out);
-
-    return $out;
 }
 
 function time_hhmm_to_minutes($hhmm)
@@ -200,105 +175,104 @@ function is_time_in_window($currentHHMM, $startHHMM, $endHHMM)
         return false;
     }
 
-    // normal same-day window
+    // Normal window, e.g. 09:00 -> 10:00
     if ($start < $end) {
         return $current >= $start && $current < $end;
     }
 
-    // overnight window
+    // Overnight window, e.g. 22:00 -> 02:00
     return $current >= $start || $current < $end;
 }
 
-function computeScheduledLocalHHMM($scheduledForUtc, $tzLocal = 'America/Los_Angeles')
+function now_local_hhmm($tzLocal = 'America/Los_Angeles')
 {
-    if (!$scheduledForUtc) {
-        return null;
-    }
-
     try {
-        $dtUtc = new DateTime($scheduledForUtc, new DateTimeZone('UTC'));
-        $dtUtc->setTimezone(new DateTimeZone($tzLocal ?: 'America/Los_Angeles'));
-        return $dtUtc->format('H:i');
+        $dt = new DateTime('now', new DateTimeZone($tzLocal ?: 'America/Los_Angeles'));
+        return $dt->format('H:i');
     } catch (Exception $e) {
-        return null;
+        return gmdate('H:i');
     }
 }
 
-/**
- * Compute next run UTC from multiple local triggers.
- * Schedules strictly AFTER $afterUtcStr if provided.
- */
-function computeNextRunUtcFromTriggers(array $triggersHHMM, $tzLocal = 'America/Los_Angeles', $afterUtcStr = null)
+function rule_window_key($start, $end)
 {
-    $triggersHHMM = normalize_triggers($triggersHHMM);
-
-    if (!count($triggersHHMM)) {
-        return null;
-    }
-
-    $tz = new DateTimeZone($tzLocal ?: 'America/Los_Angeles');
-    $utcTz = new DateTimeZone('UTC');
-
-    if ($afterUtcStr) {
-        $baseUtc = new DateTime($afterUtcStr, $utcTz);
-        $baseLocal = (clone $baseUtc)->setTimezone($tz);
-    } else {
-        $baseLocal = new DateTime('now', $tz);
-    }
-
-    $best = null;
-
-    foreach ($triggersHHMM as $t) {
-        [$hh, $mm] = array_map('intval', explode(':', $t));
-
-        $cand = new DateTime($baseLocal->format('Y-m-d') . ' 00:00:00', $tz);
-        $cand->setTime($hh, $mm, 0);
-
-        if ($cand <= $baseLocal) {
-            $cand->modify('+1 day');
-        }
-
-        if ($best === null || $cand < $best) {
-            $best = $cand;
-        }
-    }
-
-    if ($best === null) {
-        return null;
-    }
-
-    return $best->setTimezone($utcTz)->format('Y-m-d H:i:s');
+    return trim((string) $start) . '|' . trim((string) $end);
 }
 
-/**
- * Rules: first matching time window + price band wins.
- * - time window uses scheduled local HH:mm for the run
- * - price band uses min <= price < max
- */
-function pickDeltaFromRules($currentPrice, array $rules, $defaultDelta = 0.0, $scheduledLocalHHMM = null)
+function active_rules_for_now(array $rules, $currentHHMM)
 {
-    $p = (float) $currentPrice;
+    $out = [];
 
     foreach ($rules as $r) {
         if (!is_array($r)) {
             continue;
         }
 
-        if (!isset($r['start'], $r['end'], $r['min'], $r['max'], $r['delta'])) {
+        $start = trim((string) ($r['start'] ?? ''));
+        $end = trim((string) ($r['end'] ?? ''));
+
+        if ($start === '' || $end === '') {
             continue;
         }
 
-        $start = trim((string) $r['start']);
-        $end = trim((string) $r['end']);
+        if (is_time_in_window($currentHHMM, $start, $end)) {
+            $out[] = $r;
+        }
+    }
+
+    return $out;
+}
+
+function first_active_window(array $rules, $currentHHMM)
+{
+    foreach ($rules as $r) {
+        if (!is_array($r)) {
+            continue;
+        }
+
+        $start = trim((string) ($r['start'] ?? ''));
+        $end = trim((string) ($r['end'] ?? ''));
+
+        if ($start === '' || $end === '') {
+            continue;
+        }
+
+        if (is_time_in_window($currentHHMM, $start, $end)) {
+            return [
+                'start' => $start,
+                'end' => $end,
+                'key' => rule_window_key($start, $end),
+            ];
+        }
+    }
+
+    return null;
+}
+
+function pick_delta_from_rules($currentPrice, array $rulesForCurrentWindow, $defaultDelta = 0.0)
+{
+    $p = (float) $currentPrice;
+
+    usort($rulesForCurrentWindow, function ($a, $b) {
+        $aMin = is_numeric($a['min'] ?? null) ? (float) $a['min'] : INF;
+        $bMin = is_numeric($b['min'] ?? null) ? (float) $b['min'] : INF;
+        return $aMin <=> $bMin;
+    });
+
+    foreach ($rulesForCurrentWindow as $r) {
+        if (!is_array($r)) {
+            continue;
+        }
+
+        if (!isset($r['min'], $r['max'], $r['delta'])) {
+            continue;
+        }
+
         $min = is_numeric($r['min']) ? (float) $r['min'] : null;
         $max = is_numeric($r['max']) ? (float) $r['max'] : null;
         $delta = is_numeric($r['delta']) ? (float) $r['delta'] : null;
 
         if ($min === null || $max === null || $delta === null) {
-            continue;
-        }
-
-        if ($scheduledLocalHHMM !== null && !is_time_in_window($scheduledLocalHHMM, $start, $end)) {
             continue;
         }
 
@@ -311,7 +285,7 @@ function pickDeltaFromRules($currentPrice, array $rules, $defaultDelta = 0.0, $s
 }
 
 // ----------------------------------------------------
-// HTTP / AMAZON HOOKS
+// HTTP / AMAZON
 // ----------------------------------------------------
 
 function http_post_json($url, $payload, $headers = [], $timeout = 50)
@@ -383,7 +357,6 @@ function fetchCurrentPrice($store, $sku, $marketplaceIds)
     }
 
     $items = $res['json']['data']['items'] ?? [];
-
     if (!$items || !isset($items[0])) {
         return null;
     }
@@ -511,132 +484,10 @@ function syncResolvedSku($mysqli, $automationId, $runItemId, $msku, $sku)
     $stmt->close();
 }
 
-function finalizeRunIfComplete($mysqli, $runId)
+function reset_stuck_processing_items($mysqli, $timeoutMin, $maxAttempts)
 {
-    $cntRes = $mysqli->query("
-        SELECT
-            SUM(status IN ('pending','processing')) AS open_count,
-            SUM(status='success') AS success_count,
-            SUM(status='failed') AS failed_count,
-            SUM(status='skipped') AS skipped_count
-        FROM tbl_paa_run_items
-        WHERE run_id=" . (int) $runId
-    );
-
-    $cnt = $cntRes ? $cntRes->fetch_assoc() : [];
-    $openCount = (int) ($cnt['open_count'] ?? 0);
-
-    if ($openCount !== 0) {
-        return false;
-    }
-
-    $successCount = (int) ($cnt['success_count'] ?? 0);
-    $failedCount = (int) ($cnt['failed_count'] ?? 0);
-    $skippedCount = (int) ($cnt['skipped_count'] ?? 0);
-    $processedCount = $successCount + $failedCount + $skippedCount;
-
-    $mysqli->query("
-        UPDATE tbl_paa_runs
-        SET status='done',
-            finished_at_utc=UTC_TIMESTAMP(),
-            success_items={$successCount},
-            failed_items={$failedCount},
-            skipped_items={$skippedCount},
-            processed_items={$processedCount},
-            updated_at=UTC_TIMESTAMP()
-        WHERE id=" . (int) $runId
-    );
-
-    return true;
-}
-
-function scheduleNextAutomationRun($mysqli, $automationId, $triggers, $tz, $scheduledForUtc, $isEnabled = true)
-{
-    if (!$isEnabled) {
-        return;
-    }
-
-    $next = computeNextRunUtcFromTriggers($triggers, $tz, $scheduledForUtc);
-
-    $stmt = $mysqli->prepare("
-        UPDATE tbl_paa_automations
-        SET last_run_at_utc=UTC_TIMESTAMP(),
-            next_run_at_utc=?,
-            updated_at=UTC_TIMESTAMP()
-        WHERE id=?
-    ");
-    $stmt->bind_param('si', $next, $automationId);
-    $stmt->execute();
-    $stmt->close();
-
-    logg("Scheduled next_run_at_utc={$next} for automation #{$automationId}");
-}
-
-function seedMissingNextRuns($mysqli)
-{
-    $sql = "
-        SELECT id, timezone, triggers_json, time_local
-        FROM tbl_paa_automations
-        WHERE is_enabled=1
-          AND next_run_at_utc IS NULL
-    ";
-
-    $res = $mysqli->query($sql);
-
-    if (!$res) {
-        logg("Seed query error: " . $mysqli->error);
-        return;
-    }
-
-    while ($row = $res->fetch_assoc()) {
-        $id = (int) $row['id'];
-        $tz = $row['timezone'] ?: 'America/Los_Angeles';
-
-        $triggers = normalize_triggers(safe_json_array($row['triggers_json'] ?? null));
-
-        if (!count($triggers) && !empty($row['time_local'])) {
-            $triggers = normalize_triggers([$row['time_local']]);
-        }
-
-        if (!count($triggers)) {
-            logg("Skipping seed for automation #{$id}: no valid triggers");
-            continue;
-        }
-
-        $next = computeNextRunUtcFromTriggers($triggers, $tz);
-
-        if (!$next) {
-            logg("Skipping seed for automation #{$id}: unable to compute next run");
-            continue;
-        }
-
-        $stmt = $mysqli->prepare("
-            UPDATE tbl_paa_automations
-            SET next_run_at_utc=?,
-                updated_at=UTC_TIMESTAMP()
-            WHERE id=?
-        ");
-        $stmt->bind_param('si', $next, $id);
-        $stmt->execute();
-        $stmt->close();
-
-        logg("Seeded next_run_at_utc for automation #{$id}: {$next}");
-    }
-
-    $res->free();
-}
-
-// ----------------------------------------------------
-// MAIN
-// ----------------------------------------------------
-
-$mysqli = db();
-
-// 0) Reset stuck processing items
-{
-    global $PROCESSING_TIMEOUT_MIN, $MAX_ATTEMPTS;
-
-    $sql = "
+    // adjust-phase stuck items
+    $sql1 = "
         UPDATE tbl_paa_run_items
         SET status='pending',
             last_error=CONCAT(IFNULL(last_error,''), ' | reset stuck processing'),
@@ -645,146 +496,135 @@ $mysqli = db();
           AND updated_at < (UTC_TIMESTAMP() - INTERVAL ? MINUTE)
           AND attempts < ?
     ";
-
-    $stmt = $mysqli->prepare($sql);
-    $stmt->bind_param('ii', $PROCESSING_TIMEOUT_MIN, $MAX_ATTEMPTS);
+    $stmt = $mysqli->prepare($sql1);
+    $stmt->bind_param('ii', $timeoutMin, $maxAttempts);
     $stmt->execute();
-    $affected = $stmt->affected_rows;
+    $affected1 = $stmt->affected_rows;
     $stmt->close();
 
-    if ($affected > 0) {
-        logg("Reset stuck processing items: {$affected}");
+    // restore-phase stuck items
+    $sql2 = "
+        UPDATE tbl_paa_run_items
+        SET status='success',
+            last_error=CONCAT(IFNULL(last_error,''), ' | reset stuck restore'),
+            updated_at=UTC_TIMESTAMP()
+        WHERE status='processing'
+          AND restored_at_utc IS NULL
+          AND adjusted_at_utc IS NOT NULL
+          AND updated_at < (UTC_TIMESTAMP() - INTERVAL ? MINUTE)
+          AND attempts < ?
+    ";
+    $stmt = $mysqli->prepare($sql2);
+    $stmt->bind_param('ii', $timeoutMin, $maxAttempts);
+    $stmt->execute();
+    $affected2 = $stmt->affected_rows;
+    $stmt->close();
+
+    if ($affected1 > 0) {
+        logg("Reset stuck adjust items: {$affected1}");
+    }
+
+    if ($affected2 > 0) {
+        logg("Reset stuck restore items: {$affected2}");
     }
 }
 
-// 1) Seed next_run_at_utc for enabled automations missing schedule
-seedMissingNextRuns($mysqli);
+function get_enabled_automations($mysqli)
+{
+    $sql = "
+        SELECT *
+        FROM tbl_paa_automations
+        WHERE is_enabled=1
+        ORDER BY id ASC
+    ";
 
-// 2) Find due automations
-$dueSql = "
-    SELECT *
-    FROM tbl_paa_automations
-    WHERE is_enabled=1
-      AND next_run_at_utc IS NOT NULL
-      AND next_run_at_utc <= UTC_TIMESTAMP()
-    ORDER BY next_run_at_utc ASC
-";
+    $res = $mysqli->query($sql);
 
-$dueRes = $mysqli->query($dueSql);
-
-if (!$dueRes) {
-    logg("Query error (due automations): " . $mysqli->error);
-    exit(1);
-}
-
-$dueAutomations = fetch_all_assoc($dueRes);
-$dueRes->free();
-
-if (!count($dueAutomations)) {
-    logg("No due automations.");
-    exit(0);
-}
-
-logg("Due automations: " . count($dueAutomations));
-
-foreach ($dueAutomations as $a) {
-    $automationId = (int) $a['id'];
-    $store = (string) $a['store'];
-    $tz = $a['timezone'] ?: 'America/Los_Angeles';
-    $marketplaceIds = safe_json_array($a['marketplace_ids'] ?? '[]');
-    $scheduledForUtc = $a['next_run_at_utc'];
-
-    $triggers = normalize_triggers(safe_json_array($a['triggers_json'] ?? null));
-    if (!count($triggers) && !empty($a['time_local'])) {
-        $triggers = normalize_triggers([$a['time_local']]);
+    if (!$res) {
+        throw new Exception("Automation query failed: " . $mysqli->error);
     }
 
-    $rules = safe_json_array($a['rules_json'] ?? null);
-    $defaultDelta = isset($a['default_delta']) ? (float) $a['default_delta'] : 0.0;
+    return fetch_all_assoc($res);
+}
 
-    if (!isset($a['default_delta']) && isset($a['delta'])) {
-        $defaultDelta = (float) $a['delta'];
-    }
-
-    $scheduledLocalHHMM = computeScheduledLocalHHMM($scheduledForUtc, $tz);
-
-    logg(
-        "Automation #{$automationId} store={$store} scheduled_for_utc={$scheduledForUtc} " .
-        "scheduled_local={$scheduledLocalHHMM} triggers=" . json_encode($triggers) .
-        " default_delta={$defaultDelta}"
-    );
-
-    // 3) Create or get run row
-    $runId = null;
-
+function find_open_run_for_automation($mysqli, $automationId)
+{
     $stmt = $mysqli->prepare("
-        SELECT id, status
+        SELECT *
         FROM tbl_paa_runs
-        WHERE automation_id=? AND scheduled_for_utc=?
+        WHERE automation_id=?
+          AND status IN ('pending','running')
+        ORDER BY id ASC
         LIMIT 1
     ");
-    $stmt->bind_param('is', $automationId, $scheduledForUtc);
+    $stmt->bind_param('i', $automationId);
     $stmt->execute();
-    $runRes = $stmt->get_result();
-    $runRow = $runRes->fetch_assoc();
+    $row = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
-    if ($runRow) {
-        $runId = (int) $runRow['id'];
-        logg("Found existing run #{$runId} status={$runRow['status']}");
-    } else {
-        $stmt = $mysqli->prepare("
-            INSERT INTO tbl_paa_runs
-                (automation_id, scheduled_for_utc, status, started_at_utc, created_at, updated_at)
-            VALUES
-                (?, ?, 'running', UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP())
-        ");
-        $stmt->bind_param('is', $automationId, $scheduledForUtc);
+    return $row ?: null;
+}
 
-        if (!$stmt->execute()) {
-            logg("Failed to insert run for automation #{$automationId}: " . $stmt->error);
-            $stmt->close();
-            continue;
-        }
+function find_open_run_for_window($mysqli, $automationId, $windowStart, $windowEnd)
+{
+    $stmt = $mysqli->prepare("
+        SELECT *
+        FROM tbl_paa_runs
+        WHERE automation_id=?
+          AND window_start=?
+          AND window_end=?
+          AND status IN ('pending','running')
+        ORDER BY id ASC
+        LIMIT 1
+    ");
+    $stmt->bind_param('iss', $automationId, $windowStart, $windowEnd);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
 
-        $runId = (int) $stmt->insert_id;
+    return $row ?: null;
+}
+
+function create_run_for_window($mysqli, $automationId, $windowStart, $windowEnd)
+{
+    $stmt = $mysqli->prepare("
+        INSERT INTO tbl_paa_runs
+            (automation_id, scheduled_for_utc, status, phase, window_start, window_end, started_at_utc, created_at, updated_at)
+        VALUES
+            (?, UTC_TIMESTAMP(), 'running', 'adjust', ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP())
+    ");
+    $stmt->bind_param('iss', $automationId, $windowStart, $windowEnd);
+    $ok = $stmt->execute();
+
+    if (!$ok) {
+        $err = $stmt->error;
         $stmt->close();
+        throw new Exception("Failed to create run: {$err}");
+    }
 
-        logg("Created run #{$runId}");
+    $runId = (int) $stmt->insert_id;
+    $stmt->close();
 
-        $items = [];
-        $stmt = $mysqli->prepare("
-            SELECT id, msku, sku
-            FROM tbl_paa_automation_items
-            WHERE automation_id=? AND is_active=1
-        ");
-        $stmt->bind_param('i', $automationId);
-        $stmt->execute();
-        $res = $stmt->get_result();
+    // snapshot active items
+    $items = [];
+    $stmt = $mysqli->prepare("
+        SELECT id, msku, sku
+        FROM tbl_paa_automation_items
+        WHERE automation_id=? AND is_active=1
+    ");
+    $stmt->bind_param('i', $automationId);
+    $stmt->execute();
+    $res = $stmt->get_result();
 
-        while ($r = $res->fetch_assoc()) {
-            $items[] = $r;
-        }
+    while ($r = $res->fetch_assoc()) {
+        $items[] = $r;
+    }
 
-        $stmt->close();
+    $stmt->close();
 
-        $totalItems = count($items);
+    $totalItems = count($items);
 
-        if ($totalItems === 0) {
-            logg("Automation #{$automationId} has no active items. Marking run done.");
-
-            $mysqli->query("
-                UPDATE tbl_paa_runs
-                SET status='done',
-                    finished_at_utc=UTC_TIMESTAMP(),
-                    updated_at=UTC_TIMESTAMP()
-                WHERE id=" . (int) $runId
-            );
-
-            scheduleNextAutomationRun($mysqli, $automationId, $triggers, $tz, $scheduledForUtc, true);
-            continue;
-        }
-
+    if ($totalItems > 0) {
         $ins = $mysqli->prepare("
             INSERT INTO tbl_paa_run_items
                 (run_id, automation_item_id, msku, sku, status, attempts, created_at, updated_at)
@@ -798,43 +638,95 @@ foreach ($dueAutomations as $a) {
             $sku = $it['sku'] !== null ? (string) $it['sku'] : null;
 
             $ins->bind_param('iiss', $runId, $automationItemId, $msku, $sku);
-
-            if (!$ins->execute()) {
-                logg("Run item insert failed for MSKU {$msku}: " . $ins->error);
-            }
+            $ins->execute();
         }
 
         $ins->close();
-
-        $stmt = $mysqli->prepare("
-            UPDATE tbl_paa_runs
-            SET total_items=?,
-                updated_at=UTC_TIMESTAMP()
-            WHERE id=?
-        ");
-        $stmt->bind_param('ii', $totalItems, $runId);
-        $stmt->execute();
-        $stmt->close();
-
-        logg("Snapshot created for run #{$runId}: {$totalItems} item(s)");
     }
 
-    // 4) Claim a batch
+    $stmt = $mysqli->prepare("
+        UPDATE tbl_paa_runs
+        SET total_items=?, updated_at=UTC_TIMESTAMP()
+        WHERE id=?
+    ");
+    $stmt->bind_param('ii', $totalItems, $runId);
+    $stmt->execute();
+    $stmt->close();
+
+    return $runId;
+}
+
+function finalize_run_done($mysqli, $runId)
+{
+    $cntRes = $mysqli->query("
+        SELECT
+            SUM(status IN ('pending','processing')) AS open_count,
+            SUM(status='success' AND restored_at_utc IS NOT NULL) AS restored_success_count,
+            SUM(status='failed') AS failed_count,
+            SUM(status='skipped') AS skipped_count
+        FROM tbl_paa_run_items
+        WHERE run_id=' . (int) $runId
+    '");
+
+    $cnt = $cntRes ? $cntRes->fetch_assoc() : [];
+    $openCount = (int) ($cnt['open_count'] ?? 0);
+
+    if ($openCount !== 0) {
+        return false;
+    }
+
+    $successCount = (int) ($cnt['restored_success_count'] ?? 0);
+    $failedCount = (int) ($cnt['failed_count'] ?? 0);
+    $skippedCount = (int) ($cnt['skipped_count'] ?? 0);
+    $processedCount = $successCount + $failedCount + $skippedCount;
+
+    $mysqli->query("
+        UPDATE tbl_paa_runs
+        SET status='done',
+            phase='done',
+            finished_at_utc=UTC_TIMESTAMP(),
+            success_items={$successCount},
+            failed_items={$failedCount},
+            skipped_items={$skippedCount},
+            processed_items={$processedCount},
+            updated_at=UTC_TIMESTAMP()
+        WHERE id=" . (int) $runId
+    );
+
+    return true;
+}
+
+function move_run_to_restore_phase($mysqli, $runId)
+{
+    $stmt = $mysqli->prepare("
+        UPDATE tbl_paa_runs
+        SET phase='restore',
+            status='running',
+            updated_at=UTC_TIMESTAMP()
+        WHERE id=?
+    ");
+    $stmt->bind_param('i', $runId);
+    $stmt->execute();
+    $stmt->close();
+}
+
+function claim_adjust_batch($mysqli, $runId, $batchSize, $maxAttempts)
+{
     $mysqli->begin_transaction();
 
-    $claimSql = "
+    $sql = "
         SELECT id, msku, sku, attempts
         FROM tbl_paa_run_items
         WHERE run_id=?
           AND status='pending'
           AND attempts < ?
         ORDER BY id ASC
-        LIMIT {$BATCH_SIZE}
+        LIMIT {$batchSize}
         FOR UPDATE
     ";
 
-    $stmt = $mysqli->prepare($claimSql);
-    $stmt->bind_param('ii', $runId, $MAX_ATTEMPTS);
+    $stmt = $mysqli->prepare($sql);
+    $stmt->bind_param('ii', $runId, $maxAttempts);
     $stmt->execute();
     $res = $stmt->get_result();
 
@@ -847,17 +739,7 @@ foreach ($dueAutomations as $a) {
 
     if (!count($batch)) {
         $mysqli->commit();
-
-        $done = finalizeRunIfComplete($mysqli, $runId);
-
-        if ($done) {
-            logg("Run #{$runId} completed. Finalizing automation schedule.");
-            scheduleNextAutomationRun($mysqli, $automationId, $triggers, $tz, $scheduledForUtc, true);
-        } else {
-            logg("Run #{$runId} has no pending batch this tick but still has open items.");
-        }
-
-        continue;
+        return [];
     }
 
     $ids = array_map(fn($x) => (int) $x['id'], $batch);
@@ -872,16 +754,171 @@ foreach ($dueAutomations as $a) {
     ";
 
     if (!$mysqli->query($upd)) {
-        logg("Claim update failed for run #{$runId}: " . $mysqli->error);
         $mysqli->rollback();
-        continue;
+        throw new Exception("Claim adjust batch failed: " . $mysqli->error);
     }
 
     $mysqli->commit();
 
-    logg("Claimed batch for run #{$runId}: " . count($batch) . " item(s)");
+    return $batch;
+}
 
-    // 5) Process claimed items
+function claim_restore_batch($mysqli, $runId, $batchSize, $maxAttempts)
+{
+    $mysqli->begin_transaction();
+
+    $sql = "
+        SELECT id, msku, sku, attempts, original_price
+        FROM tbl_paa_run_items
+        WHERE run_id=?
+          AND adjusted_at_utc IS NOT NULL
+          AND restored_at_utc IS NULL
+          AND status='success'
+          AND attempts < ?
+        ORDER BY id ASC
+        LIMIT {$batchSize}
+        FOR UPDATE
+    ";
+
+    $stmt = $mysqli->prepare($sql);
+    $stmt->bind_param('ii', $runId, $maxAttempts);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    $batch = [];
+    while ($r = $res->fetch_assoc()) {
+        $batch[] = $r;
+    }
+
+    $stmt->close();
+
+    if (!count($batch)) {
+        $mysqli->commit();
+        return [];
+    }
+
+    $ids = array_map(fn($x) => (int) $x['id'], $batch);
+    $idList = implode(',', $ids);
+
+    $upd = "
+        UPDATE tbl_paa_run_items
+        SET status='processing',
+            attempts=attempts+1,
+            updated_at=UTC_TIMESTAMP()
+        WHERE id IN ({$idList})
+    ";
+
+    if (!$mysqli->query($upd)) {
+        $mysqli->rollback();
+        throw new Exception("Claim restore batch failed: " . $mysqli->error);
+    }
+
+    $mysqli->commit();
+
+    return $batch;
+}
+
+function count_adjust_remaining($mysqli, $runId)
+{
+    $res = $mysqli->query("
+        SELECT COUNT(*) AS c
+        FROM tbl_paa_run_items
+        WHERE run_id=" . (int) $runId . "
+          AND status IN ('pending','processing')
+    ");
+    $row = $res ? $res->fetch_assoc() : ['c' => 0];
+    return (int) ($row['c'] ?? 0);
+}
+
+function count_restore_remaining($mysqli, $runId)
+{
+    $res = $mysqli->query("
+        SELECT COUNT(*) AS c
+        FROM tbl_paa_run_items
+        WHERE run_id=" . (int) $runId . "
+          AND adjusted_at_utc IS NOT NULL
+          AND restored_at_utc IS NULL
+    ");
+    $row = $res ? $res->fetch_assoc() : ['c' => 0];
+    return (int) ($row['c'] ?? 0);
+}
+
+function mark_item_failed_or_retry($mysqli, $runItemId, $msg, $maxAttempts)
+{
+    $stmt = $mysqli->prepare("
+        SELECT attempts
+        FROM tbl_paa_run_items
+        WHERE id=?
+        LIMIT 1
+    ");
+    $stmt->bind_param('i', $runItemId);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    $attempts = (int) ($row['attempts'] ?? 0);
+    $finalStatus = ($attempts >= $maxAttempts) ? 'failed' : 'pending';
+
+    $stmt = $mysqli->prepare("
+        UPDATE tbl_paa_run_items
+        SET status=?,
+            last_error=?,
+            updated_at=UTC_TIMESTAMP()
+        WHERE id=?
+    ");
+    $stmt->bind_param('ssi', $finalStatus, $msg, $runItemId);
+    $stmt->execute();
+    $stmt->close();
+
+    return $finalStatus;
+}
+
+// ----------------------------------------------------
+// PROCESSING
+// ----------------------------------------------------
+
+function process_adjust_phase($mysqli, $automation, $run, $currentHHMM, $batchSize, $maxAttempts)
+{
+    $automationId = (int) $automation['id'];
+    $runId = (int) $run['id'];
+    $store = (string) $automation['store'];
+    $marketplaceIds = safe_json_array($automation['marketplace_ids'] ?? '[]');
+    $rules = safe_json_array($automation['rules_json'] ?? '[]');
+    $defaultDelta = isset($automation['default_delta']) ? (float) $automation['default_delta'] : 0.0;
+
+    $windowStart = (string) $run['window_start'];
+    $windowEnd = (string) $run['window_end'];
+
+    // If window already ended, switch to restore
+    if (!is_time_in_window($currentHHMM, $windowStart, $windowEnd)) {
+        logg("Run #{$runId} window {$windowStart}-{$windowEnd} ended. Switching to restore.");
+        move_run_to_restore_phase($mysqli, $runId);
+        return;
+    }
+
+    $rulesForWindow = [];
+    foreach ($rules as $r) {
+        if (!is_array($r)) {
+            continue;
+        }
+
+        if (
+            trim((string) ($r['start'] ?? '')) === $windowStart &&
+            trim((string) ($r['end'] ?? '')) === $windowEnd
+        ) {
+            $rulesForWindow[] = $r;
+        }
+    }
+
+    $batch = claim_adjust_batch($mysqli, $runId, $batchSize, $maxAttempts);
+
+    if (!count($batch)) {
+        logg("Run #{$runId} adjust phase has no claimable batch.");
+        return;
+    }
+
+    logg("Run #{$runId} adjust phase claimed " . count($batch) . " item(s)");
+
     foreach ($batch as $it) {
         $runItemId = (int) $it['id'];
         $msku = (string) $it['msku'];
@@ -909,7 +946,7 @@ foreach ($dueAutomations as $a) {
                 $stmt->execute();
                 $stmt->close();
 
-                logg("Run item #{$runItemId} skipped: {$err}");
+                logg("Run item #{$runItemId} skipped in adjust: {$err}");
                 continue;
             }
 
@@ -928,11 +965,11 @@ foreach ($dueAutomations as $a) {
                 $stmt->execute();
                 $stmt->close();
 
-                logg("Run item #{$runItemId} skipped: {$err}");
+                logg("Run item #{$runItemId} skipped in adjust: {$err}");
                 continue;
             }
 
-            $deltaToApply = pickDeltaFromRules($currentPrice, $rules, $defaultDelta, $scheduledLocalHHMM);
+            $deltaToApply = pick_delta_from_rules($currentPrice, $rulesForWindow, $defaultDelta);
             $newPrice = (float) $currentPrice + (float) $deltaToApply;
 
             if ($newPrice < 0) {
@@ -945,21 +982,135 @@ foreach ($dueAutomations as $a) {
                 UPDATE tbl_paa_run_items
                 SET status='success',
                     current_price=?,
+                    original_price=IFNULL(original_price, ?),
                     new_price=?,
                     processed_at_utc=UTC_TIMESTAMP(),
+                    adjusted_at_utc=IFNULL(adjusted_at_utc, UTC_TIMESTAMP()),
                     last_error=NULL,
                     updated_at=UTC_TIMESTAMP()
                 WHERE id=?
             ");
-            $stmt->bind_param('ddi', $currentPrice, $newPrice, $runItemId);
+            $stmt->bind_param('dddi', $currentPrice, $currentPrice, $newPrice, $runItemId);
             $stmt->execute();
             $stmt->close();
 
-            logg("Run item #{$runItemId} success: SKU={$sku} current={$currentPrice} delta={$deltaToApply} new={$newPrice}");
+            logg("Run item #{$runItemId} adjust success: SKU={$sku} current={$currentPrice} delta={$deltaToApply} new={$newPrice}");
+
+        } catch (Exception $e) {
+            $msg = substr($e->getMessage(), 0, 2000);
+            $finalStatus = mark_item_failed_or_retry($mysqli, $runItemId, $msg, $maxAttempts);
+            logg("Run item #{$runItemId} adjust {$finalStatus}: {$msg}");
+        }
+    }
+}
+
+function process_restore_phase($mysqli, $automation, $run, $batchSize, $maxAttempts)
+{
+    $automationId = (int) $automation['id'];
+    $runId = (int) $run['id'];
+    $store = (string) $automation['store'];
+    $marketplaceIds = safe_json_array($automation['marketplace_ids'] ?? '[]');
+
+    $batch = claim_restore_batch($mysqli, $runId, $batchSize, $maxAttempts);
+
+    if (!count($batch)) {
+        $remaining = count_restore_remaining($mysqli, $runId);
+
+        if ($remaining === 0) {
+            $done = finalize_run_done($mysqli, $runId);
+
+            if ($done) {
+                $stmt = $mysqli->prepare("
+                    UPDATE tbl_paa_automations
+                    SET last_run_at_utc=UTC_TIMESTAMP(),
+                        updated_at=UTC_TIMESTAMP()
+                    WHERE id=?
+                ");
+                $stmt->bind_param('i', $automationId);
+                $stmt->execute();
+                $stmt->close();
+
+                logg("Run #{$runId} restore completed. Run marked done.");
+            }
+        } else {
+            logg("Run #{$runId} restore phase has no claimable batch, remaining={$remaining}");
+        }
+
+        return;
+    }
+
+    logg("Run #{$runId} restore phase claimed " . count($batch) . " item(s)");
+
+    foreach ($batch as $it) {
+        $runItemId = (int) $it['id'];
+        $msku = (string) $it['msku'];
+        $sku = $it['sku'] !== null ? (string) $it['sku'] : null;
+        $originalPrice = isset($it['original_price']) ? (float) $it['original_price'] : null;
+
+        try {
+            if (!$sku) {
+                $sku = resolveSkuFromMsku($mysqli, $msku);
+
+                if ($sku) {
+                    syncResolvedSku($mysqli, $automationId, $runItemId, $msku, $sku);
+                }
+            }
+
+            if (!$sku) {
+                $stmt = $mysqli->prepare("
+                    UPDATE tbl_paa_run_items
+                    SET status='skipped',
+                        last_error=?,
+                        updated_at=UTC_TIMESTAMP()
+                    WHERE id=?
+                ");
+                $err = "No SKU resolved for MSKU during restore";
+                $stmt->bind_param('si', $err, $runItemId);
+                $stmt->execute();
+                $stmt->close();
+
+                logg("Run item #{$runItemId} skipped in restore: {$err}");
+                continue;
+            }
+
+            if ($originalPrice === null) {
+                $stmt = $mysqli->prepare("
+                    UPDATE tbl_paa_run_items
+                    SET status='skipped',
+                        last_error=?,
+                        updated_at=UTC_TIMESTAMP()
+                    WHERE id=?
+                ");
+                $err = "No original price available for restore";
+                $stmt->bind_param('si', $err, $runItemId);
+                $stmt->execute();
+                $stmt->close();
+
+                logg("Run item #{$runItemId} skipped in restore: {$err}");
+                continue;
+            }
+
+            patchPrice($store, $sku, $originalPrice, 'USD', $marketplaceIds);
+
+            $stmt = $mysqli->prepare("
+                UPDATE tbl_paa_run_items
+                SET status='success',
+                    new_price=?,
+                    restored_at_utc=UTC_TIMESTAMP(),
+                    last_error=NULL,
+                    updated_at=UTC_TIMESTAMP()
+                WHERE id=?
+            ");
+            $stmt->bind_param('di', $originalPrice, $runItemId);
+            $stmt->execute();
+            $stmt->close();
+
+            logg("Run item #{$runItemId} restore success: SKU={$sku} restore_to={$originalPrice}");
 
         } catch (Exception $e) {
             $msg = substr($e->getMessage(), 0, 2000);
 
+            // restore should retry from success, not pending
             $stmt = $mysqli->prepare("
                 SELECT attempts
                 FROM tbl_paa_run_items
@@ -968,11 +1119,11 @@ foreach ($dueAutomations as $a) {
             ");
             $stmt->bind_param('i', $runItemId);
             $stmt->execute();
-            $attemptRow = $stmt->get_result()->fetch_assoc();
+            $row = $stmt->get_result()->fetch_assoc();
             $stmt->close();
 
-            $attempts = (int) ($attemptRow['attempts'] ?? 0);
-            $finalStatus = ($attempts >= $MAX_ATTEMPTS) ? 'failed' : 'pending';
+            $attempts = (int) ($row['attempts'] ?? 0);
+            $finalStatus = ($attempts >= $maxAttempts) ? 'failed' : 'success';
 
             $stmt = $mysqli->prepare("
                 UPDATE tbl_paa_run_items
@@ -985,11 +1136,96 @@ foreach ($dueAutomations as $a) {
             $stmt->execute();
             $stmt->close();
 
-            logg("Run item #{$runItemId} {$finalStatus}: {$msg}");
+            logg("Run item #{$runItemId} restore {$finalStatus}: {$msg}");
+        }
+    }
+}
+
+// ----------------------------------------------------
+// MAIN
+// ----------------------------------------------------
+
+try {
+    $mysqli = db();
+
+    reset_stuck_processing_items($mysqli, $PROCESSING_TIMEOUT_MIN, $MAX_ATTEMPTS);
+
+    $automations = get_enabled_automations($mysqli);
+
+    if (!count($automations)) {
+        logg("No enabled automations.");
+        exit(0);
+    }
+
+    logg("Enabled automations: " . count($automations));
+
+    foreach ($automations as $automation) {
+        $automationId = (int) $automation['id'];
+        $store = (string) $automation['store'];
+        $tz = $automation['timezone'] ?: 'America/Los_Angeles';
+        $rules = safe_json_array($automation['rules_json'] ?? '[]');
+
+        $currentHHMM = now_local_hhmm($tz);
+        $activeWindow = first_active_window($rules, $currentHHMM);
+
+        logg("Automation #{$automationId} store={$store} local_time={$currentHHMM}");
+
+        $openRun = find_open_run_for_automation($mysqli, $automationId);
+
+        if ($openRun) {
+            $runId = (int) $openRun['id'];
+            $phase = (string) $openRun['phase'];
+            $windowStart = (string) $openRun['window_start'];
+            $windowEnd = (string) $openRun['window_end'];
+
+            logg("Found open run #{$runId} phase={$phase} window={$windowStart}-{$windowEnd}");
+
+            if ($phase === 'restore') {
+                process_restore_phase($mysqli, $automation, $openRun, $BATCH_SIZE, $MAX_ATTEMPTS);
+                continue;
+            }
+
+            // phase adjust
+            process_adjust_phase($mysqli, $automation, $openRun, $currentHHMM, $BATCH_SIZE, $MAX_ATTEMPTS);
+            continue;
+        }
+
+        // no open run
+        if (!$activeWindow) {
+            logg("Automation #{$automationId} has no active rule window right now.");
+            continue;
+        }
+
+        $windowStart = $activeWindow['start'];
+        $windowEnd = $activeWindow['end'];
+
+        // avoid creating duplicate run for same window if one somehow still open
+        $existingWindowRun = find_open_run_for_window($mysqli, $automationId, $windowStart, $windowEnd);
+
+        if ($existingWindowRun) {
+            logg("Automation #{$automationId} already has open run for window {$windowStart}-{$windowEnd}");
+            if ($existingWindowRun['phase'] === 'restore') {
+                process_restore_phase($mysqli, $automation, $existingWindowRun, $BATCH_SIZE, $MAX_ATTEMPTS);
+            } else {
+                process_adjust_phase($mysqli, $automation, $existingWindowRun, $currentHHMM, $BATCH_SIZE, $MAX_ATTEMPTS);
+            }
+            continue;
+        }
+
+        $runId = create_run_for_window($mysqli, $automationId, $windowStart, $windowEnd);
+
+        logg("Created run #{$runId} for automation #{$automationId} window {$windowStart}-{$windowEnd}");
+
+        $newRun = find_open_run_for_automation($mysqli, $automationId);
+
+        if ($newRun) {
+            process_adjust_phase($mysqli, $automation, $newRun, $currentHHMM, $BATCH_SIZE, $MAX_ATTEMPTS);
         }
     }
 
-    logg("Batch processed for run #{$runId}");
-}
+    logg("Done.");
 
-logg("Done.");
+} catch (Exception $e) {
+    logg("FATAL: " . $e->getMessage());
+    exit(1);
+}

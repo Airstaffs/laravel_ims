@@ -272,216 +272,366 @@
         </div>
     </Dialog>
 
-    <Dialog v-model:visible="automationModal.visible" modal :draggable="false" :closable="true"
-        header="Amazon Automated Pricing" :style="{ width: '1200px', maxWidth: '98vw' }"
-        :contentStyle="{ padding: '0' }" class="automation-pricing-modal">
-        <!-- Header -->
-        <div class="auto-head">
-            <div class="auto-head-left">
-                <div class="font-medium text-lg">Create / Update Automation</div>
-                <div class="text-500 text-sm mt-1">
-                    Configure run times, pricing windows, and assign MSKUs from <b>tblfnsku</b>.
-                </div>
+<Dialog
+    v-model:visible="automationModal.visible"
+    modal
+    :draggable="false"
+    :closable="true"
+    header="Amazon Automated Pricing"
+    :style="{ width: '1200px', maxWidth: '98vw' }"
+    :contentStyle="{ padding: '0' }"
+    class="automation-pricing-modal"
+>
+    <!-- Header -->
+    <div class="auto-head">
+        <div class="auto-head-left">
+            <div class="font-medium text-lg">Create / Update Automation</div>
+            <div class="text-500 text-sm mt-1">
+                Configure pricing windows and assign MSKUs from <b>tblfnsku</b>.
             </div>
+        </div>
 
-            <div class="auto-head-right flex gap-2 align-items-end flex-wrap">
-                <div style="min-width: 320px;">
-                    <label class="auto-label">Automation</label>
-                    <Dropdown v-model="automationModal.selectedAutomationId" :options="automationModal.list"
-                        optionLabel="label" optionValue="id" class="w-full p-inputtext-sm"
-                        placeholder="Select existing…"
-                        :disabled="automationModal.loading || automationModal.saving || automationModal.deleting"
-                        @change="onSelectAutomation" />
-                </div>
-
-                <Button label="New" icon="pi pi-plus" class="p-button-sm" severity="secondary"
+        <div class="auto-head-right flex gap-2 align-items-end flex-wrap">
+            <div style="min-width: 320px;">
+                <label class="auto-label">Automation</label>
+                <Dropdown
+                    v-model="automationModal.selectedAutomationId"
+                    :options="automationModal.list"
+                    optionLabel="label"
+                    optionValue="id"
+                    class="w-full p-inputtext-sm"
+                    placeholder="Select existing..."
                     :disabled="automationModal.loading || automationModal.saving || automationModal.deleting"
-                    @click="newAutomation" />
+                    @change="onSelectAutomation"
+                />
+            </div>
 
-                <Button label="Delete" icon="pi pi-trash" class="p-button-sm" severity="danger"
-                    :disabled="automationModal.loading || automationModal.saving || automationModal.deleting || !automationModal.id"
-                    @click="deleteAutomation" />
+            <Button
+                label="New"
+                icon="pi pi-plus"
+                class="p-button-sm"
+                severity="secondary"
+                :disabled="automationModal.loading || automationModal.saving || automationModal.deleting"
+                @click="newAutomation"
+            />
 
-                <Button label="Save" icon="pi pi-save" class="p-button-sm" :loading="automationModal.saving"
-                    :disabled="automationModal.saving || automationModal.deleting || !automationCanSave"
-                    @click="saveAutomation" />
+            <Button
+                label="Delete"
+                icon="pi pi-trash"
+                class="p-button-sm"
+                severity="danger"
+                :disabled="automationModal.loading || automationModal.saving || automationModal.deleting || !automationModal.id"
+                @click="deleteAutomation"
+            />
+
+            <Button
+                label="Save"
+                icon="pi pi-save"
+                class="p-button-sm"
+                :loading="automationModal.saving"
+                :disabled="automationModal.saving || automationModal.deleting || !automationCanSave"
+                @click="saveAutomation"
+            />
+        </div>
+    </div>
+
+    <!-- Body -->
+    <div class="auto-body">
+        <!-- Left -->
+        <div class="auto-left">
+            <!-- Automation Settings -->
+            <div class="auto-card">
+                <div class="auto-card-title">Automation Settings</div>
+
+                <div class="auto-form-grid">
+                    <div class="auto-field">
+                        <label class="auto-label">Automation Name</label>
+                        <InputText
+                            v-model="automationModal.name"
+                            class="w-full p-inputtext-sm"
+                            placeholder="Example: Morning Repricing"
+                        />
+                    </div>
+
+                    <div class="auto-field">
+                        <label class="auto-label">Timezone</label>
+                        <InputText
+                            v-model="automationModal.timezone"
+                            class="w-full p-inputtext-sm"
+                            placeholder="America/Los_Angeles"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pricing Rules -->
+            <div class="auto-card">
+                <div class="auto-card-top">
+                    <div class="auto-card-title">Pricing Rules</div>
+
+                    <div class="flex gap-2">
+                        <Button
+                            label="Add Rule"
+                            icon="pi pi-plus"
+                            class="p-button-sm"
+                            severity="secondary"
+                            @click="addRule"
+                        />
+                        <Button
+                            label="Sort by Min"
+                            icon="pi pi-sort-amount-up"
+                            class="p-button-sm"
+                            severity="secondary"
+                            @click="sortRules"
+                        />
+                    </div>
+                </div>
+
+                <div class="rules-table-wrap">
+                    <div class="rules-head">
+                        <div class="rules-col">Start</div>
+                        <div class="rules-col">End</div>
+                        <div class="rules-col">Min</div>
+                        <div class="rules-col">Max</div>
+                        <div class="rules-col">Delta</div>
+                        <div class="rules-col actions">Action</div>
+                    </div>
+
+                    <div
+                        v-for="(r, idx) in automationModal.rules"
+                        :key="'rule-' + idx"
+                        class="rules-row"
+                    >
+                        <InputText
+                            v-model="automationModal.rules[idx].start"
+                            class="p-inputtext-sm w-full"
+                            placeholder="09:00"
+                        />
+                        <InputText
+                            v-model="automationModal.rules[idx].end"
+                            class="p-inputtext-sm w-full"
+                            placeholder="10:00"
+                        />
+                        <InputText
+                            v-model="automationModal.rules[idx].min"
+                            class="p-inputtext-sm w-full"
+                            placeholder="100"
+                        />
+                        <InputText
+                            v-model="automationModal.rules[idx].max"
+                            class="p-inputtext-sm w-full"
+                            placeholder="200"
+                        />
+                        <InputText
+                            v-model="automationModal.rules[idx].delta"
+                            class="p-inputtext-sm w-full"
+                            placeholder="-50"
+                        />
+
+                        <Button
+                            icon="pi pi-trash"
+                            class="p-button-sm"
+                            severity="danger"
+                            text
+                            :disabled="automationModal.rules.length <= 1"
+                            @click="removeRule(idx)"
+                        />
+                    </div>
+                </div>
+
+                <div class="auto-field mt-3">
+                    <label class="auto-label">Default Delta (if no rule matches)</label>
+                    <InputText
+                        v-model="automationModal.defaultDelta"
+                        class="w-full p-inputtext-sm"
+                        placeholder="0"
+                    />
+                </div>
+
+                <small class="text-500 block mt-2">
+                    Pricing runs every cron tick, but only rules whose current time window matches will apply.
+                </small>
+            </div>
+
+            <!-- MSKU Search -->
+            <div class="auto-card">
+                <div class="auto-card-top">
+                    <div class="auto-card-title">Search MSKUs</div>
+
+                    <div class="flex gap-2">
+                        <Button
+                            label="Search"
+                            icon="pi pi-search"
+                            class="p-button-sm"
+                            severity="secondary"
+                            :loading="automationModal.search.loading"
+                            @click="searchFnsku(true, 1)"
+                        />
+                        <Button
+                            label="Assign Selected"
+                            icon="pi pi-plus"
+                            class="p-button-sm"
+                            :disabled="!automationModal.searchSelectedRows.length"
+                            @click="assignSelectedFnskuRows"
+                        />
+                    </div>
+                </div>
+
+                <div class="auto-form-grid mb-3">
+                    <div class="auto-field">
+                        <label class="auto-label">Search</label>
+                        <InputText
+                            v-model="automationModal.search.q"
+                            class="w-full p-inputtext-sm"
+                            placeholder="Search MSKU / FNSKU / ASIN"
+                            @keydown.enter.prevent="searchFnsku(true, 1)"
+                        />
+                    </div>
+
+                    <div class="auto-field">
+                        <label class="auto-label">Store</label>
+                        <Dropdown
+                            v-model="automationModal.store"
+                            :options="storeOptions"
+                            optionLabel="label"
+                            optionValue="value"
+                            class="w-full p-inputtext-sm"
+                            placeholder="Select store"
+                            @change="onAutomationStoreChanged"
+                        />
+                    </div>
+                </div>
+
+                <DataTable
+                    :value="automationModal.search.rows"
+                    v-model:selection="automationModal.searchSelectedRows"
+                    dataKey="FNSKUID"
+                    responsiveLayout="scroll"
+                    class="p-datatable-sm"
+                    :loading="automationModal.search.loading"
+                    scrollable
+                    scrollHeight="260px"
+                >
+                    <Column selectionMode="multiple" headerStyle="width: 3rem" />
+                    <Column field="MSKU" header="MSKU" />
+                    <Column field="FNSKU" header="FNSKU" />
+                    <Column field="ASIN" header="ASIN" />
+                    <Column field="fnsku_status" header="Status" />
+                </DataTable>
+
+                <div class="flex justify-content-between align-items-center mt-3">
+                    <div class="text-500 text-sm">
+                        {{ automationModal.search.rows.length }} result(s)
+                    </div>
+
+                    <div class="flex gap-2">
+                        <Button
+                            label="Prev"
+                            class="p-button-sm"
+                            severity="secondary"
+                            outlined
+                            :disabled="automationModal.search.loading || automationModal.search.page <= 1"
+                            @click="searchFnsku(false, automationModal.search.page - 1)"
+                        />
+                        <Button
+                            label="Next"
+                            class="p-button-sm"
+                            severity="secondary"
+                            outlined
+                            :disabled="automationModal.search.loading || !automationModal.search.hasMore"
+                            @click="searchFnsku(false, automationModal.search.page + 1)"
+                        />
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Body -->
-        <div class="auto-body">
-            <!-- Left -->
-            <div class="auto-left">
-                <!-- Trigger Settings -->
-                <div class="auto-card">
-                    <div class="auto-card-title">Trigger Settings</div>
+        <!-- Right -->
+        <div class="auto-right">
+            <div class="auto-card">
+                <div class="auto-card-title">Assigned MSKUs</div>
 
-                    <div class="auto-form-grid">
-                        <div class="auto-field">
-                            <label class="auto-label">Automation Name</label>
-                            <InputText v-model="automationModal.name" class="w-full p-inputtext-sm"
-                                placeholder="Example: Daily Morning Repricing" />
+                <div class="auto-assigned">
+                    <div class="auto-assigned-top">
+                        <div class="text-500 text-sm">
+                            {{ assignedCount }} selected
                         </div>
 
-                        <div class="auto-field">
-                            <label class="auto-label">Timezone</label>
-                            <InputText v-model="automationModal.timezone" class="w-full p-inputtext-sm"
-                                placeholder="America/Los_Angeles" />
-                        </div>
+                        <Button
+                            label="Clear Selected"
+                            icon="pi pi-times"
+                            severity="secondary"
+                            class="p-button-sm"
+                            :disabled="assignedCount === 0"
+                            @click="automationModal.selectedRows = []"
+                        />
                     </div>
 
-                    <div class="auto-field mt-3">
-                        <label class="auto-label">Run Times (HH:mm)</label>
-
-                        <div class="trigger-list">
-                            <div v-for="(t, idx) in automationModal.triggers" :key="'trigger-' + idx"
-                                class="trigger-row">
-                                <div class="trigger-index">
-                                    #{{ idx + 1 }}
+                    <div v-if="assignedCount" class="auto-assigned-list">
+                        <div
+                            v-for="r in automationModal.selectedRows"
+                            :key="r.FNSKUID"
+                            class="auto-assigned-item"
+                        >
+                            <div class="auto-assigned-main">
+                                <div class="font-medium">{{ r.MSKU }}</div>
+                                <div class="text-500 text-xs mt-1">
+                                    <span class="mr-3"><b>ASIN</b> {{ r.ASIN || '—' }}</span>
+                                    <span><b>FNSKU</b> {{ r.FNSKU || '—' }}</span>
                                 </div>
-
-                                <InputText v-model="automationModal.triggers[idx]" class="p-inputtext-sm trigger-input"
-                                    placeholder="09:00" />
-
-                                <Button icon="pi pi-trash" class="p-button-sm" severity="danger" text
-                                    :disabled="automationModal.triggers.length <= 1" @click="removeTrigger(idx)" />
                             </div>
-                        </div>
 
-                        <div class="mt-2">
-                            <Button label="Add Time" icon="pi pi-plus" class="p-button-sm" severity="secondary"
-                                @click="addTrigger" />
-                        </div>
-
-                        <small class="text-500 block mt-2">
-                            Examples: 09:00, 10:00, 14:00, 18:00. These run based on the selected timezone.
-                        </small>
-                    </div>
-                </div>
-
-                <!-- Pricing Rules -->
-                <div class="auto-card">
-                    <div class="auto-card-top">
-                        <div class="auto-card-title">Pricing Rules</div>
-
-                        <div class="flex gap-2">
-                            <Button label="Add Rule" icon="pi pi-plus" class="p-button-sm" severity="secondary"
-                                @click="addRule" />
-                            <Button label="Sort by Min" icon="pi pi-sort-amount-up" class="p-button-sm"
-                                severity="secondary" @click="sortRules" />
+                            <Button
+                                icon="pi pi-trash"
+                                text
+                                severity="danger"
+                                class="p-button-sm"
+                                @click="removeAssigned(r)"
+                            />
                         </div>
                     </div>
 
-                    <div class="rules-table-wrap">
-                        <div class="rules-head">
-                            <div class="rules-col">Start</div>
-                            <div class="rules-col">End</div>
-                            <div class="rules-col">Min</div>
-                            <div class="rules-col">Max</div>
-                            <div class="rules-col">Delta</div>
-                            <div class="rules-col actions">Action</div>
-                        </div>
-
-                        <div v-for="(r, idx) in automationModal.rules" :key="'rule-' + idx" class="rules-row">
-                            <InputText v-model="automationModal.rules[idx].start" class="p-inputtext-sm w-full"
-                                placeholder="09:00" />
-
-                            <InputText v-model="automationModal.rules[idx].end" class="p-inputtext-sm w-full"
-                                placeholder="10:00" />
-
-                            <InputText v-model="automationModal.rules[idx].min" class="p-inputtext-sm w-full"
-                                placeholder="100" />
-
-                            <InputText v-model="automationModal.rules[idx].max" class="p-inputtext-sm w-full"
-                                placeholder="200" />
-
-                            <InputText v-model="automationModal.rules[idx].delta" class="p-inputtext-sm w-full"
-                                placeholder="-50" />
-
-                            <Button icon="pi pi-trash" class="p-button-sm" severity="danger" text
-                                :disabled="automationModal.rules.length <= 1" @click="removeRule(idx)" />
-                        </div>
+                    <div v-else class="text-500 p-2">
+                        No assigned MSKUs yet. Search tblfnsku and assign rows.
                     </div>
-
-                    <div class="auto-field mt-3">
-                        <label class="auto-label">Default Delta (if no rule matches)</label>
-                        <InputText v-model="automationModal.defaultDelta" class="w-full p-inputtext-sm"
-                            placeholder="0" />
-                    </div>
-
-                    <small class="text-500 block mt-2">
-                        Suggested logic: filter by current time window first, then apply the first matching price band
-                        where <b>min ≤ price ≤ max</b>.
-                    </small>
                 </div>
             </div>
 
-            <!-- Right -->
-            <div class="auto-right">
-                <div class="auto-card">
-                    <div class="auto-card-title">Assigned MSKUs</div>
+            <div class="auto-card">
+                <div class="auto-card-title">Summary</div>
 
-                    <div class="auto-assigned">
-                        <div class="auto-assigned-top">
-                            <div class="text-500 text-sm">
-                                {{ assignedCount }} selected
-                            </div>
-
-                            <Button label="Clear Selected" icon="pi pi-times" severity="secondary" class="p-button-sm"
-                                :disabled="assignedCount === 0" @click="automationModal.selectedRows = []" />
-                        </div>
-
-                        <div v-if="assignedCount" class="auto-assigned-list">
-                            <div v-for="r in automationModal.selectedRows" :key="r.FNSKUID" class="auto-assigned-item">
-                                <div class="auto-assigned-main">
-                                    <div class="font-medium">{{ r.MSKU }}</div>
-                                    <div class="text-500 text-xs mt-1">
-                                        <span class="mr-3"><b>ASIN</b> {{ r.ASIN || '—' }}</span>
-                                        <span><b>FNSKU</b> {{ r.FNSKU || '—' }}</span>
-                                    </div>
-                                </div>
-
-                                <Button icon="pi pi-trash" text severity="danger" class="p-button-sm"
-                                    @click="removeAssigned(r)" />
-                            </div>
-                        </div>
-
-                        <div v-else class="text-500 p-2">
-                            No assigned MSKUs yet. Search tblfnsku and select rows.
-                        </div>
+                <div class="auto-summary">
+                    <div class="summary-row">
+                        <span>Rules</span>
+                        <b>{{ automationModal.rules?.length || 0 }}</b>
                     </div>
-                </div>
-
-                <div class="auto-card">
-                    <div class="auto-card-title">Summary</div>
-
-                    <div class="auto-summary">
-                        <div class="summary-row">
-                            <span>Triggers</span>
-                            <b>{{ automationModal.triggers?.length || 0 }}</b>
-                        </div>
-                        <div class="summary-row">
-                            <span>Rules</span>
-                            <b>{{ automationModal.rules?.length || 0 }}</b>
-                        </div>
-                        <div class="summary-row">
-                            <span>Assigned</span>
-                            <b>{{ assignedCount }}</b>
-                        </div>
-                        <div class="summary-row">
-                            <span>Timezone</span>
-                            <b>{{ automationModal.timezone || '—' }}</b>
-                        </div>
+                    <div class="summary-row">
+                        <span>Assigned</span>
+                        <b>{{ assignedCount }}</b>
+                    </div>
+                    <div class="summary-row">
+                        <span>Timezone</span>
+                        <b>{{ automationModal.timezone || '—' }}</b>
+                    </div>
+                    <div class="summary-row">
+                        <span>Store</span>
+                        <b>{{ automationModal.store || '—' }}</b>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Footer -->
-        <div class="auto-foot">
-            <Button label="Close" severity="secondary" class="p-button-sm" @click="automationModal.visible = false" />
-        </div>
-    </Dialog>
+    <!-- Footer -->
+    <div class="auto-foot">
+        <Button
+            label="Close"
+            severity="secondary"
+            class="p-button-sm"
+            @click="automationModal.visible = false"
+        />
+    </div>
+</Dialog>
 </template>
 
 <script>
