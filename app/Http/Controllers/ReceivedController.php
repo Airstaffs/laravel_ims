@@ -14,39 +14,38 @@ class ReceivedController extends BasetablesController
 {
     use TracksHistory;
 
+    public function index(Request $request)
+    {
+        $perPage = $request->input('per_page', 10);
+        $search = $request->input('search', '');
+        $location = $request->input('location', 'Received');
 
-public function index(Request $request)
-{
-    $perPage  = $request->input('per_page', 10);
-    $search   = $request->input('search', '');
-    $location = $request->input('location', 'Received');
+        $products = DB::table($this->productTable.' as prod')
+            // ✅ Join eBay images table
+            ->leftJoin('tblEbayOrderImages as ebayimgs', 'prod.ProductID', '=', 'ebayimgs.ProductID')
+            ->select([
+                'prod.*',
+                // ✅ Pull images from tblEbayOrderImages (overrides prod.* img columns)
+                'ebayimgs.img1',  'ebayimgs.img2',  'ebayimgs.img3',
+                'ebayimgs.img4',  'ebayimgs.img5',  'ebayimgs.img6',
+                'ebayimgs.img7',  'ebayimgs.img8',  'ebayimgs.img9',
+                'ebayimgs.img10', 'ebayimgs.img11', 'ebayimgs.img12',
+                'ebayimgs.img13', 'ebayimgs.img14', 'ebayimgs.img15',
+            ])
+            ->where('prod.ProductModuleLoc', $location)
+            ->when($search, function ($query) use ($search) {
+                return $query->where(function ($q) use ($search) {
+                    $q->where('prod.ProductTitle', 'like', "%{$search}%")
+                        ->orWhere('prod.rtid', 'like', "%{$search}%")
+                        ->orWhere('prod.itemnumber', 'like', "%{$search}%")
+                        ->orWhere('prod.rtcounter', 'like', "%{$search}%")
+                        ->orWhere('prod.trackingnumber', 'like', '%'.substr($search, -12).'%');
+                });
+            })
+            ->paginate($perPage);
 
-    $products = DB::table($this->productTable.' as prod')
-        // ✅ Join eBay images table
-        ->leftJoin('tblEbayOrderImages as ebayimgs', 'prod.ProductID', '=', 'ebayimgs.ProductID')
-        ->select([
-            'prod.*',
-            // ✅ Pull images from tblEbayOrderImages (overrides prod.* img columns)
-            'ebayimgs.img1',  'ebayimgs.img2',  'ebayimgs.img3',
-            'ebayimgs.img4',  'ebayimgs.img5',  'ebayimgs.img6',
-            'ebayimgs.img7',  'ebayimgs.img8',  'ebayimgs.img9',
-            'ebayimgs.img10', 'ebayimgs.img11', 'ebayimgs.img12',
-            'ebayimgs.img13', 'ebayimgs.img14', 'ebayimgs.img15',
-        ])
-        ->where('prod.ProductModuleLoc', $location)
-        ->when($search, function ($query) use ($search) {
-            return $query->where(function ($q) use ($search) {
-                $q->where('prod.ProductTitle',    'like', "%{$search}%")
-                  ->orWhere('prod.rtid',          'like', "%{$search}%")
-                  ->orWhere('prod.itemnumber',    'like', "%{$search}%")
-                  ->orWhere('prod.rtcounter',     'like', "%{$search}%")
-                  ->orWhere('prod.trackingnumber','like', '%'.substr($search, -12).'%');
-            });
-        })
-        ->paginate($perPage);
-
-    return response()->json($products);
-}
+        return response()->json($products);
+    }
 
     public function verifyTracking(Request $request)
     {
@@ -68,15 +67,15 @@ public function index(Request $request)
 
             // 🔥 Build productDetails same as Received
             $imageFields = [
-                'img1','img2','img3','img4','img5',
-                'img6','img7','img8','img9','img10',
-                'img11','img12','img13','img14','img15',
+                'img1', 'img2', 'img3', 'img4', 'img5',
+                'img6', 'img7', 'img8', 'img9', 'img10',
+                'img11', 'img12', 'img13', 'img14', 'img15',
             ];
 
             $productDetails = new \stdClass;
 
             foreach ($imageFields as $field) {
-                if (property_exists($recon, $field) && !empty($recon->$field)) {
+                if (property_exists($recon, $field) && ! empty($recon->$field)) {
                     $productDetails->$field = $recon->$field;
                 }
             }
@@ -96,7 +95,6 @@ public function index(Request $request)
 
             // 🔥 Total batch quantity
             $totalQuantity = $reconCount + $receivedQty;
-
 
             return response()->json([
                 'found' => true,
@@ -125,7 +123,7 @@ public function index(Request $request)
 
         // 3️⃣ Check processed modules
         $processedProduct = DB::table($this->productTable)
-            ->where('trackingnumber', 'like', '%' . $last12Digits . '%')
+            ->where('trackingnumber', 'like', '%'.$last12Digits.'%')
             ->whereIn('ProductModuleLoc', ['Labeling', 'Validation'])
             ->orderByDesc('lastDateUpdate')
             ->first();
@@ -137,15 +135,15 @@ public function index(Request $request)
             $trackingImages = $this->getTrackingImagesByTrackingNumber($processedProduct->trackingnumber);
 
             $imageFields = [
-                'img1','img2','img3','img4','img5',
-                'img6','img7','img8','img9','img10',
-                'img11','img12','img13','img14','img15',
+                'img1', 'img2', 'img3', 'img4', 'img5',
+                'img6', 'img7', 'img8', 'img9', 'img10',
+                'img11', 'img12', 'img13', 'img14', 'img15',
             ];
 
             $productDetails = new \stdClass;
 
             foreach ($imageFields as $field) {
-                if (property_exists($receivedProduct, $field) && !empty($receivedProduct->$field)) {
+                if (property_exists($receivedProduct, $field) && ! empty($receivedProduct->$field)) {
                     $productDetails->$field = $receivedProduct->$field;
                 }
             }
@@ -174,15 +172,15 @@ public function index(Request $request)
             );
 
             $imageFields = [
-                'img1','img2','img3','img4','img5',
-                'img6','img7','img8','img9','img10',
-                'img11','img12','img13','img14','img15',
+                'img1', 'img2', 'img3', 'img4', 'img5',
+                'img6', 'img7', 'img8', 'img9', 'img10',
+                'img11', 'img12', 'img13', 'img14', 'img15',
             ];
 
             $productDetails = new \stdClass;
 
             foreach ($imageFields as $field) {
-                if (property_exists($receivedProduct, $field) && !empty($receivedProduct->$field)) {
+                if (property_exists($receivedProduct, $field) && ! empty($receivedProduct->$field)) {
                     $productDetails->$field = $receivedProduct->$field;
                 }
             }
@@ -223,7 +221,7 @@ public function index(Request $request)
         // 6️⃣ Not Found
         // -------------------------------------------------
         return response()->json([
-            'found' => false
+            'found' => false,
         ]);
     }
 
@@ -231,26 +229,26 @@ public function index(Request $request)
     {
         $serial = trim($request->input('serial'));
 
-        if (!$serial) {
+        if (! $serial) {
             return response()->json([
                 'valid' => false,
-                'message' => 'Serial is required.'
+                'message' => 'Serial is required.',
             ], 400);
         }
 
         $exists = DB::table($this->productTable)
             ->where(function ($q) use ($serial) {
                 $q->where('serialnumber', $serial)
-                ->orWhere('serialnumberb', $serial)
-                ->orWhere('serialnumberc', $serial)
-                ->orWhere('serialnumberd', $serial)
-                ->orWhere('serialnumbere', $serial);
+                    ->orWhere('serialnumberb', $serial)
+                    ->orWhere('serialnumberc', $serial)
+                    ->orWhere('serialnumberd', $serial)
+                    ->orWhere('serialnumbere', $serial);
             })
             ->exists();
 
         return response()->json([
-            'valid' => !$exists,
-            'alreadyUsed' => $exists
+            'valid' => ! $exists,
+            'alreadyUsed' => $exists,
         ]);
     }
 
@@ -268,16 +266,16 @@ public function index(Request $request)
             ->where("{$this->productTable}.trackingnumber", 'like', "%{$last12Digits}%")
             ->where(function ($q) {
                 $q->whereNotNull('trackingimg1')
-                ->orWhereNotNull('trackingimg2');
+                    ->orWhereNotNull('trackingimg2');
             })
             ->orderByDesc("{$this->capturedImagesTable}.UpdatedAt")
             ->first();
 
-        if (!$record) {
+        if (! $record) {
             return [
                 'hasTrackingImage' => false,
                 'requireTrackingImage' => true,
-                'trackingImages' => []
+                'trackingImages' => [],
             ];
         }
 
@@ -287,7 +285,7 @@ public function index(Request $request)
             'trackingImages' => [
                 'trackingimg1' => $record->trackingimg1,
                 'trackingimg2' => $record->trackingimg2,
-            ]
+            ],
         ];
     }
 
@@ -303,16 +301,17 @@ public function index(Request $request)
                 '=',
                 "{$this->capturedImagesTable}.ProductID"
             )
-            ->where("{$this->productTable}.trackingnumber", 'like', '%' . $last12Digits . '%')
+            ->where("{$this->productTable}.trackingnumber", 'like', '%'.$last12Digits.'%')
             ->whereNotNull("{$this->capturedImagesTable}.trackingimg1")
             ->orderByDesc("{$this->capturedImagesTable}.UpdatedAt")
             ->first();
 
-        if (!$source) {
+        if (! $source) {
             Log::warning('No tracking images found to copy', [
                 'tracking' => $trackingNumber,
-                'targetProductId' => $targetProductId
+                'targetProductId' => $targetProductId,
             ]);
+
             return;
         }
 
@@ -322,8 +321,8 @@ public function index(Request $request)
             [
                 'trackingimg1' => $source->trackingimg1,
                 'trackingimg2' => $source->trackingimg2,
-                'UpdatedAt'    => now(),
-                'CreatedAt'    => now(),
+                'UpdatedAt' => now(),
+                'CreatedAt' => now(),
             ]
         );
 
@@ -340,7 +339,7 @@ public function index(Request $request)
             ->where('ProductID', $productId)
             ->first();
 
-        if (!$record) {
+        if (! $record) {
             return [];
         }
 
@@ -405,111 +404,110 @@ public function index(Request $request)
 
             if ($request->status === 'fail') {
 
-                    $updateData = [
-                        'ProductModuleLoc' => 'RTS',
-                        'PCN' => $request->pcnNumber,
-                        'basketnumber' => $request->basketNumber,
-                        'Username' => $user,
-                    ];
+                $updateData = [
+                    'ProductModuleLoc' => 'RTS',
+                    'PCN' => $request->pcnNumber,
+                    'basketnumber' => $request->basketNumber,
+                    'Username' => $user,
+                ];
 
-                    // Update product status for failed item
-                    $updateResult = DB::table($this->productTable)
-                        ->where('ProductID', $request->productId)
-                        ->update($updateData);
+                // Update product status for failed item
+                $updateResult = DB::table($this->productTable)
+                    ->where('ProductID', $request->productId)
+                    ->update($updateData);
 
-                    // ✅ AUTO INSERT INTO tblrts
-                    $rtsTableName = $this->company . 'tblrts';
+                // ✅ AUTO INSERT INTO tblrts
+                $rtsTableName = $this->company.'tblrts';
 
-                    // Create table if it doesn't exist (reuse your existing schema)
-                    if (!Schema::hasTable($rtsTableName)) {
-                        Schema::create($rtsTableName, function ($table) {
-                            $table->id('rts_id');
-                            $table->string('rtcounter', 50)->index();
-                            $table->unsignedBigInteger('ProductID')->index();
-                            $table->string('FNSKU', 100)->nullable();
-                            $table->string('serialnumber', 100)->nullable();
-                            $table->date('filed_date');
-                            $table->boolean('filed_in_es')->default(false);
-                            $table->boolean('filed_in_ppl')->default(false);
-                            $table->enum('test_result', ['Passed', 'Failed']);
-                            $table->enum('status', ['RTS', 'Dismantle']);
-                            $table->enum('rts_result', ['PRNR', 'FRNR', 'LST', 'Replacement', 'Ship-Back'])->nullable();
-                            $table->decimal('refund_amount', 10, 2)->nullable();
-                            $table->date('refund_date')->nullable();
-                            $table->text('reason_of_return')->nullable();
-                            $table->string('return_tn', 255)->nullable();
-                            $table->text('notes')->nullable();
-                            $table->string('created_by', 100)->nullable();
-                            $table->string('updated_by', 100)->nullable();
-                            $table->timestamps();
-                            $table->unique(['rtcounter', 'ProductID'], 'unique_rt_product');
-                        });
-                    }
+                // Create table if it doesn't exist (reuse your existing schema)
+                if (! Schema::hasTable($rtsTableName)) {
+                    Schema::create($rtsTableName, function ($table) {
+                        $table->id('rts_id');
+                        $table->string('rtcounter', 50)->index();
+                        $table->unsignedBigInteger('ProductID')->index();
+                        $table->string('FNSKU', 100)->nullable();
+                        $table->string('serialnumber', 100)->nullable();
+                        $table->date('filed_date');
+                        $table->boolean('filed_in_es')->default(false);
+                        $table->boolean('filed_in_ppl')->default(false);
+                        $table->enum('test_result', ['Passed', 'Failed']);
+                        $table->enum('status', ['RTS', 'Dismantle']);
+                        $table->enum('rts_result', ['PRNR', 'FRNR', 'LST', 'Replacement', 'Ship-Back'])->nullable();
+                        $table->decimal('refund_amount', 10, 2)->nullable();
+                        $table->date('refund_date')->nullable();
+                        $table->text('reason_of_return')->nullable();
+                        $table->string('return_tn', 255)->nullable();
+                        $table->text('notes')->nullable();
+                        $table->string('created_by', 100)->nullable();
+                        $table->string('updated_by', 100)->nullable();
+                        $table->timestamps();
+                        $table->unique(['rtcounter', 'ProductID'], 'unique_rt_product');
+                    });
+                }
 
-                    // Get the product for FNSKU
-                    $product = DB::table($this->productTable)
-                        ->where('ProductID', $request->productId)
-                        ->first();
+                // Get the product for FNSKU
+                $product = DB::table($this->productTable)
+                    ->where('ProductID', $request->productId)
+                    ->first();
 
-                    $fnsku = $product->FNSKUviewer ?? $product->FNSKU ?? 'N/A';
+                $fnsku = $product->FNSKUviewer ?? $product->FNSKU ?? 'N/A';
 
-                    if (Schema::hasTable($rtsTableName)) {
-                        DB::statement("ALTER TABLE `{$rtsTableName}` MODIFY `rts_result` ENUM('PRNR','FRNR','LST','Replacement','Ship-Back') NULL DEFAULT NULL");
-                    }
+                if (Schema::hasTable($rtsTableName)) {
+                    DB::statement("ALTER TABLE `{$rtsTableName}` MODIFY `rts_result` ENUM('PRNR','FRNR','LST','Replacement','Ship-Back') NULL DEFAULT NULL");
+                }
 
+                // ✅ Insert RTS record — only if not already exists
+                $alreadyExists = DB::table($rtsTableName)
+                    ->where('rtcounter', $request->rtcounter)
+                    ->where('ProductID', $request->productId)
+                    ->exists();
 
-                    // ✅ Insert RTS record — only if not already exists
-                    $alreadyExists = DB::table($rtsTableName)
-                        ->where('rtcounter', $request->rtcounter)
-                        ->where('ProductID', $request->productId)
-                        ->exists();
-
-                    if (!$alreadyExists) {
-                        DB::table($rtsTableName)->insert([
-                            'rtcounter'       => (string) $request->rtcounter,
-                            'ProductID'       => $request->productId,
-                            'FNSKU'           => $fnsku,
-                            'serialnumber'    => $product->serialnumber ?? null,
-                            'filed_date'      => now()->toDateString(),
-                            'filed_in_es'     => false,
-                            'filed_in_ppl'    => false,
-                            'test_result'     => 'Failed',
-                            'status'          => 'RTS',
-                            'rts_result'      => null, // operator fills this later
-                            'refund_amount'   => null,
-                            'refund_date'     => null,
-                            'reason_of_return'=> null,
-                            'return_tn'       => null,
-                            'notes'           => 'Auto-inserted from Received module (Failed scan)',
-                            'created_by'      => $user,
-                            'created_at'      => now(),
-                            'updated_at'      => now(),
-                        ]);
-
-                        Log::info('Auto-inserted RTS record from Received fail', [
-                            'rtcounter'  => $request->rtcounter,
-                            'ProductID'  => $request->productId,
-                            'FNSKU'      => $fnsku,
-                            'created_by' => $user,
-                        ]);
-                    }
-
-                    // Track history
-                    $this->trackLocationChange(
-                        'Received',
-                        "RT#{$request->rtcounter} | Tracking: {$fullTrackingNumber}",
-                        'Received',
-                        'RTS (Failed)',
-                        $employeeName
-                    );
-
-                    DB::commit();
-
-                    return response()->json([
-                        'success' => true,
-                        'item' => $request->trackingNumber . ' marked as failed',
-                        'playsound' => 1,
+                if (! $alreadyExists) {
+                    DB::table($rtsTableName)->insert([
+                        'rtcounter' => (string) $request->rtcounter,
+                        'ProductID' => $request->productId,
+                        'FNSKU' => $fnsku,
+                        'serialnumber' => $product->serialnumber ?? null,
+                        'filed_date' => now()->toDateString(),
+                        'filed_in_es' => false,
+                        'filed_in_ppl' => false,
+                        'test_result' => 'Failed',
+                        'status' => 'RTS',
+                        'rts_result' => null, // operator fills this later
+                        'refund_amount' => null,
+                        'refund_date' => null,
+                        'reason_of_return' => null,
+                        'return_tn' => null,
+                        'notes' => 'Auto-inserted from Received module (Failed scan)',
+                        'created_by' => $user,
+                        'created_at' => now(),
+                        'updated_at' => now(),
                     ]);
+
+                    Log::info('Auto-inserted RTS record from Received fail', [
+                        'rtcounter' => $request->rtcounter,
+                        'ProductID' => $request->productId,
+                        'FNSKU' => $fnsku,
+                        'created_by' => $user,
+                    ]);
+                }
+
+                // Track history
+                $this->trackLocationChange(
+                    'Received',
+                    "RT#{$request->rtcounter} | Tracking: {$fullTrackingNumber}",
+                    'Received',
+                    'RTS (Failed)',
+                    $employeeName
+                );
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'item' => $request->trackingNumber.' marked as failed',
+                    'playsound' => 1,
+                ]);
 
             } else {
 
@@ -546,12 +544,11 @@ public function index(Request $request)
                     'serialnumbere' => null,
                 ];
 
-
             DB::beginTransaction();
             // -----------------------------------------------------
             // 🔥 HANDLE RECONCILIATION DIRECT TO LABELING
             // -----------------------------------------------------
-            if (!$request->productId) {
+            if (! $request->productId) {
 
                 $reconItem = DB::table('tblreconciliation')
                     ->where('trackingnumber', 'like', "%{$last12Digits}%")
@@ -559,7 +556,7 @@ public function index(Request $request)
                     ->lockForUpdate()
                     ->first();
 
-                if (!$reconItem) {
+                if (! $reconItem) {
                     throw new \Exception('Reconciliation item not found');
                 }
 
@@ -582,10 +579,10 @@ public function index(Request $request)
 
                 // Directly process into Labeling
                 $data = array_merge($data, $serialCols);
-                $data['PCN']            = $request->pcnNumber;
-                $data['basketnumber']   = $request->basketNumber;
+                $data['PCN'] = $request->pcnNumber;
+                $data['basketnumber'] = $request->basketNumber;
                 $data['ProductModuleLoc'] = 'Labeling';
-                $data['Username']       = $user;
+                $data['Username'] = $user;
                 $data['lastDateUpdate'] = now();
 
                 $newProductId = DB::table($this->productTable)
@@ -608,7 +605,6 @@ public function index(Request $request)
                     'source' => 'Reconciliation',
                 ]);
             }
-
 
             // ðŸ”¥ ADD: Store full tracking number
             $fullTrackingNumber = $request->trackingNumber;
@@ -680,11 +676,9 @@ public function index(Request $request)
                 $newItemData['Username'] = $user;
                 $newItemData['lastDateUpdate'] = now();
 
-
                 // Filter out null values
                 $newProductId = DB::table($this->productTable)
-                ->insertGetId($newItemData);
-
+                    ->insertGetId($newItemData);
 
                 if (! $newProductId) {
                     throw new \Exception("Failed to create new item with RT: $newRt");
@@ -714,13 +708,12 @@ public function index(Request $request)
                 );
 
                 DB::table($this->productTable)
-                ->where('ProductID', $request->productId)
-                ->delete();
-
+                    ->where('ProductID', $request->productId)
+                    ->delete();
 
                 // ðŸ”¥ UPDATED: Track history for split with full tracking and employee
                 $totalUnitPrice = $unitPrice + $unitPriceShipping + $unitTax;
-    
+
                 $this->trackHistory(
                     'Received',
                     'Split to Reconciliation',
@@ -787,13 +780,13 @@ public function index(Request $request)
                         'playsound' => 1,
                     ]);
                 } else {
-                                        
+
                     // Set designated module location for the product
                     $materialTypeMap = [
-                        'Inventory'       => 'Labeling',
-                        'Supplies'        => 'Supplies',
-                        'Components'      => 'Components',
-                        'Office Equipment'=> 'Office Equipment',
+                        'Inventory' => 'Labeling',
+                        'Supplies' => 'Supplies',
+                        'Components' => 'Components',
+                        'Office Equipment' => 'Office Equipment',
                     ];
 
                     $moduleLocation = $materialTypeMap[$originalProduct->materialtype] ?? null;
@@ -828,7 +821,6 @@ public function index(Request $request)
                         $moduleLocation,
                         $employeeName
                     );
-
 
                     DB::commit();
                     Log::info('Transaction committed successfully');
@@ -867,68 +859,203 @@ public function index(Request $request)
     }
 
     private function moveRemainingToReconciliation(
-            object $originalProduct,
-            int $remainingQty,
-            float $unitPrice,
-            float $unitShipping,
-            float $unitTax,
-            string $username,
-            int $splitFromRt
-        ) : int {
+        object $originalProduct,
+        int $remainingQty,
+        float $unitPrice,
+        float $unitShipping,
+        float $unitTax,
+        string $username,
+        int $splitFromRt
+    ): int {
 
-            if ($remainingQty <= 0) {
-                return 0;
+        if ($remainingQty <= 0) {
+            return 0;
+        }
+
+        // 🔥 Copy FULL product row
+        $baseData = (array) $originalProduct;
+
+        // ❌ Remove primary key
+        unset($baseData['ProductID']);
+        // ❌ Clear serials when moving remaining units
+        $baseData['serialnumber'] = null;
+        $baseData['serialnumberb'] = null;
+        $baseData['serialnumberc'] = null;
+        $baseData['serialnumberd'] = null;
+        $baseData['serialnumbere'] = null;
+
+        // ✅ Override ONLY what must change
+        $baseData['quantity'] = 1;
+        $baseData['price'] = $unitPrice;
+        $baseData['priceshipping'] = $unitShipping;
+        $baseData['tax'] = $unitTax;
+        $baseData['ProductModuleLoc'] = 'Reconciliation';
+        $baseData['Username'] = $username;
+        $baseData['lastDateUpdate'] = now();
+
+        // (Optional but logical)
+        $baseData['splitfromRT'] = $splitFromRt;
+
+        $inserted = 0;
+
+        for ($i = 0; $i < $remainingQty; $i++) {
+            DB::table('tblreconciliation')->insert($baseData);
+            $inserted++;
+        }
+
+        return $inserted;
+    }
+
+    private function mapSerials(array $serialNumbers): array
+    {
+        // keep only non-empty strings
+        $serials = array_values(array_filter($serialNumbers, function ($s) {
+            return is_string($s) && trim($s) !== '';
+        }));
+
+        // pad to 5
+        $serials = array_pad($serials, 5, null);
+
+        return [
+            'serialnumber' => $serials[0],
+            'serialnumberb' => $serials[1],
+            'serialnumberc' => $serials[2],
+            'serialnumberd' => $serials[3],
+            'serialnumbere' => $serials[4],
+        ];
+    }
+
+    public function recordChecklist(Request $request)
+    {
+        Log::info('recordChecklist payload:', $request->all());
+
+        try {
+            $request->validate([
+                'trackingNumber' => 'required|string',
+                'serialNumbers' => 'required|array|min:1|max:5',
+                'serialNumbers.0' => ['nullable', 'regex:/^[A-Z0-9]+$/i'],
+                'serialNumbers.1' => ['nullable', 'regex:/^[A-Z0-9]+$/i'],
+                'serialNumbers.2' => ['nullable', 'regex:/^[A-Z0-9]+$/i'],
+                'serialNumbers.3' => ['nullable', 'regex:/^[A-Z0-9]+$/i'],
+                'serialNumbers.4' => ['nullable', 'regex:/^[A-Z0-9]+$/i'],
+                'passFailResult' => 'required|in:pass,fail',
+                'correctOnOrder' => 'required|in:yes,no',
+                'condition' => 'required|in:good,damaged,defective,incomplete',
+                'conditionNotes' => [
+                    'nullable',
+                    'string',
+                    'max:1000',
+                    // required when condition is not good
+                    function ($attribute, $value, $fail) use ($request) {
+                        if ($request->condition !== 'good' && empty(trim($value ?? ''))) {
+                            $fail('Condition notes are required when condition is not Good.');
+                        }
+                    },
+                ],
+                'productId' => 'nullable|integer',
+                'rtcounter' => 'required',
+            ]);
+
+            $user = $this->getCurrentUserName();
+            $last12Digits = substr($request->trackingNumber, -12);
+            $primarySerial = trim($request->serialNumbers[0] ?? '');
+
+            $tableName = 'tblreceivedchecklist';
+
+            // ── Auto-create table if missing ──────────────────────────
+            if (! Schema::hasTable($tableName)) {
+                Schema::create($tableName, function ($table) {
+                    $table->id('checklist_id');
+                    $table->string('rtcounter', 50)->index();
+                    $table->unsignedBigInteger('ProductID')->nullable()->index();
+                    $table->string('trackingnumber', 255)->index();
+                    $table->string('serialnumber', 100)->nullable();
+                    $table->string('serialnumberb', 100)->nullable();
+                    $table->string('serialnumberc', 100)->nullable();
+                    $table->string('serialnumberd', 100)->nullable();
+                    $table->string('serialnumbere', 100)->nullable();
+                    $table->date('date_received');
+                    $table->enum('pass_fail_result', ['pass', 'fail']);
+                    $table->enum('correct_on_order', ['yes', 'no']);
+                    $table->enum('condition_on_arrival', ['good', 'damaged', 'defective', 'incomplete']);
+                    $table->text('condition_notes')->nullable();
+                    $table->string('received_by', 100);
+                    $table->timestamps();
+                });
+
+                Log::info("Created table: {$tableName}");
             }
 
-            // 🔥 Copy FULL product row
-            $baseData = (array) $originalProduct;
+            $serialCols = $this->mapSerials($request->input('serialNumbers', []));
 
-            // ❌ Remove primary key
-            unset($baseData['ProductID']);
-            // ❌ Clear serials when moving remaining units
-            $baseData['serialnumber']  = null;
-            $baseData['serialnumberb'] = null;
-            $baseData['serialnumberc'] = null;
-            $baseData['serialnumberd'] = null;
-            $baseData['serialnumbere'] = null;
+            $checklistData = array_merge([
+                'rtcounter' => (string) $request->rtcounter,
+                'ProductID' => $request->productId,
+                'trackingnumber' => $request->trackingNumber,
+                'date_received' => now()->toDateString(),
+                'pass_fail_result' => $request->passFailResult,
+                'correct_on_order' => $request->correctOnOrder,
+                'condition_on_arrival' => $request->condition,
+                'condition_notes' => $request->condition !== 'good'
+                                            ? trim($request->conditionNotes ?? '')
+                                            : null,
+                'received_by' => $user,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ], $serialCols);
 
-            // ✅ Override ONLY what must change
-            $baseData['quantity'] = 1;
-            $baseData['price'] = $unitPrice;
-            $baseData['priceshipping'] = $unitShipping;
-            $baseData['tax'] = $unitTax;
-            $baseData['ProductModuleLoc'] = 'Reconciliation';
-            $baseData['Username'] = $username;
-            $baseData['lastDateUpdate'] = now();
+            // ── Upsert: one checklist row per rtcounter + ProductID ──
+            $existing = DB::table($tableName)
+                ->where('rtcounter', $request->rtcounter)
+                ->when($request->productId, fn ($q) => $q->where('ProductID', $request->productId))
+                ->first();
 
-            // (Optional but logical)
-            $baseData['splitfromRT'] = $splitFromRt;
+            if ($existing) {
+                DB::table($tableName)
+                    ->where('checklist_id', $existing->checklist_id)
+                    ->update(array_merge($checklistData, ['updated_at' => now()]));
 
-            $inserted = 0;
-
-            for ($i = 0; $i < $remainingQty; $i++) {
-                DB::table('tblreconciliation')->insert($baseData);
-                $inserted++;
+                $checklistId = $existing->checklist_id;
+                $action = 'updated';
+            } else {
+                $checklistId = DB::table($tableName)->insertGetId($checklistData);
+                $action = 'created';
             }
 
-            return $inserted;
-        }
-        private function mapSerials(array $serialNumbers): array
-        {
-            // keep only non-empty strings
-            $serials = array_values(array_filter($serialNumbers, function ($s) {
-                return is_string($s) && trim($s) !== '';
-            }));
+            Log::info("Checklist record {$action}", [
+                'checklist_id' => $checklistId,
+                'rtcounter' => $request->rtcounter,
+                'ProductID' => $request->productId,
+                'pass_fail' => $request->passFailResult,
+                'condition' => $request->condition,
+                'received_by' => $user,
+            ]);
 
-            // pad to 5
-            $serials = array_pad($serials, 5, null);
+            return response()->json([
+                'success' => true,
+                'checklist_id' => $checklistId,
+                'action' => $action,
+                'message' => "Checklist {$action} successfully.",
+            ]);
 
-            return [
-                'serialnumber'  => $serials[0],
-                'serialnumberb' => $serials[1],
-                'serialnumberc' => $serials[2],
-                'serialnumberd' => $serials[3],
-                'serialnumbere' => $serials[4],
-            ];
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Checklist validation error:', ['errors' => $e->errors()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error: '.json_encode($e->errors()),
+                'errors' => $e->errors(),
+                'reason' => 'validation_error',
+            ], 422);
+
+        } catch (\Exception $e) {
+            $this->logError('Error recording checklist', $e, $request->all());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error recording checklist: '.$e->getMessage(),
+                'reason' => 'server_error',
+            ], 500);
         }
+    }
 }

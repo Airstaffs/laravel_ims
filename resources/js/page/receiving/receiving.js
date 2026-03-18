@@ -104,6 +104,13 @@ export default {
             perPage: 10,
             totalRecords: 0,
             first: 0,
+
+            passFailResult: null,
+            checklist: {
+                correctOnOrder: "yes",
+                condition: "good",
+                conditionNotes: "",
+            },
         };
     },
     computed: {
@@ -274,6 +281,15 @@ export default {
 
         hasTrackingImage() {
             return this.$refs.scanner?.capturedImages?.length > 0;
+        },
+
+        checklistComplete() {
+            const c = this.checklist;
+            return (
+                c.correctOnOrder !== null &&
+                c.condition !== null &&
+                (c.condition === "good" || c.conditionNotes.trim() !== "")
+            );
         },
     },
     methods: {
@@ -651,67 +667,56 @@ export default {
         },
 
         passItem() {
-            // 🚫 HARD BLOCK: Require at least 1 captured image
             if (!this.$refs.scanner?.capturedImages?.length) {
                 this.$refs.scanner?.showScanWarning(
                     "⚠️ Please capture at least one image before passing.",
                 );
                 return;
             }
-
-            // ✅ Existing logic (unchanged)
             this.status = "pass";
+            this.passFailResult = "pass";
             this.currentStep = 3;
             SoundService.success();
-
-            this.$nextTick(() => {
-                if (this.$refs.firstSerialInput) {
-                    this.$refs.firstSerialInput.focus();
-                }
-            });
         },
 
         failItem() {
-            // 🚫 HARD BLOCK: Require at least 1 captured image
             if (!this.$refs.scanner?.capturedImages?.length) {
                 this.$refs.scanner?.showScanWarning(
                     "⚠️ Please capture at least one image before failing.",
                 );
                 return;
             }
-
-            // ✅ Existing logic (unchanged)
             this.status = "fail";
-
+            this.passFailResult = "fail";
+            this.checklist.correctOnOrder = "no";
             this.$refs.scanner.showScanSuccess(
                 "Item marked for failure - capture images if needed",
             );
             SoundService.error(true);
+            this.currentStep = 3;
+        },
 
-            this.currentStep = 8;
-
-            this.$nextTick(() => {
-                if (this.$refs.pcnInput) {
-                    this.$refs.pcnInput.focus();
-                }
-            });
+        proceedFromChecklist() {
+            if (this.status === "fail") {
+                this.currentStep = 9;
+                this.$nextTick(() => this.$refs.pcnInput?.focus());
+            } else {
+                this.currentStep = 4;
+                this.$nextTick(() => this.$refs.serialInput1?.focus());
+            }
         },
 
         async processSerial() {
             const isManual = this.$refs.scanner?.showManualInput;
-
-            if (isManual && !this._manualTrigger) {
-                return;
-            }
+            if (isManual && !this._manualTrigger) return;
 
             const step = this.currentStep;
-            if (step < 3 || step > 7) return;
+            if (step < 4 || step > 8) return;
 
-            const idx = step - 3; // 0..4
+            const idx = step - 4;
             const serial = (this.serialNumbers[idx] || "").trim();
 
-            // ✅ Serial #1 required (step 3)
-            if (step === 3 && !serial) {
+            if (step === 4 && !serial) {
                 this.$refs.scanner.showScanError(
                     "First serial number is required.",
                 );
@@ -719,8 +724,7 @@ export default {
                 return;
             }
 
-            // ✅ Optional serials: if empty, force user to press Skip
-            if (step >= 4 && !serial) {
+            if (step >= 5 && !serial) {
                 this.$refs.scanner.showScanWarning(
                     "Enter a serial number or press Skip.",
                 );
@@ -728,7 +732,6 @@ export default {
                 return;
             }
 
-            // ✅ Validate serial format
             if (this.isInvalidSerial(serial)) {
                 this.$refs.scanner.showScanError(
                     "Please enter a valid serial number",
@@ -745,7 +748,6 @@ export default {
                 return;
             }
 
-            // 🔥 Prevent duplicate serial inside current scan
             const duplicateLocal = this.serialNumbers
                 .filter((s, i) => i !== idx)
                 .some((s) => (s || "").trim() === serial);
@@ -759,7 +761,6 @@ export default {
                 return;
             }
 
-            // ✅ Require image for THIS serial step before saving
             const hasImage = (this.$refs.scanner?.capturedImages || []).some(
                 (img) => Number(img.step) === Number(step),
             );
@@ -773,18 +774,13 @@ export default {
                 return;
             }
 
-            // 🔥 Serial uniqueness verification via API
             try {
                 const csrfToken = document.querySelector(
                     'meta[name="csrf-token"]',
                 ).content;
-
                 const response = await axios.post(
                     `${API_BASE_URL}/api/received/validate-serial`,
-                    {
-                        serial: serial,
-                        productId: this.productId,
-                    },
+                    { serial, productId: this.productId },
                     {
                         headers: {
                             "X-CSRF-TOKEN": csrfToken,
@@ -794,9 +790,7 @@ export default {
                 );
 
                 if (!response.data.valid) {
-                    // ─── SWAL duplicate serial prompt ───────────────────────────
                     SoundService.error();
-
                     const existingInfo = response.data.existingRecord
                         ? `<div class="swal-detail-block">
                     <p><strong>RT#:</strong> ${response.data.existingRecord.rtcounter ?? "—"}</p>
@@ -808,24 +802,19 @@ export default {
                     const result = await Swal.fire({
                         icon: "warning",
                         title: "Duplicate Serial Detected",
-                        html: `
-                    <p>Serial <strong>${serial}</strong> already exists in the system.</p>
-                    ${existingInfo}
-                    <p class="mt-2 text-muted">Do you want to use it anyway?</p>
-                `,
+                        html: `<p>Serial <strong>${serial}</strong> already exists in the system.</p>
+                       ${existingInfo}
+                       <p class="mt-2 text-muted">Do you want to use it anyway?</p>`,
                         showCancelButton: true,
                         confirmButtonText: "Yes, use it",
                         cancelButtonText: "No, re-scan",
-                        confirmButtonColor: "#f59e0b", // amber — intentional override
+                        confirmButtonColor: "#f59e0b",
                         cancelButtonColor: "#6b7280",
                         reverseButtons: true,
-                        customClass: {
-                            popup: "swal-scanner-popup",
-                        },
+                        customClass: { popup: "swal-scanner-popup" },
                     });
 
                     if (!result.isConfirmed) {
-                        // User chose to re-scan — clear field and refocus
                         this.serialNumbers[idx] = "";
                         this.$nextTick(() => {
                             const ref = `serialInput${idx + 1}`;
@@ -834,9 +823,6 @@ export default {
                         });
                         return;
                     }
-
-                    // User confirmed override — fall through to success path
-                    // ────────────────────────────────────────────────────────────
                 }
             } catch (error) {
                 this.$refs.scanner.showScanError(
@@ -846,25 +832,23 @@ export default {
                 return;
             }
 
-            // ✅ Success
             SoundService.success();
             this.$refs.scanner.showScanSuccess(
                 `Serial #${idx + 1} saved. Proceeding...`,
             );
 
-            // 🔒 Prevent double trigger
             if (this._serialDelayLock) return;
             this._serialDelayLock = true;
 
             setTimeout(() => {
-                if (step < 7) {
+                if (step < 8) {
                     this.currentStep = step + 1;
                     this.$nextTick(() => {
                         const nextRef = `serialInput${idx + 2}`;
                         this.$refs[nextRef]?.focus?.();
                     });
                 } else {
-                    this.currentStep = 8;
+                    this.currentStep = 9;
                     this.$nextTick(() => this.$refs.pcnInput?.focus?.());
                 }
                 this._serialDelayLock = false;
@@ -874,25 +858,22 @@ export default {
         skipSerialStep() {
             const step = this.currentStep;
 
-            // 🚫 Cannot skip first serial
-            if (step === 3) {
+            if (step === 4) {
                 this.$refs.scanner.showScanWarning(
                     "You cannot skip the first serial.",
                 );
                 return;
             }
 
-            if (step < 4 || step > 7) return;
+            if (step < 5 || step > 8) return;
 
-            const idx = step - 3;
+            const idx = step - 4;
 
             const serialValue = (this.serialNumbers[idx] || "").trim();
-
             const hasImage = (this.$refs.scanner?.capturedImages || []).some(
                 (img) => Number(img.step) === Number(step),
             );
 
-            // 🔥 NEW CONDITION
             if (hasImage && !serialValue) {
                 this.$refs.scanner.showScanWarning(
                     "You captured a serial image. Please scan the serial or delete the image before skipping.",
@@ -901,7 +882,6 @@ export default {
                 return;
             }
 
-            // 🔥 If serial exists but no image (rare case)
             if (serialValue && !hasImage) {
                 this.$refs.scanner.showScanWarning(
                     "Serial entered but no image captured. Please capture image first.",
@@ -910,37 +890,29 @@ export default {
                 return;
             }
 
-            // ✅ If safe to skip → clear remaining serials
             for (let i = idx; i < 5; i++) {
                 this.serialNumbers[i] = "";
             }
 
-            // Remove images from this step onward
             this.$refs.scanner.capturedImages =
                 this.$refs.scanner.capturedImages.filter(
                     (img) => img.step < step,
                 );
 
-            // Clear OCR results
-            for (let i = step; i <= 7; i++) {
+            for (let i = step; i <= 8; i++) {
                 if (this.apiResult?.[`step${i}`]) {
                     delete this.apiResult[`step${i}`];
                 }
             }
 
             this.serialCount = idx;
-
             this.$refs.scanner.showScanSuccess(
-                `Skipped remaining serials. Proceeding to PCN.`,
+                "Skipped remaining serials. Proceeding to PCN.",
             );
-
             SoundService.success();
 
-            this.currentStep = 8;
-
-            this.$nextTick(() => {
-                this.$refs.pcnInput?.focus?.();
-            });
+            this.currentStep = 9;
+            this.$nextTick(() => this.$refs.pcnInput?.focus?.());
         },
 
         goBackToSecondSerialChoice() {
@@ -1023,7 +995,7 @@ export default {
                 }
 
                 SoundService.success();
-                this.currentStep = 9;
+                this.currentStep = 10;
                 this.$nextTick(() => {
                     if (this.$refs.basketInput) {
                         this.$refs.basketInput.focus();
@@ -1067,6 +1039,7 @@ export default {
                 this.submitScanData();
             }
         },
+        
         async captureSerialImage() {
             if (this.$refs.scanner && this.$refs.scanner.captureFromScanner) {
                 try {
@@ -1129,6 +1102,36 @@ export default {
                 );
 
                 if (response.data.success) {
+                    try {
+                        await axios.post(
+                            `${API_BASE_URL}/api/received/record-checklist`,
+                            {
+                                trackingNumber: this.trackingNumber,
+                                serialNumbers: [null, null, null, null, null],
+                                passFailResult: "fail",
+                                correctOnOrder: this.checklist.correctOnOrder,
+                                condition: this.checklist.condition,
+                                conditionNotes:
+                                    this.checklist.conditionNotes ?? null,
+                                productId: this.productId,
+                                rtcounter: this.rtcounter,
+                            },
+                            {
+                                headers: {
+                                    "X-CSRF-TOKEN": csrfToken,
+                                    Accept: "application/json",
+                                },
+                            },
+                        );
+                        console.log("✅ Checklist recorded for failed item");
+                    } catch (checklistError) {
+                        // Non-blocking — scan flow continues even if checklist fails
+                        console.warn(
+                            "⚠️ Checklist record failed:",
+                            checklistError.response?.data,
+                        );
+                    }
+
                     // ✅ Upload captured images for the failed item
                     const capturedImages = this.getUploadableImages();
 
@@ -1176,7 +1179,7 @@ export default {
                                 );
                             } catch (imageError) {
                                 console.error(
-                                    `❌ Error uploading image for failed item`,
+                                    "❌ Error uploading image for failed item",
                                     imageError.response?.data ||
                                         imageError.message,
                                 );
@@ -1214,8 +1217,7 @@ export default {
                 console.error("Error submitting failed item:", error);
                 SoundService.scanRejected(true);
 
-                if (error.response && error.response.status === 422) {
-                    console.log("Validation errors:", error.response.data);
+                if (error.response?.status === 422) {
                     if (error.response.data.errors) {
                         const errorMessages = [];
                         Object.keys(error.response.data.errors).forEach(
@@ -1247,13 +1249,11 @@ export default {
 
                 this.$refs.scanner.startLoading("Processing Data...");
 
-                // ✅ CLEAN SERIALS (required for skip flow)
                 const cleanedSerials = (this.serialNumbers || [])
                     .map((s) => String(s || "").trim())
                     .filter(Boolean)
                     .slice(0, 5);
 
-                // ✅ BACKSTOP: serial #1 required
                 if (!cleanedSerials.length) {
                     this.$refs.scanner.showScanError(
                         "First serial number is required.",
@@ -1267,20 +1267,14 @@ export default {
                     _token: csrfToken,
                     trackingNumber: this.trackingNumber,
                     status: "pass",
-
-                    // ✅ FIXED
                     serialNumbers: cleanedSerials,
-
                     pcnNumber: this.pcnNumber,
                     basketNumber: this.basketNumber,
                     productId: this.productId,
                     rtcounter: this.rtcounter,
-
                     isRescan: this.isRescan,
                     trackingSource: this.trackingSource,
                 };
-
-                console.log("Submitting scan data (without images):", scanData);
 
                 const response = await axios.post(
                     `${API_BASE_URL}/api/received/process-scan`,
@@ -1297,73 +1291,81 @@ export default {
 
                 if (response.data.success) {
                     if (response.data.newProductId) {
-                        this.productId = response.data.newProductId; // 🔥 CRITICAL FIX
+                        this.productId = response.data.newProductId;
                     }
-                    // ✅ Handle split response
+
                     const wasSplit = response.data.wasSplit || false;
                     const remainingQty = response.data.remainingQuantity || 0;
-                    // ✅ IMPORTANT: For split items, ALWAYS use newProductId. For non-split, use original
-                    // const targetProductId = wasSplit ? response.data.newProductId : this.productId;
                     const targetProductId =
                         response.data.newProductId || this.productId;
 
-                    console.log("🎯 Target Product ID for images:", {
-                        wasSplit,
-                        originalProductId: this.productId,
-                        newProductId: response.data.newProductId,
-                        targetProductId: targetProductId,
-                        remainingQty,
-                    });
+                    // ✅ Update checklist record with collected serials
+                    try {
+                        await axios.post(
+                            `${API_BASE_URL}/api/received/record-checklist`,
+                            {
+                                trackingNumber: this.trackingNumber,
+                                serialNumbers: this.serialNumbers,
+                                passFailResult: this.passFailResult,
+                                correctOnOrder: this.checklist.correctOnOrder,
+                                condition: this.checklist.condition,
+                                conditionNotes:
+                                    this.checklist.conditionNotes ?? null,
+                                productId: this.productId,
+                                rtcounter: this.rtcounter,
+                            },
+                            {
+                                headers: {
+                                    "X-CSRF-TOKEN": csrfToken,
+                                    Accept: "application/json",
+                                },
+                            },
+                        );
+                        console.log("✅ Checklist updated with serials");
+                    } catch (checklistError) {
+                        // Non-blocking — scan flow continues even if checklist update fails
+                        console.warn(
+                            "⚠️ Checklist serial update failed:",
+                            checklistError.response?.data,
+                        );
+                    }
 
-                    console.log("🔍 Processing images for:", {
-                        wasSplit,
-                        originalProductId: this.productId,
-                        targetProductId: targetProductId,
-                        remainingQty,
-                    });
-
-                    // Upload images to the new/split product
-                    // const capturedImages = this.$refs.scanner.capturedImages;
-                    const capturedImages = this.getUploadableImages();
-
-                    // ✅ Per-step counters
+                    // ✅ Per-step counters (steps 4–8 are serials now)
                     const stepCounters = {
                         1: 0, // tracking
                         2: 0, // product
-                        3: 0, // serial 1
-                        4: 0, // serial 2
+                        4: 0, // serial 1
+                        5: 0, // serial 2
+                        6: 0, // serial 3
+                        7: 0, // serial 4
+                        8: 0, // serial 5
                     };
+
+                    const capturedImages = this.getUploadableImages();
 
                     if (capturedImages.length > 0) {
                         for (let i = 0; i < capturedImages.length; i++) {
                             try {
                                 const img = capturedImages[i];
                                 const imgStep = img.step;
-
-                                // ✅ step-based index
                                 const stepIndex = stepCounters[imgStep] ?? 0;
                                 stepCounters[imgStep] = stepIndex + 1;
 
                                 let isSerial = false;
                                 let serialIndex = 0;
 
-                                if (imgStep >= 3 && imgStep <= 7) {
+                                // ✅ Serial steps are now 4–8
+                                if (imgStep >= 4 && imgStep <= 8) {
                                     isSerial = true;
-                                    serialIndex = imgStep - 2; // 3→1, 4→2, 5→3...
+                                    serialIndex = imgStep - 3; // 4→1, 5→2, 6→3, 7→4, 8→5
                                 }
-
-                                console.log("📤 Uploading image", {
-                                    productId: targetProductId,
-                                    step: imgStep,
-                                    stepIndex,
-                                });
 
                                 const imageResponse = await axios.post(
                                     `${API_BASE_URL}/api/images/upload`,
                                     {
                                         _token: csrfToken,
                                         productId: targetProductId,
-                                        imageIndex: stepIndex, // ✅ FIX
+                                        imageIndex: stepIndex,
                                         imageData: img.data,
                                         step: imgStep,
                                         isSerial,
@@ -1385,7 +1387,7 @@ export default {
                                 );
                             } catch (imageError) {
                                 console.error(
-                                    `❌ Error uploading image`,
+                                    "❌ Error uploading image",
                                     imageError.response?.data ||
                                         imageError.message,
                                 );
@@ -1398,7 +1400,6 @@ export default {
                     this.$refs.scanner.clearProductThumbnails();
                     this.$refs.scanner.stopLoading();
 
-                    // ✅ Show appropriate message
                     if (wasSplit) {
                         this.$refs.scanner.showScanSuccess(
                             `Item processed! ${remainingQty} remaining in batch`,
@@ -1428,7 +1429,6 @@ export default {
                     this.$refs.scanner.showScanError(
                         response.data.message || "Error processing scan",
                     );
-                    //     SoundService.scanRejected(true);
 
                     this.$refs.scanner.addErrorScan(
                         {
@@ -1445,29 +1445,25 @@ export default {
                 console.error("Error submitting scan:", error);
                 SoundService.scanRejected(true);
 
-                if (error.response && error.response.status === 422) {
-                    console.log("Validation errors:", error.response.data);
+                if (error.response?.status === 422) {
                     if (error.response.data.errors) {
                         const errorMessages = [];
                         Object.keys(error.response.data.errors).forEach(
                             (field) => {
                                 errorMessages.push(
-                                    `${field}: ${error.response.data.errors[
-                                        field
-                                    ].join(", ")}`,
+                                    `${field}: ${error.response.data.errors[field].join(", ")}`,
                                 );
                             },
                         );
-                        const errorMsg = errorMessages.join("\n");
                         this.$refs.scanner.showScanError(
-                            `Validation error: ${errorMsg}`,
+                            `Validation error: ${errorMessages.join("\n")}`,
                         );
                     } else {
                         this.$refs.scanner.showScanError(
                             "Validation failed. Please check your inputs.",
                         );
                     }
-                } else if (error.response && error.response.status === 403) {
+                } else if (error.response?.status === 403) {
                     this.$refs.scanner.showScanError(
                         "Permission denied. Please try again or contact support.",
                     );
@@ -1561,15 +1557,12 @@ export default {
 
         handleSerialTyping() {
             const isManual = this.$refs.scanner?.showManualInput;
-
-            const idx = this.currentStep - 3;
+            const idx = this.currentStep - 4;
             const value = (this.serialNumbers[idx] || "").trim();
 
             if (!isManual && value.length > 5) {
-                if (this.autoVerifyTimeout) {
+                if (this.autoVerifyTimeout)
                     clearTimeout(this.autoVerifyTimeout);
-                }
-
                 this.autoVerifyTimeout = setTimeout(() => {
                     this.processSerial();
                 }, 500);
@@ -1581,20 +1574,17 @@ export default {
                 case 1:
                     this.verifyTrackingNumber();
                     break;
-
-                case 3:
                 case 4:
                 case 5:
                 case 6:
                 case 7:
+                case 8:
                     this.processSerial();
                     break;
-
-                case 8:
+                case 9:
                     this.processPcnNumber();
                     break;
-
-                case 9:
+                case 10:
                     this.processBasketNumber();
                     break;
             }
@@ -1606,29 +1596,21 @@ export default {
                     this.trackingNumber = scannedCode;
                     this.verifyTrackingNumber();
                     break;
-
-                case 3:
                 case 4:
                 case 5:
                 case 6:
-                case 7: {
+                case 7:
+                case 8: {
                     const isManual = this.$refs.scanner?.showManualInput;
-
-                    this.serialNumbers[this.currentStep - 3] = scannedCode;
-
-                    if (!isManual) {
-                        this.processSerial();
-                    }
-
+                    this.serialNumbers[this.currentStep - 4] = scannedCode;
+                    if (!isManual) this.processSerial();
                     break;
                 }
-
-                case 8:
+                case 9:
                     this.pcnNumber = scannedCode;
                     this.processPcnNumber();
                     break;
-
-                case 9:
+                case 10:
                     this.basketNumber = scannedCode;
                     this.processBasketNumber();
                     break;
@@ -1637,30 +1619,27 @@ export default {
 
         handleModeChange(event) {
             this.showManualInput = event.manual;
-
-            // Determine the appropriate input field to focus based on current step
             let refName = null;
 
             switch (this.currentStep) {
                 case 1:
                     refName = "trackingInput";
                     break;
-                case 3:
                 case 4:
                 case 5:
                 case 6:
                 case 7:
-                    refName = `serialInput${this.currentStep - 2}`;
-                    break;
                 case 8:
-                    refName = "pcnInput";
+                    refName = `serialInput${this.currentStep - 3}`;
                     break;
                 case 9:
+                    refName = "pcnInput";
+                    break;
+                case 10:
                     refName = "basketInput";
                     break;
             }
 
-            // Focus the determined field if it exists
             if (refName && this.$refs[refName]) {
                 this.$refs[refName].focus();
             }
@@ -1724,17 +1703,11 @@ export default {
 
         async saveSerial(detectedSerial) {
             const step = this.currentStep;
-            if (step < 3 || step > 7) return;
+            if (step < 4 || step > 8) return;
 
-            const idx = step - 3;
-
-            // 1️⃣ Insert detected serial into correct slot
+            const idx = step - 4;
             this.serialNumbers[idx] = (detectedSerial || "").trim();
-
-            // 2️⃣ Wait for model update
             await this.$nextTick();
-
-            // 3️⃣ Run the SAME validation logic
             await this.processSerial();
         },
 
@@ -1903,7 +1876,7 @@ export default {
                     const detectedSerial =
                         result.serials[0].text || result.serials[0];
 
-                    const index = this.currentStep - 3; // 0–4
+                    const index = this.currentStep - 4;
 
                     // ✅ Store in serialNumbers array
                     this.serialNumbers[index] = detectedSerial;
