@@ -324,14 +324,10 @@ function http_post_json($url, $payload, $headers = [], $timeout = 50)
 function fetchCurrentPrice($store, $sku, $marketplaceIds)
 {
     $base = rtrim((string) envv('APP_URL'), '/');
-    $cronKey = envv('CRON_KEY');
+    $cronKey = envv('CRON_KEY', null);
 
     if (!$base) {
         throw new Exception("APP_URL missing in .env");
-    }
-
-    if (!$cronKey) {
-        throw new Exception("CRON_KEY missing in .env");
     }
 
     $url = $base . '/api/amazon/search-listings';
@@ -347,9 +343,13 @@ function fetchCurrentPrice($store, $sku, $marketplaceIds)
         'sortOrder' => 'DESC',
     ];
 
-    $res = http_post_json($url, $payload, [
-        'X-CRON-KEY: ' . $cronKey,
-    ], 50);
+    $headers = [];
+
+    if ($cronKey) {
+        $headers[] = 'X-CRON-KEY: ' . $cronKey;
+    }
+
+    $res = http_post_json($url, $payload, $headers, 50);
 
     if ($res['status'] < 200 || $res['status'] >= 300) {
         $msg = $res['json']['error']['message'] ?? $res['json']['message'] ?? $res['raw'];
