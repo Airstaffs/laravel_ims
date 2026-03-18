@@ -43,6 +43,7 @@ class PaaAutomationController extends Controller
             ->get();
 
         $hasMore = $rows->count() > $pageSize;
+
         if ($hasMore) {
             $rows = $rows->slice(0, $pageSize)->values();
         }
@@ -67,9 +68,6 @@ class PaaAutomationController extends Controller
             'timezone' => ['required', 'string'],
             'is_enabled' => ['required', 'in:0,1'],
 
-            'triggers' => ['required', 'array', 'min:1'],
-            'triggers.*' => ['required', 'regex:/^\d{2}:\d{2}$/'],
-
             'rules' => ['required', 'array', 'min:1'],
             'rules.*.start' => ['required', 'regex:/^\d{2}:\d{2}$/'],
             'rules.*.end' => ['required', 'regex:/^\d{2}:\d{2}$/'],
@@ -82,22 +80,6 @@ class PaaAutomationController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.msku' => ['required', 'string', 'max:100'],
         ]);
-
-        $triggers = collect($data['triggers'])
-            ->map(fn($t) => trim((string) $t))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-
-        if (count($triggers) < 1) {
-            return response()->json([
-                'ok' => false,
-                'message' => 'At least 1 trigger time is required'
-            ], 422);
-        }
-
-        sort($triggers);
 
         $rules = collect($data['rules'])
             ->map(function ($r) {
@@ -122,28 +104,28 @@ class PaaAutomationController extends Controller
             if ($r['start'] === '' || $r['end'] === '') {
                 return response()->json([
                     'ok' => false,
-                    'message' => 'Each rule must include start and end time'
+                    'message' => 'Each rule must include start and end time',
                 ], 422);
             }
 
             if ($r['start'] === $r['end']) {
                 return response()->json([
                     'ok' => false,
-                    'message' => 'Rule start and end time cannot be the same'
+                    'message' => 'Rule start and end time cannot be the same',
                 ], 422);
             }
 
             if ($r['min'] === null || $r['max'] === null || $r['delta'] === null) {
                 return response()->json([
                     'ok' => false,
-                    'message' => 'Rules must include start/end/min/max/delta'
+                    'message' => 'Rules must include start/end/min/max/delta',
                 ], 422);
             }
 
             if (!($r['min'] < $r['max'])) {
                 return response()->json([
                     'ok' => false,
-                    'message' => 'Each rule must satisfy min < max'
+                    'message' => 'Each rule must satisfy min < max',
                 ], 422);
             }
         }
@@ -165,28 +147,18 @@ class PaaAutomationController extends Controller
             ->unique()
             ->values();
 
-        return DB::transaction(function () use ($data, $mskus, $triggers, $rules, $defaultDelta) {
+        return DB::transaction(function () use ($data, $rules, $defaultDelta, $mskus) {
             $id = $data['id'] ?? null;
-
-            $legacyTimeLocal = $triggers[0] ?? '09:00';
-            $legacyFrequency = 'DAILY';
-            $legacyDelta = $defaultDelta;
 
             $payloadUpdate = [
                 'name' => $data['name'] ?? null,
                 'store' => $data['store'],
                 'marketplace_ids' => json_encode(array_values($data['marketplace_ids'])),
                 'timezone' => $data['timezone'],
-                'triggers_json' => json_encode($triggers),
                 'rules_json' => json_encode($rules),
                 'default_delta' => $defaultDelta,
                 'is_enabled' => (int) $data['is_enabled'],
                 'updated_at' => now(),
-
-                // legacy
-                'time_local' => $legacyTimeLocal,
-                'frequency' => $legacyFrequency,
-                'delta' => $legacyDelta,
             ];
 
             if ($id) {
@@ -198,7 +170,7 @@ class PaaAutomationController extends Controller
                 if (!$exists) {
                     return response()->json([
                         'ok' => false,
-                        'message' => 'Not found'
+                        'message' => 'Not found',
                     ], 404);
                 }
 
@@ -206,6 +178,14 @@ class PaaAutomationController extends Controller
                     ->where('id', $id)
                     ->where('store', $data['store'])
                     ->update($payloadUpdate);
+
+                // Optional reset so edited automation is treated as fresh next cron cycle
+                DB::table('tbl_paa_automations')
+                    ->where('id', $id)
+                    ->update([
+                        'last_run_at_utc' => null,
+                        'updated_at' => now(),
+                    ]);
             } else {
                 $payloadInsert = $payloadUpdate;
                 $payloadInsert['created_by'] = session('user_name');
@@ -246,7 +226,6 @@ class PaaAutomationController extends Controller
                 'ok' => true,
                 'automation_id' => $id,
                 'msku_count' => $mskus->count(),
-                'triggers' => $triggers,
                 'rules' => $rules,
                 'default_delta' => $defaultDelta,
             ]);
@@ -266,11 +245,9 @@ class PaaAutomationController extends Controller
                 'store',
                 'marketplace_ids',
                 'timezone',
-                'triggers_json',
                 'rules_json',
                 'default_delta',
                 'is_enabled',
-                'next_run_at_utc',
                 'last_run_at_utc',
                 'created_at',
                 'updated_at'
@@ -280,7 +257,6 @@ class PaaAutomationController extends Controller
             ->limit(200)
             ->get()
             ->map(function ($row) {
-                $triggers = json_decode($row->triggers_json ?: '[]', true) ?: [];
                 $rules = json_decode($row->rules_json ?: '[]', true) ?: [];
 
                 return [
@@ -289,17 +265,13 @@ class PaaAutomationController extends Controller
                     'store' => $row->store,
                     'marketplace_ids' => json_decode($row->marketplace_ids ?: '[]', true) ?: [],
                     'timezone' => $row->timezone,
-                    'triggers' => $triggers,
                     'rules' => $rules,
                     'default_delta' => $row->default_delta,
                     'is_enabled' => (int) $row->is_enabled,
-                    'next_run_at_utc' => $row->next_run_at_utc,
                     'last_run_at_utc' => $row->last_run_at_utc,
                     'created_at' => $row->created_at,
                     'updated_at' => $row->updated_at,
-                    'trigger_count' => count($triggers),
                     'rule_count' => count($rules),
-                    'first_trigger' => $triggers[0] ?? null,
                 ];
             })
             ->values();
@@ -319,7 +291,7 @@ class PaaAutomationController extends Controller
         if (!$automation) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Not found'
+                'message' => 'Not found',
             ], 404);
         }
 
@@ -337,11 +309,9 @@ class PaaAutomationController extends Controller
                 'store' => $automation->store,
                 'marketplace_ids' => json_decode($automation->marketplace_ids ?: '[]', true) ?: [],
                 'timezone' => $automation->timezone,
-                'triggers' => json_decode($automation->triggers_json ?: '[]', true) ?: [],
                 'rules' => json_decode($automation->rules_json ?: '[]', true) ?: [],
                 'default_delta' => $automation->default_delta,
                 'is_enabled' => (int) $automation->is_enabled,
-                'next_run_at_utc' => $automation->next_run_at_utc,
                 'last_run_at_utc' => $automation->last_run_at_utc,
                 'created_at' => $automation->created_at,
                 'updated_at' => $automation->updated_at,
@@ -358,14 +328,14 @@ class PaaAutomationController extends Controller
             if (!$exists) {
                 return response()->json([
                     'ok' => false,
-                    'message' => 'Not found'
+                    'message' => 'Not found',
                 ], 404);
             }
 
             DB::table('tbl_paa_automations')->where('id', $id)->delete();
 
             return response()->json([
-                'ok' => true
+                'ok' => true,
             ]);
         });
     }
