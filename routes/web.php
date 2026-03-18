@@ -52,7 +52,9 @@ use App\Http\Controllers\StockroomController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SuppliesComponentsController;
+use App\Http\Controllers\SwitcheruController;
 use App\Http\Controllers\SystemDesignController;
+use App\Http\Controllers\TblFnskuConflictController;
 use App\Http\Controllers\tblproductController;
 use App\Http\Controllers\TestingController;
 use App\Http\Controllers\TestTableController;
@@ -63,9 +65,6 @@ use App\Http\Controllers\UserLogsController;
 use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
-use App\Http\Controllers\SwitcheruController;
-use App\Http\Controllers\TblFnskuConflictController;
-
 use App\Http\Middleware\PreventBackHistory;
 use App\Http\Models\Store;
 use App\Models\User;
@@ -488,6 +487,7 @@ Route::prefix('api/received')->group(function () {
     Route::get('verify-tracking', [ReceivedController::class, 'verifyTracking']);
     Route::post('validate-pcn', [ReceivedController::class, 'validatePcn']);
     Route::post('process-scan', [ReceivedController::class, 'processScan']);
+    Route::post('record-checklist', [ReceivedController::class, 'recordChecklist']);
 });
 
 Route::post('api/images/upload', [App\Http\Controllers\ImageUploadController::class, 'upload']);
@@ -515,6 +515,8 @@ Route::prefix('api/orders')->middleware(['auth'])->group(function () {
         ->name('orders.incoming.count');
     Route::get('incoming-count-details', [OrdersController::class, 'getIncomingCountDetails'])
         ->name('orders.incoming.details');
+Route::post('/products/upload-images',     [OrdersController::class, 'uploadImages']);
+   Route::post('/products/store-with-images', [OrdersController::class, 'storeWithImages']);
 
 });
 
@@ -535,7 +537,7 @@ Route::prefix('api/returns')->group(function () {
     Route::get('stores', [ReturnScannerController::class, 'getStores']);
     Route::get('check-serial', [ReturnScannerController::class, 'checkSerial']);
     Route::post('process-scan', [ReturnScannerController::class, 'processScan']);
-    Route::get('validate-return-id',    [ReturnScannerController::class, 'validateReturnId']);
+    Route::get('validate-return-id', [ReturnScannerController::class, 'validateReturnId']);
     Route::get('/amazon-returns/list', [ReturnScannerController::class, 'list']);
 });
 
@@ -743,7 +745,6 @@ Route::prefix('api/supplies-components')->group(function () {
     Route::get('/stats', [SuppliesComponentsController::class, 'getStats']);
     Route::post('/move-to-labeling', [SuppliesComponentsController::class, 'moveToLabeling']);
 });
-
 
 // Routes for Switcheru Module
 Route::prefix('api/switcherus')->group(function () {
@@ -1108,13 +1109,11 @@ Route::get('/hr/dash/announcements/debug', function () {
     );
 });
 
-
 Route::get('/debug-charset', function () {
     $result = DB::select("SHOW VARIABLES LIKE 'character_set_connection'");
+
     return response()->json($result);
 });
-
-
 
 Route::post('/fnsku-conflicts/apply', [TblFnskuConflictController::class, 'apply']);
 Route::post('/fnsku-conflicts/override', [TblFnskuConflictController::class, 'override']);
