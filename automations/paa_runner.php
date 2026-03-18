@@ -911,13 +911,13 @@ function process_adjust_phase($mysqli, $automation, $run, $currentHHMM, $batchSi
         $sku = $it['sku'] !== null ? (string) $it['sku'] : null;
 
         try {
-if (!$sku) {
-    $sku = trim((string) $msku) !== '' ? trim((string) $msku) : null;
+            if (!$sku) {
+                $sku = trim((string) $msku) !== '' ? trim((string) $msku) : null;
 
-    if ($sku) {
-        syncResolvedSku($mysqli, $automationId, $runItemId, $msku, $sku);
-    }
-}
+                if ($sku) {
+                    syncResolvedSku($mysqli, $automationId, $runItemId, $msku, $sku);
+                }
+            }
 
             if (!$sku) {
                 $stmt = $mysqli->prepare("
@@ -1034,13 +1034,13 @@ function process_restore_phase($mysqli, $automation, $run, $batchSize, $maxAttem
         $originalPrice = isset($it['original_price']) ? (float) $it['original_price'] : null;
 
         try {
-if (!$sku) {
-    $sku = trim((string) $msku) !== '' ? trim((string) $msku) : null;
+            if (!$sku) {
+                $sku = trim((string) $msku) !== '' ? trim((string) $msku) : null;
 
-    if ($sku) {
-        syncResolvedSku($mysqli, $automationId, $runItemId, $msku, $sku);
-    }
-}
+                if ($sku) {
+                    syncResolvedSku($mysqli, $automationId, $runItemId, $msku, $sku);
+                }
+            }
 
             if (!$sku) {
                 $stmt = $mysqli->prepare("
