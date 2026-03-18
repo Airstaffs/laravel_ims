@@ -445,7 +445,7 @@ function fetch_all_assoc($result)
 
 function resolveSkuFromMsku($mysqli, $msku)
 {
-    $stmt = $mysqli->prepare("SELECT MSKUviewer as MSKU FROM tblproduct WHERE MSKUviewer=? LIMIT 1");
+    $stmt = $mysqli->prepare("SELECT MSKUviewer as SKU FROM tblproduct WHERE MSKUviewer=? LIMIT 1");
 
     if (!$stmt) {
         return null;
