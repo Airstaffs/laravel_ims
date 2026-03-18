@@ -445,22 +445,7 @@ function fetch_all_assoc($result)
 
 function resolveSkuFromMsku($mysqli, $msku)
 {
-    $stmt = $mysqli->prepare("SELECT MSKUviewer as SKU FROM tblproduct WHERE MSKUviewer=? LIMIT 1");
-
-    if (!$stmt) {
-        return null;
-    }
-
-    $stmt->bind_param('s', $msku);
-    $stmt->execute();
-    $row = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-
-    if (!empty($row['SKU'])) {
-        return (string) $row['SKU'];
-    }
-
-    return null;
+    return trim((string) $msku) !== '' ? (string) $msku : null;
 }
 
 function syncResolvedSku($mysqli, $automationId, $runItemId, $msku, $sku)
@@ -680,7 +665,8 @@ function finalize_run_done($mysqli, $runId)
     $skippedCount = (int) ($cnt['skipped_count'] ?? 0);
     $processedCount = $successCount + $failedCount + $skippedCount;
 
-    $mysqli->query("
+    $mysqli->query(
+        "
         UPDATE tbl_paa_runs
         SET status='done',
             phase='done',
@@ -925,13 +911,13 @@ function process_adjust_phase($mysqli, $automation, $run, $currentHHMM, $batchSi
         $sku = $it['sku'] !== null ? (string) $it['sku'] : null;
 
         try {
-            if (!$sku) {
-                $sku = resolveSkuFromMsku($mysqli, $msku);
+if (!$sku) {
+    $sku = trim((string) $msku) !== '' ? trim((string) $msku) : null;
 
-                if ($sku) {
-                    syncResolvedSku($mysqli, $automationId, $runItemId, $msku, $sku);
-                }
-            }
+    if ($sku) {
+        syncResolvedSku($mysqli, $automationId, $runItemId, $msku, $sku);
+    }
+}
 
             if (!$sku) {
                 $stmt = $mysqli->prepare("
@@ -1048,13 +1034,13 @@ function process_restore_phase($mysqli, $automation, $run, $batchSize, $maxAttem
         $originalPrice = isset($it['original_price']) ? (float) $it['original_price'] : null;
 
         try {
-            if (!$sku) {
-                $sku = resolveSkuFromMsku($mysqli, $msku);
+if (!$sku) {
+    $sku = trim((string) $msku) !== '' ? trim((string) $msku) : null;
 
-                if ($sku) {
-                    syncResolvedSku($mysqli, $automationId, $runItemId, $msku, $sku);
-                }
-            }
+    if ($sku) {
+        syncResolvedSku($mysqli, $automationId, $runItemId, $msku, $sku);
+    }
+}
 
             if (!$sku) {
                 $stmt = $mysqli->prepare("
