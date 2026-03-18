@@ -7,6 +7,7 @@ use App\Http\Controllers\DatasetProxyController;
 use App\Http\Controllers\AIExecutionController;
 use App\Http\Controllers\Fbmorders\ManualShipmentLabelController;
 use App\Http\Controllers\ReceivedController;
+use App\Http\Controllers\Amzn\Listing\ListingController;
 
 /*
 |--------------------------------------------------------------------------
