@@ -1455,9 +1455,8 @@ async saveAutomation() {
 
             this.automationModal.rules.sort((a, b) => toNum(a.min) - toNum(b.min));
         },
-    },
 
-    assignSelectedFnskuRows() {
+            assignSelectedFnskuRows() {
         const existing = new Map(
             (this.automationModal.selectedRows || []).map(row => [row.FNSKUID, row])
         );
@@ -1471,6 +1470,9 @@ async saveAutomation() {
         this.automationModal.selectedRows = Array.from(existing.values());
         this.automationModal.searchSelectedRows = [];
     },
+    },
+
+
 };
 </script>
 
