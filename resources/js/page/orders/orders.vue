@@ -7,15 +7,25 @@
                 title="Order Module"
                 subtitle="View and manage all current and past shipment orders, including tracking information and status."
             />
-            <Button
-                class="mx-4"
-                @click="openIncomingCounter"
-                label="Incoming Order"
-                size="small"
-                icon="pi pi-calculator"
-                severity="info"
-                outlined
-            />
+
+           <div class="d-flex align-items-center gap-2 mx-4">
+                <Button
+                    @click="openIncomingCounter"
+                    label="Incoming Order"
+                    size="small"
+                    icon="pi pi-calculator"
+                    severity="info"
+                    outlined
+                />
+                <Button
+                    @click="showAddOrderModal = true"
+                    label="Add Order"
+                    size="small"
+                    icon="pi pi-plus"
+                    severity="success"
+                    outlined
+                />
+           </div>
         </div>
 
         <!-- Date Range Filters - Toggle Version with Column Layout -->
@@ -1312,6 +1322,14 @@
             v-model:visible="showIncomingCounter"
             @close="showIncomingCounter = false"
         />
+
+    <!-- Manual Add Order Modal -->
+       <AddOrderModal
+        v-model:visible="showAddOrderModal"
+        @order-added="fetchInventory"
+    />
+
+
     </div>
 
     <ZoomImageModal
@@ -1345,6 +1363,7 @@ import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import SetASINModal from "./modals/setASIN.vue";
 import IncomingCountItem from "./modals/IncomingCountItem.vue";
+import AddOrderModal from "./modals/AddOrderModal.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 import { showPricingForPH } from "../../utils/helpers.js";
 import ZoomImageModal from "../../components/ZoomImageModal/ZoomImageModal.vue";
@@ -1457,6 +1476,7 @@ export default {
         Tag,
         SetASINModal,
         IncomingCountItem,
+        AddOrderModal,
         ZoomImageModal,
         Paginator,
     },
@@ -1505,6 +1525,7 @@ export default {
             showSetAsinModal: false,
             selectedItem: null,
             showIncomingCounter: false,
+            showAddOrderModal: false,
 
             showFilters: false,
             showEditZoomModal: false,
