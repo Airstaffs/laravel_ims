@@ -2284,7 +2284,7 @@ class StockroomController extends BasetablesController
                     'subtitle' => "Feed ID: {$feedId}",
                     'content' => "Submitted the following MSKUs:\n" . implode("\n", $lines),
                     'severity' => 'success',
-                    'user_ids' => [session('userid')],
+                    'user_ids' => ['user_ids' => [Auth::id()]],
                     'link_data' => [
                         'feed_id' => $feedId,
                         'feed_type' => 'JSON_LISTINGS_FEED',

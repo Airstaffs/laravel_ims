@@ -83,7 +83,6 @@
             @mode-changed="handleModeChange"
             ref="scanner"
         >
-            <!-- Define custom input fields for Received module -->
             <template #input-fields>
                 <div
                     class="fw-bold text-dark quantity-info"
@@ -95,7 +94,8 @@
                 >
                     Quantity: {{ remainingQuantity }}
                 </div>
-                <!-- Step 1: Tracking Number Input -->
+
+                <!-- ─── Step 1: Tracking Number ─── -->
                 <div class="input-group" v-if="currentStep === 1">
                     <label>Tracking Number:</label>
                     <input
@@ -106,7 +106,6 @@
                         @keyup.enter="verifyTrackingNumber"
                         ref="trackingInput"
                     />
-                    <!-- Only show Verify Tracking button in Manual mode -->
                     <Button
                         v-if="showManualInput"
                         @click="verifyTrackingNumber"
@@ -120,7 +119,6 @@
                             📸 Capture 1–2 images of the tracking number to
                             continue.
                         </p>
-
                         <button
                             class="continue-button step-btn text-center"
                             :disabled="!hasTrackingImages"
@@ -131,7 +129,7 @@
                     </div>
                 </div>
 
-                <!-- Step 2: Pass/Fail Buttons (shown after tracking verification) -->
+                <!-- ─── Step 2: Pass / Fail ─── -->
                 <div class="input-group" v-if="currentStep === 2">
                     <div class="tracking-verified mt-4">
                         <div class="success-banner">
@@ -147,7 +145,6 @@
                         >
                             <i class="fas fa-check"></i> Pass
                         </button>
-
                         <button
                             @click="failItem"
                             class="fail-button step-btn"
@@ -157,25 +154,180 @@
                         </button>
                     </div>
 
-                    <!-- Optional helper text -->
                     <p v-if="!scannerHasCapturedImage" class="text-sm mt-2">
                         📸 Please capture at least 3 images before passing or
                         failing.
                     </p>
-
-                    <!-- ✅ Modal viewer for thumbnails -->
                 </div>
 
-                <!-- ✅ Steps 3–7: Serial Inputs (max 5) -->
+                <!-- ─── Step 3: Inspection Checklist (NEW — after Pass/Fail) ─── -->
+                <div
+                    class="input-group checklist-step"
+                    v-if="currentStep === 3"
+                >
+                    <!-- Show what was selected in Step 2 -->
+                    <div class="tracking-verified mt-4">
+                        <div
+                            :class="
+                                passFailResult === 'pass'
+                                    ? 'success-banner'
+                                    : 'fail-banner'
+                            "
+                        >
+                            Item marked as:
+                            {{
+                                passFailResult === "pass" ? "✓ Pass" : "✗ Fail"
+                            }}
+                        </div>
+                    </div>
+
+                    <!-- Header -->
+                    <div class="checklist-header mt-4">
+                        <span class="checklist-badge">CHECKLIST</span>
+                        <span class="checklist-title">Inspection Items</span>
+                    </div>
+
+                    <!-- ── Card 1: Item received correct on order ── -->
+                    <div class="checklist-card">
+                        <div class="checklist-card-top">
+                            <span class="checklist-card-label"
+                                >Item received correct on order</span
+                            >
+                            <span class="checklist-default-badge"
+                                >Default: yes</span
+                            >
+                        </div>
+
+                        <div class="checklist-options">
+                            <button
+                                class="checklist-btn"
+                                :class="{
+                                    'checklist-btn--active-pass':
+                                        checklist.correctOnOrder === 'yes',
+                                }"
+                                @click="checklist.correctOnOrder = 'yes'"
+                            >
+                                Yes ✓
+                            </button>
+                            <button
+                                class="checklist-btn"
+                                :class="{
+                                    'checklist-btn--active-fail':
+                                        checklist.correctOnOrder === 'no',
+                                }"
+                                @click="checklist.correctOnOrder = 'no'"
+                            >
+                                No ✗
+                            </button>
+                        </div>
+
+                        <p class="checklist-hint">
+                            <span class="checklist-hint-icon">!</span>
+                            If fail: Auto-select 'No'
+                        </p>
+                    </div>
+
+                    <!-- ── Card 2: Condition on Arrival ── -->
+                    <div class="checklist-card">
+                        <div class="checklist-card-top">
+                            <span class="checklist-card-label"
+                                >Condition on Arrival</span
+                            >
+                            <span class="checklist-default-badge"
+                                >Default: good</span
+                            >
+                        </div>
+
+                        <div class="checklist-options">
+                            <button
+                                class="checklist-btn"
+                                :class="{
+                                    'checklist-btn--active-pass':
+                                        checklist.condition === 'good',
+                                }"
+                                @click="
+                                    checklist.condition = 'good';
+                                    checklist.conditionNotes = '';
+                                "
+                            >
+                                Good ✓
+                            </button>
+                            <button
+                                class="checklist-btn"
+                                :class="{
+                                    'checklist-btn--active-fail':
+                                        checklist.condition === 'damaged',
+                                }"
+                                @click="checklist.condition = 'damaged'"
+                            >
+                                Damaged
+                            </button>
+                            <button
+                                class="checklist-btn"
+                                :class="{
+                                    'checklist-btn--active-fail':
+                                        checklist.condition === 'defective',
+                                }"
+                                @click="checklist.condition = 'defective'"
+                            >
+                                Defective
+                            </button>
+                            <button
+                                class="checklist-btn"
+                                :class="{
+                                    'checklist-btn--active-fail':
+                                        checklist.condition === 'incomplete',
+                                }"
+                                @click="checklist.condition = 'incomplete'"
+                            >
+                                Incomplete
+                            </button>
+                        </div>
+
+                        <p class="checklist-hint">
+                            <span class="checklist-hint-icon">!</span>
+                            If fail: Select condition category + Add notes
+                        </p>
+
+                        <textarea
+                            v-if="
+                                checklist.condition &&
+                                checklist.condition !== 'good'
+                            "
+                            v-model="checklist.conditionNotes"
+                            class="checklist-notes"
+                            placeholder="Add condition notes here..."
+                            rows="3"
+                        ></textarea>
+
+                        <textarea
+                            v-else
+                            class="checklist-notes checklist-notes--placeholder"
+                            disabled
+                            placeholder="Conditional notes appear here when fail option is selected..."
+                            rows="3"
+                        ></textarea>
+                    </div>
+
+                    <!-- Continue to serials — gated until checklist is complete -->
+                    <button
+                        class="continue-button step-btn text-center mt-4"
+                        :disabled="!checklistComplete"
+                        @click="proceedFromChecklist"
+                    >
+                        Continue
+                    </button>
+                </div>
+
+                <!-- ─── Steps 4–8: Serial Inputs (was 3–7) ─── -->
                 <div
                     class="input-group"
-                    v-if="currentStep >= 3 && currentStep <= 7"
+                    v-if="currentStep >= 4 && currentStep <= 8"
                 >
                     <div class="label-wrap">
                         <label
                             >Serial Number {{ currentSerialIndex + 1 }}:</label
                         >
-
                         <div class="ai-switch-container">
                             <span class="ai-label">AI Detection</span>
                             <label class="ai-switch">
@@ -191,7 +343,6 @@
                         </div>
                     </div>
 
-                    <!-- Upload area only if AI ON -->
                     <div
                         v-if="useAiDetection"
                         class="border-dashed uploader-area"
@@ -223,7 +374,6 @@
                         </button>
                     </div>
 
-                    <!-- OCR Results for current step -->
                     <div
                         v-if="
                             apiResult['step' + currentStep] &&
@@ -235,7 +385,6 @@
                         <p class="text-sm text-gray-500 mb-1">
                             Detected Serials:
                         </p>
-
                         <div
                             v-for="(serial, idx) in apiResult[
                                 'step' + currentStep
@@ -275,10 +424,8 @@
                         >
                             Save Serial
                         </button>
-
-                        <!-- Skip only optional serials -->
                         <button
-                            v-if="currentStep >= 4 && currentStep <= 7"
+                            v-if="currentStep >= 5 && currentStep <= 8"
                             class="skip-button"
                             type="button"
                             @click="skipSerialStep"
@@ -286,6 +433,7 @@
                             Skip
                         </button>
                     </div>
+
                     <p class="instruction-text">
                         📸 Capture the serial image for Serial #{{
                             currentSerialIndex + 1
@@ -294,8 +442,8 @@
                     </p>
                 </div>
 
-                <!-- Step 5: PCN Input  -->
-                <div class="input-group" v-if="currentStep === 8">
+                <!-- ─── Step 9: PCN (was Step 8) ─── -->
+                <div class="input-group" v-if="currentStep === 9">
                     <label>PCN (Product Control Number):</label>
                     <input
                         type="text"
@@ -318,8 +466,8 @@
                     </button>
                 </div>
 
-                <!-- Step 6: Basket Number Input (now step 6) -->
-                <div class="input-group" v-if="currentStep === 9">
+                <!-- ─── Step 10: Basket (was Step 9) ─── -->
+                <div class="input-group" v-if="currentStep === 10">
                     <label>Basket/Container Number:</label>
                     <input
                         type="text"
@@ -1373,7 +1521,7 @@ export default {
             );
         },
         currentSerialIndex() {
-            return Math.max(0, Math.min(4, (this.currentStep || 3) - 3));
+            return Math.max(0, Math.min(4, (this.currentStep || 4) - 4));
         },
     },
 };
@@ -1648,5 +1796,173 @@ button.back-button {
     font-weight: 600;
     border-radius: 6px;
     padding: 0.45rem 1.1rem;
+}
+
+/* ── Result banner ── */
+.result-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    border: 1px solid transparent;
+}
+.result-banner.pass {
+    background: #f0fdf4;
+    color: #166534;
+    border-color: #86efac;
+}
+.result-banner.fail {
+    background: #fef2f2;
+    color: #991b1b;
+    border-color: #fca5a5;
+}
+
+/* ── Section header ── */
+.checklist-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.checklist-badge {
+    display: inline-block;
+    background: #b9f8cf;
+    color: #008236;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid #dcfce7;
+    text-transform: uppercase;
+}
+.checklist-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+/* ── Cards ── */
+.checklist-card {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+}
+.checklist-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.checklist-card-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+}
+.checklist-default-badge {
+    font-size: 11px;
+    color: #6b7280;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 3px 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ── Option buttons ── */
+.checklist-options {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+.checklist-btn {
+    height: 38px;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+.checklist-btn:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+}
+.checklist-btn--active-pass {
+    background: #f0fdf4 !important;
+    border-color: #86efac !important;
+    color: #166534 !important;
+}
+.checklist-btn--active-fail {
+    background: #fef2f2 !important;
+    border-color: #fca5a5 !important;
+    color: #991b1b !important;
+}
+
+/* ── Hint row ── */
+.checklist-hint {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+}
+.checklist-hint-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 700;
+    color: #92400e;
+    line-height: 1;
+}
+
+/* ── Notes textarea ── */
+.checklist-notes {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #111827;
+    resize: vertical;
+    line-height: 1.6;
+    transition: border-color 0.15s;
+}
+.checklist-notes:focus {
+    outline: none;
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+.checklist-notes--placeholder,
+.checklist-notes[disabled] {
+    background: #f9fafb;
+    color: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.7;
 }
 </style>

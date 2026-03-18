@@ -1,153 +1,268 @@
 <template>
-  <div class="scanner-wrapper">
-    <!-- Scanner Button - only show if hideButton is false -->
-    <div v-if="!hideButton" class="scanner-container">
-      <button @click="openScannerModal" class="scanner-button">
-        <i class="fas fa-barcode"></i>
-      </button>
-      <span v-if="totalScanned > 0" class="scan-count">
-        {{ totalScanned }}
-      </span>
-    </div>
-    
-    <!-- Top Notification Area -->
-    <div class="top-notification-container">
-      <div v-if="showSuccessNotification && !showScannerModal" class="top-notification success">
-        <i class="fas fa-check-circle"></i> Successfully scanned: {{ lastScannedItem }}
-      </div>
-      <div v-if="showErrorNotification && !showScannerModal" class="top-notification error">
-        <i class="fas fa-exclamation-circle"></i> {{ scanErrorMessage }}
-      </div>
-    </div>
-    
-    <!-- Scanner Modal -->
-    <div v-if="showScannerModal" class="scanner-modal">
-      <div class="scanner-modal-content">
-        <!-- Scanner Header -->
-        <div class="scanner-header">
-          <h2>{{ scannerTitle }}</h2>
-          <div class="header-controls">
-            <div class="header-toggle">
-              <label class="toggle-switch">
-                <input 
-                  type="checkbox" 
-                  :checked="showManualInput" 
-                  @change="toggleManualInput"
-                >
-                <span class="toggle-slider"></span>
-              </label>
-              <span>{{ showManualInput ? 'Manual' : 'Auto' }}</span>
-            </div>
-            <!-- Camera button - only if camera is enabled -->
-            <div v-if="enableCamera" class="header-actions">
-              <button @click="toggleCamera" class="camera-toggle-btn">
-                <i class="fas fa-camera"></i>
-              </button>
-            </div>
-              <!---Hide Camera Screen Button---->
-              <div v-if="enableCamera" class="header-actions">
-                <button class="camera-toggle-btn" @click="toggleVisibleCamera">
-                  <i :class="isCameraVisible ? 'fa-solid fa-expand' : 'fa-solid fa-compress'"></i>
-                </button>
-              </div>
-          </div>
+    <div class="scanner-wrapper">
+        <!-- Scanner Button - only show if hideButton is false -->
+        <div v-if="!hideButton" class="scanner-container">
+            <button @click="openScannerModal" class="scanner-button">
+                <i class="fas fa-barcode"></i>
+            </button>
+            <span v-if="totalScanned > 0" class="scan-count">
+                {{ totalScanned }}
+            </span>
         </div>
-        
-        <div class="scanner-body">
-          <!-- Top Scanner Notification Area -->
-          <div class="scanner-top-notification-area" v-show="showSuccessNotification || showErrorNotification">
-            <div v-if="showSuccessNotification" class="notification success">
-              <i class="fas fa-check-circle"></i> Successfully scanned: {{ lastScannedItem }}
-            </div>
-            <div v-if="showErrorNotification" class="notification error">
-              <i class="fas fa-exclamation-circle"></i> {{ scanErrorMessage }}
-            </div>
-          </div>
-          
-          <!-- Captured Images Preview - only if camera is enabled -->
-          <div v-if="enableCamera && imagesForCurrentStep.length > 0" class="captured-images-container">
-            <div class="images-header" @click="toggleImagePreview">
-              <!-- <h3>Images ({{ capturedImages.length }}/{{ maxImages }})</h3> -->
-              <h3>
-                Images ({{ imagesForCurrentStep.length }}/{{ maxImagesForCurrentStep }})
-              </h3>
-              <span class="toggle-preview">{{ previewImages ? 'Hide' : 'Show' }}</span>
-            </div>
-            <div v-if="previewImages" class="image-thumbnails">
-              <!-- <div v-for="(image, index) in capturedImages" :key="index" class="image-thumbnail"> -->
-              <div v-for="(image, index) in imagesForCurrentStep" :key="index" class="image-thumbnail">
-                <img :src="image.data" alt="Captured image" @click="openImagePreview(index)" />
-                <!-- <button @click="deleteImage(index)" class="delete-image-btn"> -->
-                  <button @click="deleteImageByRef(image)" class="delete-image-btn">
-                  <i class="fas fa-trash"></i>
-                </button>
-                <span class="image-timestamp">{{ image.timestamp }}</span>
-                <span class="view-image-hint"><i class="fas fa-search-plus"></i></span>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Camera/Scanner View - only if camera is enabled -->
-          <div v-if="enableCamera && isCameraVisible" class="scanner-view" :class="{ 'compact-view': isCompactMode, 'active-camera': scannerCameraActive }">
 
-            <!-- When camera is disabled -->
-            <div v-if="currentStep" class="scanner-disabled-overlay">
-              <!-- <p>Camera disabled until serial number tracking step</p> -->
+        <!-- Top Notification Area -->
+        <div class="top-notification-container">
+            <div
+                v-if="showSuccessNotification && !showScannerModal"
+                class="top-notification success"
+            >
+                <i class="fas fa-check-circle"></i> Successfully scanned:
+                {{ lastScannedItem }}
             </div>
-
-            <!-- Product Thumbnails Panel -->
-            <div v-if="productThumbnails.length >= 2" class="scanner-product-thumbnails-container">
-              <!-- First image preview (always visible) -->
-              <div 
-                v-if="productThumbnails.length > 0"
-                class="scanner-default-thumbnail"
-                @click="openProductImagePreview(0)"
-              >
-                <img :src="productThumbnails[0].src" alt="Product image" />
-                <div class="scanner-thumbnail-label">
-                  <i class="fas fa-search-plus"></i> View All ({{ productThumbnails.length }})
-                </div>
-              </div>
+            <div
+                v-if="showErrorNotification && !showScannerModal"
+                class="top-notification error"
+            >
+                <i class="fas fa-exclamation-circle"></i> {{ scanErrorMessage }}
             </div>
+        </div>
 
-            <!-- Product Image Preview Modal with unique class names -->
-            <div v-if="showProductImageModal" class="scanner-product-image-modal" @click="closeProductImagePreview">
-              <div class="scanner-product-image-content" @click.stop>
-                <div class="scanner-product-image-header">
-                  <h3>Product Image {{ currentProductImageIndex + 1 }}/{{ productThumbnails.length }}</h3>
-                  <button @click="closeProductImagePreview" class="scanner-close-preview-btn">
-                    <i class="fas fa-times"></i>
-                  </button>
-                </div>
-                <div class="scanner-product-image-body">
-                  <div class="scanner-product-image-container">
-                    <img :src="currentProductImage.src" alt="Product image" class="scanner-preview-image" />
-                  </div>
-                  <div class="scanner-product-image-controls">
-                    <button @click="prevProductImage" :disabled="currentProductImageIndex === 0" class="scanner-nav-btn scanner-prev-btn">
-                      <i class="fas fa-chevron-left"></i>
-                    </button>
-                    <div class="scanner-image-info">
-                      <span class="scanner-image-label" v-if="currentProductImage.label">{{ currentProductImage.label }}</span>
+        <!-- Scanner Modal -->
+        <div v-if="showScannerModal" class="scanner-modal">
+            <div class="scanner-modal-content">
+                <!-- Scanner Header -->
+                <div class="scanner-header">
+                    <h2>{{ scannerTitle }}</h2>
+                    <div class="header-controls">
+                        <div class="header-toggle">
+                            <label class="toggle-switch">
+                                <input
+                                    type="checkbox"
+                                    :checked="showManualInput"
+                                    @change="toggleManualInput"
+                                />
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span>{{
+                                showManualInput ? "Manual" : "Auto"
+                            }}</span>
+                        </div>
+                        <!-- Camera button - only if camera is enabled -->
+                        <div v-if="enableCamera" class="header-actions">
+                            <button
+                                @click="toggleCamera"
+                                class="camera-toggle-btn"
+                            >
+                                <i class="fas fa-camera"></i>
+                            </button>
+                        </div>
+                        <!---Hide Camera Screen Button---->
+                        <div v-if="enableCamera" class="header-actions">
+                            <button
+                                class="camera-toggle-btn"
+                                @click="toggleVisibleCamera"
+                            >
+                                <i
+                                    :class="
+                                        isCameraVisible
+                                            ? 'fa-solid fa-expand'
+                                            : 'fa-solid fa-compress'
+                                    "
+                                ></i>
+                            </button>
+                        </div>
                     </div>
-                    <button @click="nextProductImage" :disabled="currentProductImageIndex >= productThumbnails.length - 1" class="scanner-nav-btn scanner-next-btn">
-                      <i class="fas fa-chevron-right"></i>
-                    </button>
-                  </div>
                 </div>
-              </div>
-            </div>
 
-            <!-- When camera is inactive, show the grid overlay -->
-            <div v-if="!scannerCameraActive" class="scanner-overlay">
-              <div class="scanner-corner top-left"></div>
-              <div class="scanner-corner top-right"></div>
-              <div class="scanner-corner bottom-left"></div>
-              <div class="scanner-corner bottom-right"></div>
-            </div>
-            
-            <!-- When camera is active, show the live camera feed here -->
-            <!-- <video
+                <div class="scanner-body">
+                    <!-- Top Scanner Notification Area -->
+                    <div
+                        class="scanner-top-notification-area"
+                        v-show="
+                            showSuccessNotification || showErrorNotification
+                        "
+                    >
+                        <div
+                            v-if="showSuccessNotification"
+                            class="notification success"
+                        >
+                            <i class="fas fa-check-circle"></i> Successfully
+                            scanned: {{ lastScannedItem }}
+                        </div>
+                        <div
+                            v-if="showErrorNotification"
+                            class="notification error"
+                        >
+                            <i class="fas fa-exclamation-circle"></i>
+                            {{ scanErrorMessage }}
+                        </div>
+                    </div>
+
+                    <!-- Captured Images Preview - only if camera is enabled -->
+                    <div
+                        v-if="enableCamera && imagesForCurrentStep.length > 0"
+                        class="captured-images-container"
+                    >
+                        <div class="images-header" @click="toggleImagePreview">
+                            <!-- <h3>Images ({{ capturedImages.length }}/{{ maxImages }})</h3> -->
+                            <h3>
+                                Images ({{ imagesForCurrentStep.length }}/{{
+                                    maxImagesForCurrentStep
+                                }})
+                            </h3>
+                            <span class="toggle-preview">{{
+                                previewImages ? "Hide" : "Show"
+                            }}</span>
+                        </div>
+                        <div v-if="previewImages" class="image-thumbnails">
+                            <!-- <div v-for="(image, index) in capturedImages" :key="index" class="image-thumbnail"> -->
+                            <div
+                                v-for="(image, index) in imagesForCurrentStep"
+                                :key="index"
+                                class="image-thumbnail"
+                            >
+                                <img
+                                    :src="image.data"
+                                    alt="Captured image"
+                                    @click="openImagePreview(index)"
+                                />
+                                <!-- <button @click="deleteImage(index)" class="delete-image-btn"> -->
+                                <button
+                                    @click="deleteImageByRef(image)"
+                                    class="delete-image-btn"
+                                >
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                <span class="image-timestamp">{{
+                                    image.timestamp
+                                }}</span>
+                                <span class="view-image-hint"
+                                    ><i class="fas fa-search-plus"></i
+                                ></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Camera/Scanner View - only if camera is enabled -->
+                    <div
+                        v-if="enableCamera && isCameraVisible"
+                        class="scanner-view"
+                        :class="{
+                            'compact-view': isCompactMode,
+                            'active-camera': scannerCameraActive,
+                        }"
+                    >
+                        <!-- When camera is disabled -->
+                        <div
+                            v-if="currentStep"
+                            class="scanner-disabled-overlay"
+                        >
+                            <!-- <p>Camera disabled until serial number tracking step</p> -->
+                        </div>
+
+                        <!-- Product Thumbnails Panel -->
+                        <div
+                            v-if="productThumbnails.length >= 2"
+                            class="scanner-product-thumbnails-container"
+                        >
+                            <!-- First image preview (always visible) -->
+                            <div
+                                v-if="productThumbnails.length > 0"
+                                class="scanner-default-thumbnail"
+                                @click="openProductImagePreview(0)"
+                            >
+                                <img
+                                    :src="productThumbnails[0].src"
+                                    alt="Product image"
+                                />
+                                <div class="scanner-thumbnail-label">
+                                    <i class="fas fa-search-plus"></i> View All
+                                    ({{ productThumbnails.length }})
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Product Image Preview Modal with unique class names -->
+                        <div
+                            v-if="showProductImageModal"
+                            class="scanner-product-image-modal"
+                            @click="closeProductImagePreview"
+                        >
+                            <div
+                                class="scanner-product-image-content"
+                                @click.stop
+                            >
+                                <div class="scanner-product-image-header">
+                                    <h3>
+                                        Product Image
+                                        {{ currentProductImageIndex + 1 }}/{{
+                                            productThumbnails.length
+                                        }}
+                                    </h3>
+                                    <button
+                                        @click="closeProductImagePreview"
+                                        class="scanner-close-preview-btn"
+                                    >
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <div class="scanner-product-image-body">
+                                    <div
+                                        class="scanner-product-image-container"
+                                    >
+                                        <img
+                                            :src="currentProductImage.src"
+                                            alt="Product image"
+                                            class="scanner-preview-image"
+                                        />
+                                    </div>
+                                    <div class="scanner-product-image-controls">
+                                        <button
+                                            @click="prevProductImage"
+                                            :disabled="
+                                                currentProductImageIndex === 0
+                                            "
+                                            class="scanner-nav-btn scanner-prev-btn"
+                                        >
+                                            <i class="fas fa-chevron-left"></i>
+                                        </button>
+                                        <div class="scanner-image-info">
+                                            <span
+                                                class="scanner-image-label"
+                                                v-if="currentProductImage.label"
+                                                >{{
+                                                    currentProductImage.label
+                                                }}</span
+                                            >
+                                        </div>
+                                        <button
+                                            @click="nextProductImage"
+                                            :disabled="
+                                                currentProductImageIndex >=
+                                                productThumbnails.length - 1
+                                            "
+                                            class="scanner-nav-btn scanner-next-btn"
+                                        >
+                                            <i class="fas fa-chevron-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- When camera is inactive, show the grid overlay -->
+                        <div
+                            v-if="!scannerCameraActive"
+                            class="scanner-overlay"
+                        >
+                            <div class="scanner-corner top-left"></div>
+                            <div class="scanner-corner top-right"></div>
+                            <div class="scanner-corner bottom-left"></div>
+                            <div class="scanner-corner bottom-right"></div>
+                        </div>
+
+                        <!-- When camera is active, show the live camera feed here -->
+                        <!-- <video
               v-if="scannerCameraActive"
               id="scanner-camera-preview"
               autoplay
@@ -155,39 +270,67 @@
               @click="tapToFocus"
             /> -->
 
-            <video
-              v-if="scannerCameraActive"
-              ref="videoElement"
-              id="scanner-camera-preview"
-              autoplay
-              playsinline
-              @click="tapToFocus"
-              @touchstart="handleTouchStart"
-              @touchmove="handleTouchMove"
-              @touchend="handleTouchEnd"
-            />
+                        <video
+                            v-if="scannerCameraActive"
+                            ref="videoElement"
+                            id="scanner-camera-preview"
+                            autoplay
+                            playsinline
+                            @click="tapToFocus"
+                            @touchstart="handleTouchStart"
+                            @touchmove="handleTouchMove"
+                            @touchend="handleTouchEnd"
+                        />
 
-            <!-- Camera restart overlay -->
-            <div v-if="!scannerCameraActive && showScannerModal" class="camera-restart-overlay">
-              <button 
-                class="restart-camera-btn" 
-                @click="restartCamera" 
-                :disabled="isCameraBeingReleased"
-              >
-                <i class="fas" :class="isCameraBeingReleased ? 'fa-spinner fa-spin' : 'fa-sync'"></i> 
-                {{ isCameraBeingReleased ? 'Releasing camera...' : 'Restart Camera' }}
-              </button>
-            </div>
-            
-           <div v-if="scannerCameraActive" class="zoom-slider-vertical">
-              <i class="fas fa-search-plus zoom-icon-top" @click="onZoomIn"></i>
-              <span class="zoom-value">{{ currentZoom.toFixed(1) }}x</span>
-              <i class="fas fa-search-minus zoom-icon-bottom" @click="onZoomOut"></i>
-              <i class="fas fa-redo zoom-icon-reset" @click="onZoomReset"></i>
-          </div>
+                        <!-- Camera restart overlay -->
+                        <div
+                            v-if="!scannerCameraActive && showScannerModal"
+                            class="camera-restart-overlay"
+                        >
+                            <button
+                                class="restart-camera-btn"
+                                @click="restartCamera"
+                                :disabled="isCameraBeingReleased"
+                            >
+                                <i
+                                    class="fas"
+                                    :class="
+                                        isCameraBeingReleased
+                                            ? 'fa-spinner fa-spin'
+                                            : 'fa-sync'
+                                    "
+                                ></i>
+                                {{
+                                    isCameraBeingReleased
+                                        ? "Releasing camera..."
+                                        : "Restart Camera"
+                                }}
+                            </button>
+                        </div>
 
-                <div v-if="scannerCameraActive" class="rotate-control">
-                  <!-- <button
+                        <div
+                            v-if="scannerCameraActive"
+                            class="zoom-slider-vertical"
+                        >
+                            <i
+                                class="fas fa-search-plus zoom-icon-top"
+                                @click="onZoomIn"
+                            ></i>
+                            <span class="zoom-value"
+                                >{{ currentZoom.toFixed(1) }}x</span
+                            >
+                            <i
+                                class="fas fa-search-minus zoom-icon-bottom"
+                                @click="onZoomOut"
+                            ></i>
+                            <i
+                                class="fas fa-redo zoom-icon-reset"
+                                @click="onZoomReset"
+                            ></i>
+                        </div>
+
+                        <div v-if="scannerCameraActive" class="rotate-control">
+                            <!-- <button
                     v-if="cameraRotation !== 0"
                     @click="resetRotation"
                     class="rotate-btn"
@@ -195,952 +338,1097 @@
                   >
                     <i class="fas fa-sync"></i>
                   </button> -->
-                  <button
-                    @click="rotateCamera(90)"
-                    class="rotate-btn"
-                    title="Rotate 90°"
-                  >
-                    <i class="fas fa-redo"></i>
-                  </button>
+                            <button
+                                @click="rotateCamera(90)"
+                                class="rotate-btn"
+                                title="Rotate 90°"
+                            >
+                                <i class="fas fa-redo"></i>
+                            </button>
+                        </div>
+
+                        <div class="scanner-controls">
+                            <!-- Left side: Counter -->
+                            <div class="counter-area">
+                                <div class="capture-count">
+                                    {{ capturedImages.length }}/{{ maxImages }}
+                                </div>
+                            </div>
+
+                            <!-- Center: Camera capture button -->
+                            <div class="camera-area">
+                                <button
+                                    class="camera-button"
+                                    @click="captureFromScanner"
+                                >
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                            </div>
+
+                            <!-- Right side: Rotate + Compact toggle -->
+                            <div class="toggle-area">
+                                <button
+                                    class="compact-toggle"
+                                    @click="toggleCompactMode"
+                                >
+                                    {{ isCompactMode ? "Expand" : "Compact" }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Input Fields - Customizable via slots -->
+                    <div class="input-form">
+                        <!-- Use the slot to let each module provide its own input fields -->
+                        <slot name="input-fields"></slot>
+
+                        <!-- The default Submit button has been removed to avoid duplicates -->
+                        <!-- Each module should provide its own submit buttons in manual mode -->
+                    </div>
+
+                    <!-- Scan Statistics -->
+                    <div class="scan-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Total:</span>
+                            <span class="stat-value">{{ totalScanned }}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Success:</span>
+                            <span class="stat-value success">{{
+                                successfulScans
+                            }}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Failed:</span>
+                            <span class="stat-value error">{{
+                                failedScans
+                            }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Scanned Items List -->
+                    <div class="scanned-items">
+                        <div
+                            class="scans-header"
+                            @click="toggleScansVisibility"
+                        >
+                            <h3>Recent Scans</h3>
+                            <span class="toggle-scans">{{
+                                showScans ? "Hide" : "Show"
+                            }}</span>
+                        </div>
+                        <transition name="slide">
+                            <ul v-if="showScans" class="scan-list">
+                                <!-- Default scan items display -->
+                                <li
+                                    v-for="(scan, index) in recentScans"
+                                    :key="index"
+                                    :class="{
+                                        success: scan.success,
+                                        error: !scan.success,
+                                    }"
+                                >
+                                    <div class="scan-details">
+                                        <div
+                                            v-for="(
+                                                value, key
+                                            ) in getScanDisplayFields(scan)"
+                                            :key="key"
+                                            class="scan-field"
+                                        >
+                                            {{ key }}:
+                                            <span
+                                                v-if="
+                                                    key === 'Status' &&
+                                                    scan.StatusClass
+                                                "
+                                                :class="scan.StatusClass"
+                                                >{{ value }}</span
+                                            >
+                                            <span v-else>{{ value }}</span>
+                                        </div>
+                                        <div class="scan-time-small">
+                                            {{ scan.time }}
+                                        </div>
+                                    </div>
+                                    <span class="scan-time">{{
+                                        scan.time
+                                    }}</span>
+                                    <span class="scan-status">{{
+                                        scan.success ? "Success" : "Failed"
+                                    }}</span>
+                                </li>
+                            </ul>
+                        </transition>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="scanner-actions">
+                        <button @click="resetScanner" class="reset-button">
+                            Reset
+                        </button>
+                        <button @click="closeScannerModal" class="done-button">
+                            Exit
+                        </button>
+                    </div>
                 </div>
 
-            <div class="scanner-controls">
-              <!-- Left side: Counter -->
-              <div class="counter-area">
-                <div class="capture-count">{{ capturedImages.length }}/{{ maxImages }}</div>
-              </div>
+                <!-- Camera Modal - only if camera is enabled -->
+                <div
+                    v-if="enableCamera && showCameraModal"
+                    class="camera-modal"
+                >
+                    <div class="camera-modal-content">
+                        <div class="camera-header">
+                            <h2>Item Camera</h2>
+                            <span class="image-counter"
+                                >{{ capturedImages.length }} /
+                                {{ maxImages }}</span
+                            >
+                        </div>
 
-              <!-- Center: Camera capture button -->
-              <div class="camera-area">
-                <button class="camera-button" @click="captureFromScanner">
-                  <i class="fas fa-camera"></i>
-                </button>
-              </div>
+                        <div class="camera-preview-container">
+                            <video
+                                id="camera-preview"
+                                autoplay
+                                playsinline
+                            ></video>
+                            <div class="camera-overlay">
+                                <div class="camera-corner top-left"></div>
+                                <div class="camera-corner top-right"></div>
+                                <div class="camera-corner bottom-left"></div>
+                                <div class="camera-corner bottom-right"></div>
+                            </div>
+                        </div>
 
-              <!-- Right side: Rotate + Compact toggle -->
-              <div class="toggle-area">
-                <button class="compact-toggle" @click="toggleCompactMode">
-                  {{ isCompactMode ? 'Expand' : 'Compact' }}
-                </button>
-              </div>
-       </div>
-          </div>
-          
-          <!-- Input Fields - Customizable via slots -->
-          <div class="input-form">
-            <!-- Use the slot to let each module provide its own input fields -->
-            <slot name="input-fields"></slot>
-            
-            <!-- The default Submit button has been removed to avoid duplicates -->
-            <!-- Each module should provide its own submit buttons in manual mode -->
-          </div>
-          
-          <!-- Scan Statistics -->
-          <div class="scan-stats">
-            <div class="stat-item">
-              <span class="stat-label">Total:</span>
-              <span class="stat-value">{{ totalScanned }}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Success:</span>
-              <span class="stat-value success">{{ successfulScans }}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">Failed:</span>
-              <span class="stat-value error">{{ failedScans }}</span>
-            </div>
-          </div>
-          
-          <!-- Scanned Items List -->
-          <div class="scanned-items">
-            <div class="scans-header" @click="toggleScansVisibility">
-              <h3>Recent Scans</h3>
-              <span class="toggle-scans">{{ showScans ? 'Hide' : 'Show' }}</span>
-            </div>
-            <transition name="slide">
-              <ul v-if="showScans" class="scan-list">
-                <!-- Default scan items display -->
-                <li v-for="(scan, index) in recentScans" :key="index" :class="{ 'success': scan.success, 'error': !scan.success }">
-                  <div class="scan-details">
-                    <div v-for="(value, key) in getScanDisplayFields(scan)" :key="key" class="scan-field">
-                    {{ key }}: 
-                    <span v-if="key === 'Status' && scan.StatusClass" :class="scan.StatusClass">{{ value }}</span>
-                    <span v-else>{{ value }}</span>
-                  </div>
-                    <div class="scan-time-small">{{ scan.time }}</div>
-                  </div>
-                  <span class="scan-time">{{ scan.time }}</span>
-                  <span class="scan-status">{{ scan.success ? 'Success' : 'Failed' }}</span>
-                </li>
-              </ul>
-            </transition>
-          </div>
-          
-          <!-- Action Buttons -->
-          <div class="scanner-actions">
-            <button @click="resetScanner" class="reset-button">Reset</button>
-            <button @click="closeScannerModal" class="done-button">Exit</button>
-          </div>
-        </div>
-        
-        <!-- Camera Modal - only if camera is enabled -->
-        <div v-if="enableCamera && showCameraModal" class="camera-modal">
-          <div class="camera-modal-content">
-            <div class="camera-header">
-              <h2>Item Camera</h2>
-              <span class="image-counter">{{ capturedImages.length }} / {{ maxImages }}</span>
-            </div>
-            
-            <div class="camera-preview-container">
-              <video id="camera-preview" autoplay playsinline></video>
-              <div class="camera-overlay">
-                <div class="camera-corner top-left"></div>
-                <div class="camera-corner top-right"></div>
-                <div class="camera-corner bottom-left"></div>
-                <div class="camera-corner bottom-right"></div>
-              </div>
-            </div>
-            
-            <div class="camera-actions">
-              <button @click="closeCameraModal" class="cancel-btn">
-                <i class="fas fa-times"></i> Close
-              </button>
-              <button @click="captureImage" class="capture-btn">
-                <i class="fas fa-camera"></i> Capture
-              </button>
-            </div>
-            
-            <div class="camera-thumbnails">
-              <div v-for="(image, index) in capturedImages" :key="index" class="camera-thumbnail">
-                <img :src="image.data" alt="Thumbnail" @click="openImagePreview(index)" />
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Image Preview Modal -->
-        <div v-if="showImagePreviewModal" class="image-preview-modal" @click="closeImagePreview">
-          <div class="image-preview-content" @click.stop>
-            <div class="image-preview-header">
-              <h3>Image Preview</h3>
-              <button @click="closeImagePreview" class="close-preview-btn">
-                <i class="fas fa-times"></i>
-              </button>
-            </div>
-            <div class="image-preview-body">
-              <div class="image-preview-container">
-                <img :src="currentPreviewImage.data" alt="Image preview" class="preview-image" />
-              </div>
-              <div class="image-preview-controls">
-                <button @click="prevImage" :disabled="currentImageIndex === 0" class="nav-btn prev-btn">
-                  <i class="fas fa-chevron-left"></i>
-                </button>
-                <div class="image-info">
-                  <span class="image-number">{{ currentImageIndex + 1 }} / {{ capturedImages.length }}</span>
-                  <span class="image-time">{{ currentPreviewImage.timestamp }}</span>
+                        <div class="camera-actions">
+                            <button
+                                @click="closeCameraModal"
+                                class="cancel-btn"
+                            >
+                                <i class="fas fa-times"></i> Close
+                            </button>
+                            <button @click="captureImage" class="capture-btn">
+                                <i class="fas fa-camera"></i> Capture
+                            </button>
+                        </div>
+
+                        <div class="camera-thumbnails">
+                            <div
+                                v-for="(image, index) in capturedImages"
+                                :key="index"
+                                class="camera-thumbnail"
+                            >
+                                <img
+                                    :src="image.data"
+                                    alt="Thumbnail"
+                                    @click="openImagePreview(index)"
+                                />
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <button @click="nextImage" :disabled="currentImageIndex >= capturedImages.length - 1" class="nav-btn next-btn">
-                  <i class="fas fa-chevron-right"></i>
-                </button>
-              </div>
-              <div class="image-preview-actions">
-                <button @click="deleteCurrentImage" class="delete-btn">
-                  <i class="fas fa-trash"></i> Delete
-                </button>
-                <button @click="closeImagePreview" class="close-btn">
-                  <i class="fas fa-times"></i> Close
-                </button>
-              </div>
+
+                <!-- Image Preview Modal -->
+                <div
+                    v-if="showImagePreviewModal"
+                    class="image-preview-modal"
+                    @click="closeImagePreview"
+                >
+                    <div class="image-preview-content" @click.stop>
+                        <div class="image-preview-header">
+                            <h3>Image Preview</h3>
+                            <button
+                                @click="closeImagePreview"
+                                class="close-preview-btn"
+                            >
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="image-preview-body">
+                            <div class="image-preview-container">
+                                <img
+                                    :src="currentPreviewImage.data"
+                                    alt="Image preview"
+                                    class="preview-image"
+                                />
+                            </div>
+                            <div class="image-preview-controls">
+                                <button
+                                    @click="prevImage"
+                                    :disabled="currentImageIndex === 0"
+                                    class="nav-btn prev-btn"
+                                >
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <div class="image-info">
+                                    <span class="image-number"
+                                        >{{ currentImageIndex + 1 }} /
+                                        {{ capturedImages.length }}</span
+                                    >
+                                    <span class="image-time">{{
+                                        currentPreviewImage.timestamp
+                                    }}</span>
+                                </div>
+                                <button
+                                    @click="nextImage"
+                                    :disabled="
+                                        currentImageIndex >=
+                                        capturedImages.length - 1
+                                    "
+                                    class="nav-btn next-btn"
+                                >
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                            <div class="image-preview-actions">
+                                <button
+                                    @click="deleteCurrentImage"
+                                    class="delete-btn"
+                                >
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                                <button
+                                    @click="closeImagePreview"
+                                    class="close-btn"
+                                >
+                                    <i class="fas fa-times"></i> Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
+
+            <div v-if="isProcessing" class="loading-overlay">
+                <div class="loading-content">
+                    <div class="spinner">
+                        <div class="bounce1"></div>
+                        <div class="bounce2"></div>
+                        <div class="bounce3"></div>
+                    </div>
+                    <div class="loading-text">{{ loadingMessage }}</div>
+                </div>
+            </div>
         </div>
-      </div>
-
-      <div v-if="isProcessing" class="loading-overlay">
-        <div class="loading-content">
-          <div class="spinner">
-            <div class="bounce1"></div>
-            <div class="bounce2"></div>
-            <div class="bounce3"></div>
-          </div>
-          <div class="loading-text">{{ loadingMessage }}</div>
-        </div>
-      </div>
-
-
     </div>
-  </div>
 </template>
 
 <script>
-import ScannerMixin from './ScannerMixin.js';
+import ScannerMixin from "./ScannerMixin.js";
 
 const FREE_CAPTURE_LIMIT = 12;
 
 export default {
-  name: 'ScannerComponent',
-  mixins: [ScannerMixin],
-  props: {
-    hideButton: {
-      type: Boolean,
-      default: false
+    name: "ScannerComponent",
+    mixins: [ScannerMixin],
+    props: {
+        hideButton: {
+            type: Boolean,
+            default: false,
+        },
+
+        // ✅ Controls capture behavior:
+        // - 'received'  => apply step rules + OCR
+        // - 'default'   => free capture
+        module: {
+            type: String,
+            default: "default",
+        },
+        showCameraScreen: {
+            type: Boolean,
+            default: true,
+        },
     },
+    data() {
+        return {
+            isProcessing: false,
+            loadingMessage: "Processing scan...",
+            showImagePreviewModal: false,
+            currentImageIndex: 0,
 
-    // ✅ Controls capture behavior:
-    // - 'received'  => apply step rules + OCR
-    // - 'default'   => free capture
-    module: {
-      type: String,
-      default: 'default'
+            productThumbnails: [],
+            showThumbnailsPanel: false,
+            showProductImageModal: false,
+            currentProductImageIndex: 0,
+
+            isCameraVisible: this.showCameraScreen,
+
+            zoomSupported: true, // Always true now
+            currentZoom: 1,
+            minZoom: 1,
+            maxZoom: 3, // Reasonable max for digital zoom
+            zoomStep: 0.1,
+
+            // Pinch gesture tracking
+            lastPinchDistance: 0,
+            isPinching: false,
+
+            cameraRotation: 0,
+            videoStream: null,
+        };
     },
-    showCameraScreen: {
-      type: Boolean,
-      default: true
-    }
-  },
-  data() {
-    return {
-      isProcessing: false,
-      loadingMessage: 'Processing scan...',
-      showImagePreviewModal: false,
-      currentImageIndex: 0,
+    computed: {
+        hasCustomSubmitButton() {
+            const slotContent = this.$slots["input-fields"];
+            return (
+                slotContent &&
+                slotContent.some(
+                    (node) =>
+                        node.tag &&
+                        (node.tag.includes("button") ||
+                            (node.children &&
+                                node.children.some(
+                                    (child) =>
+                                        child.tag &&
+                                        child.tag.includes("button"),
+                                ))),
+                )
+            );
+        },
 
-      productThumbnails: [],
-      showThumbnailsPanel: false,
-      showProductImageModal: false,
-      currentProductImageIndex: 0,
+        currentPreviewImage() {
+            if (
+                this.capturedImages.length > 0 &&
+                this.currentImageIndex >= 0 &&
+                this.currentImageIndex < this.capturedImages.length
+            ) {
+                return this.capturedImages[this.currentImageIndex];
+            }
+            return { data: "", timestamp: "" };
+        },
 
-      isCameraVisible: this.showCameraScreen,
+        currentProductImage() {
+            if (
+                this.productThumbnails.length > 0 &&
+                this.currentProductImageIndex >= 0 &&
+                this.currentProductImageIndex < this.productThumbnails.length
+            ) {
+                return this.productThumbnails[this.currentProductImageIndex];
+            }
+            return { src: "", label: "" };
+        },
 
-      zoomSupported: true, // Always true now
-      currentZoom: 1,
-      minZoom: 1,
-      maxZoom: 3, // Reasonable max for digital zoom
-      zoomStep: 0.1,
-      
-      // Pinch gesture tracking
-      lastPinchDistance: 0,
-      isPinching: false,
+        hasCapturedImage() {
+            return this.capturedImages && this.capturedImages.length > 0;
+        },
+        currentStep() {
+            return this.$parent?.currentStep ?? 0;
+        },
 
-      cameraRotation: 0, 
-       videoStream: null, 
-    };
-  },
-  computed: {
-    hasCustomSubmitButton() {
-      const slotContent = this.$slots['input-fields'];
-      return slotContent && slotContent.some(node =>
-        node.tag &&
-        (node.tag.includes('button') ||
-          (node.children && node.children.some(child =>
-            child.tag && child.tag.includes('button')
-          ))
-        )
-      );
-    },
+        imagesForCurrentStep() {
+            const parentStep = this.$parent?.currentStep;
+            const parentCaptureStep = this.$parent?.currentCaptureStep;
 
-    currentPreviewImage() {
-      if (
-        this.capturedImages.length > 0 &&
-        this.currentImageIndex >= 0 &&
-        this.currentImageIndex < this.capturedImages.length
-      ) {
-        return this.capturedImages[this.currentImageIndex];
-      }
-      return { data: '', timestamp: '' };
-    },
-
-    currentProductImage() {
-      if (
-        this.productThumbnails.length > 0 &&
-        this.currentProductImageIndex >= 0 &&
-        this.currentProductImageIndex < this.productThumbnails.length
-      ) {
-        return this.productThumbnails[this.currentProductImageIndex];
-      }
-      return { src: '', label: '' };
-    },
-
-    hasCapturedImage() {
-      return this.capturedImages && this.capturedImages.length > 0
-    },
-    currentStep() {
-      return this.$parent?.currentStep ?? 0;
-    },
-
-    imagesForCurrentStep() {
-      const parentStep = this.$parent?.currentStep;
-      const parentCaptureStep = this.$parent?.currentCaptureStep;
-
-      // Receiving workflow
-      if (parentStep !== undefined) {
-        return this.capturedImages.filter(
-          img => img.step === parentStep
-        );
-      }
-
-      // Return scanner workflow
-      if (parentCaptureStep !== undefined) {
-        return this.capturedImages.filter(
-          img => img.captureStep === parentCaptureStep
-        );
-      }
-
-      return this.capturedImages;
-    },
-
-    maxImagesForCurrentStep() {
-      const parentStep = this.$parent?.currentStep;
-      const parentCaptureStep = this.$parent?.currentCaptureStep;
-
-      // ✅ RETURN SCANNER MODE (uses captureStep)
-      if (parentCaptureStep !== undefined) {
-        return 12;
-      }
-
-      // ✅ RECEIVING WORKFLOW MODE
-      if (parentStep !== undefined) {
-        if (parentStep === 3) return 1; // First Serial
-        if (parentStep === 4) return 1; // Second Serial
-        if (parentStep === 2) return 5; // Product images (example)
-        return this.maxImages;
-      }
-
-      // ✅ FALLBACK
-      return this.maxImages;
-    }
-    
-  },
-  methods: {
-      onZoomIn() {
-        const next = Math.min(this.currentZoom + 0.1, this.maxZoom);
-        this.onZoomSlider({ target: { value: next } });
-    },
-    onZoomOut() {
-        const next = Math.max(this.currentZoom - 0.1, this.minZoom);
-        this.onZoomSlider({ target: { value: next } });
-    },
-    onZoomReset() {
-    this.onZoomSlider({ target: { value: this.minZoom } });
-},
-    onZoomSlider(e) {
-  const val = parseFloat(e.target.value);
-  this.currentZoom = val;
-  // call your existing zoom apply logic here, e.g.:
-  this.applyZoom(val);
-},
-
- rotateCamera(degrees) {
-    this.cameraRotation = (this.cameraRotation + degrees) % 360;
-    if (this.cameraRotation < 0) this.cameraRotation += 360;
-    this.applyTransform(); // ✅ Use unified method
-  },
-    
-   resetRotation() {
-    this.cameraRotation = 0;
-    this.applyTransform(); // ✅ Use unified method
-  },
-    
-      // ==========================================
-  // ✅ ZOOM METHODS - ADD THESE
-  // ==========================================
-  captureVideoWithZoom(video) {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    
-    // ✅ Determine if we need to swap dimensions
-    const needsSwap = this.cameraRotation === 90 || this.cameraRotation === 270;
-    
-    // Set canvas size based on rotation
-    if (needsSwap) {
-      canvas.width = video.videoHeight;
-      canvas.height = video.videoWidth;
-    } else {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-    }
-    
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    
-    // Save context
-    ctx.save();
-    
-    // Move to center
-    ctx.translate(canvas.width / 2, canvas.height / 2);
-    
-    // Apply rotation
-    ctx.rotate((this.cameraRotation * Math.PI) / 180);
-    
-    // Handle zoom
-    if (this.currentZoom > 1) {
-      const zoomFactor = this.currentZoom;
-      const sourceWidth = video.videoWidth / zoomFactor;
-      const sourceHeight = video.videoHeight / zoomFactor;
-      const sourceX = (video.videoWidth - sourceWidth) / 2;
-      const sourceY = (video.videoHeight - sourceHeight) / 2;
-      
-      ctx.drawImage(
-        video,
-        sourceX, sourceY, sourceWidth, sourceHeight,
-        -video.videoWidth / 2, -video.videoHeight / 2,
-        video.videoWidth, video.videoHeight
-      );
-    } else {
-      ctx.drawImage(
-        video,
-        -video.videoWidth / 2, -video.videoHeight / 2,
-        video.videoWidth, video.videoHeight
-      );
-    }
-    
-    ctx.restore();
-    return canvas;
-  },
-async initializeZoom() {
-    // Check if native zoom is supported
-    if (this.videoStream) {
-      try {
-        const videoTrack = this.videoStream.getVideoTracks()[0];
-        const capabilities = videoTrack.getCapabilities();
-        
-        if ('zoom' in capabilities) {
-          console.log('✅ Native zoom supported');
-          this.useNativeZoom = true;
-          this.minZoom = capabilities.zoom.min;
-          this.maxZoom = capabilities.zoom.max;
-          this.zoomStep = capabilities.zoom.step || 0.1;
-          const settings = videoTrack.getSettings();
-          this.currentZoom = settings.zoom || this.minZoom;
-        } else {
-          console.log('ℹ️ Using digital zoom fallback');
-          this.useNativeZoom = false;
-        }
-      } catch (error) {
-        console.log('ℹ️ Using digital zoom fallback');
-        this.useNativeZoom = false;
-      }
-    }
-    
-    // Digital zoom is always supported
-    this.zoomSupported = true;
-  },
-  
- async applyZoom() {
-    const video = this.$refs.videoElement || document.getElementById('scanner-camera-preview');
-    if (!video) return;
-    
-    if (this.useNativeZoom && this.videoStream) {
-      // Use native camera zoom if available
-      try {
-        const videoTrack = this.videoStream.getVideoTracks()[0];
-        await videoTrack.applyConstraints({
-          advanced: [{ zoom: this.currentZoom }]
-        });
-        
-        // Still apply rotation even with native zoom
-        video.style.transform = `rotate(${this.cameraRotation}deg)`;
-        video.style.transformOrigin = 'center center';
-      } catch (error) {
-        console.error('Native zoom failed, using digital zoom');
-        this.useNativeZoom = false;
-        this.applyTransform(); // ✅ Fallback to digital
-      }
-    } else {
-      // Use digital zoom with rotation
-      this.applyTransform(); // ✅ Use unified method
-    }
-  },
-  
-  applyDigitalZoom(video) {
-    // Apply CSS transform for digital zoom
-    video.style.transform = `scale(${this.currentZoom})`;
-    video.style.transformOrigin = 'center center';
-  },
-  
-    zoomIn() {
-    if (this.currentZoom < this.maxZoom) {
-      this.currentZoom = Math.min(
-        this.currentZoom + this.zoomStep, 
-        this.maxZoom
-      );
-      this.currentZoom = Math.round(this.currentZoom * 10) / 10;
-      this.applyZoom();
-    }
-  },
-  
-   zoomOut() {
-    if (this.currentZoom > this.minZoom) {
-      this.currentZoom = Math.max(
-        this.currentZoom - this.zoomStep, 
-        this.minZoom
-      );
-      this.currentZoom = Math.round(this.currentZoom * 10) / 10;
-      this.applyZoom();
-    }
-  },
-  
-  resetZoom() {
-    this.currentZoom = this.minZoom;
-    this.applyZoom();
-  },
-  
-  // Pinch to zoom for mobile
-  handleTouchStart(event) {
-    if (event.touches.length === 2) {
-      this.isPinching = true;
-      this.lastPinchDistance = this.getTouchDistance(event.touches);
-      event.preventDefault();
-    }
-  },
-  
-  handleTouchMove(event) {
-    if (this.isPinching && event.touches.length === 2) {
-      event.preventDefault();
-      
-      const currentDistance = this.getTouchDistance(event.touches);
-      const pinchDelta = currentDistance - this.lastPinchDistance;
-      
-      const zoomChange = (pinchDelta / 200) * (this.maxZoom - this.minZoom);
-      const newZoom = this.currentZoom + zoomChange;
-      
-      this.currentZoom = Math.max(
-        this.minZoom,
-        Math.min(this.maxZoom, newZoom)
-      );
-      this.currentZoom = Math.round(this.currentZoom * 10) / 10;
-      
-      this.applyZoom();
-      this.lastPinchDistance = currentDistance;
-    }
-  },
-   handleTouchEnd(event) {
-    if (event.touches.length < 2) {
-      this.isPinching = false;
-      this.lastPinchDistance = 0;
-    }
-  },
-  
-  
-    getTouchDistance(touches) {
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  },
-
-    
-  applyTransform() {
-    const video = this.$refs.videoElement || document.getElementById('scanner-camera-preview');
-    if (!video) return;
-    
-    // Apply both zoom and rotation together
-    video.style.transform = `scale(${this.currentZoom}) rotate(${this.cameraRotation}deg)`;
-    video.style.transformOrigin = 'center center';
-    video.style.transition = 'transform 0.3s ease';
-  },
-    openScannerModal() {
-      this.showScannerModal = true;
-      this.$emit('scanner-opened');
-    },
-
-    openImagePreview(index) {
-      this.currentImageIndex = index;
-      this.showImagePreviewModal = true;
-      document.body.style.overflow = 'hidden';
-    },
-
-    closeImagePreview() {
-      this.showImagePreviewModal = false;
-      document.body.style.overflow = '';
-    },
-
-    prevImage() {
-      if (this.currentImageIndex > 0) this.currentImageIndex--;
-    },
-
-    nextImage() {
-      if (this.currentImageIndex < this.capturedImages.length - 1) {
-        this.currentImageIndex++;
-      }
-    },
-
-    showLoadingState(message = 'Processing scan...') {
-      this.isProcessing = true;
-      this.loadingMessage = message;
-    },
-
-    hideLoadingState() {
-      this.isProcessing = false;
-    },
-
-    startLoading(message) {
-      this.showLoadingState(message);
-    },
-
-    stopLoading() {
-      this.hideLoadingState();
-    },
-
-    toggleVisibleCamera() {
-      this.isCameraVisible = !this.isCameraVisible
-
-      //restart camera after hiding
-      if(this.isCameraVisible ) {
-          this.restartCamera()
-      }
-    },
-
-    deleteCurrentImage() {
-      if (this.capturedImages.length > 0) {
-        this.deleteImage(this.currentImageIndex);
-
-        if (this.currentImageIndex >= this.capturedImages.length) {
-          this.currentImageIndex = Math.max(0, this.capturedImages.length - 1);
-        }
-
-        if (this.capturedImages.length === 0) {
-          this.closeImagePreview();
-        }
-      }
-    },
-
-    setExistingTrackingImages(images = []) {
-        images.forEach(img => {
-            this.capturedImages.push({
-                data: img.src,
-                step: 1,
-                reused: true,
-                timestamp: "reused"
-            });
-        });
-    },
-
-    clearProductThumbnails() {
-        this.productThumbnails = [];
-        this.showProductImageModal = false;
-        this.currentProductImageIndex = 0;
-    },
-
-    // =========================
-    // ✅ FREE CAPTURE (default)
-    // =========================
- async captureFree() {
-  const video = document.getElementById('scanner-camera-preview') || this.$refs.videoElement;
-  if (!video || !this.scannerCameraActive) return;
-
-  // 🚫 Limit free capture to 12 images
-  if (this.capturedImages.length >= FREE_CAPTURE_LIMIT) {
-    this.showScanWarning(`Maximum of ${FREE_CAPTURE_LIMIT} images allowed.`);
-    return;
-  }
-
-  // ✅ Capture with zoom applied
-  const canvas = this.captureVideoWithZoom(video);
-  const timestamp = new Date().toLocaleTimeString();
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-
-  this.capturedImages.push({
-    data: dataUrl,
-    timestamp
-  });
-
-  this.showScanSuccess('Image captured.');
-},
-
-    // ===================================
-    // ✅ OCR helper (used by Received only)
-    // ===================================
-    async detectSerialFromCanvas(canvas, currentStep) {
-      try {
-        this.showScanSuccess('Detecting serial number...');
-
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
-        if (!blob) throw new Error('Failed to create image blob');
-
-        const formData = new FormData();
-        formData.append('file', blob, 'capture.jpg');
-
-        const baseURL =
-          location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-            ? 'http://127.0.0.1:8001'
-            : '/fastapi';
-
-        const response = await fetch(`${baseURL}/detect`, {
-          method: 'POST',
-          body: formData
-        });
-
-        if (!response.ok) throw new Error(`OCR request failed (${response.status})`);
-
-        const result = await response.json();
-
-        // Ensure parent container exists
-        if (this.$parent) {
-          const serialIndex = currentStep - 2; // 3→1, 4→2, 5→3...
-
-          if (!this.$parent.apiResult) {
-            this.$parent.apiResult = {};
-          }
-
-          this.$parent.apiResult[`step${currentStep}`] = result;
-
-          const detectedSerial = result?.serials?.[0]?.text || result?.serials?.[0];
-
-          if (detectedSerial) {
-            if (Array.isArray(this.$parent.serialNumbers)) {
-              this.$parent.serialNumbers[serialIndex - 1] = detectedSerial;
+            // Receiving workflow
+            if (parentStep !== undefined) {
+                return this.capturedImages.filter(
+                    (img) => img.step === parentStep,
+                );
             }
 
+            // Return scanner workflow
+            if (parentCaptureStep !== undefined) {
+                return this.capturedImages.filter(
+                    (img) => img.captureStep === parentCaptureStep,
+                );
+            }
+
+            return this.capturedImages;
+        },
+
+        maxImagesForCurrentStep() {
+            const parentStep = this.$parent?.currentStep;
+            const parentCaptureStep = this.$parent?.currentCaptureStep;
+
+            // ✅ RETURN SCANNER MODE (uses captureStep)
+            if (parentCaptureStep !== undefined) {
+                return 12;
+            }
+
+            // ✅ RECEIVING WORKFLOW MODE
+            if (parentStep !== undefined) {
+                if (parentStep === 3) return 1; // First Serial
+                if (parentStep === 4) return 1; // Second Serial
+                if (parentStep === 2) return 5; // Product images (example)
+                return this.maxImages;
+            }
+
+            // ✅ FALLBACK
+            return this.maxImages;
+        },
+    },
+    methods: {
+        onZoomIn() {
+            const next = Math.min(this.currentZoom + 0.1, this.maxZoom);
+            this.onZoomSlider({ target: { value: next } });
+        },
+        onZoomOut() {
+            const next = Math.max(this.currentZoom - 0.1, this.minZoom);
+            this.onZoomSlider({ target: { value: next } });
+        },
+        onZoomReset() {
+            this.onZoomSlider({ target: { value: this.minZoom } });
+        },
+        onZoomSlider(e) {
+            const val = parseFloat(e.target.value);
+            this.currentZoom = val;
+            // call your existing zoom apply logic here, e.g.:
+            this.applyZoom(val);
+        },
+
+        rotateCamera(degrees) {
+            this.cameraRotation = (this.cameraRotation + degrees) % 360;
+            if (this.cameraRotation < 0) this.cameraRotation += 360;
+            this.applyTransform(); // ✅ Use unified method
+        },
+
+        resetRotation() {
+            this.cameraRotation = 0;
+            this.applyTransform(); // ✅ Use unified method
+        },
+
+        // ==========================================
+        // ✅ ZOOM METHODS - ADD THESE
+        // ==========================================
+        captureVideoWithZoom(video) {
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            // ✅ Determine if we need to swap dimensions
+            const needsSwap =
+                this.cameraRotation === 90 || this.cameraRotation === 270;
+
+            // Set canvas size based on rotation
+            if (needsSwap) {
+                canvas.width = video.videoHeight;
+                canvas.height = video.videoWidth;
+            } else {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+            }
+
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+
+            // Save context
+            ctx.save();
+
+            // Move to center
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+
+            // Apply rotation
+            ctx.rotate((this.cameraRotation * Math.PI) / 180);
+
+            // Handle zoom
+            if (this.currentZoom > 1) {
+                const zoomFactor = this.currentZoom;
+                const sourceWidth = video.videoWidth / zoomFactor;
+                const sourceHeight = video.videoHeight / zoomFactor;
+                const sourceX = (video.videoWidth - sourceWidth) / 2;
+                const sourceY = (video.videoHeight - sourceHeight) / 2;
+
+                ctx.drawImage(
+                    video,
+                    sourceX,
+                    sourceY,
+                    sourceWidth,
+                    sourceHeight,
+                    -video.videoWidth / 2,
+                    -video.videoHeight / 2,
+                    video.videoWidth,
+                    video.videoHeight,
+                );
+            } else {
+                ctx.drawImage(
+                    video,
+                    -video.videoWidth / 2,
+                    -video.videoHeight / 2,
+                    video.videoWidth,
+                    video.videoHeight,
+                );
+            }
+
+            ctx.restore();
+            return canvas;
+        },
+        async initializeZoom() {
+            // Check if native zoom is supported
+            if (this.videoStream) {
+                try {
+                    const videoTrack = this.videoStream.getVideoTracks()[0];
+                    const capabilities = videoTrack.getCapabilities();
+
+                    if ("zoom" in capabilities) {
+                        console.log("✅ Native zoom supported");
+                        this.useNativeZoom = true;
+                        this.minZoom = capabilities.zoom.min;
+                        this.maxZoom = capabilities.zoom.max;
+                        this.zoomStep = capabilities.zoom.step || 0.1;
+                        const settings = videoTrack.getSettings();
+                        this.currentZoom = settings.zoom || this.minZoom;
+                    } else {
+                        console.log("ℹ️ Using digital zoom fallback");
+                        this.useNativeZoom = false;
+                    }
+                } catch (error) {
+                    console.log("ℹ️ Using digital zoom fallback");
+                    this.useNativeZoom = false;
+                }
+            }
+
+            // Digital zoom is always supported
+            this.zoomSupported = true;
+        },
+
+        async applyZoom() {
+            const video =
+                this.$refs.videoElement ||
+                document.getElementById("scanner-camera-preview");
+            if (!video) return;
+
+            if (this.useNativeZoom && this.videoStream) {
+                // Use native camera zoom if available
+                try {
+                    const videoTrack = this.videoStream.getVideoTracks()[0];
+                    await videoTrack.applyConstraints({
+                        advanced: [{ zoom: this.currentZoom }],
+                    });
+
+                    // Still apply rotation even with native zoom
+                    video.style.transform = `rotate(${this.cameraRotation}deg)`;
+                    video.style.transformOrigin = "center center";
+                } catch (error) {
+                    console.error("Native zoom failed, using digital zoom");
+                    this.useNativeZoom = false;
+                    this.applyTransform(); // ✅ Fallback to digital
+                }
+            } else {
+                // Use digital zoom with rotation
+                this.applyTransform(); // ✅ Use unified method
+            }
+        },
+
+        applyDigitalZoom(video) {
+            // Apply CSS transform for digital zoom
+            video.style.transform = `scale(${this.currentZoom})`;
+            video.style.transformOrigin = "center center";
+        },
+
+        zoomIn() {
+            if (this.currentZoom < this.maxZoom) {
+                this.currentZoom = Math.min(
+                    this.currentZoom + this.zoomStep,
+                    this.maxZoom,
+                );
+                this.currentZoom = Math.round(this.currentZoom * 10) / 10;
+                this.applyZoom();
+            }
+        },
+
+        zoomOut() {
+            if (this.currentZoom > this.minZoom) {
+                this.currentZoom = Math.max(
+                    this.currentZoom - this.zoomStep,
+                    this.minZoom,
+                );
+                this.currentZoom = Math.round(this.currentZoom * 10) / 10;
+                this.applyZoom();
+            }
+        },
+
+        resetZoom() {
+            this.currentZoom = this.minZoom;
+            this.applyZoom();
+        },
+
+        // Pinch to zoom for mobile
+        handleTouchStart(event) {
+            if (event.touches.length === 2) {
+                this.isPinching = true;
+                this.lastPinchDistance = this.getTouchDistance(event.touches);
+                event.preventDefault();
+            }
+        },
+
+        handleTouchMove(event) {
+            if (this.isPinching && event.touches.length === 2) {
+                event.preventDefault();
+
+                const currentDistance = this.getTouchDistance(event.touches);
+                const pinchDelta = currentDistance - this.lastPinchDistance;
+
+                const zoomChange =
+                    (pinchDelta / 200) * (this.maxZoom - this.minZoom);
+                const newZoom = this.currentZoom + zoomChange;
+
+                this.currentZoom = Math.max(
+                    this.minZoom,
+                    Math.min(this.maxZoom, newZoom),
+                );
+                this.currentZoom = Math.round(this.currentZoom * 10) / 10;
+
+                this.applyZoom();
+                this.lastPinchDistance = currentDistance;
+            }
+        },
+        handleTouchEnd(event) {
+            if (event.touches.length < 2) {
+                this.isPinching = false;
+                this.lastPinchDistance = 0;
+            }
+        },
+
+        getTouchDistance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        },
+
+        applyTransform() {
+            const video =
+                this.$refs.videoElement ||
+                document.getElementById("scanner-camera-preview");
+            if (!video) return;
+
+            // Apply both zoom and rotation together
+            video.style.transform = `scale(${this.currentZoom}) rotate(${this.cameraRotation}deg)`;
+            video.style.transformOrigin = "center center";
+            video.style.transition = "transform 0.3s ease";
+        },
+        openScannerModal() {
+            this.showScannerModal = true;
+            this.$emit("scanner-opened");
+        },
+
+        openImagePreview(index) {
+            this.currentImageIndex = index;
+            this.showImagePreviewModal = true;
+            document.body.style.overflow = "hidden";
+        },
+
+        closeImagePreview() {
+            this.showImagePreviewModal = false;
+            document.body.style.overflow = "";
+        },
+
+        prevImage() {
+            if (this.currentImageIndex > 0) this.currentImageIndex--;
+        },
+
+        nextImage() {
+            if (this.currentImageIndex < this.capturedImages.length - 1) {
+                this.currentImageIndex++;
+            }
+        },
+
+        showLoadingState(message = "Processing scan...") {
+            this.isProcessing = true;
+            this.loadingMessage = message;
+        },
+
+        hideLoadingState() {
+            this.isProcessing = false;
+        },
+
+        startLoading(message) {
+            this.showLoadingState(message);
+        },
+
+        stopLoading() {
+            this.hideLoadingState();
+        },
+
+        toggleVisibleCamera() {
+            this.isCameraVisible = !this.isCameraVisible;
+
+            //restart camera after hiding
+            if (this.isCameraVisible) {
+                this.restartCamera();
+            }
+        },
+
+        deleteCurrentImage() {
+            if (this.capturedImages.length > 0) {
+                this.deleteImage(this.currentImageIndex);
+
+                if (this.currentImageIndex >= this.capturedImages.length) {
+                    this.currentImageIndex = Math.max(
+                        0,
+                        this.capturedImages.length - 1,
+                    );
+                }
+
+                if (this.capturedImages.length === 0) {
+                    this.closeImagePreview();
+                }
+            }
+        },
+
+        setExistingTrackingImages(images = []) {
+            images.forEach((img) => {
+                this.capturedImages.push({
+                    data: img.src,
+                    step: 1,
+                    reused: true,
+                    timestamp: "reused",
+                });
+            });
+        },
+
+        clearProductThumbnails() {
+            this.productThumbnails = [];
+            this.showProductImageModal = false;
+            this.currentProductImageIndex = 0;
+        },
+
+        // =========================
+        // ✅ FREE CAPTURE (default)
+        // =========================
+        async captureFree() {
+            const video =
+                document.getElementById("scanner-camera-preview") ||
+                this.$refs.videoElement;
+            if (!video || !this.scannerCameraActive) return;
+
+            // 🚫 Limit free capture to 12 images
+            if (this.capturedImages.length >= FREE_CAPTURE_LIMIT) {
+                this.showScanWarning(
+                    `Maximum of ${FREE_CAPTURE_LIMIT} images allowed.`,
+                );
+                return;
+            }
+
+            // ✅ Capture with zoom applied
+            const canvas = this.captureVideoWithZoom(video);
+            const timestamp = new Date().toLocaleTimeString();
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+
+            this.capturedImages.push({
+                data: dataUrl,
+                timestamp,
+            });
+
+            this.showScanSuccess("Image captured.");
+        },
+
+        // ===================================
+        // ✅ OCR helper (used by Received only)
+        // ===================================
+        async detectSerialFromCanvas(canvas, currentStep) {
+            try {
+                this.showScanSuccess("Detecting serial number...");
+
+                const blob = await new Promise((resolve) =>
+                    canvas.toBlob(resolve, "image/jpeg"),
+                );
+                if (!blob) throw new Error("Failed to create image blob");
+
+                const formData = new FormData();
+                formData.append("file", blob, "capture.jpg");
+
+                const baseURL =
+                    location.hostname === "localhost" ||
+                    location.hostname === "127.0.0.1"
+                        ? "http://127.0.0.1:8001"
+                        : "/fastapi";
+
+                const response = await fetch(`${baseURL}/detect`, {
+                    method: "POST",
+                    body: formData,
+                });
+
+                if (!response.ok)
+                    throw new Error(`OCR request failed (${response.status})`);
+
+                const result = await response.json();
+
+                // Ensure parent container exists
+                if (this.$parent) {
+                    const serialIndex = currentStep - 2; // 3→1, 4→2, 5→3...
+
+                    if (!this.$parent.apiResult) {
+                        this.$parent.apiResult = {};
+                    }
+
+                    this.$parent.apiResult[`step${currentStep}`] = result;
+
+                    const detectedSerial =
+                        result?.serials?.[0]?.text || result?.serials?.[0];
+
+                    if (detectedSerial) {
+                        if (Array.isArray(this.$parent.serialNumbers)) {
+                            this.$parent.serialNumbers[serialIndex - 1] =
+                                detectedSerial;
+                        }
+
+                        this.showScanSuccess(
+                            `✅ Serial #${serialIndex} detected: ${detectedSerial}`,
+                        );
+                    } else {
+                        this.showScanWarning("⚠️ No serial detected.");
+                    }
+                }
+            } catch (err) {
+                console.error("OCR API error:", err);
+                this.showScanError("❌ Serial detection failed.");
+            }
+        },
+
+        // ==========================================
+        // ✅ Dispatcher: decides which capture to run
+        // ==========================================
+        async captureFromScanner() {
+            // Extra safety guard
+            if (!this.scannerCameraActive) return;
+
+            if (this.module === "received") {
+                return this.captureReceived();
+            }
+
+            if (this.module === "returnscanner") {
+                return this.captureReturnScanner();
+            }
+            return this.captureFree();
+        },
+
+        // ============================
+        // Existing thumbnails functions
+        // ============================
+        loadProductThumbnails(productData) {
+            this.productThumbnails = [];
+            const basePath = "/images/thumbnails/";
+
+            const imageFields = [
+                { field: "img1", label: "Image 1" },
+                { field: "img2", label: "Image 2" },
+                { field: "img3", label: "Image 3" },
+                { field: "img4", label: "Image 4" },
+                { field: "img5", label: "Image 5" },
+                { field: "img6", label: "Image 6" },
+                { field: "img7", label: "Image 7" },
+                { field: "img8", label: "Image 8" },
+                { field: "img9", label: "Image 9" },
+                { field: "img10", label: "Image 10" },
+                { field: "img11", label: "Image 11" },
+                { field: "img12", label: "Image 12" },
+                { field: "img13", label: "Image 13" },
+                { field: "img14", label: "Image 14" },
+                { field: "img15", label: "Image 15" },
+            ];
+
+            imageFields.forEach((item) => {
+                if (productData && productData[item.field]) {
+                    this.productThumbnails.push({
+                        src: basePath + productData[item.field],
+                        label: item.label,
+                    });
+                }
+            });
+        },
+
+        openProductImagePreview(index) {
+            this.currentProductImageIndex = index;
+            this.showProductImageModal = true;
+            document.body.style.overflow = "hidden";
+        },
+
+        closeProductImagePreview() {
+            this.showProductImageModal = false;
+            document.body.style.overflow = "";
+        },
+
+        prevProductImage() {
+            if (this.currentProductImageIndex > 0)
+                this.currentProductImageIndex--;
+        },
+
+        nextProductImage() {
+            if (
+                this.currentProductImageIndex <
+                this.productThumbnails.length - 1
+            ) {
+                this.currentProductImageIndex++;
+            }
+        },
+
+        clearProductThumbnails() {
+            this.productThumbnails = [];
+            this.showProductImageModal = false;
+        },
+
+        // ==================================
+        // ✅ RECEIVED CAPTURE (restricted flow)
+        // ==================================
+        async captureReceived() {
+            const video =
+                document.getElementById("scanner-camera-preview") ||
+                this.$refs.videoElement;
+            if (!video || !this.scannerCameraActive) return;
+
+            const currentStep = this.$parent?.currentStep ?? 0;
+
+            // 🚫 Only allow capture for steps 1–7
+            if (currentStep < 1 || currentStep > 7) {
+                this.showScanWarning("Capture not allowed at this step.");
+                return;
+            }
+
+            // 🚫 STEP 1 — Tracking capture rules
+            if (currentStep === 1) {
+                // Must verify tracking first
+                if (!this.$parent?.trackingFound) {
+                    this.showScanWarning(
+                        "Please verify tracking number first.",
+                    );
+                    return;
+                }
+
+                // If tracking image already exists (reused from DB)
+                const hasReusedTracking = this.capturedImages.some(
+                    (img) => img.step === 1 && img.reused === true,
+                );
+
+                if (hasReusedTracking) {
+                    this.showScanWarning(
+                        "Tracking image already exists. Reuse is enabled.",
+                    );
+                    return;
+                }
+
+                // Allow only 2 tracking images
+                const trackingImages = this.capturedImages.filter(
+                    (img) => img.step === 1,
+                );
+                if (trackingImages.length >= 2) {
+                    this.showScanWarning("Only 2 tracking images is allowed.");
+                    return;
+                }
+            }
+
+            // ✅ Step 2 limit
+            if (currentStep === 2) {
+                const step2Images = this.capturedImages.filter(
+                    (i) => i.step === 2,
+                );
+                if (step2Images.length >= this.maxImages) {
+                    this.showScanError(
+                        `Maximum of ${this.maxImages} product images allowed.`,
+                    );
+                    return;
+                }
+            }
+
+            // ✅ Serial steps (3–7) → only 1 image per serial
+            if (currentStep >= 3 && currentStep <= 7) {
+                const serialImages = this.capturedImages.filter(
+                    (img) => img.step === currentStep,
+                );
+
+                if (serialImages.length >= 1) {
+                    this.showScanWarning(
+                        `Only one image allowed for Serial #${currentStep - 2}.`,
+                    );
+                    return;
+                }
+            }
+
+            // ✅✅✅ USE captureVideoWithZoom instead of creating new canvas
+            const canvas = this.captureVideoWithZoom(video);
+            const timestamp = new Date().toLocaleTimeString();
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+
+            this.capturedImages.push({
+                data: dataUrl,
+                timestamp,
+                step: currentStep,
+            });
+            this.showScanSuccess("Image captured.");
+
+            // ✅ Step 3–4 OCR (ONLY if AI enabled in parent)
+            if (
+                currentStep >= 3 &&
+                currentStep <= 7 &&
+                this.$parent?.useAiDetection
+            ) {
+                await this.detectSerialFromCanvas(canvas, currentStep);
+            }
+
+            setTimeout(() => {
+                this.showSuccessNotification = false;
+            }, 2000);
+        },
+
+        deleteImageByRef(image) {
+            const index = this.capturedImages.indexOf(image);
+            if (index !== -1) {
+                this.capturedImages.splice(index, 1);
+            }
+        },
+
+        canCaptureImage() {
+            const parent = this.$parent;
+            if (!parent) return false;
+
+            const currentStep = parent.currentStep;
+            const trackingFound = parent.trackingFound === true;
+
+            // 🚫 Must have verified tracking
+            if (!trackingFound) {
+                return false;
+            }
+
+            // 🚫 Do not allow capture beyond serial steps
+            // 🚫 Only allow capture for steps 1–7
+            if (currentStep > 7) {
+                return false;
+            }
+
+            // Step 1 handled directly in captureReceived()
+            if (currentStep === 1) {
+                return true;
+            }
+
+            // ✅ Step 2: Product images (respect maxImages)
+            if (currentStep === 2) {
+                return this.capturedImages.length < this.maxImages;
+            }
+
+            // ✅ Step 3 & 4 handled elsewhere (serial rules)
+            return true;
+        },
+
+        //return scanner condition
+        async captureReturnScanner() {
+            const video =
+                document.getElementById("scanner-camera-preview") ||
+                this.$refs.videoElement;
+
+            if (!video || !this.scannerCameraActive) return;
+
+            if (this.capturedImages.length >= 12) {
+                this.showScanWarning(
+                    "Maximum of 12 images per serial allowed.",
+                );
+                return;
+            }
+
+            const canvas = this.captureVideoWithZoom(video);
+            const timestamp = new Date().toLocaleTimeString();
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+
+            // 🔥 Keep SAME property names as working version
+            this.capturedImages.push({
+                data: dataUrl,
+                timestamp,
+                captureStep: this.$parent?.currentCaptureStep || 2,
+            });
+
             this.showScanSuccess(
-              `✅ Serial #${serialIndex} detected: ${detectedSerial}`
+                `Image captured (${this.currentZoom.toFixed(1)}x zoom)`,
             );
-          } else {
-            this.showScanWarning('⚠️ No serial detected.');
-          }
-        }
-
-      } catch (err) {
-        console.error('OCR API error:', err);
-        this.showScanError('❌ Serial detection failed.');
-      }
+        },
     },
-
-    // ==========================================
-    // ✅ Dispatcher: decides which capture to run
-    // ==========================================
-    async captureFromScanner() {
-      // Extra safety guard
-      if (!this.scannerCameraActive) return;
-
-      if (this.module === 'received') {
-        return this.captureReceived();
-      }
-
-      if (this.module === 'returnscanner') {
-         return this.captureReturnScanner();
-    }
-      return this.captureFree();
-    },
-
-    // ============================
-    // Existing thumbnails functions
-    // ============================
-    loadProductThumbnails(productData) {
-      this.productThumbnails = [];
-      const basePath = '/images/thumbnails/';
-
-      const imageFields = [
-        { field: 'img1', label: 'Image 1' },
-        { field: 'img2', label: 'Image 2' },
-        { field: 'img3', label: 'Image 3' },
-        { field: 'img4', label: 'Image 4' },
-        { field: 'img5', label: 'Image 5' },
-        { field: 'img6', label: 'Image 6' },
-        { field: 'img7', label: 'Image 7' },
-        { field: 'img8', label: 'Image 8' },
-        { field: 'img9', label: 'Image 9' },
-        { field: 'img10', label: 'Image 10' },
-        { field: 'img11', label: 'Image 11' },
-        { field: 'img12', label: 'Image 12' },
-        { field: 'img13', label: 'Image 13' },
-        { field: 'img14', label: 'Image 14' },
-        { field: 'img15', label: 'Image 15' }
-      ];
-
-      imageFields.forEach(item => {
-        if (productData && productData[item.field]) {
-          this.productThumbnails.push({
-            src: basePath + productData[item.field],
-            label: item.label
-          });
-        }
-      });
-    },
-
-    openProductImagePreview(index) {
-      this.currentProductImageIndex = index;
-      this.showProductImageModal = true;
-      document.body.style.overflow = 'hidden';
-    },
-
-    closeProductImagePreview() {
-      this.showProductImageModal = false;
-      document.body.style.overflow = '';
-    },
-
-    prevProductImage() {
-      if (this.currentProductImageIndex > 0) this.currentProductImageIndex--;
-    },
-
-    nextProductImage() {
-      if (this.currentProductImageIndex < this.productThumbnails.length - 1) {
-        this.currentProductImageIndex++;
-      }
-    },
-
-    clearProductThumbnails() {
-      this.productThumbnails = [];
-      this.showProductImageModal = false;
-    },
-
-    // ==================================
-    // ✅ RECEIVED CAPTURE (restricted flow)
-    // ==================================
-    async captureReceived() {
-  const video = document.getElementById('scanner-camera-preview') || this.$refs.videoElement;
-  if (!video || !this.scannerCameraActive) return;
-
-  const currentStep = this.$parent?.currentStep ?? 0;
-
-      // 🚫 Only allow capture for steps 1–7
-      if (currentStep < 1 || currentStep > 7) {
-        this.showScanWarning('Capture not allowed at this step.');
-        return;
-      }
-
-
-  // 🚫 STEP 1 — Tracking capture rules
-  if (currentStep === 1) {
-    // Must verify tracking first
-    if (!this.$parent?.trackingFound) {
-      this.showScanWarning('Please verify tracking number first.');
-      return;
-    }
-
-    // If tracking image already exists (reused from DB)
-    const hasReusedTracking = this.capturedImages.some(
-      img => img.step === 1 && img.reused === true
-    );
-
-    if (hasReusedTracking) {
-      this.showScanWarning('Tracking image already exists. Reuse is enabled.');
-      return;
-    }
-
-        // Allow only 2 tracking images
-        const trackingImages = this.capturedImages.filter(img => img.step === 1);
-        if (trackingImages.length >= 2) {
-          this.showScanWarning('Only 2 tracking images is allowed.');
-          return;
-        }
-      }
-
-      // ✅ Step 2 limit
-      if (currentStep === 2) {
-        const step2Images = this.capturedImages.filter(i => i.step === 2);
-        if (step2Images.length >= this.maxImages) {
-          this.showScanError(`Maximum of ${this.maxImages} product images allowed.`);
-          return;
-        }
-      }
-
-      // ✅ Serial steps (3–7) → only 1 image per serial
-      if (currentStep >= 3 && currentStep <= 7) {
-        const serialImages = this.capturedImages.filter(
-          img => img.step === currentStep
-        );
-
-        if (serialImages.length >= 1) {
-          this.showScanWarning(
-            `Only one image allowed for Serial #${currentStep - 2}.`
-          );
-          return;
-        }
-      }
-
-  // ✅✅✅ USE captureVideoWithZoom instead of creating new canvas
-  const canvas = this.captureVideoWithZoom(video);
-  const timestamp = new Date().toLocaleTimeString();
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-
-      this.capturedImages.push({ data: dataUrl, timestamp, step: currentStep });
-      this.showScanSuccess('Image captured.');
-
-      // ✅ Step 3–4 OCR (ONLY if AI enabled in parent)
-      if (
-        currentStep >= 3 &&
-        currentStep <= 7 &&
-        this.$parent?.useAiDetection
-      )
-      {
-        await this.detectSerialFromCanvas(canvas, currentStep);
-      }
-
-
-  setTimeout(() => {
-    this.showSuccessNotification = false;
-  }, 2000);
-},
-
-    deleteImageByRef(image) {
-      const index = this.capturedImages.indexOf(image);
-      if (index !== -1) {
-        this.capturedImages.splice(index, 1);
-      }
-    },
-
-    canCaptureImage() {
-      const parent = this.$parent;
-      if (!parent) return false;
-
-      const currentStep = parent.currentStep;
-      const trackingFound = parent.trackingFound === true;
-
-      // 🚫 Must have verified tracking
-      if (!trackingFound) {
-        return false;
-      }
-
-      // 🚫 Do not allow capture beyond serial steps
-      // 🚫 Only allow capture for steps 1–7
-      if (currentStep > 7) {
-        return false;
-      }
-
-      // Step 1 handled directly in captureReceived()
-      if (currentStep === 1) {
-        return true;
-      }
-
-
-      // ✅ Step 2: Product images (respect maxImages)
-      if (currentStep === 2) {
-        return this.capturedImages.length < this.maxImages;
-      }
-
-      // ✅ Step 3 & 4 handled elsewhere (serial rules)
-      return true;
-    },
-    
-   //return scanner condition 
-    async captureReturnScanner() {
-      const video =
-        document.getElementById('scanner-camera-preview') ||
-        this.$refs.videoElement;
-
-      if (!video || !this.scannerCameraActive) return;
-
-      if (this.capturedImages.length >= 12) {
-        this.showScanWarning('Maximum of 12 images per serial allowed.');
-        return;
-      }
-
-      const canvas = this.captureVideoWithZoom(video);
-      const timestamp = new Date().toLocaleTimeString();
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-
-      // 🔥 Keep SAME property names as working version
-      this.capturedImages.push({
-        data: dataUrl,
-        timestamp,
-        captureStep: this.$parent?.currentCaptureStep || 2
-      });
-
-      this.showScanSuccess(
-        `Image captured (${this.currentZoom.toFixed(1)}x zoom)`
-      );
-    },
-  }
 };
 </script>
 
@@ -1165,7 +1453,7 @@ async initializeZoom() {
 
 .step-btn {
     width: 49%;
-    color: #fff; 
+    color: #fff;
     padding: 10px;
     border: none;
     border-radius: 4px;
@@ -1173,8 +1461,8 @@ async initializeZoom() {
     font-weight: bold;
 }
 
-.step-btn i{
-    color: #fff; 
+.step-btn i {
+    color: #fff;
 }
 
 button.pass-button.step-btn {
@@ -1195,1738 +1483,1755 @@ button.fail-button.step-btn {
 }
 /* Thumbnails grid */
 .product-thumbnails-grid {
-  @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-3;
+    @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-3;
 }
 .product-thumbnail {
-  @apply border rounded-lg shadow-sm overflow-hidden cursor-pointer transition-transform;
+    @apply border rounded-lg shadow-sm overflow-hidden cursor-pointer transition-transform;
 }
 .product-thumbnail:hover {
-  @apply scale-105;
+    @apply scale-105;
 }
 .product-thumbnail img {
-  @apply w-full h-32 object-cover;
+    @apply w-full h-32 object-cover;
 }
 .thumbnail-label {
-  @apply text-center text-sm bg-gray-100 py-1;
+    @apply text-center text-sm bg-gray-100 py-1;
 }
 .no-images {
-  @apply text-center text-gray-500 mt-4;
+    @apply text-center text-gray-500 mt-4;
 }
 
 /* Modal styling */
 .image-preview-modal {
-  @apply fixed inset-0 bg-black/80 flex items-center justify-center z-50;
+    @apply fixed inset-0 bg-black/80 flex items-center justify-center z-50;
 }
 .image-preview-content {
-  @apply relative bg-white rounded-xl p-2 max-w-3xl w-full flex flex-col items-center;
+    @apply relative bg-white rounded-xl p-2 max-w-3xl w-full flex flex-col items-center;
 }
 .modal-image {
-  @apply max-h-[80vh] object-contain;
+    @apply max-h-[80vh] object-contain;
 }
 .close-btn {
-  @apply absolute top-2 right-2 text-gray-700 hover:text-black;
+    @apply absolute top-2 right-2 text-gray-700 hover:text-black;
 }
 .modal-controls {
-  @apply flex justify-between w-full mt-2;
+    @apply flex justify-between w-full mt-2;
 }
 .nav-btn {
-  @apply bg-gray-200 hover:bg-gray-300 rounded-full p-2;
+    @apply bg-gray-200 hover:bg-gray-300 rounded-full p-2;
 }
 .scanner-product-image-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.9);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 2500;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2500;
 }
 
 .scanner-product-image-content {
-  width: 95%;
-  max-width: 800px;
-  background-color: #222;
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
+    width: 95%;
+    max-width: 800px;
+    background-color: #222;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
 }
 
 .scanner-product-image-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 15px;
-  background-color: #333;
-  border-bottom: 1px solid #444;
-  color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background-color: #333;
+    border-bottom: 1px solid #444;
+    color: white;
 }
 
 .scanner-product-image-container {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 15px;
-  min-height: 300px;
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 15px;
+    min-height: 300px;
 }
 
 .scanner-preview-image {
-  max-width: 100%;
-  max-height: 70vh;
-  object-fit: contain;
+    max-width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
 }
 
 .scanner-nav-btn {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: white;
-  border: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 16px;
-  cursor: pointer;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 16px;
+    cursor: pointer;
 }
 
 .scanner-nav-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
+    opacity: 0.3;
+    cursor: not-allowed;
 }
 
 .scanner-close-preview-btn {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 18px;
-  cursor: pointer;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
 }
-
-
 
 /* Top Notification Styles */
 .top-notification-container {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1100;
-  width: 90%;
-  max-width: 500px;
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1100;
+    width: 90%;
+    max-width: 500px;
 }
 
 .top-notification {
-  padding: 12px 18px;
-  border-radius: 6px;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 15px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  animation: slideDown 0.3s ease, fadeIn 0.3s ease;
+    padding: 12px 18px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation:
+        slideDown 0.3s ease,
+        fadeIn 0.3s ease;
 }
 
 .top-notification.success {
-  background-color: #e8f5e9;
-  color: #2e7d32;
-  border-left: 4px solid #4CAF50;
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    border-left: 4px solid #4caf50;
 }
 
 .top-notification.error {
-  background-color: #ffebee;
-  color: #c62828;
-  border-left: 4px solid #f44336;
+    background-color: #ffebee;
+    color: #c62828;
+    border-left: 4px solid #f44336;
 }
 
 @keyframes slideDown {
-  from { transform: translateY(-20px); }
-  to { transform: translateY(0); }
+    from {
+        transform: translateY(-20px);
+    }
+    to {
+        transform: translateY(0);
+    }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 /* Scanner Button Styles */
 .scanner-container {
-  display: flex;
-  align-items: center;
-  margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
 }
 
 .scanner-button {
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 22px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 22px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
 }
 
 .scanner-button:hover {
-  background-color: #45a049;
-  transform: scale(1.05);
+    background-color: #45a049;
+    transform: scale(1.05);
 }
 
 .scan-count {
-  margin-left: 10px;
-  background-color: #f8f9fa;
-  padding: 5px 10px;
-  border-radius: 15px;
-  font-size: 14px;
-  color: #333;
+    margin-left: 10px;
+    background-color: #f8f9fa;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 14px;
+    color: #333;
 }
 
 /* Scanner Modal Styles */
 .scanner-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
 }
 
 .scanner-modal-content {
-  background-color: white;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    background-color: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .scanner-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 15px;
-  border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid #eee;
 }
 
 .scanner-header h2 {
-  margin: 0;
-  font-size: 18px;
+    margin: 0;
+    font-size: 18px;
 }
 
 .header-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .header-toggle {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 40px;
-  height: 20px;
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 20px;
 }
 
 .toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
+    opacity: 0;
+    width: 0;
+    height: 0;
 }
 
 .toggle-slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  transition: .4s;
-  border-radius: 20px;
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.4s;
+    border-radius: 20px;
 }
 
 .toggle-slider:before {
-  position: absolute;
-  content: "";
-  height: 14px;
-  width: 14px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: .4s;
-  border-radius: 50%;
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.4s;
+    border-radius: 50%;
 }
 
 input:checked + .toggle-slider {
-  background-color: #4CAF50;
+    background-color: #4caf50;
 }
 
 input:checked + .toggle-slider:before {
-  transform: translateX(20px);
+    transform: translateX(20px);
 }
 
 .scanner-body {
-  padding: 10px;
+    padding: 10px;
 }
 
 .scanner-top-notification-area {
-  min-height: 40px;
-  margin-bottom: 12px;
+    min-height: 40px;
+    margin-bottom: 12px;
 }
 
 /* Scanner camera styles */
 #scanner-camera-preview {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
 }
 
 .scanner-view.active-camera {
-  background-color: #000;
-  position: relative;
-  overflow: hidden;
-  aspect-ratio: 4/3;
+    background-color: #000;
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: 4/3;
 }
 
 .scanner-view {
-  background-color: #000;
-  width: 100%;
-  height: 230px;
-  position: relative;
-  margin-bottom: 12px;
-  border-radius: 4px;
-  overflow: hidden;
-  transition: height 0.3s ease;
+    background-color: #000;
+    width: 100%;
+    height: 230px;
+    position: relative;
+    margin-bottom: 12px;
+    border-radius: 4px;
+    overflow: hidden;
+    transition: height 0.3s ease;
 }
 
 .scanner-view.compact-view {
-  height: 100px;
+    height: 100px;
 }
 
 .scanner-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .scanner-corner {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  border-color: #4CAF50;
-  border-style: solid;
-  border-width: 0;
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-color: #4caf50;
+    border-style: solid;
+    border-width: 0;
 }
 
 .top-left {
-  top: 20px;
-  left: 20px;
-  border-top-width: 3px;
-  border-left-width: 3px;
+    top: 20px;
+    left: 20px;
+    border-top-width: 3px;
+    border-left-width: 3px;
 }
 
 .top-right {
-  top: 20px;
-  right: 20px;
-  border-top-width: 3px;
-  border-right-width: 3px;
+    top: 20px;
+    right: 20px;
+    border-top-width: 3px;
+    border-right-width: 3px;
 }
 
 .bottom-left {
-  bottom: 20px;
-  left: 20px;
-  border-bottom-width: 3px;
-  border-left-width: 3px;
+    bottom: 20px;
+    left: 20px;
+    border-bottom-width: 3px;
+    border-left-width: 3px;
 }
 
 .bottom-right {
-  bottom: 20px;
-  right: 20px;
-  border-bottom-width: 3px;
-  border-right-width: 3px;
+    bottom: 20px;
+    right: 20px;
+    border-bottom-width: 3px;
+    border-right-width: 3px;
 }
 
 .scanner-controls {
-  position: absolute;
-  bottom: 10px;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 15px;
-  z-index: 10;
+    position: absolute;
+    bottom: 10px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 15px;
+    z-index: 10;
 }
-
 
 /* Left side controls - counter and camera button */
 .scanner-controls .capture-count {
-  background-color: rgba(0, 0, 0, 0.6);
-  color: white;
-  padding: 5px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  margin-right: 10px; /* Add space after counter */
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    margin-right: 10px; /* Add space after counter */
 }
 
 /* Center area - camera buttons */
 .scanner-controls .camera-button,
 .scanner-controls .capture-button {
-  background-color: rgba(0, 0, 0, 0.6);
-  color: white;
-  border: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 16px;
-  cursor: pointer;
-  margin: 0 5px; /* Add space around buttons */
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 16px;
+    cursor: pointer;
+    margin: 0 5px; /* Add space around buttons */
 }
 
 /* Right side - compact toggle button */
 .scanner-controls .compact-toggle {
-  background-color: rgba(0, 0, 0, 0.6);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 5px 10px;
-  font-size: 12px;
-  cursor: pointer;
-  margin-left: auto; /* Push to right side */
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    margin-left: auto; /* Push to right side */
 }
-
 
 .capture-count {
-  background-color: rgba(0, 0, 0, 0.6);
-  color: white;
-  padding: 5px 10px;
-  border-radius: 12px;
-  font-size: 12px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 12px;
+    font-size: 12px;
 }
 
-
 .capture-button {
-  background-color: #4CAF50;
+    background-color: #4caf50;
 }
 
 .camera-restart-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 10;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
 }
 
 .restart-camera-btn {
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  padding: 10px 15px;
-  border-radius: 5px;
-  font-size: 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .restart-camera-btn:disabled {
-  background-color: #999;
-  cursor: not-allowed;
+    background-color: #999;
+    cursor: not-allowed;
 }
 
 /* Input form styles */
 .input-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
 }
 
 .submit-button {
-  margin-top: 5px;
-  padding: 8px;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: bold;
-  cursor: pointer;
+    margin-top: 5px;
+    padding: 8px;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
 }
 
 /* Input field styles that will be used by slots */
 .input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
 }
 
 .input-group label {
-  font-weight: 600;
-  font-size: 12px;
-  color: #333;
+    font-weight: 600;
+    font-size: 12px;
+    color: #333;
 }
 
 .input-group input {
-  padding: 8px 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
 }
 
 .input-group input:focus {
-  border-color: #4CAF50;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+    border-color: #4caf50;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
 }
 
 /* Scan Statistics Styles */
 .scan-stats {
-  display: flex;
-  justify-content: space-between;
-  background-color: #f8f9fa;
-  border-radius: 4px;
-  padding: 8px 10px;
-  margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-bottom: 12px;
 }
 
 .stat-item {
-  text-align: center;
-  flex: 1;
+    text-align: center;
+    flex: 1;
 }
 
 .stat-label {
-  font-size: 12px;
-  color: #555;
-  font-weight: 500;
-  display: block;
+    font-size: 12px;
+    color: #555;
+    font-weight: 500;
+    display: block;
 }
 
 .stat-value {
-  font-size: 14px;
-  font-weight: 700;
+    font-size: 14px;
+    font-weight: 700;
 }
 
 .stat-value.success {
-  color: #4CAF50;
+    color: #4caf50;
 }
 
 .stat-value.error {
-  color: #f44336;
+    color: #f44336;
 }
 
 /* Notification Styles */
 .notification {
-  padding: 8px 12px;
-  border-radius: 4px;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
 }
 
 .notification.success {
-  background-color: #e8f5e9;
-  color: #2e7d32;
-  border-left: 4px solid #4CAF50;
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    border-left: 4px solid #4caf50;
 }
 
 .notification.error {
-  background-color: #ffebee;
-  color: #c62828;
-  border-left: 4px solid #f44336;
+    background-color: #ffebee;
+    color: #c62828;
+    border-left: 4px solid #f44336;
 }
 
 .top-notification.warning {
-  background-color: #fff3cd;
-  color: #856404;
-  border-left: 4px solid #ffc107;
+    background-color: #fff3cd;
+    color: #856404;
+    border-left: 4px solid #ffc107;
 }
-
 
 /* Scanned items list styles */
 .scanned-items {
-  margin-bottom: 15px;
+    margin-bottom: 15px;
 }
 
 .scans-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  cursor: pointer;
-  user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    cursor: pointer;
+    user-select: none;
 }
 
 .toggle-scans {
-  color: #4CAF50;
-  font-size: 14px;
-  font-weight: 500;
+    color: #4caf50;
+    font-size: 14px;
+    font-weight: 500;
 }
 
 .scans-header h3 {
-  margin: 0;
-  font-size: 16px;
-  color: #333;
+    margin: 0;
+    font-size: 16px;
+    color: #333;
 }
 
 /* Animation for slide transition */
-.slide-enter-active, .slide-leave-active {
-  transition: max-height 0.3s ease, opacity 0.2s ease;
-  max-height: 180px;
-  overflow: hidden;
+.slide-enter-active,
+.slide-leave-active {
+    transition:
+        max-height 0.3s ease,
+        opacity 0.2s ease;
+    max-height: 180px;
+    overflow: hidden;
 }
 
-.slide-enter-from, .slide-leave-to {
-  max-height: 0;
-  opacity: 0;
+.slide-enter-from,
+.slide-leave-to {
+    max-height: 0;
+    opacity: 0;
 }
 
 .scan-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  max-height: 180px;
-  overflow-y: auto;
-  border: 1px solid #eee;
-  border-radius: 4px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 180px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    border-radius: 4px;
 }
 
 .scan-list li {
-  padding: 8px;
-  border-bottom: 1px solid #eee;
-  display: grid;
-  grid-template-columns: 1fr auto 70px;
-  gap: 8px;
-  align-items: center;
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+    display: grid;
+    grid-template-columns: 1fr auto 70px;
+    gap: 8px;
+    align-items: center;
 }
 
 .scan-details {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .scan-field {
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .scan-list li:last-child {
-  border-bottom: none;
+    border-bottom: none;
 }
 
 .scan-list li.success {
-  border-left: 3px solid #4CAF50;
+    border-left: 3px solid #4caf50;
 }
 
 .scan-list li.error {
-  border-left: 3px solid #f44336;
+    border-left: 3px solid #f44336;
 }
 
 .scan-time {
-  color: #666;
-  font-size: 12px;
+    color: #666;
+    font-size: 12px;
 }
 
 .scan-time-small {
-  display: none;
-  color: #666;
-  font-size: 10px;
-  font-style: italic;
-  margin-top: 2px;
+    display: none;
+    color: #666;
+    font-size: 10px;
+    font-style: italic;
+    margin-top: 2px;
 }
 
 .scan-status {
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  text-align: center;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    text-align: center;
 }
 
 .scan-list li.success .scan-status {
-  background-color: #e8f5e9;
-  color: #2e7d32;
+    background-color: #e8f5e9;
+    color: #2e7d32;
 }
 
 .scan-list li.error .scan-status {
-  background-color: #ffebee;
-  color: #c62828;
+    background-color: #ffebee;
+    color: #c62828;
 }
 
 /* Action Buttons Styles */
 .scanner-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 5px;
+    display: flex;
+    gap: 10px;
+    margin-top: 5px;
 }
 
-.reset-button, .done-button {
-  flex: 1;
-  padding: 10px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
+.reset-button,
+.done-button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
 }
 
 .reset-button {
-  background-color: #f5f5f5;
-  color: #333;
+    background-color: #f5f5f5;
+    color: #333;
 }
 
 .done-button {
-  background-color: #4CAF50;
-  color: white;
+    background-color: #4caf50;
+    color: white;
 }
 
 /* Captured Images Preview */
 .captured-images-container {
-  margin-bottom: 12px;
-  border: 1px solid #eee;
-  border-radius: 4px;
-  overflow: hidden;
+    margin-bottom: 12px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    overflow: hidden;
 }
 
 .images-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 10px;
-  background-color: #f8f9fa;
-  cursor: pointer;
-  user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    background-color: #f8f9fa;
+    cursor: pointer;
+    user-select: none;
 }
 
 .images-header h3 {
-  margin: 0;
-  font-size: 14px;
-  color: #333;
+    margin: 0;
+    font-size: 14px;
+    color: #333;
 }
 
 .toggle-preview {
-  color: #4CAF50;
-  font-size: 12px;
+    color: #4caf50;
+    font-size: 12px;
 }
 
 .image-thumbnails {
-  display: flex;
-  gap: 8px;
-  padding: 10px;
-  overflow-x: auto;
-  background-color: #fff;
-  max-height: 120px;
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    overflow-x: auto;
+    background-color: #fff;
+    max-height: 120px;
 }
 
 .image-thumbnail {
-  position: relative;
-  min-width: 80px;
-  height: 80px;
-  border-radius: 4px;
-  overflow: hidden;
-  border: 1px solid #ddd;
+    position: relative;
+    min-width: 80px;
+    height: 80px;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid #ddd;
 }
 
 .image-thumbnail img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .delete-image-btn {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  background-color: rgba(255, 0, 0, 0.7);
-  color: white;
-  border: none;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  z-index: 5;
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background-color: rgba(255, 0, 0, 0.7);
+    color: white;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    z-index: 5;
 }
 
 .delete-image-btn i {
-  font-size: 12px;
+    font-size: 12px;
 }
 
 .image-timestamp {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  color: white;
-  font-size: 8px;
-  padding: 2px 4px;
-  text-align: center;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    font-size: 8px;
+    padding: 2px 4px;
+    text-align: center;
 }
 
 /* Camera Modal */
 .camera-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.9);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1100;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1100;
 }
 
 .camera-modal-content {
-  width: 90%;
-  max-width: 500px;
-  background-color: #000;
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+    width: 90%;
+    max-width: 500px;
+    background-color: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .camera-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 15px;
-  background-color: #222;
-  color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background-color: #222;
+    color: white;
 }
 
 .camera-header h2 {
-  margin: 0;
-  font-size: 18px;
+    margin: 0;
+    font-size: 18px;
 }
 
 .image-counter {
-  background-color: rgba(255, 255, 255, 0.2);
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 12px;
+    background-color: rgba(255, 255, 255, 0.2);
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
 }
 
 .camera-preview-container {
-  position: relative;
-  width: 100%;
-  height: 0;
-  padding-bottom: 75%;
-  overflow: hidden;
+    position: relative;
+    width: 100%;
+    height: 0;
+    padding-bottom: 75%;
+    overflow: hidden;
 }
 
 #camera-preview {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .camera-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  pointer-events: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
 }
 
 .camera-corner {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  border-color: #fff;
-  border-style: solid;
-  border-width: 0;
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-color: #fff;
+    border-style: solid;
+    border-width: 0;
 }
 
 .camera-overlay .top-left {
-  top: 20px;
-  left: 20px;
-  border-top-width: 3px;
-  border-left-width: 3px;
+    top: 20px;
+    left: 20px;
+    border-top-width: 3px;
+    border-left-width: 3px;
 }
 
 .camera-overlay .top-right {
-  top: 20px;
-  right: 20px;
-  border-top-width: 3px;
-  border-right-width: 3px;
+    top: 20px;
+    right: 20px;
+    border-top-width: 3px;
+    border-right-width: 3px;
 }
 
 .camera-overlay .bottom-left {
-  bottom: 20px;
-  left: 20px;
-  border-bottom-width: 3px;
-  border-left-width: 3px;
+    bottom: 20px;
+    left: 20px;
+    border-bottom-width: 3px;
+    border-left-width: 3px;
 }
 
 .camera-overlay .bottom-right {
-  bottom: 20px;
-  right: 20px;
-  border-bottom-width: 3px;
-  border-right-width: 3px;
+    bottom: 20px;
+    right: 20px;
+    border-bottom-width: 3px;
+    border-right-width: 3px;
 }
 
 .camera-actions {
-  display: flex;
-  padding: 10px;
-  gap: 10px;
-  background-color: #222;
+    display: flex;
+    padding: 10px;
+    gap: 10px;
+    background-color: #222;
 }
 
-.cancel-btn, .capture-btn {
-  flex: 1;
-  padding: 12px;
-  border: none;
-  border-radius: 4px;
-  font-weight: bold;
-  cursor: pointer;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
+.cancel-btn,
+.capture-btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
 }
 
 .cancel-btn {
-  background-color: #444;
-  color: white;
+    background-color: #444;
+    color: white;
 }
 
 .capture-btn {
-  background-color: #4CAF50;
-  color: white;
+    background-color: #4caf50;
+    color: white;
 }
 
 .camera-thumbnails {
-  display: flex;
-  gap: 4px;
-  padding: 10px;
-  background-color: #222;
-  overflow-x: auto;
-  height: 60px;
+    display: flex;
+    gap: 4px;
+    padding: 10px;
+    background-color: #222;
+    overflow-x: auto;
+    height: 60px;
 }
 
 .camera-thumbnail {
-  width: 50px;
-  height: 50px;
-  border-radius: 4px;
-  overflow: hidden;
-  border: 2px solid white;
+    width: 50px;
+    height: 50px;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 2px solid white;
 }
 
 .camera-thumbnail img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 /* Header actions and camera toggle button */
 .header-actions {
-  display: flex;
-  gap: 10px;
-  margin-left: 10px;
+    display: flex;
+    gap: 10px;
+    margin-left: 10px;
 }
 
 .camera-toggle-btn {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 16px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .camera-toggle-btn:hover {
-  background-color: #45a049;
-  transform: scale(1.05);
+    background-color: #45a049;
+    transform: scale(1.05);
 }
 
 /* Responsive adjustments */
 @media (max-width: 600px) {
-  .scanner-modal-content {
-    width: 100%;
-    max-width: none;
-    height: 100%;
-    max-height: none;
-    display: flex;
-    flex-direction: column;
-    border-radius: 0;
-  }
-  
-  .scanner-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px;
-  }
-  
-  .scanner-view {
-    /* height: 180px; */
-    height: 380px;
-  }
-  
-  .scanner-view.compact-view {
-    height: 80px;
-  }
-  
-  .scan-time {
-    display: none;
-  }
-  
-  .scan-time-small {
-    display: block;
-  }
-  
-  .scan-list li {
-    grid-template-columns: 1fr 60px;
-  }
-  
-  .scanner-actions {
-    position: sticky;
-    bottom: 0;
-    background-color: white;
-    padding-top: 8px;
-    z-index: 10;
-  }
-  
-  .slide-enter-active, .slide-leave-active {
-    max-height: 120px;
-  }
-  
-  .scans-header {
-    padding: 6px 0;
-  }
-  
-  .toggle-scans {
-    font-size: 12px;
-  }
+    .scanner-modal-content {
+        width: 100%;
+        max-width: none;
+        height: 100%;
+        max-height: none;
+        display: flex;
+        flex-direction: column;
+        border-radius: 0;
+    }
 
-  .camera-modal-content {
-    width: 100%;
-    height: 100%;
-    max-width: none;
-    border-radius: 0;
-  }
-  
-  .camera-preview-container {
-    padding-bottom: 100%;
-  }
-  
-  .camera-actions {
-    position: sticky;
-    bottom: 0;
-  }
-  
-  .image-thumbnails {
-    max-height: 100px;
-  }
-  
-  .image-thumbnail {
-    min-width: 70px;
-    height: 70px;
-  }
+    .scanner-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px;
+    }
+
+    .scanner-view {
+        /* height: 180px; */
+        height: 380px;
+    }
+
+    .scanner-view.compact-view {
+        height: 80px;
+    }
+
+    .scan-time {
+        display: none;
+    }
+
+    .scan-time-small {
+        display: block;
+    }
+
+    .scan-list li {
+        grid-template-columns: 1fr 60px;
+    }
+
+    .scanner-actions {
+        position: sticky;
+        bottom: 0;
+        background-color: white;
+        padding-top: 8px;
+        z-index: 10;
+    }
+
+    .slide-enter-active,
+    .slide-leave-active {
+        max-height: 120px;
+    }
+
+    .scans-header {
+        padding: 6px 0;
+    }
+
+    .toggle-scans {
+        font-size: 12px;
+    }
+
+    .camera-modal-content {
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        border-radius: 0;
+    }
+
+    .camera-preview-container {
+        padding-bottom: 100%;
+    }
+
+    .camera-actions {
+        position: sticky;
+        bottom: 0;
+    }
+
+    .image-thumbnails {
+        max-height: 100px;
+    }
+
+    .image-thumbnail {
+        min-width: 70px;
+        height: 70px;
+    }
 }
 
 @media (max-width: 360px) {
-  /* .scanner-view {
+    /* .scanner-view {
     height: 150px;
   } */
-  
-  .scanner-view.compact-view {
-    height: 70px;
-  }
-  
-  .scan-stats {
-    padding: 6px;
-  }
-  
-  .stat-label {
-    font-size: 10px;
-  }
-  
-  .stat-value {
-    font-size: 12px;
-  }
-  
-  .notification {
-    padding: 6px 10px;
-    font-size: 12px;
-  }
-  
-  .scanned-items h3 {
-    font-size: 13px;
-  }
-  
-  .scan-list {
-    max-height: 100px;
-  }
-  
-  .slide-enter-active, .slide-leave-active {
-    max-height: 100px;
-  }
 
-  .camera-header h2 {
-    font-size: 16px;
-  }
-  
-  .image-counter {
-    font-size: 10px;
-  }
-  
-  .image-thumbnails {
-    max-height: 80px;
-  }
-  
-  .image-thumbnail {
-    min-width: 60px;
-    height: 60px;
-  }
-  
-  .camera-thumbnails {
-    height: 50px;
-  }
-  
-  .camera-thumbnail {
-    width: 40px;
-    height: 40px;
-  }
+    .scanner-view.compact-view {
+        height: 70px;
+    }
+
+    .scan-stats {
+        padding: 6px;
+    }
+
+    .stat-label {
+        font-size: 10px;
+    }
+
+    .stat-value {
+        font-size: 12px;
+    }
+
+    .notification {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+
+    .scanned-items h3 {
+        font-size: 13px;
+    }
+
+    .scan-list {
+        max-height: 100px;
+    }
+
+    .slide-enter-active,
+    .slide-leave-active {
+        max-height: 100px;
+    }
+
+    .camera-header h2 {
+        font-size: 16px;
+    }
+
+    .image-counter {
+        font-size: 10px;
+    }
+
+    .image-thumbnails {
+        max-height: 80px;
+    }
+
+    .image-thumbnail {
+        min-width: 60px;
+        height: 60px;
+    }
+
+    .camera-thumbnails {
+        height: 50px;
+    }
+
+    .camera-thumbnail {
+        width: 40px;
+        height: 40px;
+    }
 }
 
 .image-preview-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.9);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 2000; /* Higher than other modals */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000; /* Higher than other modals */
 }
 
 .image-preview-content {
-  width: 95%;
-  max-width: 800px;
-  background-color: #222;
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
+    width: 95%;
+    max-width: 800px;
+    background-color: #222;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
 }
 
 .image-preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 15px;
-  background-color: #333;
-  border-bottom: 1px solid #444;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background-color: #333;
+    border-bottom: 1px solid #444;
 }
 
 .image-preview-header h3 {
-  margin: 0;
-  color: white;
-  font-size: 16px;
+    margin: 0;
+    color: white;
+    font-size: 16px;
 }
 
 .close-preview-btn {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 18px;
-  cursor: pointer;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
 }
 
 .image-preview-body {
-  display: flex;
-  flex-direction: column;
-  padding: 15px;
-  overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    overflow-y: auto;
 }
 
 .image-preview-container {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 15px;
-  min-height: 200px;
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 15px;
+    min-height: 200px;
 }
 
 .preview-image {
-  max-width: 100%;
-  max-height: 60vh;
-  object-fit: contain;
-  border-radius: 4px;
+    max-width: 100%;
+    max-height: 60vh;
+    object-fit: contain;
+    border-radius: 4px;
 }
 
 .image-preview-controls {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
 }
 
 .nav-btn {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: white;
-  border: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 16px;
-  cursor: pointer;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 16px;
+    cursor: pointer;
 }
 
 .nav-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
+    opacity: 0.3;
+    cursor: not-allowed;
 }
 
 .image-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .image-number {
-  color: white;
-  font-size: 14px;
-  font-weight: bold;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
 }
 
 .image-time {
-  color: #aaa;
-  font-size: 12px;
-  margin-top: 5px;
+    color: #aaa;
+    font-size: 12px;
+    margin-top: 5px;
 }
 
 .image-preview-actions {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
 }
 
-.delete-btn, .close-btn {
-  padding: 10px 15px;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.delete-btn,
+.close-btn {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .delete-btn {
-  background-color: #f44336;
-  color: white;
+    background-color: #f44336;
+    color: white;
 }
 
 .close-btn {
-  background-color: #444;
-  color: white;
+    background-color: #444;
+    color: white;
 }
 
 /* Make thumbnails clickable */
-.image-thumbnail, .camera-thumbnail {
-  cursor: pointer;
-  position: relative;
+.image-thumbnail,
+.camera-thumbnail {
+    cursor: pointer;
+    position: relative;
 }
 
 .view-image-hint {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: rgba(0, 0, 0, 0.5);
-  color: white;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  opacity: 0;
-  transition: opacity 0.2s ease;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
 }
 
 .image-thumbnail:hover .view-image-hint,
 .camera-thumbnail:hover .view-image-hint {
-  opacity: 1;
+    opacity: 1;
 }
 
 /* Responsive styles for mobile */
 @media (max-width: 600px) {
-  .image-preview-content {
-    width: 100%;
-    height: 100%;
-    max-width: none;
-    max-height: none;
-    border-radius: 0;
-  }
-  
-  .image-preview-container {
-    height: 60vh; /* Take up most of the screen on mobile */
-  }
-  
-  .preview-image {
-    max-height: 100%;
-  }
-  
-  .image-preview-actions {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background-color: #222;
-    padding: 10px;
-    z-index: 10;
-  }
-  
-  .nav-btn {
-    width: 50px;
-    height: 50px;
-    font-size: 20px;
-  }
+    .image-preview-content {
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        max-height: none;
+        border-radius: 0;
+    }
+
+    .image-preview-container {
+        height: 60vh; /* Take up most of the screen on mobile */
+    }
+
+    .preview-image {
+        max-height: 100%;
+    }
+
+    .image-preview-actions {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: #222;
+        padding: 10px;
+        z-index: 10;
+    }
+
+    .nav-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+    }
 }
 
 @media (max-width: 360px) {
-  .image-preview-container {
-    height: 50vh;
-  }
-  
-  .image-preview-header h3 {
-    font-size: 14px;
-  }
-  
-  .nav-btn {
-    width: 36px;
-    height: 36px;
-  }
-  
-  .delete-btn, .close-btn {
-    padding: 8px 12px;
-    font-size: 13px;
-  }
+    .image-preview-container {
+        height: 50vh;
+    }
+
+    .image-preview-header h3 {
+        font-size: 14px;
+    }
+
+    .nav-btn {
+        width: 36px;
+        height: 36px;
+    }
+
+    .delete-btn,
+    .close-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+    }
 }
 
-
 .loading-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 2000;
-  border-radius: 8px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    border-radius: 8px;
 }
 
 .loading-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
 }
 
 .loading-text {
-  color: white;
-  font-size: 16px;
-  font-weight: 500;
-  text-align: center;
+    color: white;
+    font-size: 16px;
+    font-weight: 500;
+    text-align: center;
 }
 
 /* Spinner Animation */
 .spinner {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-  margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    margin: 0 auto;
 }
 
 .spinner > div {
-  width: 18px;
-  height: 18px;
-  background-color: #4CAF50;
-  border-radius: 100%;
-  display: inline-block;
-  animation: sk-bouncedelay 1.4s infinite ease-in-out both;
+    width: 18px;
+    height: 18px;
+    background-color: #4caf50;
+    border-radius: 100%;
+    display: inline-block;
+    animation: sk-bouncedelay 1.4s infinite ease-in-out both;
 }
 
 .spinner .bounce1 {
-  animation-delay: -0.32s;
+    animation-delay: -0.32s;
 }
 
 .spinner .bounce2 {
-  animation-delay: -0.16s;
+    animation-delay: -0.16s;
 }
 
 @keyframes sk-bouncedelay {
-  0%, 80%, 100% { 
-    transform: scale(0);
-  } 40% { 
-    transform: scale(1.0);
-  }
+    0%,
+    80%,
+    100% {
+        transform: scale(0);
+    }
+    40% {
+        transform: scale(1);
+    }
 }
 
 /* On mobile devices, make sure the loader is centered */
 @media (max-width: 600px) {
-  .loading-overlay {
-    border-radius: 0;
-  }
-  
-  .loading-text {
-    font-size: 14px;
-    padding: 0 20px;
-  }
+    .loading-overlay {
+        border-radius: 0;
+    }
+
+    .loading-text {
+        font-size: 14px;
+        padding: 0 20px;
+    }
 }
 
 /* Product Thumbnails Styles with unique class names */
 .scanner-product-thumbnails-container {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 10;
-  display: flex;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    display: flex;
 }
 
 .scanner-default-thumbnail {
-  width: 80px;
-  height: 80px;
-  border-radius: 4px;
-  overflow: hidden;
-  border: 2px solid rgba(255, 255, 255, 0.7);
-  position: relative;
-  cursor: pointer;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-  background-color: #000;
+    width: 80px;
+    height: 80px;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 2px solid rgba(255, 255, 255, 0.7);
+    position: relative;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    background-color: #000;
 }
 
 .scanner-default-thumbnail img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.2s;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.2s;
 }
 
 .scanner-default-thumbnail:hover img {
-  transform: scale(1.05);
+    transform: scale(1.05);
 }
 
 .scanner-thumbnail-label {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  color: white;
-  font-size: 10px;
-  padding: 4px;
-  text-align: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-size: 10px;
+    padding: 4px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
 }
 
 /* Product Image Preview Modal with unique class names */
 .scanner-product-image-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.9);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 2500; /* Higher than other modals */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2500; /* Higher than other modals */
 }
 
 .scanner-product-image-content {
-  width: 95%;
-  max-width: 800px;
-  background-color: #222;
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  max-height: 90vh;
+    width: 95%;
+    max-width: 800px;
+    background-color: #222;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
 }
 
 .scanner-product-image-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 15px;
-  background-color: #333;
-  border-bottom: 1px solid #444;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background-color: #333;
+    border-bottom: 1px solid #444;
 }
 
 .scanner-product-image-header h3 {
-  margin: 0;
-  color: white;
-  font-size: 16px;
+    margin: 0;
+    color: white;
+    font-size: 16px;
 }
 
 .scanner-close-preview-btn {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 18px;
-  cursor: pointer;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
 }
 
 .scanner-product-image-body {
-  display: flex;
-  flex-direction: column;
-  padding: 15px;
-  overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    overflow-y: auto;
 }
 
 .scanner-product-image-container {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 15px;
-  min-height: 300px;
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 15px;
+    min-height: 300px;
 }
 
 .scanner-preview-image {
-  max-width: 100%;
-  max-height: 60vh;
-  object-fit: contain;
+    max-width: 100%;
+    max-height: 60vh;
+    object-fit: contain;
 }
 
 .scanner-product-image-controls {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
 }
 
 .scanner-nav-btn {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: white;
-  border: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 16px;
-  cursor: pointer;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 16px;
+    cursor: pointer;
 }
 
 .scanner-nav-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
+    opacity: 0.3;
+    cursor: not-allowed;
 }
 
 .scanner-image-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .scanner-image-label {
-  color: #aaa;
-  font-size: 12px;
-  margin-top: 5px;
-  display: block;
-  text-align: center;
+    color: #aaa;
+    font-size: 12px;
+    margin-top: 5px;
+    display: block;
+    text-align: center;
 }
 
 /* Mobile responsiveness */
 @media (max-width: 600px) {
-  .scanner-default-thumbnail {
-    width: 70px;
-    height: 70px;
-  }
-  
-  .scanner-product-image-content {
-    width: 100%;
-    height: 100%;
-    max-width: none;
-    max-height: none;
-    border-radius: 0;
-  }
+    .scanner-default-thumbnail {
+        width: 70px;
+        height: 70px;
+    }
+
+    .scanner-product-image-content {
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        max-height: none;
+        border-radius: 0;
+    }
 }
 
 @media (max-width: 360px) {
-  .scanner-default-thumbnail {
-    width: 60px;
-    height: 60px;
-  }
-  
-  .scanner-thumbnail-label {
-    font-size: 9px;
-  }
+    .scanner-default-thumbnail {
+        width: 60px;
+        height: 60px;
+    }
+
+    .scanner-thumbnail-label {
+        font-size: 9px;
+    }
 }
 
 .rotate-control {
-  position: absolute;
-  right: 15px;
-  bottom: 14%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+    position: absolute;
+    right: 15px;
+    bottom: 14%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 /* Vertical zoom slider - positioned on the right side of scanner view */
-.zoom-slider-vertical{
-  position: absolute;
-  right: 12px;
-  top: 35%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  background: rgba(0, 0, 0, 0.65);
-  padding: 10px 6px;
-  border-radius: 20px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  z-index: 10;
+.zoom-slider-vertical {
+    position: absolute;
+    right: 12px;
+    top: 35%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    background: rgba(0, 0, 0, 0.65);
+    padding: 10px 6px;
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 10;
 }
 
 .zoom-slider-vertical .zoom-icon-top,
 .zoom-slider-vertical .zoom-icon-bottom {
-  color: white;
-  font-size: 11px;
-  opacity: 0.8;
+    color: white;
+    font-size: 11px;
+    opacity: 0.8;
 }
 
 /* Vertical range input */
 .zoom-slider-vertical .zoom-slider {
-  -webkit-appearance: slider-vertical;
-  appearance: none;
-  writing-mode: vertical-lr;
-  direction: rtl;
-  width: 4px;
-  height: 70px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.3);
-  outline: none;
-  cursor: pointer;
-  padding: 0;
+    -webkit-appearance: slider-vertical;
+    appearance: none;
+    writing-mode: vertical-lr;
+    direction: rtl;
+    width: 4px;
+    height: 70px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.3);
+    outline: none;
+    cursor: pointer;
+    padding: 0;
 }
 
 .zoom-slider-vertical .zoom-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #ffffff;
-  cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-  transition: transform 0.15s;
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    transition: transform 0.15s;
 }
 
 .zoom-slider-vertical .zoom-slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #ffffff;
-  cursor: pointer;
-  border: none;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
 .zoom-slider-vertical .zoom-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
+    transform: scale(1.2);
 }
 
 .zoom-slider-vertical .zoom-value {
-  color: white;
-  font-size: 10px;
-  font-weight: 600;
-  text-align: center;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    text-align: center;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 /* Controls bar */
 .counter-area {
-  flex: 0 0 auto;
+    flex: 0 0 auto;
 }
 
 .camera-area {
-  flex: 1;
-  display: flex;
-  justify-content: center;
+    flex: 1;
+    display: flex;
+    justify-content: center;
 }
 
 .toggle-area {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 /* @media (max-width: 1024px) {
   .scanner-view {
@@ -2935,31 +3240,31 @@ input:checked + .toggle-slider:before {
 } */
 /* Mobile adjustments */
 @media (max-width: 768px) {
-  .zoom-slider-vertical{
-  position: absolute;
-  right: 11px;
-  top: 55%;
-}
-.rotate-control {
-  position: absolute;
-  right: 11px;
-  bottom: 10%;
-}
-  .scanner-controls {
-    padding: 0 10px;
-  }
+    .zoom-slider-vertical {
+        position: absolute;
+        right: 11px;
+        top: 55%;
+    }
+    .rotate-control {
+        position: absolute;
+        right: 11px;
+        bottom: 10%;
+    }
+    .scanner-controls {
+        padding: 0 10px;
+    }
 
-  .zoom-slider-vertical {
-    right: 8px;
-  }
+    .zoom-slider-vertical {
+        right: 8px;
+    }
 
-  .zoom-slider-vertical .zoom-slider {
-    height: 150px;
-  }
+    .zoom-slider-vertical .zoom-slider {
+        height: 150px;
+    }
 
-  .toggle-area {
-    gap: 8px;
-  }
+    .toggle-area {
+        gap: 8px;
+    }
 }
 .zoom-icon-reset {
     color: rgba(255, 255, 255, 0.6);
@@ -2976,35 +3281,35 @@ input:checked + .toggle-slider:before {
 }
 /* Prevent text selection during pinch zoom */
 .scanner-view {
-  position: relative;
-  overflow: hidden;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  touch-action: pan-x pan-y pinch-zoom;
+    position: relative;
+    overflow: hidden;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    touch-action: pan-x pan-y pinch-zoom;
 }
 
 .rotate-btn {
-  background: rgba(0, 0, 0, 0.7);
-  border: none;
-  border-radius: 50%;
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 11px;
+    background: rgba(0, 0, 0, 0.7);
+    border: none;
+    border-radius: 50%;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 11px;
 }
 
 .rotate-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.3);
 }
 
 #scanner-camera-preview {
-  transition: transform 0.3s ease;
+    transition: transform 0.3s ease;
 }
 </style>
