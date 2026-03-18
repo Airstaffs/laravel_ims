@@ -1255,7 +1255,7 @@ automationCanSave() {
                     pageSize: s.pageSize,
                 };
 
-                const res = await axios.post(`${API_BASE_URL}/amazon/automation/fnsku-search`, payload);
+                const res = await axios.post(`${API_BASE_URL}/amazon/paa/fnsku-search`, payload);
                 const raw = res?.data?.data || res?.data || {};
                 s.rows = raw?.rows || [];
                 s.page = page;

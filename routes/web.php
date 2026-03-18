@@ -1086,7 +1086,7 @@ Route::post('/amazon/search-listings', [ListingController::class, 'searchListing
 Route::post('/amazon/listings/update-one', [ListingController::class, 'updateOne']);
 
 Route::post('/amazon/automation/fnsku-search', [PaaAutomationController::class, 'fnskuSearch']);
-Route::post('/amazon/automation/save', [PaaAutomationController::class, 'save']);
+Route::post('/amazon/paa/save', [PaaAutomationController::class, 'save']);
 Route::get('/amazon/paa/automations', [PaaAutomationController::class, 'index']);
 Route::get('/amazon/paa/automation/{id}', [PaaAutomationController::class, 'show']);
 Route::delete('/amazon/paa/automation/{id}', [PaaAutomationController::class, 'destroy']);
