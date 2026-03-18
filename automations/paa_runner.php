@@ -36,7 +36,7 @@ date_default_timezone_set('UTC');
 // CONFIG
 // ----------------------------------------------------
 $BATCH_SIZE = 10;
-$MAX_ATTEMPTS = 3;
+$MAX_ATTEMPTS = 10;
 $PROCESSING_TIMEOUT_MIN = 15;
 $LOG_PREFIX = '[PAA] ';
 $LARAVEL_ROOT = realpath(__DIR__ . '/..');
@@ -445,7 +445,7 @@ function fetch_all_assoc($result)
 
 function resolveSkuFromMsku($mysqli, $msku)
 {
-    $stmt = $mysqli->prepare("SELECT MSKUviewer as MSKU FROM tblproduct WHERE MSKU=? LIMIT 1");
+    $stmt = $mysqli->prepare("SELECT MSKUviewer as MSKU FROM tblproduct WHERE MSKUviewer=? LIMIT 1");
 
     if (!$stmt) {
         return null;
