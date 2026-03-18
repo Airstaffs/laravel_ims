@@ -104,7 +104,7 @@ function db()
         return $mysqli;
     }
 
-    $host = envv('DB_HOST', 'localhost');
+    $host = envv('localhost');
     $user = envv('DB_USERNAME', '');
     $pass = envv('DB_PASSWORD', '');
     $name = envv('DB_DATABASE', '');
