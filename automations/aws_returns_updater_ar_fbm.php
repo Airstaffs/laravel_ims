@@ -538,7 +538,7 @@ function processRetrievedData($Connect, $retrievedData) {
                 'item_details' => [
                     'item_name' => (string) $returnDetail->item_details->item_name,
                     'asin' => (string) $returnDetail->item_details->asin,
-                    'return_reason_code' => (string) $returnDetail->item_details->return_reason_code,
+                    'reason' => (string) $returnDetail->item_details->return_reason_code,
                     'merchant_sku' => (string) $returnDetail->item_details->merchant_sku,
                     'in_policy' => (string) $returnDetail->item_details->in_policy,
                     'return_quantity' => (string) $returnDetail->item_details->return_quantity,
@@ -603,7 +603,7 @@ function insertToDb($Connect, $response) {
         $tracking_id = $details['label_details']['tracking_id'] ?? NULL;
         $return_request_date = $details['return_request_date'] ?? NULL;
         $return_request_status = $details['return_request_status'] ?? NULL;
-        $return_reason_code = $details['item_details']['return_reason_code'] ?? NULL;
+        $reason = $details['item_details']['reason'] ?? NULL;
         $return_system = "NEW";
         $store_name = "Allrenewed";
 
@@ -636,7 +636,7 @@ function insertToDb($Connect, $response) {
                 tracking_id = ?, 
                 return_request_date = ?, 
                 return_request_status = ?, 
-                return_reason_code = ? 
+                reason = ? 
                 WHERE amazonOrderId = ? AND ASIN = ? AND MSKU = ?";
             $stmt = $Connect->prepare($updateQuery);
     
@@ -649,7 +649,7 @@ function insertToDb($Connect, $response) {
                 $tracking_id, 
                 $return_request_date_la, 
                 $return_request_status, 
-                $return_reason_code, 
+                $reason, 
                 $amazonOrderId, 
                 $ASIN, 
                 $MSKU);
@@ -669,7 +669,7 @@ function insertToDb($Connect, $response) {
                 tracking_id, 
                 return_request_date, 
                 return_request_status, 
-                return_reason_code,
+                reason,
                 notif_status,
                 store_name ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             $stmt = $Connect->prepare($insertQuery);
@@ -686,7 +686,7 @@ function insertToDb($Connect, $response) {
                 $tracking_id, 
                 $return_request_date_la, 
                 $return_request_status, 
-                $return_reason_code,
+                $reason,
                 $return_system,
                 $store_name
             );
