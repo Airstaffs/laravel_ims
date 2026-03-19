@@ -590,7 +590,7 @@ function insertToDb($Connect, $response)
 
 
         // Prepare the SQL query to count existing records
-        $sql = "SELECT COUNT(*) as count FROM tblfbareturns WHERE order_id = ? AND sku = ? ";
+        $sql = "SELECT COUNT(*) as count FROM tblfbareturns WHERE amazonOrderId = ? AND sku = ? ";
         $stmt = $Connect->prepare($sql);
         $stmt->bind_param("ss", $amazonOrderId, $MSKU);
         $stmt->execute();
@@ -609,11 +609,11 @@ function insertToDb($Connect, $response)
             // Record exists, perform update
             $updateQuery = "UPDATE tblfbareturns SET 
                 return_date = ?, 
-                order_id = ?, 
+                amazonOrderId = ?, 
                 sku = ?, 
-                asin = ?, 
+                ASIN = ?, 
                 fnsku = ?, 
-                product_name = ?, 
+                item_name = ?, 
                 quantity = ?, 
                 fulfillment_center_id = ?,
                 detailed_disposition = ?,
@@ -621,7 +621,7 @@ function insertToDb($Connect, $response)
                 status = ?,
                 license_plate_number = ?,
                 customer_comments = ? 
-                WHERE order_id = ? AND asin = ? AND sku = ?";
+                WHERE amazonOrderId = ? AND asin = ? AND sku = ?";
             $stmt = $Connect->prepare($updateQuery);
 
             $stmt->bind_param(
@@ -650,11 +650,11 @@ function insertToDb($Connect, $response)
             // Record does not exist, perform insert
             $insertQuery = "INSERT INTO tblfbareturns (
                 return_date, 
-                order_id, 
+                amazonOrderId, 
                 sku, 
-                asin, 
+                ASIN, 
                 fnsku, 
-                product_name, 
+                item_name, 
                 quantity, 
                 fulfillment_center_id,
                 detailed_disposition,
