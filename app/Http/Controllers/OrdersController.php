@@ -1154,4 +1154,169 @@ public function getIncomingCountDetails(Request $request)
             'ph_tz' => \App\Helpers\TimeHelper::getTimezoneDisplay('Asia/Manila'),
         ];
     }
+
+    public function uploadImages(Request $request)
+{
+    try {
+        $request->validate([
+            'ProductID' => 'required|integer',
+            'images'    => 'required|array|max:15',
+            'images.*'  => 'image|mimes:jpeg,png,jpg,webp|max:5120',
+        ]);
+
+        $productId = $request->input('ProductID');
+        $uploadPath = public_path('images/thumbnails');
+        if (!file_exists($uploadPath)) mkdir($uploadPath, 0755, true);
+
+        // Get or create the image row for this product
+        $existing = DB::table('tblEbayOrderImages')
+            ->where('ProductID', $productId)
+            ->first();
+
+        $imgData = ['ProductID' => $productId, 'updated_at' => now()];
+
+        // Find next available slots (img1–img15)
+        $startSlot = 1;
+        if ($existing) {
+            for ($i = 1; $i <= 15; $i++) {
+                if (!empty($existing->{"img{$i}"})) $startSlot = $i + 1;
+            }
+        }
+
+        foreach ($request->file('images') as $index => $file) {
+            $slot = $startSlot + $index;
+            if ($slot > 15) break;
+
+            $filename = $productId . ($slot > 1 ? "_{$index}" : "") . '.' . $file->getClientOriginalExtension();
+            // Rename to match pattern: ProductID.jpg, ProductID_1.jpg ...
+            $filename = $productId . ($index === 0 ? '' : "_{$index}") . '.' . $file->getClientOriginalExtension();
+            $file->move($uploadPath, $filename);
+            $imgData["img{$slot}"] = $filename;
+        }
+
+        if ($existing) {
+            DB::table('tblEbayOrderImages')
+                ->where('ProductID', $productId)
+                ->update($imgData);
+        } else {
+            $imgData['created_at'] = now();
+            DB::table('tblEbayOrderImages')->insert($imgData);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Images uploaded successfully']);
+
+    } catch (\Exception $e) {
+        Log::error('Image upload error: ' . $e->getMessage());
+        return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+    }
+}
+
+public function storeWithImages(Request $request)
+{
+    DB::beginTransaction();
+    try {
+        $productData = $request->validate([
+            'ProductTitle'      => 'required|string',
+            'itemnumber'        => 'required|string',
+            'rtid'              => 'nullable|string',
+            'orderdate'         => 'nullable|date',
+            'paymentdate'       => 'nullable|date',
+            'shipdate'          => 'nullable|date',
+            'seller'            => 'nullable|string',
+            'materialtype'      => 'nullable|string',
+            'sourceType'        => 'nullable|string',
+            'carrier'           => 'nullable|string',
+            'listedcondition'   => 'nullable|string',
+            'paymentmethod'     => 'nullable|string',
+            'serialnumber'      => 'nullable|string',
+            'trackingnumber'    => 'nullable|string',
+            'trackingnumber2'   => 'nullable|string',
+            'trackingnumber3'   => 'nullable|string',
+            'trackingnumber4'   => 'nullable|string',
+            'description'       => 'nullable|string',
+            'notes'             => 'nullable|string',
+            'quantity'          => 'nullable|numeric',
+            'price'             => 'nullable|numeric',
+            'Discount'          => 'nullable|numeric',
+            'tax'               => 'nullable|numeric',
+            'priceshipping'     => 'nullable|numeric',
+            'refund'            => 'nullable|numeric',
+            'ProductModuleLoc'  => 'nullable|string',
+            'validation'        => 'nullable|string',
+            'itemstatus' => 'nullable|string',
+            // ✅ estimated_deliverydate is VARCHAR — just a plain string
+            'estimated_deliverydate' => 'nullable|string|max:50',
+        ]);
+
+        // ✅ Validate images completely separately
+        $request->validate([
+            'images'   => 'nullable|array|max:15',
+            'images.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
+        ]);
+
+        $productData['validation']        = $productData['validation'] ?? 'unvalidated';
+        $productData['ProductModuleLoc']  = $productData['ProductModuleLoc'] ?? 'Orders';
+        $productData['fetchStatus']       = 'Manual';
+
+        // ✅ Auto-generate rtcounter just like fetchRtCounter() in your eBay script
+        $maxRt = DB::table('tblproduct')->max('rtcounter') ?? 0;
+        $productData['rtcounter'] = $maxRt + 1;
+
+        // Step 1: Insert product — no images key in productData
+        $product   = tblproduct::create($productData);
+        $productId = $product->ProductID ?? $product->id ?? DB::getPdo()->lastInsertId();
+
+        if (!$productId) {
+            throw new \Exception("Failed to retrieve ProductID after insert.");
+        }
+
+        // Step 2: Upload images if provided
+        $imageFiles = $request->file('images') ?? [];
+        if (!empty($imageFiles)) {
+            $uploadPath = public_path('images/thumbnails');
+            if (!file_exists($uploadPath)) mkdir($uploadPath, 0755, true);
+
+            $imgData = [
+                'ProductID'  => $productId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            foreach ($imageFiles as $index => $file) {
+                $slot = $index + 1;
+                if ($slot > 15) break;
+                $ext      = $file->getClientOriginalExtension();
+                $filename = $index === 0 ? "{$productId}.{$ext}" : "{$productId}_{$index}.{$ext}";
+                $file->move($uploadPath, $filename);
+                $imgData["img{$slot}"] = $filename;
+            }
+
+            DB::table('tblEbayOrderImages')->insert($imgData);
+        }
+
+        // Track creation
+        $employeeName = auth()->user()->username ?? 'System';
+        $identifier   = "RT#{$productData['rtcounter']} - Item #{$product->itemnumber}"
+                      . (!empty($product->ProductTitle) ? " - {$product->ProductTitle}" : '');
+        $this->trackCreate('Orders', $identifier, $employeeName);
+
+        DB::commit();
+
+        return response()->json([
+            'success'    => true,
+            'message'    => 'Order saved successfully',
+            'product'    => $product,
+            'rtcounter'  => $productData['rtcounter'],
+        ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('storeWithImages error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+        ], 500);
+    }
+}
+
 }

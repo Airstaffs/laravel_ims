@@ -36,7 +36,7 @@ date_default_timezone_set('UTC');
 // CONFIG
 // ----------------------------------------------------
 $BATCH_SIZE = 10;
-$MAX_ATTEMPTS = 3;
+$MAX_ATTEMPTS = 10;
 $PROCESSING_TIMEOUT_MIN = 15;
 $LOG_PREFIX = '[PAA] ';
 $LARAVEL_ROOT = realpath(__DIR__ . '/..');
@@ -104,7 +104,7 @@ function db()
         return $mysqli;
     }
 
-    $host = envv('DB_HOST', 'localhost');
+    $host = envv('localhost');
     $user = envv('DB_USERNAME', '');
     $pass = envv('DB_PASSWORD', '');
     $name = envv('DB_DATABASE', '');
@@ -324,14 +324,10 @@ function http_post_json($url, $payload, $headers = [], $timeout = 50)
 function fetchCurrentPrice($store, $sku, $marketplaceIds)
 {
     $base = rtrim((string) envv('APP_URL'), '/');
-    $cronKey = envv('CRON_KEY');
+    $cronKey = envv('CRON_KEY', null);
 
     if (!$base) {
         throw new Exception("APP_URL missing in .env");
-    }
-
-    if (!$cronKey) {
-        throw new Exception("CRON_KEY missing in .env");
     }
 
     $url = $base . '/api/amazon/search-listings';
@@ -347,9 +343,13 @@ function fetchCurrentPrice($store, $sku, $marketplaceIds)
         'sortOrder' => 'DESC',
     ];
 
-    $res = http_post_json($url, $payload, [
-        'X-CRON-KEY: ' . $cronKey,
-    ], 50);
+    $headers = [];
+
+    if ($cronKey) {
+        $headers[] = 'X-CRON-KEY: ' . $cronKey;
+    }
+
+    $res = http_post_json($url, $payload, $headers, 50);
 
     if ($res['status'] < 200 || $res['status'] >= 300) {
         $msg = $res['json']['error']['message'] ?? $res['json']['message'] ?? $res['raw'];
@@ -378,14 +378,16 @@ function fetchCurrentPrice($store, $sku, $marketplaceIds)
 function patchPrice($store, $sku, $newPrice, $currency, $marketplaceIds)
 {
     $base = rtrim((string) envv('APP_URL'), '/');
-    $cronKey = envv('CRON_KEY');
+    $cronKey = envv('CRON_KEY', null);
 
     if (!$base) {
         throw new Exception("APP_URL missing in .env");
     }
 
-    if (!$cronKey) {
-        throw new Exception("CRON_KEY missing in .env");
+    $headers = [];
+
+    if ($cronKey) {
+        $headers[] = 'X-CRON-KEY: ' . $cronKey;
     }
 
     $url = $base . '/api/amazon/listings/update-one';
@@ -400,9 +402,7 @@ function patchPrice($store, $sku, $newPrice, $currency, $marketplaceIds)
         'productType' => 'PRODUCT',
     ];
 
-    $res = http_post_json($url, $payload, [
-        'X-CRON-KEY: ' . $cronKey,
-    ], 50);
+    $res = http_post_json($url, $payload, $headers, 50);
 
     if ($res['status'] < 200 || $res['status'] >= 300) {
         $msg =
@@ -411,7 +411,7 @@ function patchPrice($store, $sku, $newPrice, $currency, $marketplaceIds)
             $res['json']['message'] ??
             $res['raw'];
 
-        throw new Exception("update-one failed HTTP {$res['status']}: {$msg}");
+        throw new Exception("update-one failed HTTP {$res['status']}: {$msg} $url");
     }
 
     $ok = $res['json']['success'] ?? false;
@@ -445,22 +445,7 @@ function fetch_all_assoc($result)
 
 function resolveSkuFromMsku($mysqli, $msku)
 {
-    $stmt = $mysqli->prepare("SELECT MSKU, SKU FROM tblproduct WHERE MSKU=? LIMIT 1");
-
-    if (!$stmt) {
-        return null;
-    }
-
-    $stmt->bind_param('s', $msku);
-    $stmt->execute();
-    $row = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-
-    if (!empty($row['SKU'])) {
-        return (string) $row['SKU'];
-    }
-
-    return null;
+    return trim((string) $msku) !== '' ? (string) $msku : null;
 }
 
 function syncResolvedSku($mysqli, $automationId, $runItemId, $msku, $sku)
@@ -680,7 +665,8 @@ function finalize_run_done($mysqli, $runId)
     $skippedCount = (int) ($cnt['skipped_count'] ?? 0);
     $processedCount = $successCount + $failedCount + $skippedCount;
 
-    $mysqli->query("
+    $mysqli->query(
+        "
         UPDATE tbl_paa_runs
         SET status='done',
             phase='done',
@@ -926,7 +912,7 @@ function process_adjust_phase($mysqli, $automation, $run, $currentHHMM, $batchSi
 
         try {
             if (!$sku) {
-                $sku = resolveSkuFromMsku($mysqli, $msku);
+                $sku = trim((string) $msku) !== '' ? trim((string) $msku) : null;
 
                 if ($sku) {
                     syncResolvedSku($mysqli, $automationId, $runItemId, $msku, $sku);
@@ -1049,7 +1035,7 @@ function process_restore_phase($mysqli, $automation, $run, $batchSize, $maxAttem
 
         try {
             if (!$sku) {
-                $sku = resolveSkuFromMsku($mysqli, $msku);
+                $sku = trim((string) $msku) !== '' ? trim((string) $msku) : null;
 
                 if ($sku) {
                     syncResolvedSku($mysqli, $automationId, $runItemId, $msku, $sku);

@@ -1255,7 +1255,7 @@ automationCanSave() {
                     pageSize: s.pageSize,
                 };
 
-                const res = await axios.post(`${API_BASE_URL}/amazon/automation/fnsku-search`, payload);
+                const res = await axios.post(`${API_BASE_URL}/amazon/paa/fnsku-search`, payload);
                 const raw = res?.data?.data || res?.data || {};
                 s.rows = raw?.rows || [];
                 s.page = page;
@@ -1455,9 +1455,8 @@ async saveAutomation() {
 
             this.automationModal.rules.sort((a, b) => toNum(a.min) - toNum(b.min));
         },
-    },
 
-    assignSelectedFnskuRows() {
+            assignSelectedFnskuRows() {
         const existing = new Map(
             (this.automationModal.selectedRows || []).map(row => [row.FNSKUID, row])
         );
@@ -1471,6 +1470,9 @@ async saveAutomation() {
         this.automationModal.selectedRows = Array.from(existing.values());
         this.automationModal.searchSelectedRows = [];
     },
+    },
+
+
 };
 </script>
 
