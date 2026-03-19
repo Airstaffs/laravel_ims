@@ -431,12 +431,30 @@
                                     step="0.01"
                                     min="0"
                                     class="form-control"
-                                    v-model.number="
+                                    :value="
                                         $parent.hrContext.rateForm.monthly_rate
                                     "
-                                    @input="onMonthlyRateInput"
+                                    @input="
+                                        (e) => {
+                                            $parent.hrContext.rateForm.monthly_rate =
+                                                parseFloat(e.target.value) ||
+                                                null;
+                                            onMonthlyRateInput();
+                                        }
+                                    "
                                     placeholder="Auto-filled or enter manually"
                                 />
+                                <small
+                                    class="text-muted"
+                                    v-if="monthlyAutoComputed"
+                                >
+                                    Computed from hourly rate. You can override
+                                    this manually.
+                                </small>
+                                <small class="text-muted" v-else>
+                                    Formula: Monthly × 12 ÷ 52 weeks ÷ 48
+                                    hrs/week = Hourly Rate
+                                </small>
                             </fieldset>
 
                             <fieldset>
@@ -455,12 +473,26 @@
                                     step="0.01"
                                     min="0"
                                     class="form-control"
-                                    v-model.number="
+                                    :value="
                                         $parent.hrContext.rateForm.hourly_rate
                                     "
-                                    @input="onHourlyRateInput"
+                                    @input="
+                                        (e) => {
+                                            $parent.hrContext.rateForm.hourly_rate =
+                                                parseFloat(e.target.value) ||
+                                                null;
+                                            onHourlyRateInput();
+                                        }
+                                    "
                                     placeholder="Auto-filled or enter manually"
                                 />
+                                <small
+                                    class="text-muted"
+                                    v-if="hourlyAutoComputed"
+                                >
+                                    Computed from monthly rate. You can override
+                                    this manually.
+                                </small>
                             </fieldset>
 
                             <fieldset>
@@ -479,6 +511,132 @@
                                         $parent.hrContext.rateForm.currency
                                     "
                                 />
+                            </fieldset>
+
+                            <!-- Night Differential Toggle -->
+                            <fieldset>
+                                <div
+                                    class="d-flex justify-content-between align-items-center"
+                                >
+                                    <label
+                                        class="mb-0 d-flex align-items-center gap-2"
+                                    >
+                                        Night Differential
+                                        <span
+                                            class="badge bg-dark"
+                                            style="font-size: 10px"
+                                            >10PM – 6AM</span
+                                        >
+                                    </label>
+                                    <div class="form-check form-switch mb-0">
+                                        <input
+                                            type="checkbox"
+                                            class="form-check-input"
+                                            id="nightDiffToggle"
+                                            v-model="nightDiffEnabled"
+                                            @change="computeNightDiff"
+                                            role="switch"
+                                        />
+                                        <label
+                                            class="form-check-label small"
+                                            for="nightDiffToggle"
+                                        >
+                                            <span
+                                                v-if="nightDiffEnabled"
+                                                class="text-success fw-semibold"
+                                                >ON</span
+                                            >
+                                            <span v-else class="text-muted"
+                                                >OFF</span
+                                            >
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Breakdown — rates only, no hours input -->
+                                <div
+                                    v-if="nightDiffEnabled && nightDiff.base"
+                                    class="mt-2 p-3 border rounded bg-light"
+                                >
+                                    <div class="small text-muted mb-2">
+                                        Rate Breakdown —
+                                        {{
+                                            $parent.hrContext.rateForm
+                                                .hourly_rate
+                                        }}
+                                        ÷ 1.10
+                                    </div>
+                                    <div class="row g-2 text-center">
+                                        <div class="col-6">
+                                            <div
+                                                class="p-2 bg-white rounded border"
+                                            >
+                                                <div class="text-muted small">
+                                                    Base Rate
+                                                </div>
+                                                <div class="fw-bold fs-6">
+                                                    ₱ {{ nightDiff.base }}
+                                                </div>
+                                                <div
+                                                    class="text-muted"
+                                                    style="font-size: 10px"
+                                                >
+                                                    per hour
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div
+                                                class="p-2 bg-white rounded border"
+                                            >
+                                                <div class="text-muted small">
+                                                    Night Diff Rate
+                                                </div>
+                                                <div
+                                                    class="fw-bold fs-6 text-warning"
+                                                >
+                                                    ₱ {{ nightDiff.diffRate }}
+                                                </div>
+                                                <div
+                                                    class="text-muted"
+                                                    style="font-size: 10px"
+                                                >
+                                                    per hour (+10%)
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div
+                                        class="mt-2 small text-center text-muted"
+                                    >
+                                        ₱{{ nightDiff.base }} base + ₱{{
+                                            nightDiff.diffRate
+                                        }}
+                                        night diff = ₱{{
+                                            $parent.hrContext.rateForm
+                                                .hourly_rate
+                                        }}
+                                        combined
+                                    </div>
+                                </div>
+
+                                <div
+                                    v-else-if="
+                                        nightDiffEnabled && !nightDiff.base
+                                    "
+                                    class="mt-2 text-muted small text-center py-2"
+                                >
+                                    Enter a valid hourly rate above to see the
+                                    breakdown.
+                                </div>
+
+                                <small
+                                    class="text-muted d-block mt-1"
+                                    v-if="!nightDiffEnabled"
+                                >
+                                    Enable to see night differential rate
+                                    breakdown (PH Labor Code Art. 86).
+                                </small>
                             </fieldset>
                         </form>
 
@@ -667,6 +825,8 @@ export default {
 
             hourlyAutoComputed: false,
             monthlyAutoComputed: false,
+            nightDiffEnabled: false,
+            nightDiff: { base: null, diffRate: null },
         };
     },
     computed: {
@@ -760,38 +920,71 @@ export default {
         },
 
         onMonthlyRateInput() {
-            const monthly = parseFloat(
-                this.$parent.hrContext.rateForm.monthly_rate,
-            );
+            const rateForm = this.$parent?.hrContext?.rateForm;
+            if (!rateForm) return;
+
+            const monthly = parseFloat(rateForm.monthly_rate);
             if (!isNaN(monthly) && monthly > 0) {
                 const computed = (monthly * 12) / 52 / 48;
-                this.$parent.hrContext.rateForm.hourly_rate = parseFloat(
-                    computed.toFixed(2),
-                );
+                rateForm.hourly_rate = parseFloat(computed.toFixed(2));
                 this.hourlyAutoComputed = true;
             } else {
-                this.$parent.hrContext.rateForm.hourly_rate = null;
+                rateForm.hourly_rate = null;
                 this.hourlyAutoComputed = false;
             }
             this.monthlyAutoComputed = false;
+            if (this.nightDiffEnabled) this.computeNightDiff();
         },
 
         onHourlyRateInput() {
-            const hourly = parseFloat(
-                this.$parent.hrContext.rateForm.hourly_rate,
-            );
+            const rateForm = this.$parent?.hrContext?.rateForm;
+            if (!rateForm) return;
+
+            const hourly = parseFloat(rateForm.hourly_rate);
             if (!isNaN(hourly) && hourly > 0) {
-                // reverse: hourly × 48 × 52 ÷ 12 = monthly
                 const computed = (hourly * 48 * 52) / 12;
-                this.$parent.hrContext.rateForm.monthly_rate = parseFloat(
-                    computed.toFixed(2),
-                );
+                rateForm.monthly_rate = parseFloat(computed.toFixed(2));
                 this.monthlyAutoComputed = true;
             } else {
-                this.$parent.hrContext.rateForm.monthly_rate = null;
+                rateForm.monthly_rate = null;
                 this.monthlyAutoComputed = false;
             }
             this.hourlyAutoComputed = false;
+            if (this.nightDiffEnabled) this.computeNightDiff();
+        },
+
+        computeNightDiff() {
+            if (!this.nightDiffEnabled) {
+                this.nightDiff = {
+                    base: null,
+                    diffRate: null,
+                    totalNightPay: null,
+                };
+                return;
+            }
+
+            const rateForm = this.$parent?.hrContext?.rateForm;
+            if (!rateForm) return;
+
+            const hourly = parseFloat(rateForm.hourly_rate);
+            const nightHours = parseFloat(this.nightDiffHours) || 0;
+
+            if (!isNaN(hourly) && hourly > 0) {
+                const base = hourly / 1.1;
+                const diffRate = hourly - base;
+                const totalNightPay = diffRate * nightHours;
+                this.nightDiff = {
+                    base: base.toFixed(2),
+                    diffRate: diffRate.toFixed(2),
+                    totalNightPay: totalNightPay.toFixed(2),
+                };
+            } else {
+                this.nightDiff = {
+                    base: null,
+                    diffRate: null,
+                    totalNightPay: null,
+                };
+            }
         },
     },
 };

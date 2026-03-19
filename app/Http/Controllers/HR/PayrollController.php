@@ -101,6 +101,10 @@ class PayrollController extends Controller
                 'holiday_details' => 'nullable|array',
                 'attendance_records' => 'nullable|array',
                 'notes' => 'nullable|string|max:65535',
+                'night_diff_hours' => 'nullable|numeric',
+                'night_diff_rate' => 'nullable|numeric',
+                'night_diff_pay' => 'nullable|numeric',
+
             ]);
 
             // Recalculate deductions server-side from active items (fixed + custom)
@@ -148,6 +152,9 @@ class PayrollController extends Controller
                 'created_by' => auth()->user()->username ?? 'system',
                 'created_at' => now(),
                 'updated_at' => now(),
+                'night_diff_hours' => $validated['night_diff_hours'] ?? 0,
+                'night_diff_rate' => $validated['night_diff_rate'] ?? 0,
+                'night_diff_pay' => $validated['night_diff_pay'] ?? 0,
             ]);
 
             return response()->json([
