@@ -984,6 +984,7 @@ Route::prefix('hr')->group(function () {
     Route::get('/employees/{employee}/rates', [HrController::class, 'indexRate']);
     Route::get('/employees/{employee}/rates/current', [HrController::class, 'currentRate']);
     Route::post('/employees/{employee}/rates', [HrController::class, 'storeRate']);
+    Route::put('/employees/{employee}/rates', [HrController::class, 'upsertRate']);
 
     Route::get('/time-records', [HrController::class, 'getTimeRecords']);
     Route::post('/time-records/{id}/edit', [HrController::class, 'editTimeRecord']);
@@ -1035,11 +1036,12 @@ Route::prefix('hr')->group(function () {
     Route::get('/payslips/new-count', [PayrollController::class, 'getNewCount']);
     Route::get('/payslips', [PayrollController::class, 'getPayslips']);
     Route::post('/payslips', [PayrollController::class, 'createPayslip']);
+    Route::patch('/payslips/{id}', [PayrollController::class, 'updatePayslip']);
     Route::delete('/payslips/{id}', [PayrollController::class, 'deletePayslip']);
-    Route::patch('/payslips/{id}/status', [PayrollController::class, 'updateStatus']);
     Route::patch('/payslips/{id}/release', [PayrollController::class, 'releasePayslip']);
     Route::patch('/payslips/{id}/status', [PayrollController::class, 'updateStatus']);
     Route::patch('/payslips/{id}/employee-status', [PayrollController::class, 'updateEmployeeStatus']);
+    Route::get('/fixed-deductions', [PayrollController::class, 'getFixedDeductions']);
 
     // Holidays
     Route::get('/holidays', [PayrollController::class, 'getHolidays']);

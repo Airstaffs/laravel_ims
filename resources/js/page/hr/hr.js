@@ -817,26 +817,23 @@ export default {
             this.employeeModal.tab = "details";
             this.employeeModal.show = true;
 
+            // ── Profile ──────────────────────────────────────────
             try {
                 const res = await fetch(`${API_BASE_URL}/hr/profile/${emp.id}`);
                 const data = await res.json().catch(() => ({}));
-                // backend shape: { user: {...}, profile: {...} }
                 this.profile = data?.profile || {};
-                // (Optional) If you want to show role/email in the header later:
                 this.employeeModal.selectedEmployeeUser = data?.user || null;
             } catch (e) {
                 console.error("Failed to load profile", e);
                 this.profile = {};
             }
 
-            // ⬇️ permissions
+            // ── Permissions ───────────────────────────────────────
             this.permissionsLoading = true;
             try {
                 const { data } = await axios.get(
                     `${API_BASE_URL}/hr/employees/${emp.id}/permissions`,
                 );
-                // expected backend shape:
-                // { user_id, modules:{...}, main_module: "order"|null, module_keys:[...] }
                 this.permissions = {
                     user_id: Number(emp.id),
                     modules: data?.modules || {},
@@ -847,7 +844,6 @@ export default {
                 };
             } catch (e) {
                 console.error("Failed to load permissions", e);
-                // fall back gracefully
                 this.permissions = {
                     user_id: Number(emp.id),
                     modules: {},
@@ -858,8 +854,10 @@ export default {
                 this.permissionsLoading = false;
             }
 
-            // Preload rate form (unchanged)
+            // ── Rate form — pre-fill from current rate ────────────
             const today = new Date().toISOString().slice(0, 10);
+
+            // Start with defaults
             this.rateForm = {
                 employee_id: emp.id,
                 employee_username: emp.username || emp.name || null,
@@ -869,6 +867,31 @@ export default {
                 hourly_rate: null,
                 currency: "PHP",
             };
+
+            try {
+                const { data } = await axios.get(
+                    `${API_BASE_URL}/hr/employees/${emp.id}/rates/current`,
+                );
+
+                const rate = data?.data;
+
+                if (rate) {
+                    this.rateForm.effective_start = rate.effective_start
+                        ? rate.effective_start.split("T")[0]
+                        : today;
+                    this.rateForm.effective_end = rate.effective_end
+                        ? rate.effective_end.split("T")[0]
+                        : null;
+                    this.rateForm.monthly_rate = rate.monthly_rate ?? null;
+                    this.rateForm.hourly_rate = rate.hourly_rate ?? null;
+                    this.rateForm.currency = rate.currency ?? "PHP";
+                }
+            } catch (e) {
+                console.warn(
+                    "Could not fetch current rate, form left at defaults.",
+                    e,
+                );
+            }
         },
 
         setEmployeeModalTab(tab) {
@@ -987,7 +1010,6 @@ export default {
         },
 
         async submitRate() {
-            // basic validation
             if (!this.rateForm.employee_id) {
                 return Swal.fire(
                     "Missing Employee",
@@ -1023,27 +1045,23 @@ export default {
                     currency: this.rateForm.currency || "PHP",
                 };
 
-                await axios.post(url, payload);
+                await axios.put(url, payload);
 
-                if (this.selectedEmployee) {
-                    if (payload.monthly_rate != null) {
-                        this.selectedEmployee.employee_rate =
-                            payload.monthly_rate;
-                    }
+                if (this.selectedEmployee && payload.monthly_rate != null) {
+                    this.selectedEmployee.employee_rate = payload.monthly_rate;
                 }
 
                 this.loaded.employees = false;
                 this.loaded.rateHistory = false;
 
-                this.closeRateModal();
-
-                Swal.fire(
+                await Swal.fire(
                     "Success",
                     "Employee rate has been saved successfully.",
                     "success",
-                ).then(() => {
-                    this.fetchEmployeesOnce();
-                });
+                );
+
+                this.closeEmployeeModal();
+                this.fetchEmployeesOnce();
             } catch (e) {
                 console.error("Failed to save rate", e);
                 Swal.fire(
