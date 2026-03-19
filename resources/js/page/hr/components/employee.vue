@@ -391,8 +391,6 @@
                     </TabPanel>
 
                     <TabPanel value="1">
-                        <!-- RATE TAB -->
-
                         <form @submit.prevent>
                             <fieldset>
                                 <label>Effective Start</label>
@@ -418,26 +416,50 @@
                             </fieldset>
 
                             <fieldset>
-                                <label>Monthly Rate (PHP)</label>
+                                <label class="d-flex align-items-center gap-2">
+                                    Monthly Rate (PHP)
+                                    <span
+                                        v-if="monthlyAutoComputed"
+                                        class="badge bg-success"
+                                        style="font-size: 10px"
+                                    >
+                                        Auto-computed
+                                    </span>
+                                </label>
                                 <InputText
                                     type="number"
                                     step="0.01"
+                                    min="0"
                                     class="form-control"
                                     v-model.number="
                                         $parent.hrContext.rateForm.monthly_rate
                                     "
+                                    @input="onMonthlyRateInput"
+                                    placeholder="Auto-filled or enter manually"
                                 />
                             </fieldset>
 
                             <fieldset>
-                                <label>Hourly Rate (PHP)</label>
+                                <label class="d-flex align-items-center gap-2">
+                                    Hourly Rate (PHP)
+                                    <span
+                                        v-if="hourlyAutoComputed"
+                                        class="badge bg-success"
+                                        style="font-size: 10px"
+                                    >
+                                        Auto-computed
+                                    </span>
+                                </label>
                                 <InputText
                                     type="number"
                                     step="0.01"
+                                    min="0"
                                     class="form-control"
                                     v-model.number="
                                         $parent.hrContext.rateForm.hourly_rate
                                     "
+                                    @input="onHourlyRateInput"
+                                    placeholder="Auto-filled or enter manually"
                                 />
                             </fieldset>
 
@@ -459,6 +481,7 @@
                                 />
                             </fieldset>
                         </form>
+
                         <div class="d-flex justify-content-end gap-2 mt-2">
                             <Button
                                 size="small"
@@ -641,6 +664,9 @@ export default {
                 { label: "Philippines (PH)", value: "PH" },
                 { label: "United States (US)", value: "US" },
             ],
+
+            hourlyAutoComputed: false,
+            monthlyAutoComputed: false,
         };
     },
     computed: {
@@ -731,6 +757,41 @@ export default {
             const location =
                 emp.accounttype || emp.location || emp.country || "";
             return location.toUpperCase() || "-";
+        },
+
+        onMonthlyRateInput() {
+            const monthly = parseFloat(
+                this.$parent.hrContext.rateForm.monthly_rate,
+            );
+            if (!isNaN(monthly) && monthly > 0) {
+                const computed = (monthly * 12) / 52 / 48;
+                this.$parent.hrContext.rateForm.hourly_rate = parseFloat(
+                    computed.toFixed(2),
+                );
+                this.hourlyAutoComputed = true;
+            } else {
+                this.$parent.hrContext.rateForm.hourly_rate = null;
+                this.hourlyAutoComputed = false;
+            }
+            this.monthlyAutoComputed = false;
+        },
+
+        onHourlyRateInput() {
+            const hourly = parseFloat(
+                this.$parent.hrContext.rateForm.hourly_rate,
+            );
+            if (!isNaN(hourly) && hourly > 0) {
+                // reverse: hourly × 48 × 52 ÷ 12 = monthly
+                const computed = (hourly * 48 * 52) / 12;
+                this.$parent.hrContext.rateForm.monthly_rate = parseFloat(
+                    computed.toFixed(2),
+                );
+                this.monthlyAutoComputed = true;
+            } else {
+                this.$parent.hrContext.rateForm.monthly_rate = null;
+                this.monthlyAutoComputed = false;
+            }
+            this.hourlyAutoComputed = false;
         },
     },
 };

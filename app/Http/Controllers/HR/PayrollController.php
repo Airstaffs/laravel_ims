@@ -92,13 +92,29 @@ class PayrollController extends Controller
                 'special_holiday_hours' => 'nullable|numeric',
                 'special_holiday_pay' => 'nullable|numeric',
                 'gross_pay' => 'required|numeric',
-                'deductions' => 'nullable|numeric',
-                'net_pay' => 'required|numeric',
                 'deduction_details' => 'nullable|array',
+                // Each item must have name, amount, active, and type (fixed|custom)
+                'deduction_details.*.name' => 'required_with:deduction_details|string',
+                'deduction_details.*.amount' => 'required_with:deduction_details|numeric|min:0',
+                'deduction_details.*.active' => 'required_with:deduction_details|boolean',
+                'deduction_details.*.type' => 'required_with:deduction_details|in:fixed,custom',
                 'holiday_details' => 'nullable|array',
                 'attendance_records' => 'nullable|array',
                 'notes' => 'nullable|string|max:65535',
             ]);
+
+            // Recalculate deductions server-side from active items (fixed + custom)
+            $totalDeductions = 0;
+            if (! empty($validated['deduction_details'])) {
+                foreach ($validated['deduction_details'] as $d) {
+                    if (! empty($d['active'])) {
+                        $totalDeductions += floatval($d['amount'] ?? 0);
+                    }
+                }
+            }
+
+            // Recalculate net_pay server-side
+            $netPay = floatval($validated['gross_pay']) - $totalDeductions;
 
             $payslipId = DB::table('tblpayslips')->insertGetId([
                 'employee_id' => $validated['employee_id'],
@@ -116,17 +132,17 @@ class PayrollController extends Controller
                 'special_holiday_hours' => $validated['special_holiday_hours'] ?? 0,
                 'special_holiday_pay' => $validated['special_holiday_pay'] ?? 0,
                 'gross_pay' => $validated['gross_pay'],
-                'deductions' => $validated['deductions'] ?? 0,
-                'net_pay' => $validated['net_pay'],
+                'deductions' => $totalDeductions,
+                'net_pay' => $netPay,
                 'deduction_details' => ! empty($validated['deduction_details'])
-                                                ? json_encode($validated['deduction_details'])
-                                                : null,
+                                            ? json_encode($validated['deduction_details'])
+                                            : null,
                 'holiday_details' => ! empty($validated['holiday_details'])
-                                                ? json_encode($validated['holiday_details'])
-                                                : null,
+                                            ? json_encode($validated['holiday_details'])
+                                            : null,
                 'attendance_records' => ! empty($validated['attendance_records'])
-                                                ? json_encode($validated['attendance_records'])
-                                                : null,
+                                            ? json_encode($validated['attendance_records'])
+                                            : null,
                 'notes' => $validated['notes'] ?? null,
                 'status' => 'draft',
                 'created_by' => auth()->user()->username ?? 'system',
@@ -181,34 +197,39 @@ class PayrollController extends Controller
                 'notes' => 'nullable|string|max:65535',
             ]);
 
-            // Recalculate total deductions from active deductions
-            $deductions = 0;
+            // Recalculate total from ALL active deductions (fixed + custom)
+            $totalDeductions = 0;
             if (! empty($validated['deduction_details'])) {
                 foreach ($validated['deduction_details'] as $d) {
                     if (! empty($d['active'])) {
-                        $deductions += floatval($d['amount'] ?? 0);
+                        $totalDeductions += floatval($d['amount'] ?? 0);
                     }
                 }
             }
 
-            $updated = DB::table('tblpayslips')
+            // Fetch existing payslip to recalculate net_pay
+            $payslip = DB::table('tblpayslips')->where('id', $id)->first();
+            if (! $payslip) {
+                return response()->json(['message' => 'Payslip not found.'], 404);
+            }
+
+            $netPay = floatval($payslip->gross_pay) - $totalDeductions;
+
+            DB::table('tblpayslips')
                 ->where('id', $id)
                 ->update([
                     'employee_id' => $validated['employee_id'],
                     'payout_date' => $validated['payout_date'],
                     'cutoff_from' => $validated['cutoff_from'],
                     'cutoff_to' => $validated['cutoff_to'],
-                    'deductions' => $deductions,
+                    'deductions' => $totalDeductions,
+                    'net_pay' => $netPay,              // ← also update net_pay
                     'deduction_details' => ! empty($validated['deduction_details'])
                                             ? json_encode($validated['deduction_details'])
                                             : null,
                     'notes' => $validated['notes'] ?? null,
                     'updated_at' => now(),
                 ]);
-
-            if (! $updated) {
-                return response()->json(['message' => 'Payslip not found.'], 404);
-            }
 
             return response()->json(['success' => true, 'message' => 'Payslip updated successfully.']);
 
@@ -414,6 +435,31 @@ class PayrollController extends Controller
             return round($diff / 3600, 2);
         } catch (\Exception $e) {
             return 0;
+        }
+    }
+
+    public function getFixedDeductions()
+    {
+        if (! auth()->user()->isHR()) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        try {
+            $deductions = DB::table('tblfixeddeductions')
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get();
+
+            return response()->json($deductions);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching fixed deductions: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch fixed deductions.',
+            ], 500);
         }
     }
 }
