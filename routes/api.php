@@ -155,3 +155,4 @@ Route::post('/import-fbm-order-shipment', [ManualShipmentLabelController::class,
 Route::post('/received/validate-serial', [ReceivedController::class, 'validateSerial']);
 
 Route::post('/amazon/search-listings', [ListingController::class, 'searchListings']);
+Route::post('/amazon/listings/update-one', [ListingController::class, 'updateOne']);
