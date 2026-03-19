@@ -411,7 +411,7 @@ function patchPrice($store, $sku, $newPrice, $currency, $marketplaceIds)
             $res['json']['message'] ??
             $res['raw'];
 
-        throw new Exception("update-one failed HTTP {$res['status']}: {$msg}");
+        throw new Exception("update-one failed HTTP {$res['status']}: {$msg} $url");
     }
 
     $ok = $res['json']['success'] ?? false;
