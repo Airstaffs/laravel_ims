@@ -378,14 +378,16 @@ function fetchCurrentPrice($store, $sku, $marketplaceIds)
 function patchPrice($store, $sku, $newPrice, $currency, $marketplaceIds)
 {
     $base = rtrim((string) envv('APP_URL'), '/');
-    $cronKey = envv('CRON_KEY');
+    $cronKey = envv('CRON_KEY', null);
 
     if (!$base) {
         throw new Exception("APP_URL missing in .env");
     }
 
-    if (!$cronKey) {
-        throw new Exception("CRON_KEY missing in .env");
+    $headers = [];
+
+    if ($cronKey) {
+        $headers[] = 'X-CRON-KEY: ' . $cronKey;
     }
 
     $url = $base . '/api/amazon/listings/update-one';
@@ -400,9 +402,7 @@ function patchPrice($store, $sku, $newPrice, $currency, $marketplaceIds)
         'productType' => 'PRODUCT',
     ];
 
-    $res = http_post_json($url, $payload, [
-        'X-CRON-KEY: ' . $cronKey,
-    ], 50);
+    $res = http_post_json($url, $payload, $headers, 50);
 
     if ($res['status'] < 200 || $res['status'] >= 300) {
         $msg =
