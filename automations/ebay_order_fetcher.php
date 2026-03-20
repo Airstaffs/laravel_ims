@@ -951,7 +951,7 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
 function sendEbayRequest($accessToken, $pageNumber)
 {
     // Enhanced to include ModTime filter for tracking updates like V1
-    $createTimeFrom = (new DateTime('-60 days', new DateTimeZone('UTC')))->format(DATE_ATOM);
+    $createTimeFrom = (new DateTime('-90 days', new DateTimeZone('UTC')))->format(DATE_ATOM);
     $createTimeTo = (new DateTime('now', new DateTimeZone('UTC')))->format(DATE_ATOM);
     
     // ADDED: ModTime filter to catch recently modified orders (last 7 days) for tracking updates

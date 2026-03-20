@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Http\Controllers\BasetablesController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
 use DateTime;
 use DateTimeZone;
 use Exception;
@@ -1862,4 +1863,95 @@ class PrintLabelService extends BasetablesController
             return $currentDatetime->format('Y-m-d H:i:s');
         }
     }
+
+public function printReturnReasonLabel(
+    string $serial,
+    ?string $returnId,
+    ?string $returnReason,
+    ?string $buyerName,
+    string  $location,
+    object  $selectedPrinter
+): array {
+    try {
+        Log::info('Printing return reason label', [
+            'serial'       => $serial,
+            'return_reason'=> $returnReason,
+            'printer'      => $selectedPrinter->printername ?? 'unknown',
+            'printer_ip'   => $selectedPrinter->printerip   ?? 'unknown',
+            'printer_type' => $selectedPrinter->printer_type ?? 'unknown',
+        ]);
+
+        // ✅ Only pass returnReason — matches the method signature below
+        $zpl = $this->generateReturnReasonZpl($returnReason ?? 'No Reason Provided');
+
+        // ✅ Use selected printer IP — NOT the default large printer
+        $result = $this->sendToPrinter($zpl, $selectedPrinter->printerip);
+
+        if ($result['status'] === 'success') {
+            try {
+                $product = DB::table($this->productTable)
+                    ->where(function ($q) use ($serial) {
+                        $q->where('serialnumber',  $serial)
+                          ->orWhere('serialnumberb', $serial)
+                          ->orWhere('serialnumberc', $serial)
+                          ->orWhere('serialnumberd', $serial);
+                    })
+                    ->orderByDesc('ProductID')
+                    ->first();
+
+                if ($product && isset($this->itemProcessHistoryTable)) {
+                    DB::table($this->itemProcessHistoryTable)->insert([
+                        'rtcounter'    => $product->rtcounter,
+                        'employeeName' => 'ReturnScanner',
+                        'editDate'     => $this->getCurrentDateTime(),
+                        'Module'       => 'Return Reason Label',
+                        'Action'       => 'Return reason label printed on ' . ($selectedPrinter->printername ?? '?'),
+                    ]);
+                }
+            } catch (\Exception $logEx) {
+                Log::warning('Could not write print history: ' . $logEx->getMessage());
+            }
+        }
+
+        return $result;
+
+    } catch (\Exception $e) {
+        Log::error('Error printing return reason label: ' . $e->getMessage());
+        return [
+            'status'  => 'error',
+            'message' => 'Error printing return reason label: ' . $e->getMessage(),
+        ];
+    }
+}
+
+
+/**
+ * Generate ZPL for the Return Reason label.
+ */
+// Small label: 2.25" x 1.25" @ 203dpi = 456 x 254 dots
+private function generateReturnReasonZpl(string $returnReason): string
+{
+    $safe = mb_substr(
+        str_replace(['^', '~', '\\'], ' ', $returnReason ?: 'No Reason Provided'),
+        0, 80
+    );
+
+    $zpl  = '^XA';
+    $zpl .= '^MMT';
+    $zpl .= '^PW456';
+    $zpl .= '^LL0400';   // taller label to give more vertical room
+
+    // Header bar — moved down
+    $zpl .= '^FO0,60^GB456,40,40^FS';
+    $zpl .= '^FO5,68^FR^A0N,22,20^FDRETURN REASON^FS';
+
+    // Reason text — moved down
+    $zpl .= '^FO10,115^FB436,4,2,L,0^A0N,32,28^FD' . $safe . '^FS';
+
+    $zpl .= '^XZ';
+
+    return $zpl;
+}
+
+
 }

@@ -6,22 +6,23 @@
                 subtitle="View and manage the status of all incoming customer product returns for processing."
             />
 
-            <Button
-                class="mx-4"
-                @click="openScannerModal"
-                severity="secondary"
-                outlined
-                label="Scan Items"
-                size="small"
-                icon="pi pi-barcode"
-            />
+             <div class="d-flex align-items-center gap-2">
+                <Button
+                    @click="openScannerModal"
+                    severity="secondary"
+                    outlined
+                    label="Scan Items"
+                    size="small"
+                    icon="pi pi-barcode"
+                />
 
-            <Button
-                label="Amazon Returns"
-                icon="pi pi-replay"
-                class="p-button-warning"
-                @click="openAmazonReturnsModal"
-            />
+                <Button
+                    label="Amazon Returns"
+                    icon="pi pi-replay"
+                    class="p-button-warning"
+                    @click="openAmazonReturnsModal"
+                />
+            </div>
         </div>
 
         <scanner-component scanner-title="Return Scanner" storage-prefix="returnscanner" :enable-camera="true"
@@ -72,32 +73,73 @@
                     </div>
 
                     <!-- Info card shown when Return ID is found -->
-                    <div v-if="returnIdValidated && returnIdInfo" class="return-id-info-card">
-                        <div class="return-id-info-row">
+                  <div v-if="returnIdValidated && returnIdInfo" class="return-id-info-card">
+
+                        <!-- FBA badge -->
+                        <div v-if="returnType === 'FBA'" class="return-id-type-badge fba-badge">
+                            <i class="fas fa-warehouse"></i> FBA Return
+                        </div>
+                        <!-- FBM badge -->
+                        <div v-else-if="returnType === 'FBM'" class="return-id-type-badge fbm-badge">
+                            <i class="fas fa-box"></i> FBM Return
+                        </div>
+
+                        <!-- Buyer (FBM only — FBA has no buyer name) -->
+                        <div v-if="returnIdInfo.buyerName" class="return-id-info-row">
                             <i class="fas fa-user"></i>
-                            <span><strong>Buyer:</strong> {{ returnIdInfo.buyerName || 'Unknown' }}</span>
+                            <span><strong>Buyer:</strong> {{ returnIdInfo.buyerName }}</span>
                         </div>
-                        <div class="return-id-info-row">
+
+                        <!-- Item name -->
+                        <div v-if="returnIdInfo.itemName" class="return-id-info-row">
                             <i class="fas fa-box"></i>
-                            <span><strong>Item:</strong> {{ returnIdInfo.itemName || 'N/A' }}</span>
+                            <span><strong>Item:</strong> {{ returnIdInfo.itemName }}</span>
                         </div>
+
+                        <!-- Shipped serial (FBM only) -->
                         <div v-if="returnIdInfo.shippedSerial" class="return-id-info-row">
                             <i class="fas fa-barcode"></i>
-                            <span><strong>Shipped Serial:</strong>
+                            <span>
+                                <strong>Shipped Serial:</strong>
                                 <code class="shipped-serial-badge">{{ returnIdInfo.shippedSerial }}</code>
                             </span>
                         </div>
-                        <div class="return-id-info-row">
+
+                        <!-- FBA: no shipped serial — show note instead -->
+                        <div v-else-if="returnType === 'FBA'" class="return-id-info-row return-id-fba-note">
+                            <i class="fas fa-info-circle"></i>
+                            <span>Amazon fulfilled — shipped serial unknown. Any unrecognised serial will be flagged as switcheru.</span>
+                        </div>
+
+                        <!-- ASIN -->
+                        <div v-if="returnIdInfo.asin" class="return-id-info-row">
                             <i class="fas fa-tag"></i>
-                            <span><strong>ASIN:</strong> {{ returnIdInfo.asin || 'N/A' }}</span>
+                            <span><strong>ASIN:</strong> {{ returnIdInfo.asin }}</span>
+                        </div>
+
+                        <!-- Return reason -->
+                        <div v-if="returnIdInfo.returnReason" class="return-id-info-row">
+                            <i class="fas fa-exclamation-circle"></i>
+                            <span><strong>Reason:</strong> {{ returnIdInfo.returnReason }}</span>
+                        </div>
+
+                        <!-- FBM: tracking used to look up, show canonical RMA -->
+                        <div v-if="returnType === 'FBM' && returnIdInfo.trackingId && returnIdInfo.trackingId !== canonicalReturnId"
+                            class="return-id-info-row">
+                            <i class="fas fa-truck"></i>
+                            <span>
+                                <strong>Tracking:</strong> {{ returnIdInfo.trackingId }}
+                                <em style="font-size:11px;color:#888;"> → RMA: {{ canonicalReturnId }}</em>
+                            </span>
                         </div>
                     </div>
 
                     <!-- Warning when Return ID not found -->
                     <div v-if="returnIdNotFound" class="return-id-warn-card">
                         <i class="fas fa-exclamation-triangle"></i>
-                        Return ID not found in FBM returns — scan will proceed without order validation.
+                        Return ID / Tracking not found — scan will proceed without order validation.
                     </div>
+
                 </div>
 
                 <!-- Multi-Serial Badge -->
@@ -447,6 +489,20 @@
             <AmazonReturnsModal
     v-model:visible="showAmazonReturnsModal"
 />
+
+    <ReturnReasonPrintModal
+    :show="showReturnReasonPrintModal"
+    :returnInfo="pendingReturnPrintInfo"
+    :availablePrinters="availablePrinters"
+    :loadingPrinters="loadingPrinters"
+    :rememberedPrinterId="rememberedPrinterId"
+    :singlePrinters="singlePrinters"
+    :marriedPrinterGroups="marriedPrinterGroups"
+    @skip="closeReturnReasonPrintModal(); submitPendingScan()"
+    @print="onReturnReasonPrint($event).then(() => submitPendingScan())"
+    @remember-printer="saveReturnPrinterPreference"
+/>
+   
 </template>
 
 <script>
@@ -459,6 +515,7 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
+import ReturnReasonPrintModal from "./modals/ReturnReasonPrintModal.vue";
 
 
 const TABLE_COLUMNS = [
@@ -477,7 +534,7 @@ const TABLE_COLUMNS = [
 
 export default {
     mixins: [returnsScanner],
-    components: { XDataTable, TableGallery, Tag, Button, Dialog, Gallery, Divider, Select, TitlePage, AnimateDiv, ViewImageGalleryModal, Paginator },
+    components: { XDataTable, TableGallery, Tag, Button, Dialog, Gallery, Divider, Select, TitlePage, AnimateDiv, ViewImageGalleryModal, Paginator,ReturnReasonPrintModal },
     data() {
         return { columns: TABLE_COLUMNS, rowsPerPage: ROWS_PER_PAGE };
     },

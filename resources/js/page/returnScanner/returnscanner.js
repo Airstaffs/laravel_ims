@@ -5,7 +5,6 @@ import "../../../css/modules.css";
 import "./returnscanner.css";
 import { DEFAULT_IMAGE } from "../../constant";
 import AmazonReturnsModal from "./modals/amazonreturnsmodal.vue";
-
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
@@ -110,6 +109,21 @@ export default {
             returnIdValidated: false,        // true = found in tblfbmreturns
             returnIdNotFound: false,         // true = entered but not found
             returnIdInfo: null,              // { buyerName, itemName, shippedSerial, asin, msku }
+
+
+             showReturnReasonPrintModal: false,
+            pendingReturnPrintInfo: null,   // { serial, returnId, returnReason, buyerName, location }
+
+            // ── Printer (reused from Stockroom pattern) ──
+            showPrinterSelectionModal: false,
+            availablePrinters: [],
+            loadingPrinters: false,
+            selectedPrinterForPrint: null,
+            selectedItemsForPrint: [],
+            printSmallLabelOnly: false,
+            rememberedPrinterId: null,
+            singlePrinters: [],
+            marriedPrinterGroups: [],
         
         };
     },
@@ -575,43 +589,50 @@ async checkDualSerial() {
         },
 
 
-  async validateReturnId(returnId) {
-            if (!returnId) return;
+async validateReturnId(returnId) {
+    if (!returnId) return;
 
-            this.returnIdValidating = true;
-            this.returnIdValidated  = false;
-            this.returnIdNotFound   = false;
-            this.returnIdInfo       = null;
+    this.returnIdValidating = true;
+    this.returnIdValidated  = false;
+    this.returnIdNotFound   = false;
+    this.returnIdInfo       = null;
+    this.returnType         = null;
+    this.canonicalReturnId  = '';
 
-            try {
-                const r = await axios.get(`${API_BASE_URL}/api/returns/validate-return-id`, {
-                    params: { return_id: returnId },
-                    withCredentials: true,
-                });
+    try {
+        const r = await axios.get(`${API_BASE_URL}/api/returns/validate-return-id`, {
+            params: { return_id: returnId },
+            withCredentials: true,
+        });
 
-                if (r.data.success) {
-                    this.returnIdValidated = true;
-                    this.returnIdInfo      = r.data.info;
-                    SoundService?.success?.();
+        if (r.data.success) {
+            this.returnIdValidated = true;
+            this.returnIdInfo      = r.data.info;
+            this.returnType        = r.data.returnType;          // 'FBM' or 'FBA'
+            this.canonicalReturnId = r.data.canonicalReturnId;   // always RMA/LPN
 
-                    // Only focus serial if we're not waiting to focus returnId
-                    if (!this.awaitingReturnIdFocus) {
-                        this.$nextTick(() => this.$refs.serialNumberInput?.focus());
-                    }
-
-                } else {
-                    this.returnIdNotFound = true;
-                    SoundService?.error?.();
-                }
-
-            } catch (e) {
-                console.error('Return ID validation error:', e);
-                this.returnIdNotFound = true;
-                SoundService?.error?.();
-            } finally {
-                this.returnIdValidating = false;
+            // If user scanned a tracking number, silently swap the input value
+            // to the canonical RMA id so processScan sends the right thing
+            if (this.canonicalReturnId && this.canonicalReturnId !== this.returnId) {
+                this.returnId = this.canonicalReturnId;
             }
-        },
+
+            SoundService?.success?.();
+            if (!this.awaitingReturnIdFocus) {
+                this.$nextTick(() => this.$refs.serialNumberInput?.focus());
+            }
+        } else {
+            this.returnIdNotFound = true;
+            SoundService?.error?.();
+        }
+    } catch (e) {
+        console.error('Return ID validation error:', e);
+        this.returnIdNotFound = true;
+        SoundService?.error?.();
+    } finally {
+        this.returnIdValidating = false;
+    }
+},
                             
 async handleSerialInput() {
     if (!/^[a-zA-Z0-9-]*$/.test(this.serialNumber.trim())) {
@@ -903,188 +924,193 @@ async handleSerialInput() {
         },
 
         // ========== PROCESS SCAN ==========
-            async processScan() {
-                console.log("🚀 PROCESS SCAN");
+async processScan() {
+    console.log("🚀 PROCESS SCAN");
 
-                if (this.hasDuplicateSerials()) {
-                    this.$refs.scanner?.showScanError("Duplicate serial detected — please re-scan");
-                    SoundService?.error?.();
-                    return;
-                }
-                
-                // ✅ Prevent duplicate scans
-                if (this.isProcessing) {
-                    console.warn("⚠️ Scan already in progress, ignoring duplicate");
-                    return;
-                }
-                
-                const now = Date.now();
-                if (now - this.lastScanTime < this.scanCooldown) {
-                    console.warn("⚠️ Scan too soon after last scan, ignoring");
-                    this.$refs.scanner?.showScanError("Please wait before scanning again");
-                    return;
-                }
-                
-                this.isProcessing = true;
-                this.lastScanTime = now;
-                
-                try {
-                    // Collect all serials that have values
-                    const serials = [];
-                    if (this.serialNumber?.trim()) {
-                        serials.push({ i: 1, v: this.serialNumber, imgs: this.capturedImagesForSerial1 });
-                    }
-                    if (this.secondSerialNumber?.trim()) {
-                        serials.push({ i: 2, v: this.secondSerialNumber, imgs: this.capturedImagesForSerial2 });
-                    }
-                    if (this.thirdSerialNumber?.trim()) {
-                        serials.push({ i: 3, v: this.thirdSerialNumber, imgs: this.capturedImagesForSerial3 });
-                    }
-                    if (this.fourthSerialNumber?.trim()) {
-                        serials.push({ i: 4, v: this.fourthSerialNumber, imgs: this.capturedImagesForSerial4 });
-                    }
-                    
-                    console.log("Serials to submit:", serials.map(s => ({ serial: s.v, images: s.imgs.length })));
+    if (this.hasDuplicateSerials()) {
+        this.$refs.scanner?.showScanError("Duplicate serial detected — please re-scan");
+        SoundService?.error?.();
+        return;
+    }
 
-                    if (!serials.length) { 
-                        this.$refs.scanner?.showScanError("Serial required"); 
-                        SoundService?.error?.(); 
-                        return; 
-                    }
-                    
-                    const loc = this.locationInput?.trim();
-                    if (loc && !/^L\d{3}[A-G]$/i.test(loc) && loc !== "Floor" && loc !== "L800G") { 
-                        this.$refs.scanner?.showScanError("Invalid location"); 
-                        SoundService?.error?.(); 
-                        return; 
-                    }
+    if (this.isProcessing) {
+        console.warn("⚠️ Scan already in progress, ignoring duplicate");
+        return;
+    }
 
-                    // Build image data array
-                    const imageData = [];
-                    serials.forEach(s => s.imgs.forEach(img => imageData.push({ 
-                        data: img.data, 
-                        serialIndex: s.i, 
-                        serial: s.v 
-                    })));
+    const now = Date.now();
+    if (now - this.lastScanTime < this.scanCooldown) {
+        console.warn("⚠️ Scan too soon after last scan, ignoring");
+        this.$refs.scanner?.showScanError("Please wait before scanning again");
+        return;
+    }
 
-                    this.$refs.scanner?.startLoading("Processing...");
-                    
-                    const r = await axios.post(`${API_BASE_URL}/api/returns/process-scan`, {
-                        ReturnId: this.showReturnIdField ? this.returnId : null,
-                        SerialNumber: this.serialNumber,
-                        SecondSerial: this.secondSerialNumber || null,
-                        ThirdSerial: this.thirdSerialNumber || null,
-                        FourthSerial: this.fourthSerialNumber || null,
-                        Location: loc || "L800G",
-                        Store: this.selectedStore,
-                        Images: imageData,
-                        ProductID: this.productId,
-                        FNSKUviewer: this.fnskuViewer,
-                        TotalSerials: serials.length,
-                        IsMultiSerial: serials.length > 1,
-                    }, { 
-                        withCredentials: true, 
-                        headers: { 
-                            "Content-Type": "application/json", 
-                            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content 
-                        } 
-                    });
+    // ── VALIDATION ──────────────────────────────────────────
+    const serials = [];
+    if (this.serialNumber?.trim())       serials.push({ i: 1, v: this.serialNumber,      imgs: this.capturedImagesForSerial1 });
+    if (this.secondSerialNumber?.trim()) serials.push({ i: 2, v: this.secondSerialNumber, imgs: this.capturedImagesForSerial2 });
+    if (this.thirdSerialNumber?.trim())  serials.push({ i: 3, v: this.thirdSerialNumber,  imgs: this.capturedImagesForSerial3 });
+    if (this.fourthSerialNumber?.trim()) serials.push({ i: 4, v: this.fourthSerialNumber, imgs: this.capturedImagesForSerial4 });
 
-                    this.$refs.scanner?.stopLoading();
-                    
-                    if (r.data.success) {
-                        // ✅ Show success message and play sound
-                        this.$refs.scanner?.showScanSuccess(r.data.message || "Success");
-                        SoundService?.successScan?.(true);
-                        
-                        // ✅ ONLY HERE: Increment success count
-                        if (this.$refs.scanner && typeof this.$refs.scanner.addSuccessScan === 'function') {
-                            this.$refs.scanner.addSuccessScan({
-                                ReturnID: this.showReturnIdField ? this.returnId : 'N/A',
-                                Serial: this.serialNumber,
-                                SecondSerial: this.secondSerialNumber || 'N/A',
-                                ThirdSerial: this.thirdSerialNumber || 'N/A',
-                                FourthSerial: this.fourthSerialNumber || 'N/A',
-                                Location: loc || "L800G",
-                                FNSKU: this.fnskuViewer || 'N/A',
-                                ImagesUploaded: imageData.length,
-                                TotalSerials: serials.length
-                            });
-                            
-                            console.log("✅ SUCCESS COUNT INCREMENTED");
-                        }
-                        
-                        // ✅✅✅ CRITICAL: Upload images if any
-                        if (r.data.createdItems?.length && imageData.length) {
-                            console.log(`📤 Uploading ${imageData.length} images to ${r.data.createdItems.length} products`);
-                            try {
-                                await this.uploadImagesToProducts(r.data.createdItems, imageData);
-                                console.log("✅ Images uploaded successfully");
-                            } catch (uploadError) {
-                                console.error("⚠️ Image upload failed:", uploadError);
-                                // Don't fail the whole operation if images fail
-                            }
-                        }
-                        
-                        // ✅✅✅ CRITICAL: Clear fields BEFORE refresh
-                        this.clearScanFields();
-                        
-                        // ✅✅✅ CRITICAL: Refresh inventory to show new items in history table
-                        console.log("🔄 Refreshing inventory...");
-                        await this.fetchInventory();
-                        console.log("✅ Inventory refreshed - new items should appear in history");
-                        
-                    } else {
-                        // ❌ Show error message and play sound
-                        this.$refs.scanner?.showScanError(r.data.message || "Error");
-                        SoundService?.scanRejected?.(true);
-                        
-                        // ❌ ONLY HERE: Increment failed count
-                        if (this.$refs.scanner && typeof this.$refs.scanner.addErrorScan === 'function') {
-                            this.$refs.scanner.addErrorScan({
-                                ReturnID: this.showReturnIdField ? this.returnId : 'N/A',
-                                Serial: this.serialNumber,
-                                SecondSerial: this.secondSerialNumber || 'N/A',
-                                ThirdSerial: this.thirdSerialNumber || 'N/A',
-                                FourthSerial: this.fourthSerialNumber || 'N/A',
-                                Location: loc || 'N/A',
-                                FNSKU: this.fnskuViewer || 'N/A',
-                            }, r.data.reason || 'error');
-                            
-                            console.log("❌ FAILED COUNT INCREMENTED");
-                        }
-                    }
-                    
-                } catch (e) {
-                    this.$refs.scanner?.stopLoading();
-                    console.error("❌ Error in processScan:", e);
-                    
-                    this.$refs.scanner?.showScanError(e.response?.status === 419 ? "Session expired" : "Network error");
-                    SoundService?.scanRejected?.(true);
-                    
-                    // ❌ Network errors also increment failed count
-                    if (this.$refs.scanner && typeof this.$refs.scanner.addErrorScan === 'function') {
-                        this.$refs.scanner.addErrorScan({
-                            ReturnID: this.showReturnIdField ? this.returnId : 'N/A',
-                            Serial: this.serialNumber,
-                            Location: this.locationInput || 'N/A',
-                            FNSKU: this.fnskuViewer || 'N/A',
-                        }, e.response?.status === 419 ? 'session_expired' : 'network_error');
-                        
-                        console.log("❌ FAILED COUNT INCREMENTED (network error)");
-                    }
-                    
-                } finally {
-                    // ✅ Reset processing flag after delay
-                    setTimeout(() => {
-                        this.isProcessing = false;
-                    }, 500);
-                }
-                
-                // ✅ Clear fields and focus
-                this.clearScanFields();
-                this.focusNextField(this.showReturnIdField ? "returnIdInput" : "serialNumberInput");
-            },
+    if (!serials.length) {
+        this.$refs.scanner?.showScanError("Serial required");
+        SoundService?.error?.();
+        return;
+    }
+
+    const loc = this.locationInput?.trim();
+    if (loc && !/^L\d{3}[A-G]$/i.test(loc) && loc !== "Floor" && loc !== "L800G") {
+        this.$refs.scanner?.showScanError("Invalid location");
+        SoundService?.error?.();
+        return;
+    }
+
+    // ── Snapshot everything we need BEFORE modal opens ──────
+    // Store the pending scan payload so submitPendingScan() can use it
+    this._pendingScanPayload = {
+        serials,
+        loc,
+        returnId:     this.showReturnIdField ? this.returnId   : null,
+        returnType:   this.showReturnIdField ? this.returnType : null,
+        serialNumber: this.serialNumber,
+        secondSerial: this.secondSerialNumber || null,
+        thirdSerial:  this.thirdSerialNumber  || null,
+        fourthSerial: this.fourthSerialNumber || null,
+        store:        this.selectedStore,
+        productId:    this.productId,
+        fnskuViewer:  this.fnskuViewer,
+        showReturnIdField: this.showReturnIdField,
+    };
+
+    // ── SHOW PRINT MODAL FIRST ───────────────────────────────
+  this.pendingReturnPrintInfo = {
+    serial:       this.serialNumber,
+    returnId:     this.returnId || null,
+    returnReason: this.returnIdInfo?.returnReason
+               || this.returnIdInfo?.return_reason_code
+               || 'No reason provided',
+    buyerName:    this.returnIdInfo?.buyerName || null,
+    location:     this.locationInput || 'L800G',
+};
+    await this.loadReturnPrinters();
+
+    // Let Vue render first, THEN show modal
+   this.showReturnReasonPrintModal = true;
+
+    // processScan() ends here — submitPendingScan() is called
+    // by the modal's Print or Skip button via onReturnReasonPrint / closeReturnReasonPrintModal
+},
+
+// ── Called after modal is confirmed (print or skip) ─────────
+async submitPendingScan() {
+    const payload = this._pendingScanPayload;
+    if (!payload) return;
+    this._pendingScanPayload = null;
+
+    this.isProcessing = true;
+    this.lastScanTime = Date.now();
+
+    try {
+        const imageData = [];
+        payload.serials.forEach(s => s.imgs.forEach(img => imageData.push({
+            data: img.data,
+            serialIndex: s.i,
+            serial: s.v
+        })));
+
+        this.$refs.scanner?.startLoading("Processing...");
+
+        const r = await axios.post(`${API_BASE_URL}/api/returns/process-scan`, {
+            ReturnId:      payload.returnId,
+            ReturnType:    payload.returnType,
+            SerialNumber:  payload.serialNumber,
+            SecondSerial:  payload.secondSerial,
+            ThirdSerial:   payload.thirdSerial,
+            FourthSerial:  payload.fourthSerial,
+            Location:      payload.loc || "L800G",
+            Store:         payload.store,
+            Images:        imageData,
+            ProductID:     payload.productId,
+            FNSKUviewer:   payload.fnskuViewer,
+            TotalSerials:  payload.serials.length,
+            IsMultiSerial: payload.serials.length > 1,
+        }, {
+            withCredentials: true,
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content
+            }
+        });
+
+        this.$refs.scanner?.stopLoading();
+
+        if (r.data.success) {
+            this.$refs.scanner?.showScanSuccess(r.data.message || "Success");
+            SoundService?.successScan?.(true);
+
+            if (this.$refs.scanner && typeof this.$refs.scanner.addSuccessScan === 'function') {
+                this.$refs.scanner.addSuccessScan({
+                    ReturnID:       payload.showReturnIdField ? payload.returnId : 'N/A',
+                    Serial:         payload.serialNumber,
+                    SecondSerial:   payload.secondSerial || 'N/A',
+                    ThirdSerial:    payload.thirdSerial  || 'N/A',
+                    FourthSerial:   payload.fourthSerial || 'N/A',
+                    Location:       payload.loc || "L800G",
+                    FNSKU:          payload.fnskuViewer || 'N/A',
+                    ImagesUploaded: imageData.length,
+                    TotalSerials:   payload.serials.length,
+                });
+            }
+
+            if (r.data.createdItems?.length && imageData.length) {
+                try { await this.uploadImagesToProducts(r.data.createdItems, imageData); }
+                catch (e) { console.error("⚠️ Image upload failed:", e); }
+            }
+
+            this.clearScanFields();
+            await this.fetchInventory();
+
+        } else {
+            this.$refs.scanner?.showScanError(r.data.message || "Error");
+            SoundService?.scanRejected?.(true);
+
+            if (this.$refs.scanner && typeof this.$refs.scanner.addErrorScan === 'function') {
+                this.$refs.scanner.addErrorScan({
+                    ReturnID:     payload.showReturnIdField ? payload.returnId : 'N/A',
+                    Serial:       payload.serialNumber,
+                    SecondSerial: payload.secondSerial || 'N/A',
+                    ThirdSerial:  payload.thirdSerial  || 'N/A',
+                    FourthSerial: payload.fourthSerial || 'N/A',
+                    Location:     payload.loc || 'N/A',
+                    FNSKU:        payload.fnskuViewer || 'N/A',
+                }, r.data.reason || 'error');
+            }
+        }
+
+    } catch (e) {
+        this.$refs.scanner?.stopLoading();
+        console.error("❌ Error in submitPendingScan:", e);
+        this.$refs.scanner?.showScanError(
+            e.response?.status === 419 ? "Session expired" : "Network error"
+        );
+        SoundService?.scanRejected?.(true);
+
+        if (this.$refs.scanner && typeof this.$refs.scanner.addErrorScan === 'function') {
+            this.$refs.scanner.addErrorScan({
+                ReturnID: payload.showReturnIdField ? payload.returnId : 'N/A',
+                Serial:   payload.serialNumber,
+                Location: payload.loc || 'N/A',
+                FNSKU:    payload.fnskuViewer || 'N/A',
+            }, e.response?.status === 419 ? 'session_expired' : 'network_error');
+        }
+
+    } finally {
+        setTimeout(() => { this.isProcessing = false; }, 500);
+        this.clearScanFields();
+        this.focusNextField(payload.showReturnIdField ? "returnIdInput" : "serialNumberInput");
+    }
+},
+  
         async uploadImagesToProducts(items, imageData) {
             const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
 
@@ -1118,6 +1144,117 @@ async handleSerialInput() {
             }
         },
 
+    saveReturnPrinterPreference(printerId) {
+            localStorage.setItem('return_reason_printer_id', printerId);
+            this.rememberedPrinterId = printerId;
+        },
+
+        // Called when user clicks "Print" in the modal
+async onReturnReasonPrint({ printerId, done }) {
+    const info = this.pendingReturnPrintInfo;
+    if (!info || !printerId) { 
+        done?.(); 
+        this.closeReturnReasonPrintModal();
+        return; 
+    }
+
+    const primaryPrinterId = parseInt(
+        printerId.includes(',') ? printerId.split(',')[0] : printerId
+    );
+
+    try {
+        const response = await axios.post(
+            `${API_BASE_URL}/api/printer/print-return-reason`,
+            {
+                serial:        info.serial,
+                return_reason: info.returnReason,
+                printer_id:    primaryPrinterId,
+                location:      info.location || 'L800G',
+            },
+            {
+                withCredentials: true,
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content,
+                },
+            }
+        );
+
+        done?.();
+
+        if (response.data.success) {
+            await Swal.fire({
+                icon: 'success',
+                title: 'Label Printed',
+                text: 'Return reason label sent to printer.',
+                timer: 2000,
+                timerProgressBar: true,
+                confirmButtonColor: '#3b82f6',
+            });
+        } else {
+            await Swal.fire({
+                icon: 'warning',
+                title: 'Print Failed',
+                text: response.data.message || 'Failed to print — continuing with return.',
+                confirmButtonColor: '#f59e0b',
+            });
+        }
+
+    } catch (e) {
+        done?.();
+        console.error('Error printing return reason:', e);
+        await Swal.fire({
+            icon: 'warning',
+            title: 'Print Error',
+            text: 'Could not print label — continuing with return.',
+            confirmButtonColor: '#f59e0b',
+        });
+    }
+
+    this.closeReturnReasonPrintModal();
+},
+
+closeReturnReasonPrintModal() {
+    this.showReturnReasonPrintModal = false;
+    this.pendingReturnPrintInfo = null;
+},
+
+async loadReturnPrinters() {
+    this.loadingPrinters = true;
+    try {
+        const response = await axios.get(
+            `${API_BASE_URL}/api/printer/get-printers`,
+            {
+                withCredentials: true,
+                headers: {
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content,
+                },
+            }
+        );
+
+        if (response.data?.success && response.data.printers) {
+            // ✅ ONLY show small label printers for return reason label
+            this.availablePrinters = response.data.printers.filter(
+                p => p.printer_type === 'small_label'
+            );
+            this.singlePrinters    = this.availablePrinters;
+            this.marriedPrinterGroups = []; // no married pairs needed — small label only
+
+            // Auto-select remembered printer
+            const saved = localStorage.getItem('return_reason_printer_id');
+            if (saved) {
+                const exists = this.availablePrinters.some(p => String(p.printerid) === saved);
+                this.rememberedPrinterId = exists ? saved : null;
+                if (!exists) localStorage.removeItem('return_reason_printer_id');
+            }
+        }
+    } catch (e) {
+        console.error('Error loading printers:', e);
+    } finally {
+        this.loadingPrinters = false;
+    }
+},
+
    clearScanFields() {
     this.returnId = ""; 
     this.serialNumber = ""; 
@@ -1141,6 +1278,8 @@ async handleSerialInput() {
     this.returnIdValidated  = false;
     this.returnIdNotFound   = false;
     this.returnIdInfo       = null;
+    this.returnType          = null;        // ← NEW
+    this.canonicalReturnId   = '';          // ← NEW
 
     // ✅ Only reset showReturnIdField if we are NOT waiting to focus it
     if (!this.awaitingReturnIdFocus) {

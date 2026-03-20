@@ -782,6 +782,8 @@ Route::prefix('api/printer')->group(function () {
     Route::post('debug-database', [PrinterController::class, 'debugDatabase']);
 
     Route::post('clear-cache', [PrinterController::class, 'clearCache']);
+
+    Route::post('print-return-reason', [PrinterController::class, 'printReturnReason']);
 });
 
 Route::prefix('api/printer-management')->middleware(['auth'])->group(function () {
