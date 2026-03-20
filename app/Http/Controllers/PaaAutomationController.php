@@ -79,6 +79,7 @@ class PaaAutomationController extends Controller
 
             'items' => ['required', 'array', 'min:1'],
             'items.*.msku' => ['required', 'string', 'max:100'],
+            'items.*.storename' => ['required', 'string', 'max:100'],
         ]);
 
         $rules = collect($data['rules'])
@@ -141,13 +142,18 @@ class PaaAutomationController extends Controller
             ? (float) $data['default_delta']
             : 0.0;
 
-        $mskus = collect($data['items'])
-            ->map(fn($x) => trim($x['msku']))
-            ->filter()
-            ->unique()
+        $items = collect($data['items'])
+            ->map(function ($x) {
+                return [
+                    'msku' => trim((string) ($x['msku'] ?? '')),
+                    'storename' => trim((string) ($x['storename'] ?? '')),
+                ];
+            })
+            ->filter(fn($x) => $x['msku'] !== '' && $x['storename'] !== '')
+            ->unique(fn($x) => $x['msku'] . '||' . $x['storename'])
             ->values();
 
-        return DB::transaction(function () use ($data, $rules, $defaultDelta, $mskus) {
+        return DB::transaction(function () use ($data, $rules, $defaultDelta, $items) {
             $id = $data['id'] ?? null;
 
             $payloadUpdate = [
@@ -164,7 +170,6 @@ class PaaAutomationController extends Controller
             if ($id) {
                 $exists = DB::table('tbl_paa_automations')
                     ->where('id', $id)
-                    ->where('store', $data['store'])
                     ->exists();
 
                 if (!$exists) {
@@ -176,10 +181,8 @@ class PaaAutomationController extends Controller
 
                 DB::table('tbl_paa_automations')
                     ->where('id', $id)
-                    ->where('store', $data['store'])
                     ->update($payloadUpdate);
 
-                // Optional reset so edited automation is treated as fresh next cron cycle
                 DB::table('tbl_paa_automations')
                     ->where('id', $id)
                     ->update([
@@ -201,10 +204,11 @@ class PaaAutomationController extends Controller
                     'updated_at' => now(),
                 ]);
 
-            foreach ($mskus as $msku) {
+            foreach ($items as $item) {
                 $updated = DB::table('tbl_paa_automation_items')
                     ->where('automation_id', $id)
-                    ->where('msku', $msku)
+                    ->where('msku', $item['msku'])
+                    ->where('storename', $item['storename'])
                     ->update([
                         'is_active' => 1,
                         'updated_at' => now(),
@@ -213,7 +217,8 @@ class PaaAutomationController extends Controller
                 if (!$updated) {
                     DB::table('tbl_paa_automation_items')->insert([
                         'automation_id' => $id,
-                        'msku' => $msku,
+                        'msku' => $item['msku'],
+                        'storename' => $item['storename'],
                         'sku' => null,
                         'is_active' => 1,
                         'created_at' => now(),
@@ -225,7 +230,7 @@ class PaaAutomationController extends Controller
             return response()->json([
                 'ok' => true,
                 'automation_id' => $id,
-                'msku_count' => $mskus->count(),
+                'msku_count' => $items->count(),
                 'rules' => $rules,
                 'default_delta' => $defaultDelta,
             ]);
@@ -252,7 +257,6 @@ class PaaAutomationController extends Controller
                 'created_at',
                 'updated_at'
             )
-            ->where('store', $data['store'])
             ->orderByDesc('id')
             ->limit(200)
             ->get()
@@ -296,7 +300,7 @@ class PaaAutomationController extends Controller
         }
 
         $items = DB::table('tbl_paa_automation_items')
-            ->select('id', 'automation_id', 'msku', 'sku', 'is_active', 'created_at', 'updated_at')
+            ->select('id', 'automation_id', 'msku', 'storename', 'sku', 'is_active', 'created_at', 'updated_at')
             ->where('automation_id', $id)
             ->orderBy('msku')
             ->get();

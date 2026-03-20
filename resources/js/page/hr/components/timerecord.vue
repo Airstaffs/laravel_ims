@@ -410,12 +410,13 @@
                 <p>
                     PH:
                     {{
-                        formatTimeWithTimezone(data.TimeIn, data.Employee).local
+                        formatTimeWithTimezone(data.TimeOut, data.Employee)
+                            .local
                     }}
                 </p>
                 <p>
                     US:
-                    {{ formatTimeWithTimezone(data.TimeIn, data.Employee).us }}
+                    {{ formatTimeWithTimezone(data.TimeOut, data.Employee).us }}
                 </p>
             </template>
             <template #shortbreakStart="{ data }">
@@ -945,15 +946,13 @@ export default {
             }
 
             try {
-                // DIRECT STRING EXTRACTION - No date formatting at all
                 let timeString = String(isoDateTime);
+                let dateString = null;
 
-                // If format is "2025-09-09 14:19:19", extract "14:19:19"
                 if (timeString.includes(" ") && timeString.length > 10) {
                     const parts = timeString.split(" ");
-                    if (parts.length >= 2) {
-                        timeString = parts[1]; // Get just the time part
-                    }
+                    dateString = parts[0]; // "2025-09-09"
+                    timeString = parts[1]; // "14:19:19"
                 }
 
                 // Parse HH:MM:SS
@@ -961,17 +960,32 @@ export default {
                     .split(":")
                     .map((s) => parseInt(s) || 0);
 
-                // Convert to 12-hour format
+                // PH/Manila 12-hour format (stored as-is)
                 const period = hours >= 12 ? "PM" : "AM";
                 const hour12 = hours % 12 || 12;
                 const localTime = `${hour12}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")} ${period}`;
 
-                // Calculate US time (subtract 13 hours for Manila to EST)
-                let usHours = hours - 13;
-                if (usHours < 0) usHours += 24;
-                const usPeriod = usHours >= 12 ? "PM" : "AM";
-                const usHour12 = usHours % 12 || 12;
-                const usTime = `${usHour12}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")} ${usPeriod}`;
+                // Build a real Date in Manila time so we can ask Intl what LA's offset is on that date
+                const isoForParsing = dateString
+                    ? `${dateString}T${timeString}+08:00` // Manila = UTC+8, always fixed
+                    : `1970-01-01T${timeString}+08:00`;
+
+                const recordDate = new Date(isoForParsing);
+
+                // Ask the browser: what time is it in LA at this exact moment?
+                const laParts = new Intl.DateTimeFormat("en-US", {
+                    timeZone: "America/Los_Angeles",
+                    hour: "numeric",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: true,
+                    timeZoneName: "short", // gives "PST" or "PDT"
+                }).formatToParts(recordDate);
+
+                const get = (type) =>
+                    laParts.find((p) => p.type === type)?.value ?? "";
+
+                const usTime = `${get("hour")}:${get("minute")}:${get("second")} ${get("dayPeriod")} ${get("timeZoneName")}`;
 
                 return { local: localTime, us: usTime };
             } catch (error) {

@@ -398,14 +398,14 @@ class HrController extends Controller
         return response()->json(['success' => true, 'data' => $rows]);
     }
 
-    public function currentRate($employee)
+    public function currentRate($employee, Request $request)
     {
-        $today = date('Y-m-d');
+        $asOf = $request->query('as_of', date('Y-m-d'));
         $row = \DB::table('tblemployeerate')
             ->where('employee_id', $employee)
-            ->where('effective_start', '<=', $today)
-            ->where(function ($q) use ($today) {
-                $q->whereNull('effective_end')->orWhere('effective_end', '>=', $today);
+            ->where('effective_start', '<=', $asOf)
+            ->where(function ($q) use ($asOf) {
+                $q->whereNull('effective_end')->orWhere('effective_end', '>=', $asOf);
             })
             ->orderByDesc('effective_start')
             ->first();
@@ -480,6 +480,97 @@ class HrController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to save rate',
+                'details' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function upsertRate(Request $request, $employee)
+    {
+        $data = $request->validate([
+            'effective_start' => ['required', 'date'],
+            'effective_end' => ['nullable', 'date', 'after_or_equal:effective_start'],
+            'monthly_rate' => ['nullable', 'numeric'],
+            'hourly_rate' => ['nullable', 'numeric'],
+            'currency' => ['nullable', 'string', 'size:3'],
+        ]);
+
+        if (is_null($data['monthly_rate']) && is_null($data['hourly_rate'])) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Provide at least monthly_rate or hourly_rate.',
+            ], 422);
+        }
+
+        $createdBy = session('user_name') ?? optional($request->user())->username ?? null;
+
+        \DB::beginTransaction();
+        try {
+            // Check if a record with the same employee + effective_start already exists
+            $existing = \DB::table('tblemployeerate')
+                ->where('employee_id', $employee)
+                ->where('effective_start', $data['effective_start'])
+                ->first();
+
+            if ($existing) {
+                // UPDATE — just patch the rates/end date, preserve everything else
+                \DB::table('tblemployeerate')
+                    ->where('id', $existing->id)
+                    ->update([
+                        'effective_end' => $data['effective_end'] ?? null,
+                        'monthly_rate' => $data['monthly_rate'],
+                        'hourly_rate' => $data['hourly_rate'],
+                        'currency' => strtoupper($data['currency'] ?? 'PHP'),
+                        'updated_at' => now(),
+                    ]);
+
+                $action = 'updated';
+            } else {
+                // INSERT — same logic as storeRate: close the active open-ended row first
+                $active = \DB::table('tblemployeerate')
+                    ->where('employee_id', $employee)
+                    ->whereNull('effective_end')
+                    ->first();
+
+                if ($active && $data['effective_start'] > $active->effective_start) {
+                    $newEnd = date('Y-m-d', strtotime($data['effective_start'].' -1 day'));
+                    \DB::table('tblemployeerate')
+                        ->where('id', $active->id)
+                        ->update(['effective_end' => $newEnd, 'updated_at' => now()]);
+                }
+
+                $employeeUsername = \DB::table('tbluser')->where('id', $employee)->value('username');
+
+                \DB::table('tblemployeerate')->insert([
+                    'employee_id' => (int) $employee,
+                    'employee_username' => $employeeUsername,
+                    'effective_start' => $data['effective_start'],
+                    'effective_end' => $data['effective_end'] ?? null,
+                    'monthly_rate' => $data['monthly_rate'],
+                    'hourly_rate' => $data['hourly_rate'],
+                    'currency' => strtoupper($data['currency'] ?? 'PHP'),
+                    'created_by' => $createdBy,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                $action = 'created';
+            }
+
+            \DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'action' => $action,
+                'message' => "Rate {$action} successfully.",
+            ]);
+
+        } catch (\Throwable $e) {
+            \DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to save rate.',
                 'details' => $e->getMessage(),
             ], 500);
         }

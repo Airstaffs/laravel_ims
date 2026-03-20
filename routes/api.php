@@ -7,6 +7,7 @@ use App\Http\Controllers\DatasetProxyController;
 use App\Http\Controllers\AIExecutionController;
 use App\Http\Controllers\Fbmorders\ManualShipmentLabelController;
 use App\Http\Controllers\ReceivedController;
+use App\Http\Controllers\Amzn\Listing\ListingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -152,3 +153,6 @@ Route::prefix('ai')->group(function () {
 Route::post('/import-fbm-order-shipment', [ManualShipmentLabelController::class, 'import']);
 
 Route::post('/received/validate-serial', [ReceivedController::class, 'validateSerial']);
+
+Route::post('/amazon/search-listings', [ListingController::class, 'searchListings']);
+Route::post('/amazon/listings/update-one', [ListingController::class, 'updateOne']);

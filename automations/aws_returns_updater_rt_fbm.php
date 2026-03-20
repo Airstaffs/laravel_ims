@@ -541,7 +541,7 @@ function processRetrievedData($Connect, $retrievedData)
                 'item_details' => [
                     'item_name' => (string) $returnDetail->item_details->item_name,
                     'asin' => (string) $returnDetail->item_details->asin,
-                    'return_reason_code' => (string) $returnDetail->item_details->return_reason_code,
+                    'reason' => (string) $returnDetail->item_details->return_reason_code,
                     'merchant_sku' => (string) $returnDetail->item_details->merchant_sku,
                     'in_policy' => (string) $returnDetail->item_details->in_policy,
                     'return_quantity' => (string) $returnDetail->item_details->return_quantity,

@@ -277,6 +277,92 @@
                 </div>
             </fieldset>
 
+            <fieldset
+                v-if="
+                    attendanceRecords &&
+                    attendanceRecords.length > 0 &&
+                    selectedEmployee
+                "
+            >
+                <div
+                    class="d-flex justify-content-between align-items-center mb-2"
+                >
+                    <label
+                        class="mb-0 fw-semibold d-flex align-items-center gap-2"
+                    >
+                        Night Differential
+                        <span class="badge bg-dark" style="font-size: 10px"
+                            >10PM – 6AM</span
+                        >
+                    </label>
+                    <!-- Auto-calculated badge -->
+                    <span
+                        v-if="calculateNightDiffHours() > 0"
+                        class="badge bg-warning text-dark"
+                    >
+                        {{ calculateNightDiffHours() }} night hrs detected
+                    </span>
+                    <span v-else class="badge bg-secondary"
+                        >No night hours</span
+                    >
+                </div>
+
+                <div
+                    v-if="calculateNightDiffHours() > 0"
+                    class="p-3 border rounded bg-light"
+                >
+                    <div class="row g-2 text-center">
+                        <div class="col-4">
+                            <div class="p-2 bg-white rounded border">
+                                <div class="text-muted small">Night Hours</div>
+                                <div class="fw-bold">
+                                    {{ calculateNightDiffHours() }} hrs
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 bg-white rounded border">
+                                <div class="text-muted small">Diff Rate/hr</div>
+                                <div class="fw-bold text-warning">
+                                    {{ selectedEmployeeData?.current_currency }}
+                                    {{
+                                        formatCurrency(
+                                            getHourlyRate() -
+                                                getHourlyRate() / 1.1,
+                                        )
+                                    }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 bg-white rounded border">
+                                <div class="text-muted small">
+                                    Night Diff Pay
+                                </div>
+                                <div class="fw-bold text-success">
+                                    {{ selectedEmployeeData?.current_currency }}
+                                    {{
+                                        formatCurrency(calculateNightDiffPay())
+                                    }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-2 small text-muted text-center">
+                        Auto-detected from attendance records (PH Labor Code
+                        Art. 86)
+                    </div>
+                </div>
+
+                <div
+                    v-else
+                    class="text-muted small p-2 bg-light rounded text-center"
+                >
+                    No hours between 10:00 PM – 6:00 AM found in attendance
+                    records.
+                </div>
+            </fieldset>
+
             <!-- Holiday Detection Section with AUTO-CALCULATED hours -->
             <fieldset v-if="holidays.length > 0">
                 <label class="fw-semibold"
@@ -455,104 +541,230 @@
             <!-- Deductions Section -->
             <fieldset>
                 <div
-                    class="d-flex justify-content-between align-items-center mb-2"
+                    class="d-flex justify-content-between align-items-center mb-3"
                 >
-                    <label class="mb-0 fw-semibold">Deductions: </label>
-                    <Button
-                        label="Add Deduction"
-                        icon="pi pi-plus"
-                        size="small"
-                        severity="success"
-                        text
-                        @click="addDeduction"
-                        type="button"
-                    />
+                    <label class="mb-0 fw-semibold">Deductions:</label>
                 </div>
 
-                <div
-                    v-if="deductions.length === 0"
-                    class="text-muted small p-3 bg-light rounded text-center"
-                >
-                    No deductions added. Click "Add Deduction" to add one.
-                </div>
-
-                <div
-                    v-for="(deduction, index) in deductions"
-                    :key="index"
-                    class="deduction-item mb-3 p-3 border rounded bg-white"
-                >
+                <!-- FIXED DEDUCTIONS -->
+                <div class="mb-3">
                     <div
-                        class="d-flex justify-content-between align-items-start mb-3"
+                        class="d-flex justify-content-between align-items-center mb-2"
                     >
-                        <div class="form-check">
-                            <input
-                                type="checkbox"
-                                class="form-check-input"
-                                :id="'deduction-active-' + index"
-                                v-model="deduction.active"
-                            />
-                            <label
-                                class="form-check-label fw-semibold"
-                                :for="'deduction-active-' + index"
-                            >
-                                <span
-                                    v-if="deduction.active"
-                                    class="text-success"
-                                    >✓ Include in computation</span
+                        <span
+                            class="fw-semibold text-secondary small text-uppercase"
+                        >
+                            <i class="pi pi-lock me-1"></i>Fixed Deductions
+                        </span>
+                        <span class="badge bg-secondary"
+                            >Auto-applied to all employees</span
+                        >
+                    </div>
+
+                    <div v-if="loadingFixedDeductions" class="text-center py-2">
+                        <span class="spinner-border spinner-border-sm"></span>
+                        <span class="text-muted ms-2 small"
+                            >Loading fixed deductions...</span
+                        >
+                    </div>
+
+                    <div
+                        v-else-if="fixedDeductions.length === 0"
+                        class="text-muted small p-3 bg-light rounded text-center"
+                    >
+                        No fixed deductions configured.
+                    </div>
+
+                    <div
+                        v-for="(deduction, index) in fixedDeductions"
+                        :key="'fixed-' + index"
+                        class="deduction-item mb-2 p-3 border rounded bg-light"
+                    >
+                        <div
+                            class="d-flex justify-content-between align-items-center mb-2"
+                        >
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-primary">Fixed</span>
+                                <span class="fw-semibold">{{
+                                    deduction.name
+                                }}</span>
+                            </div>
+                            <div class="form-check form-switch mb-0">
+                                <input
+                                    type="checkbox"
+                                    class="form-check-input"
+                                    :id="'fixed-active-' + index"
+                                    v-model="deduction.active"
+                                    role="switch"
+                                />
+                                <label
+                                    class="form-check-label small"
+                                    :for="'fixed-active-' + index"
                                 >
-                                <span v-else class="text-muted"
-                                    >○ Exclude from computation</span
-                                >
-                            </label>
+                                    <span
+                                        v-if="deduction.active"
+                                        class="text-success"
+                                        >Included</span
+                                    >
+                                    <span v-else class="text-muted"
+                                        >Excluded</span
+                                    >
+                                </label>
+                            </div>
                         </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="small fw-semibold">Amount:</label>
+                                <InputText
+                                    v-model.number="deduction.amount"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    class="form-control"
+                                    placeholder="0.00"
+                                />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="small fw-semibold"
+                                    >Description (Optional):</label
+                                >
+                                <InputText
+                                    v-model="deduction.description"
+                                    class="form-control"
+                                    placeholder="Notes..."
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CUSTOM DEDUCTIONS -->
+                <div>
+                    <div
+                        class="d-flex justify-content-between align-items-center mb-2"
+                    >
+                        <span
+                            class="fw-semibold text-secondary small text-uppercase"
+                        >
+                            <i class="pi pi-user me-1"></i>Custom Deductions
+                        </span>
                         <Button
-                            icon="pi pi-trash"
+                            label="Add Custom"
+                            icon="pi pi-plus"
                             size="small"
-                            severity="danger"
+                            severity="success"
                             text
-                            @click="removeDeduction(index)"
+                            @click="addDeduction"
                             type="button"
                         />
                     </div>
 
-                    <div class="row">
-                        <div class="col-md-6 mb-2">
-                            <label class="small fw-semibold"
-                                >Deduction Name:
-                                <span class="text-danger">*</span></label
-                            >
-                            <InputText
-                                v-model="deduction.name"
-                                class="form-control"
-                                placeholder="e.g., SSS, PAGIBIG, Tax"
+                    <div
+                        v-if="customDeductions.length === 0"
+                        class="text-muted small p-3 bg-light rounded text-center"
+                    >
+                        No custom deductions. Click "Add Custom" to add one
+                        specific to this employee.
+                    </div>
+
+                    <div
+                        v-for="(deduction, index) in customDeductions"
+                        :key="'custom-' + index"
+                        class="deduction-item mb-2 p-3 border rounded bg-white"
+                    >
+                        <div
+                            class="d-flex justify-content-between align-items-start mb-2"
+                        >
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-warning text-dark"
+                                    >Custom</span
+                                >
+                                <div class="form-check mb-0">
+                                    <input
+                                        type="checkbox"
+                                        class="form-check-input"
+                                        :id="'custom-active-' + index"
+                                        v-model="deduction.active"
+                                    />
+                                    <label
+                                        class="form-check-label small fw-semibold"
+                                        :for="'custom-active-' + index"
+                                    >
+                                        <span
+                                            v-if="deduction.active"
+                                            class="text-success"
+                                            >✓ Include</span
+                                        >
+                                        <span v-else class="text-muted"
+                                            >○ Exclude</span
+                                        >
+                                    </label>
+                                </div>
+                            </div>
+                            <Button
+                                icon="pi pi-trash"
+                                size="small"
+                                severity="danger"
+                                text
+                                @click="removeDeduction(index)"
+                                type="button"
                             />
                         </div>
-                        <div class="col-md-6 mb-2">
-                            <label class="small fw-semibold"
-                                >Amount:
-                                <span class="text-danger">*</span></label
-                            >
-                            <InputText
-                                v-model.number="deduction.amount"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                class="form-control"
-                                placeholder="0.00"
-                            />
-                        </div>
-                        <div class="col-md-12">
-                            <label class="small fw-semibold"
-                                >Description (Optional):</label
-                            >
-                            <textarea
-                                v-model="deduction.description"
-                                class="form-control"
-                                rows="2"
-                                placeholder="Add notes about this deduction"
-                            ></textarea>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="small fw-semibold">
+                                    Deduction Name:
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <InputText
+                                    v-model="deduction.name"
+                                    class="form-control"
+                                    placeholder="e.g., Loan, Cash Advance"
+                                />
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="small fw-semibold">
+                                    Amount: <span class="text-danger">*</span>
+                                </label>
+                                <InputText
+                                    v-model.number="deduction.amount"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    class="form-control"
+                                    placeholder="0.00"
+                                />
+                            </div>
+                            <div class="col-md-12">
+                                <label class="small fw-semibold"
+                                    >Description (Optional):</label
+                                >
+                                <textarea
+                                    v-model="deduction.description"
+                                    class="form-control"
+                                    rows="2"
+                                    placeholder="Add notes about this deduction"
+                                ></textarea>
+                            </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Deduction Summary -->
+                <div
+                    v-if="
+                        fixedDeductions.length > 0 ||
+                        customDeductions.length > 0
+                    "
+                    class="mt-3 p-2 bg-light rounded d-flex justify-content-between align-items-center"
+                >
+                    <span class="small text-muted"
+                        >Total Active Deductions:</span
+                    >
+                    <span class="fw-bold text-danger">
+                        {{ selectedEmployeeData?.current_currency }}
+                        {{ formatCurrency(calculateTotalActiveDeductions()) }}
+                    </span>
                 </div>
             </fieldset>
 
@@ -832,6 +1044,31 @@
                                 <tr
                                     v-if="
                                         parseFloat(
+                                            viewingPayslip.night_diff_pay,
+                                        ) > 0
+                                    "
+                                >
+                                    <td>
+                                        Night Differential
+                                        <small class="text-muted d-block">
+                                            {{
+                                                viewingPayslip.night_diff_hours
+                                            }}
+                                            hrs × 10% premium
+                                        </small>
+                                    </td>
+                                    <td class="text-end">
+                                        {{ viewingPayslip.currency }}
+                                        {{
+                                            formatCurrency(
+                                                viewingPayslip.night_diff_pay,
+                                            )
+                                        }}
+                                    </td>
+                                </tr>
+                                <tr
+                                    v-if="
+                                        parseFloat(
                                             viewingPayslip.regular_holiday_pay,
                                         ) > 0
                                     "
@@ -928,28 +1165,83 @@
                             <tbody>
                                 <template
                                     v-if="
-                                        activeDeductions &&
-                                        activeDeductions.length > 0
+                                        parsedDeductions &&
+                                        parsedDeductions.length > 0
                                     "
                                 >
-                                    <!-- Show only active deductions -->
-                                    <tr
+                                    <!-- Fixed deductions first -->
+                                    <template
                                         v-for="(
                                             deduction, index
-                                        ) in activeDeductions"
-                                        :key="'active-' + index"
+                                        ) in parsedDeductions.filter(
+                                            (d) =>
+                                                d.type === 'fixed' &&
+                                                (d.active === true ||
+                                                    d.active === 1),
+                                        )"
+                                        :key="'view-fixed-' + index"
                                     >
-                                        <td>{{ deduction.name }}</td>
-                                        <td class="text-end">
-                                            {{ viewingPayslip.currency }}
-                                            {{
-                                                formatCurrency(deduction.amount)
-                                            }}
+                                        <tr>
+                                            <td>
+                                                <span
+                                                    class="badge bg-primary me-1"
+                                                    style="font-size: 10px"
+                                                    >Fixed</span
+                                                >
+                                                {{ deduction.name }}
+                                            </td>
+                                            <td class="text-end">
+                                                {{ viewingPayslip.currency }}
+                                                {{
+                                                    formatCurrency(
+                                                        deduction.amount,
+                                                    )
+                                                }}
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <!-- Custom deductions -->
+                                    <template
+                                        v-for="(
+                                            deduction, index
+                                        ) in parsedDeductions.filter(
+                                            (d) =>
+                                                d.type === 'custom' &&
+                                                (d.active === true ||
+                                                    d.active === 1),
+                                        )"
+                                        :key="'view-custom-' + index"
+                                    >
+                                        <tr>
+                                            <td>
+                                                <span
+                                                    class="badge bg-warning text-dark me-1"
+                                                    style="font-size: 10px"
+                                                    >Custom</span
+                                                >
+                                                {{ deduction.name }}
+                                            </td>
+                                            <td class="text-end">
+                                                {{ viewingPayslip.currency }}
+                                                {{
+                                                    formatCurrency(
+                                                        deduction.amount,
+                                                    )
+                                                }}
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <!-- Fallback if no active deductions -->
+                                    <tr v-if="activeDeductions.length === 0">
+                                        <td
+                                            colspan="2"
+                                            class="text-center text-muted small"
+                                        >
+                                            No active deductions
                                         </td>
                                     </tr>
                                 </template>
                                 <template v-else>
-                                    <!-- Default deductions when no custom deductions -->
                                     <tr>
                                         <td>SSS</td>
                                         <td class="text-end">
@@ -1134,7 +1426,6 @@
     </Dialog>
 
     <!-- Edit Dialog -->
-
     <Dialog
         v-model:visible="showEditPayslip"
         modal
@@ -1183,100 +1474,216 @@
 
         <!-- Deductions Section -->
         <fieldset>
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <label class="mb-0 fw-semibold">Deductions: </label>
-                <Button
-                    label="Add Deduction"
-                    icon="pi pi-plus"
-                    size="small"
-                    severity="success"
-                    text
-                    @click="addEditDeduction"
-                    type="button"
-                />
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <label class="mb-0 fw-semibold">Deductions:</label>
             </div>
 
-            <div
-                v-if="editForm.deductions.length === 0"
-                class="text-muted small p-3 bg-light rounded text-center"
-            >
-                No deductions added. Click "Add Deduction" to add one.
-            </div>
-
-            <div
-                v-for="(deduction, index) in editForm.deductions"
-                :key="index"
-                class="deduction-item mb-3 p-3 border rounded bg-white"
-            >
+            <!-- FIXED DEDUCTIONS -->
+            <div class="mb-3">
                 <div
-                    class="d-flex justify-content-between align-items-start mb-3"
+                    class="d-flex justify-content-between align-items-center mb-2"
                 >
-                    <div class="form-check">
-                        <input
-                            type="checkbox"
-                            class="form-check-input"
-                            :id="'edit-deduction-active-' + index"
-                            v-model="deduction.active"
-                        />
-                        <label
-                            class="form-check-label fw-semibold"
-                            :for="'edit-deduction-active-' + index"
-                        >
-                            <span v-if="deduction.active" class="text-success"
-                                >✓ Include in computation</span
+                    <span
+                        class="fw-semibold text-secondary small text-uppercase"
+                    >
+                        <i class="pi pi-lock me-1"></i>Fixed Deductions
+                    </span>
+                    <span class="badge bg-secondary"
+                        >Auto-applied to all employees</span
+                    >
+                </div>
+
+                <div
+                    v-if="editForm.fixedDeductions.length === 0"
+                    class="text-muted small p-3 bg-light rounded text-center"
+                >
+                    No fixed deductions configured.
+                </div>
+
+                <div
+                    v-for="(deduction, index) in editForm.fixedDeductions"
+                    :key="'edit-fixed-' + index"
+                    class="deduction-item mb-2 p-3 border rounded bg-light"
+                >
+                    <div
+                        class="d-flex justify-content-between align-items-center mb-2"
+                    >
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-primary">Fixed</span>
+                            <span class="fw-semibold">{{
+                                deduction.name
+                            }}</span>
+                        </div>
+                        <div class="form-check form-switch mb-0">
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                :id="'edit-fixed-active-' + index"
+                                v-model="deduction.active"
+                                role="switch"
+                            />
+                            <label
+                                class="form-check-label small"
+                                :for="'edit-fixed-active-' + index"
                             >
-                            <span v-else class="text-muted"
-                                >○ Exclude from computation</span
-                            >
-                        </label>
+                                <span
+                                    v-if="deduction.active"
+                                    class="text-success"
+                                    >Included</span
+                                >
+                                <span v-else class="text-muted">Excluded</span>
+                            </label>
+                        </div>
                     </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="small fw-semibold">Amount:</label>
+                            <InputText
+                                v-model.number="deduction.amount"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                class="form-control"
+                                placeholder="0.00"
+                            />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="small fw-semibold"
+                                >Description (Optional):</label
+                            >
+                            <InputText
+                                v-model="deduction.description"
+                                class="form-control"
+                                placeholder="Notes..."
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CUSTOM DEDUCTIONS -->
+            <div>
+                <div
+                    class="d-flex justify-content-between align-items-center mb-2"
+                >
+                    <span
+                        class="fw-semibold text-secondary small text-uppercase"
+                    >
+                        <i class="pi pi-user me-1"></i>Custom Deductions
+                    </span>
                     <Button
-                        icon="pi pi-trash"
+                        label="Add Custom"
+                        icon="pi pi-plus"
                         size="small"
-                        severity="danger"
+                        severity="success"
                         text
-                        @click="removeEditDeduction(index)"
+                        @click="addEditDeduction"
                         type="button"
                     />
                 </div>
 
-                <div class="row">
-                    <div class="col-md-6 mb-2">
-                        <label class="small fw-semibold"
-                            >Deduction Name:
-                            <span class="text-danger">*</span></label
-                        >
-                        <InputText
-                            v-model="deduction.name"
-                            class="form-control"
-                            placeholder="e.g., SSS, PAGIBIG, Tax"
+                <div
+                    v-if="editForm.customDeductions.length === 0"
+                    class="text-muted small p-3 bg-light rounded text-center"
+                >
+                    No custom deductions. Click "Add Custom" to add one.
+                </div>
+
+                <div
+                    v-for="(deduction, index) in editForm.customDeductions"
+                    :key="'edit-custom-' + index"
+                    class="deduction-item mb-2 p-3 border rounded bg-white"
+                >
+                    <div
+                        class="d-flex justify-content-between align-items-start mb-2"
+                    >
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-warning text-dark"
+                                >Custom</span
+                            >
+                            <div class="form-check mb-0">
+                                <input
+                                    type="checkbox"
+                                    class="form-check-input"
+                                    :id="'edit-custom-active-' + index"
+                                    v-model="deduction.active"
+                                />
+                                <label
+                                    class="form-check-label small fw-semibold"
+                                    :for="'edit-custom-active-' + index"
+                                >
+                                    <span
+                                        v-if="deduction.active"
+                                        class="text-success"
+                                        >✓ Include</span
+                                    >
+                                    <span v-else class="text-muted"
+                                        >○ Exclude</span
+                                    >
+                                </label>
+                            </div>
+                        </div>
+                        <Button
+                            icon="pi pi-trash"
+                            size="small"
+                            severity="danger"
+                            text
+                            @click="removeEditDeduction(index)"
+                            type="button"
                         />
                     </div>
-                    <div class="col-md-6 mb-2">
-                        <label class="small fw-semibold"
-                            >Amount: <span class="text-danger">*</span></label
-                        >
-                        <InputText
-                            v-model.number="deduction.amount"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            class="form-control"
-                            placeholder="0.00"
-                        />
-                    </div>
-                    <div class="col-md-12">
-                        <label class="small fw-semibold"
-                            >Description (Optional):</label
-                        >
-                        <textarea
-                            v-model="deduction.description"
-                            class="form-control"
-                            rows="2"
-                            placeholder="Add notes about this deduction"
-                        ></textarea>
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label class="small fw-semibold">
+                                Deduction Name:
+                                <span class="text-danger">*</span>
+                            </label>
+                            <InputText
+                                v-model="deduction.name"
+                                class="form-control"
+                                placeholder="e.g., Loan, Cash Advance"
+                            />
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="small fw-semibold">
+                                Amount: <span class="text-danger">*</span>
+                            </label>
+                            <InputText
+                                v-model.number="deduction.amount"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                class="form-control"
+                                placeholder="0.00"
+                            />
+                        </div>
+                        <div class="col-md-12">
+                            <label class="small fw-semibold"
+                                >Description (Optional):</label
+                            >
+                            <textarea
+                                v-model="deduction.description"
+                                class="form-control"
+                                rows="2"
+                                placeholder="Add notes about this deduction"
+                            ></textarea>
+                        </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Edit Deduction Summary -->
+            <div
+                v-if="
+                    editForm.fixedDeductions.length > 0 ||
+                    editForm.customDeductions.length > 0
+                "
+                class="mt-3 p-2 bg-light rounded d-flex justify-content-between align-items-center"
+            >
+                <span class="small text-muted">Total Active Deductions:</span>
+                <span class="fw-bold text-danger">
+                    {{ formatCurrency(calculateEditTotalActiveDeductions()) }}
+                </span>
             </div>
         </fieldset>
 
@@ -1374,8 +1781,14 @@ export default {
             currentPage: 1,
             perPage: 10,
             totalPages: 1,
-            deductions: [],
             payslipNotes: "",
+
+            fixedDeductions: [],
+            loadingFixedDeductions: false,
+            customDeductions: [],
+
+            currentEmployeeRate: null,
+            loadingRate: false,
 
             // Auth user
             authUser: null,
@@ -1390,8 +1803,14 @@ export default {
                 cutoff_from: null,
                 cutoff_to: null,
                 deductions: [],
+                fixedDeductions: [],
+                customDeductions: [],
                 notes: "",
             },
+
+            nightDiffHours: 0,
+            nightDiffRate: 0,
+            nightDiffPay: 0,
         };
     },
     computed: {
@@ -1413,6 +1832,7 @@ export default {
                 (emp) => emp.id === this.selectedEmployee,
             );
         },
+
         canSave() {
             return (
                 this.selectedEmployee &&
@@ -1422,6 +1842,7 @@ export default {
                 !this.saving
             );
         },
+
         totalHoursWorked() {
             if (
                 !this.attendanceRecords ||
@@ -1457,6 +1878,7 @@ export default {
 
             return totalHours;
         },
+
         parsedDeductions() {
             if (!this.viewingPayslip) {
                 return [];
@@ -1481,6 +1903,7 @@ export default {
                 return [];
             }
         },
+
         activeDeductions() {
             return this.parsedDeductions.filter(
                 (d) => d.active === true || d.active === 1,
@@ -1491,6 +1914,7 @@ export default {
                 (d) => d.active === false || d.active === 0,
             );
         },
+
         deductionsWithNotes() {
             return this.parsedDeductions.filter(
                 (d) => d.description && d.description.trim() !== "",
@@ -1516,11 +1940,15 @@ export default {
         cutoffDateTo(newVal) {
             if (newVal && this.cutoffDateFrom && this.selectedEmployee) {
                 this.fetchAttendanceData();
+                this.fetchCurrentEmployeeRate();
             }
         },
         selectedEmployee(newVal) {
             if (newVal && this.cutoffDateFrom && this.cutoffDateTo) {
                 this.fetchAttendanceData();
+            }
+            if (newVal) {
+                this.fetchCurrentEmployeeRate();
             }
         },
         attendanceRecords(newVal) {
@@ -1543,6 +1971,43 @@ export default {
             }
         },
 
+        async fetchCurrentEmployeeRate() {
+            if (!this.selectedEmployee) return;
+
+            this.loadingRate = true;
+            this.currentEmployeeRate = null;
+
+            try {
+                const { data } = await axios.get(
+                    `/hr/employees/${this.selectedEmployee}/rates/current`,
+                    // Pass cutoff_to so the backend returns the rate
+                    // that was active at the END of the pay period
+                    { params: { as_of: this.cutoffDateTo || null } },
+                );
+                this.currentEmployeeRate = data?.data || null;
+            } catch (e) {
+                console.warn("Could not fetch employee rate:", e);
+                this.currentEmployeeRate = null;
+            } finally {
+                this.loadingRate = false;
+            }
+        },
+
+        getHourlyRate() {
+            return parseFloat(
+                this.currentEmployeeRate?.hourly_rate ??
+                    this.selectedEmployeeData?.current_hourly_rate ??
+                    0,
+            );
+        },
+        getCurrency() {
+            return (
+                this.currentEmployeeRate?.currency ??
+                this.selectedEmployeeData?.current_currency ??
+                "PHP"
+            );
+        },
+
         async fetchPayslips() {
             this.loadingPayslips = true;
             try {
@@ -1560,6 +2025,28 @@ export default {
                 this.loadingPayslips = false;
             }
         },
+
+        async fetchFixedDeductions() {
+            this.loadingFixedDeductions = true;
+            try {
+                const response = await axios.get("/hr/fixed-deductions");
+                // Map each fixed deduction and mark type
+                this.fixedDeductions = (response.data || []).map((d) => ({
+                    id: d.id,
+                    name: d.name,
+                    amount: parseFloat(d.default_amount) || 0,
+                    description: d.description || "",
+                    active: true,
+                    type: "fixed",
+                }));
+            } catch (error) {
+                console.error("Error fetching fixed deductions:", error);
+                this.fixedDeductions = [];
+            } finally {
+                this.loadingFixedDeductions = false;
+            }
+        },
+
         prevPage() {
             if (this.currentPage > 1) {
                 this.currentPage--;
@@ -1577,6 +2064,9 @@ export default {
             if (this.employees.length === 0) {
                 this.fetchEmployees();
             }
+            if (this.fixedDeductions.length === 0) {
+                this.fetchFixedDeductions();
+            }
         },
         closeCreatePayslip() {
             this.showCreatePayslip = false;
@@ -1590,8 +2080,13 @@ export default {
             this.attendanceRecords = [];
             this.holidays = [];
             this.showAttendanceTable = false;
-            this.deductions = [];
+            this.fixedDeductions = [];
+            this.customDeductions = [];
             this.payslipNotes = "";
+            this.currentEmployeeRate = null;
+            this.nightDiffHours = 0;
+            this.nightDiffRate = 0;
+            this.nightDiffPay = 0;
         },
         async fetchEmployees() {
             this.loadingEmployees = true;
@@ -1764,30 +2259,15 @@ export default {
             return hours > 0 ? hours : 0;
         },
         calculateHolidayPay(holiday) {
-            if (!this.selectedEmployeeData) return 0;
-
-            const hourlyRate =
-                parseFloat(this.selectedEmployeeData.current_hourly_rate) || 0;
+            const hourlyRate = this.getHourlyRate();
             const hoursWorked = parseFloat(holiday.actualHoursWorked) || 0;
 
             if (holiday.status === "regular") {
-                // Regular Holiday
-                if (hoursWorked > 0) {
-                    // Worked: Hours × Rate × 2
-                    return hoursWorked * hourlyRate * 2;
-                } else {
-                    // Not worked: 8 hours × Rate
-                    return 8 * hourlyRate;
-                }
+                return hoursWorked > 0
+                    ? hoursWorked * hourlyRate * 2
+                    : 8 * hourlyRate;
             } else {
-                // Special Non-Working Holiday
-                if (hoursWorked > 0) {
-                    // Worked: Hours × Rate × 1.3
-                    return hoursWorked * hourlyRate * 1.3;
-                } else {
-                    // Not worked: NO WORK NO PAY
-                    return 0;
-                }
+                return hoursWorked > 0 ? hoursWorked * hourlyRate * 1.3 : 0;
             }
         },
         calculateRegularHolidayPayTotal() {
@@ -1806,38 +2286,45 @@ export default {
             }, 0);
         },
         calculateBasicPay() {
-            if (!this.selectedEmployeeData) return 0;
-
-            const hourlyRate =
-                parseFloat(this.selectedEmployeeData.current_hourly_rate) || 0;
-            return this.totalHoursWorked * hourlyRate;
+            return this.totalHoursWorked * this.getHourlyRate();
         },
+
         calculateGrossPay() {
-            const basicPay = this.calculateBasicPay();
-            const holidayPay = this.calculateTotalHolidayPay();
-            return basicPay + holidayPay;
+            return (
+                this.calculateBasicPay() +
+                this.calculateTotalHolidayPay() +
+                this.calculateNightDiffPay()
+            );
         },
         addDeduction() {
-            this.deductions.push({
+            this.customDeductions.push({
                 name: "",
                 amount: 0,
                 description: "",
                 active: true,
+                type: "custom",
             });
         },
         removeDeduction(index) {
-            this.deductions.splice(index, 1);
+            this.customDeductions.splice(index, 1);
         },
         calculateTotalActiveDeductions() {
-            return this.deductions
+            const fixedTotal = this.fixedDeductions
                 .filter((d) => d.active)
-                .reduce((total, d) => total + (parseFloat(d.amount) || 0), 0);
+                .reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+
+            const customTotal = this.customDeductions
+                .filter((d) => d.active)
+                .reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+
+            return fixedTotal + customTotal;
         },
         calculateNetPay() {
-            const grossPay = this.calculateGrossPay();
-            const totalDeductions = this.calculateTotalActiveDeductions();
-            return grossPay - totalDeductions;
+            return (
+                this.calculateGrossPay() - this.calculateTotalActiveDeductions()
+            );
         },
+
         async savePayslip() {
             if (!this.canSave) return;
 
@@ -1885,10 +2372,8 @@ export default {
                     cutoff_to: this.cutoffDateTo,
                     total_days: this.attendanceRecords.length,
                     total_hours: this.totalHoursWorked,
-                    hourly_rate:
-                        this.selectedEmployeeData?.current_hourly_rate || 0,
-                    currency:
-                        this.selectedEmployeeData?.current_currency || "PHP",
+                    hourly_rate: this.getHourlyRate(), // ← fetched rate
+                    currency: this.getCurrency(), // ← fetched currency
                     basic_pay: basicPay,
                     regular_holiday_hours: regularHolidayHours,
                     regular_holiday_pay: regularHolidayPay,
@@ -1897,10 +2382,19 @@ export default {
                     gross_pay: grossPay,
                     deductions: totalDeductions,
                     net_pay: netPay,
-                    deduction_details: this.deductions,
+                    deduction_details: [
+                        // ← merged fixed + custom
+                        ...this.fixedDeductions,
+                        ...this.customDeductions,
+                    ],
                     holiday_details: this.holidays,
                     attendance_records: this.attendanceRecords,
                     notes: this.payslipNotes || null,
+
+                    night_diff_hours: this.calculateNightDiffHours(),
+                    night_diff_rate:
+                        this.getHourlyRate() - this.getHourlyRate() / 1.1,
+                    night_diff_pay: this.calculateNightDiffPay(),
                 };
 
                 await axios.post("/hr/payslips", payslipData);
@@ -1915,13 +2409,11 @@ export default {
                 this.closeCreatePayslip();
                 this.fetchPayslips();
             } catch (error) {
-                console.error("Full error details:", error);
                 const errorMessage =
                     error.response?.data?.message ||
                     error.response?.data?.error ||
                     error.message ||
                     "Failed to create payslip";
-
                 await Swal.fire({
                     icon: "error",
                     title: "Failed to Create",
@@ -1931,6 +2423,7 @@ export default {
                 this.saving = false;
             }
         },
+
         parseDateTime(dateTimeString) {
             if (
                 !dateTimeString ||
@@ -2043,8 +2536,44 @@ export default {
                 window.print();
             }, 100);
         },
+
         editPayslip(payslip) {
-            console.log("Edit payslip:", payslip);
+            let allDeductions = [];
+            if (payslip.deduction_details) {
+                try {
+                    allDeductions =
+                        typeof payslip.deduction_details === "string"
+                            ? JSON.parse(payslip.deduction_details)
+                            : payslip.deduction_details;
+                } catch (e) {
+                    allDeductions = [];
+                }
+            }
+
+            this.editForm = {
+                id: payslip.id,
+                employee_id: payslip.employee_id,
+                employee_name: payslip.employee_name,
+                payout_date:
+                    payslip.payout_date?.split("T")[0] ?? payslip.payout_date,
+                cutoff_from:
+                    payslip.cutoff_from?.split("T")[0] ?? payslip.cutoff_from,
+                cutoff_to:
+                    payslip.cutoff_to?.split("T")[0] ?? payslip.cutoff_to,
+                fixedDeductions: allDeductions.filter(
+                    (d) => d.type === "fixed",
+                ),
+                customDeductions: allDeductions.filter(
+                    (d) => d.type !== "fixed",
+                ),
+                notes: payslip.notes || "",
+            };
+
+            this.showEditPayslip = true;
+
+            if (this.employees.length === 0) {
+                this.fetchEmployees();
+            }
         },
 
         async deletePayslip(payslip) {
@@ -2188,22 +2717,36 @@ export default {
                 payout_date: null,
                 cutoff_from: null,
                 cutoff_to: null,
-                deductions: [],
+                fixedDeductions: [],
+                customDeductions: [],
                 notes: "",
             };
         },
 
         addEditDeduction() {
-            this.editForm.deductions.push({
+            this.editForm.customDeductions.push({
                 name: "",
                 amount: 0,
                 description: "",
                 active: true,
+                type: "custom",
             });
         },
 
         removeEditDeduction(index) {
-            this.editForm.deductions.splice(index, 1);
+            this.editForm.customDeductions.splice(index, 1);
+        },
+
+        calculateEditTotalActiveDeductions() {
+            const fixedTotal = this.editForm.fixedDeductions
+                .filter((d) => d.active)
+                .reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+
+            const customTotal = this.editForm.customDeductions
+                .filter((d) => d.active)
+                .reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+
+            return fixedTotal + customTotal;
         },
 
         async updatePayslip() {
@@ -2216,7 +2759,10 @@ export default {
                     payout_date: this.editForm.payout_date,
                     cutoff_from: this.editForm.cutoff_from,
                     cutoff_to: this.editForm.cutoff_to,
-                    deduction_details: this.editForm.deductions,
+                    deduction_details: [
+                        ...this.editForm.fixedDeductions,
+                        ...this.editForm.customDeductions,
+                    ],
                     notes: this.editForm.notes,
                 });
 
@@ -2242,6 +2788,67 @@ export default {
             } finally {
                 this.updating = false;
             }
+        },
+
+        calculateNightDiffHours() {
+            if (
+                !this.attendanceRecords ||
+                this.attendanceRecords.length === 0
+            ) {
+                return 0;
+            }
+
+            let totalNightHours = 0;
+
+            this.attendanceRecords.forEach((record) => {
+                const timeIn = this.parseDateTime(record.TimeIn);
+                const timeOut = this.parseDateTime(record.TimeOut);
+
+                if (!timeIn || !timeOut) return;
+
+                // Night window: 10PM (22:00) to 6AM (06:00) next day
+                // We scan in 1-minute increments within the shift
+                // to count how many minutes fall in the night window
+                let nightMinutes = 0;
+                const step = 60 * 1000; // 1 minute in ms
+                let cursor = new Date(timeIn.getTime());
+
+                // Collect break period if available
+                const breakStart = this.parseDateTime(record.shortbreak_start);
+                const breakEnd = this.parseDateTime(record.shortbreak_end);
+
+                while (cursor < timeOut) {
+                    // Skip break time
+                    if (
+                        breakStart &&
+                        breakEnd &&
+                        cursor >= breakStart &&
+                        cursor < breakEnd
+                    ) {
+                        cursor = new Date(cursor.getTime() + step);
+                        continue;
+                    }
+
+                    const hour = cursor.getHours();
+                    // Night window: hour >= 22 OR hour < 6
+                    if (hour >= 22 || hour < 6) {
+                        nightMinutes++;
+                    }
+
+                    cursor = new Date(cursor.getTime() + step);
+                }
+
+                totalNightHours += nightMinutes / 60;
+            });
+
+            return Math.round(totalNightHours * 100) / 100;
+        },
+
+        calculateNightDiffPay() {
+            const hourlyRate = this.getHourlyRate();
+            const nightHours = this.calculateNightDiffHours();
+            const diffRate = hourlyRate - hourlyRate / 1.1; // +10% premium only
+            return diffRate * nightHours;
         },
     },
 };
