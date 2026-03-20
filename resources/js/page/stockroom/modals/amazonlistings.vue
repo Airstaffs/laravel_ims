@@ -461,7 +461,8 @@
                                     <div class="font-medium">{{ r.MSKU }}</div>
                                     <div class="text-500 text-xs mt-1">
                                         <span class="mr-3"><b>ASIN</b> {{ r.ASIN || '—' }}</span>
-                                        <span><b>FNSKU</b> {{ r.FNSKU || '—' }}</span>
+                                        <span class="mr-3"><b>FNSKU</b> {{ r.FNSKU || '—' }}</span>
+                                        <span><b>Store</b> {{ r.storename || '—' }}</span>
                                     </div>
                                 </div>
 
@@ -685,36 +686,36 @@ export default {
             return (this.automationModal.selectedRows || []).length;
         },
 
-automationCanSave() {
-    const a = this.automationModal;
-    if (!a.store) return false;
-    if (!a.timezone) return false;
-    if (!Array.isArray(a.marketplaceIds) || a.marketplaceIds.length < 1) return false;
-    if (!Array.isArray(a.rules) || a.rules.length < 1) return false;
-    if (!Array.isArray(a.selectedRows) || a.selectedRows.length < 1) return false;
+        automationCanSave() {
+            const a = this.automationModal;
+            if (!a.store) return false;
+            if (!a.timezone) return false;
+            if (!Array.isArray(a.marketplaceIds) || a.marketplaceIds.length < 1) return false;
+            if (!Array.isArray(a.rules) || a.rules.length < 1) return false;
+            if (!Array.isArray(a.selectedRows) || a.selectedRows.length < 1) return false;
 
-    const timeOk = (t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(t || "").trim());
+            const timeOk = (t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(t || "").trim());
 
-    const num = (v) => {
-        const n = Number(String(v ?? "").trim());
-        return Number.isFinite(n) ? n : null;
-    };
+            const num = (v) => {
+                const n = Number(String(v ?? "").trim());
+                return Number.isFinite(n) ? n : null;
+            };
 
-    for (const r of a.rules) {
-        const start = String(r.start || "").trim();
-        const end = String(r.end || "").trim();
-        const min = num(r.min);
-        const max = num(r.max);
-        const delta = num(r.delta);
+            for (const r of a.rules) {
+                const start = String(r.start || "").trim();
+                const end = String(r.end || "").trim();
+                const min = num(r.min);
+                const max = num(r.max);
+                const delta = num(r.delta);
 
-        if (!timeOk(start) || !timeOk(end)) return false;
-        if (start === end) return false;
-        if (min === null || max === null || delta === null) return false;
-        if (!(min < max)) return false;
-    }
+                if (!timeOk(start) || !timeOk(end)) return false;
+                if (start === end) return false;
+                if (min === null || max === null || delta === null) return false;
+                if (!(min < max)) return false;
+            }
 
-    return true;
-},
+            return true;
+        },
 
         marketplaceOptions() {
             return [
@@ -1225,7 +1226,6 @@ automationCanSave() {
             this.automationModal.selectedAutomationId = null;
             this.automationModal.id = null;
             this.automationModal.assigned = [];
-            this.automationModal.selectedRows = [];
             this.resetFnskuSearch();
             await this.loadAutomationList();
         },
@@ -1312,49 +1312,52 @@ automationCanSave() {
             this.resetFnskuSearch();
         },
 
-async saveAutomation() {
-    const a = this.automationModal;
-    a.saving = true;
+        async saveAutomation() {
+            const a = this.automationModal;
+            a.saving = true;
 
-    try {
-        const payload = {
-            id: a.id,
-            name: a.name,
-            store: a.store,
-            marketplace_ids: a.marketplaceIds,
-            timezone: a.timezone,
-            is_enabled: a.isEnabled ? 1 : 0,
+            try {
+                const payload = {
+                    id: a.id,
+                    name: a.name,
+                    store: a.store,
+                    marketplace_ids: a.marketplaceIds,
+                    timezone: a.timezone,
+                    is_enabled: a.isEnabled ? 1 : 0,
 
-            rules: (a.rules || []).map(r => ({
-                start: String(r.start || "").trim(),
-                end: String(r.end || "").trim(),
-                min: Number(r.min),
-                max: Number(r.max),
-                delta: Number(r.delta),
-            })),
+                    rules: (a.rules || []).map(r => ({
+                        start: String(r.start || "").trim(),
+                        end: String(r.end || "").trim(),
+                        min: Number(r.min),
+                        max: Number(r.max),
+                        delta: Number(r.delta),
+                    })),
 
-            default_delta: Number(a.defaultDelta || 0),
+                    default_delta: Number(a.defaultDelta || 0),
 
-            items: (a.selectedRows || [])
-                .map(r => ({ msku: String(r.MSKU || "").trim() }))
-                .filter(x => x.msku),
-        };
+                    items: (a.selectedRows || [])
+                        .map(r => ({
+                            msku: String(r.MSKU || "").trim(),
+                            storename: String(r.storename || a.store || "").trim(),
+                        }))
+                        .filter(x => x.msku && x.storename),
+                };
 
-        const res = await axios.post(`${API_BASE_URL}/amazon/paa/save`, payload);
-        const savedId = res?.data?.id || res?.data?.automation_id || a.id;
+                const res = await axios.post(`${API_BASE_URL}/amazon/paa/save`, payload);
+                const savedId = res?.data?.id || res?.data?.automation_id || a.id;
 
-        await this.loadAutomationList();
+                await this.loadAutomationList();
 
-        if (savedId) {
-            a.selectedAutomationId = savedId;
-            await this.onSelectAutomation();
-        }
-    } catch (err) {
-        console.error("saveAutomation error:", err?.response?.data || err);
-    } finally {
-        a.saving = false;
-    }
-},
+                if (savedId) {
+                    a.selectedAutomationId = savedId;
+                    await this.onSelectAutomation();
+                }
+            } catch (err) {
+                console.error("saveAutomation error:", err?.response?.data || err);
+            } finally {
+                a.saving = false;
+            }
+        },
 
         async onSelectAutomation() {
             const a = this.automationModal;
@@ -1395,7 +1398,7 @@ async saveAutomation() {
                         MSKU: x.msku,
                         FNSKU: x.fnsku || null,
                         ASIN: x.asin || null,
-                        storename: a.store,
+                        storename: x.storename || a.store,
                     }));
 
             } catch (err) {
@@ -1456,20 +1459,23 @@ async saveAutomation() {
             this.automationModal.rules.sort((a, b) => toNum(a.min) - toNum(b.min));
         },
 
-            assignSelectedFnskuRows() {
-        const existing = new Map(
-            (this.automationModal.selectedRows || []).map(row => [row.FNSKUID, row])
-        );
+        assignSelectedFnskuRows() {
+            const existing = new Map(
+                (this.automationModal.selectedRows || []).map(row => [row.FNSKUID, row])
+            );
 
-        for (const row of this.automationModal.searchSelectedRows || []) {
-            if (!existing.has(row.FNSKUID)) {
-                existing.set(row.FNSKUID, row);
+            for (const row of this.automationModal.searchSelectedRows || []) {
+                if (!existing.has(row.FNSKUID)) {
+                    existing.set(row.FNSKUID, {
+                        ...row,
+                        storename: row.storename || this.automationModal.store,
+                    });
+                }
             }
-        }
 
-        this.automationModal.selectedRows = Array.from(existing.values());
-        this.automationModal.searchSelectedRows = [];
-    },
+            this.automationModal.selectedRows = Array.from(existing.values());
+            this.automationModal.searchSelectedRows = [];
+        },
     },
 
 

@@ -608,7 +608,7 @@ function insertToDb($Connect, $response)
         $tracking_id = $details['label_details']['tracking_id'] ?? NULL;
         $return_request_date = $details['return_request_date'] ?? NULL;
         $return_request_status = $details['return_request_status'] ?? NULL;
-        $reason = $details['item_details']['reason'] ?? NULL;
+        $return_reason_code = $details['item_details']['return_reason_code'] ?? NULL;
         $return_system = "NEW";
         $store_name = "Renovartech";
 
@@ -641,7 +641,7 @@ function insertToDb($Connect, $response)
                 tracking_id = ?, 
                 return_request_date = ?, 
                 return_request_status = ?, 
-                reason = ? 
+                return_reason_code = ? 
                 WHERE amazonOrderId = ? AND ASIN = ? AND MSKU = ?";
             $stmt = $Connect->prepare($updateQuery);
 
@@ -655,7 +655,7 @@ function insertToDb($Connect, $response)
                 $tracking_id,
                 $return_request_date_la,
                 $return_request_status,
-                $reason,
+                $return_reason_code,
                 $amazonOrderId,
                 $ASIN,
                 $MSKU
@@ -676,7 +676,7 @@ function insertToDb($Connect, $response)
                 tracking_id, 
                 return_request_date, 
                 return_request_status, 
-                reason,
+                return_reason_code,
                 notif_status,
                 store_name ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             $stmt = $Connect->prepare($insertQuery);
@@ -694,7 +694,7 @@ function insertToDb($Connect, $response)
                 $tracking_id,
                 $return_request_date_la,
                 $return_request_status,
-                $reason,
+                $return_reason_code,
                 $return_system,
                 $store_name
             );
