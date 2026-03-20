@@ -223,7 +223,7 @@ function db()
         return $mysqli;
     }
 
-    $host = envv('DB_HOST', '127.0.0.1');
+    $host = envv('localhost');
     $port = (int) envv('DB_PORT', 3306);
     $user = envv('DB_USERNAME', '');
     $pass = envv('DB_PASSWORD', '');
