@@ -277,6 +277,92 @@
                 </div>
             </fieldset>
 
+            <fieldset
+                v-if="
+                    attendanceRecords &&
+                    attendanceRecords.length > 0 &&
+                    selectedEmployee
+                "
+            >
+                <div
+                    class="d-flex justify-content-between align-items-center mb-2"
+                >
+                    <label
+                        class="mb-0 fw-semibold d-flex align-items-center gap-2"
+                    >
+                        Night Differential
+                        <span class="badge bg-dark" style="font-size: 10px"
+                            >10PM – 6AM</span
+                        >
+                    </label>
+                    <!-- Auto-calculated badge -->
+                    <span
+                        v-if="calculateNightDiffHours() > 0"
+                        class="badge bg-warning text-dark"
+                    >
+                        {{ calculateNightDiffHours() }} night hrs detected
+                    </span>
+                    <span v-else class="badge bg-secondary"
+                        >No night hours</span
+                    >
+                </div>
+
+                <div
+                    v-if="calculateNightDiffHours() > 0"
+                    class="p-3 border rounded bg-light"
+                >
+                    <div class="row g-2 text-center">
+                        <div class="col-4">
+                            <div class="p-2 bg-white rounded border">
+                                <div class="text-muted small">Night Hours</div>
+                                <div class="fw-bold">
+                                    {{ calculateNightDiffHours() }} hrs
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 bg-white rounded border">
+                                <div class="text-muted small">Diff Rate/hr</div>
+                                <div class="fw-bold text-warning">
+                                    {{ selectedEmployeeData?.current_currency }}
+                                    {{
+                                        formatCurrency(
+                                            getHourlyRate() -
+                                                getHourlyRate() / 1.1,
+                                        )
+                                    }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 bg-white rounded border">
+                                <div class="text-muted small">
+                                    Night Diff Pay
+                                </div>
+                                <div class="fw-bold text-success">
+                                    {{ selectedEmployeeData?.current_currency }}
+                                    {{
+                                        formatCurrency(calculateNightDiffPay())
+                                    }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-2 small text-muted text-center">
+                        Auto-detected from attendance records (PH Labor Code
+                        Art. 86)
+                    </div>
+                </div>
+
+                <div
+                    v-else
+                    class="text-muted small p-2 bg-light rounded text-center"
+                >
+                    No hours between 10:00 PM – 6:00 AM found in attendance
+                    records.
+                </div>
+            </fieldset>
+
             <!-- Holiday Detection Section with AUTO-CALCULATED hours -->
             <fieldset v-if="holidays.length > 0">
                 <label class="fw-semibold"
@@ -951,6 +1037,31 @@
                                         {{
                                             formatCurrency(
                                                 viewingPayslip.basic_pay,
+                                            )
+                                        }}
+                                    </td>
+                                </tr>
+                                <tr
+                                    v-if="
+                                        parseFloat(
+                                            viewingPayslip.night_diff_pay,
+                                        ) > 0
+                                    "
+                                >
+                                    <td>
+                                        Night Differential
+                                        <small class="text-muted d-block">
+                                            {{
+                                                viewingPayslip.night_diff_hours
+                                            }}
+                                            hrs × 10% premium
+                                        </small>
+                                    </td>
+                                    <td class="text-end">
+                                        {{ viewingPayslip.currency }}
+                                        {{
+                                            formatCurrency(
+                                                viewingPayslip.night_diff_pay,
                                             )
                                         }}
                                     </td>
@@ -1696,6 +1807,10 @@ export default {
                 customDeductions: [],
                 notes: "",
             },
+
+            nightDiffHours: 0,
+            nightDiffRate: 0,
+            nightDiffPay: 0,
         };
     },
     computed: {
@@ -1969,6 +2084,9 @@ export default {
             this.customDeductions = [];
             this.payslipNotes = "";
             this.currentEmployeeRate = null;
+            this.nightDiffHours = 0;
+            this.nightDiffRate = 0;
+            this.nightDiffPay = 0;
         },
         async fetchEmployees() {
             this.loadingEmployees = true;
@@ -2172,7 +2290,11 @@ export default {
         },
 
         calculateGrossPay() {
-            return this.calculateBasicPay() + this.calculateTotalHolidayPay();
+            return (
+                this.calculateBasicPay() +
+                this.calculateTotalHolidayPay() +
+                this.calculateNightDiffPay()
+            );
         },
         addDeduction() {
             this.customDeductions.push({
@@ -2268,6 +2390,11 @@ export default {
                     holiday_details: this.holidays,
                     attendance_records: this.attendanceRecords,
                     notes: this.payslipNotes || null,
+
+                    night_diff_hours: this.calculateNightDiffHours(),
+                    night_diff_rate:
+                        this.getHourlyRate() - this.getHourlyRate() / 1.1,
+                    night_diff_pay: this.calculateNightDiffPay(),
                 };
 
                 await axios.post("/hr/payslips", payslipData);
@@ -2661,6 +2788,67 @@ export default {
             } finally {
                 this.updating = false;
             }
+        },
+
+        calculateNightDiffHours() {
+            if (
+                !this.attendanceRecords ||
+                this.attendanceRecords.length === 0
+            ) {
+                return 0;
+            }
+
+            let totalNightHours = 0;
+
+            this.attendanceRecords.forEach((record) => {
+                const timeIn = this.parseDateTime(record.TimeIn);
+                const timeOut = this.parseDateTime(record.TimeOut);
+
+                if (!timeIn || !timeOut) return;
+
+                // Night window: 10PM (22:00) to 6AM (06:00) next day
+                // We scan in 1-minute increments within the shift
+                // to count how many minutes fall in the night window
+                let nightMinutes = 0;
+                const step = 60 * 1000; // 1 minute in ms
+                let cursor = new Date(timeIn.getTime());
+
+                // Collect break period if available
+                const breakStart = this.parseDateTime(record.shortbreak_start);
+                const breakEnd = this.parseDateTime(record.shortbreak_end);
+
+                while (cursor < timeOut) {
+                    // Skip break time
+                    if (
+                        breakStart &&
+                        breakEnd &&
+                        cursor >= breakStart &&
+                        cursor < breakEnd
+                    ) {
+                        cursor = new Date(cursor.getTime() + step);
+                        continue;
+                    }
+
+                    const hour = cursor.getHours();
+                    // Night window: hour >= 22 OR hour < 6
+                    if (hour >= 22 || hour < 6) {
+                        nightMinutes++;
+                    }
+
+                    cursor = new Date(cursor.getTime() + step);
+                }
+
+                totalNightHours += nightMinutes / 60;
+            });
+
+            return Math.round(totalNightHours * 100) / 100;
+        },
+
+        calculateNightDiffPay() {
+            const hourlyRate = this.getHourlyRate();
+            const nightHours = this.calculateNightDiffHours();
+            const diffRate = hourlyRate - hourlyRate / 1.1; // +10% premium only
+            return diffRate * nightHours;
         },
     },
 };
