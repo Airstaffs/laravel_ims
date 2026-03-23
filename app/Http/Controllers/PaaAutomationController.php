@@ -287,7 +287,6 @@ class PaaAutomationController extends Controller
 
         $automation = DB::table('tbl_paa_automations')
             ->where('id', $data['automation_id'])
-            ->where('store', $data['store'])
             ->first();
 
         if (!$automation) {
