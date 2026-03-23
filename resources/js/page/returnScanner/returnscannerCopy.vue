@@ -42,10 +42,62 @@
                 </div>
 
                 <!-- ReturnID field -->
-                <div class="input-group" v-if="showReturnIdField">
+              <div class="input-group" v-if="showReturnIdField">
                     <label>Return ID:</label>
-                    <input type="text" v-model="returnId" placeholder="Enter Return ID..." @input="handleReturnIdInput"
-                        @keyup.enter="focusNextField('serialNumberInput')" ref="returnIdInput" />
+                    <div class="input-with-action">
+                        <input
+                            type="text"
+                            v-model="returnId"
+                            placeholder="Enter Return ID (Amazon Order ID)..."
+                            @input="handleReturnIdInput"
+                            @keyup.enter="focusNextField('serialNumberInput')"
+                            ref="returnIdInput"
+                            :class="{
+                                'input-complete': returnIdValidated,
+                                'input-duplicate': returnIdNotFound
+                            }"
+                        />
+                        <!-- Spinner -->
+                        <span v-if="returnIdValidating" class="return-id-status">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </span>
+                        <!-- Valid -->
+                        <span v-else-if="returnIdValidated" class="return-id-status return-id-ok">
+                            <i class="fas fa-check-circle"></i>
+                        </span>
+                        <!-- Not found -->
+                        <span v-else-if="returnIdNotFound" class="return-id-status return-id-warn">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </span>
+                    </div>
+
+                    <!-- Info card shown when Return ID is found -->
+                    <div v-if="returnIdValidated && returnIdInfo" class="return-id-info-card">
+                        <div class="return-id-info-row">
+                            <i class="fas fa-user"></i>
+                            <span><strong>Buyer:</strong> {{ returnIdInfo.buyerName || 'Unknown' }}</span>
+                        </div>
+                        <div class="return-id-info-row">
+                            <i class="fas fa-box"></i>
+                            <span><strong>Item:</strong> {{ returnIdInfo.itemName || 'N/A' }}</span>
+                        </div>
+                        <div v-if="returnIdInfo.shippedSerial" class="return-id-info-row">
+                            <i class="fas fa-barcode"></i>
+                            <span><strong>Shipped Serial:</strong>
+                                <code class="shipped-serial-badge">{{ returnIdInfo.shippedSerial }}</code>
+                            </span>
+                        </div>
+                        <div class="return-id-info-row">
+                            <i class="fas fa-tag"></i>
+                            <span><strong>ASIN:</strong> {{ returnIdInfo.asin || 'N/A' }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Warning when Return ID not found -->
+                    <div v-if="returnIdNotFound" class="return-id-warn-card">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Return ID not found in FBM returns — scan will proceed without order validation.
+                    </div>
                 </div>
 
                 <!-- Multi-Serial Badge -->
@@ -262,6 +314,9 @@
                 <template #buyer="{ data }">
                     <p>{{ data.BuyerName || data.costumer_name || "Unknown" }}</p>
                 </template>
+                <template #reason="{ data }">
+                    <p>{{ data.REASON || "N/A" }}</p>
+                </template>
                 <template #actions="{ data }">
                     <Button label="More Details" severity="contrast" icon="pi pi-info-circle" variant="text"
                         class="text-primary" size="small" @click="handleShowDetailsModal(data)" />
@@ -318,6 +373,10 @@
                         <div class="mobile-detail-row"><span class="fw-semibold">Buyer:</span><span
                                 class="mobile-detail-value">{{ item.BuyerName || item.costumer_name || "Unknown"
                                 }}</span></div>
+                        <div class="mobile-detail-row"><span class="fw-semibold">Return Reason:</span><span
+                                class="mobile-detail-value">{{ item.REASON || "N/A"
+                                }}</span></div>
+
                     </div>
                     <Divider />
                     <div class="mobile-card-actions">
@@ -366,6 +425,8 @@
                         <div class="item-container"><span>ASIN: </span><span>{{ item.ASINviewer || "N/A" }}</span></div>
                         <div class="item-container"><span>Buyer: </span><span>{{ item.BuyerName || item.costumer_name ||
                             "Unknown" }}</span></div>
+                        <div class="item-container"><span>Return Reason: </span><span>{{ item.REASON || "N/A" }}</span></div>
+
                     </div>
                 </div>
             </div>
@@ -409,6 +470,7 @@ const TABLE_COLUMNS = [
     { field: "serialnumberb", header: "Second Serial", slot: "serialnumberb", bodyStyle: "font-size: 14px", sortable: true },
     { field: "returnstatus", header: "Status", slot: "status", bodyStyle: "font-size: 14px", sortable: true },
     { header: "Buyer", slot: "buyer", bodyStyle: "font-size: 14px", sortable: true },
+    {field: 'REASON',header: 'Return Reason',slot: 'reason', sortable: true },
 
     //  { header: "Actions", slot: "actions", bodyStyle: "font-size: 14px" },
 ];

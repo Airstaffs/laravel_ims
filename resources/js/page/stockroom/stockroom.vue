@@ -1120,7 +1120,24 @@
       { label: 'Allrenewed', value: 'Allrenewed' }
     ]"
     @applied="onAmazonListingApplied"
-  />
+  /> 
+
+ <PrinterSelectionModal
+    :show="showPrinterSelectionModal"
+    :loading-printers="loadingPrinters"
+    :is-processing="isProcessing"
+    :available-printers="availablePrinters"
+    :selected-items-for-print="selectedItemsForPrint"
+    :selected-printer-for-print="selectedPrinterForPrint"
+    :print-small-label-only="printSmallLabelOnly"
+    :remembered-printer-id="rememberedPrinterId"
+    :single-printers="singlePrinters"
+    :married-printer-groups="marriedPrinterGroups"
+    @close="closePrinterSelectionModal"
+    @confirm="onPrinterConfirm"
+    @toggle-small-label="printSmallLabelOnly = $event"
+    @clear-preference="clearPrinterPreference"
+/>
         <ScrollTop />
     </div>
 </template>

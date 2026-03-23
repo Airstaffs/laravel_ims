@@ -5,17 +5,19 @@ import { SoundService } from "../../components/Sound_service";
 import "../../../css/modules.css";
 import Ds7OosModal from "./modals/ds7oos.vue";
 import AmazonListingsModal from "./modals/amazonlistings.vue";
-
+import PrinterSelectionModal from "./modals/PrinterSelectionModal.vue";
 // Fallback to current origin if VITE_API_URL is not set to avoid undefined requests
 const API_BASE_URL = import.meta.env.VITE_API_URL || window.location.origin;
 
 export default {
     name: "StockroomModule",
+
     components: {
         ScannerComponent,
         NewScannedItemModal,
         Ds7OosModal,
         AmazonListingsModal,
+        PrinterSelectionModal,
     },
     data() {
         return {
@@ -245,10 +247,10 @@ export default {
             return uniq.sort((a, b) => String(a).localeCompare(String(b)));
         },
 
-        singlePrinters() {
-            return this.availablePrinters.filter(
-                (printer) => !printer.is_married,
-            );
+       singlePrinters() {
+            // availablePrinters is already filtered to small_label only
+            // Show non-married ones as individual options
+            return this.availablePrinters.filter(p => !p.is_married);
         },
 
         marriedPrinters() {
@@ -258,40 +260,27 @@ export default {
         },
 
         // Group married printers into pairs
-        marriedPrinterGroups() {
-            const married = this.marriedPrinters;
-            const groups = [];
-            const processed = new Set();
+       marriedPrinterGroups() {
+    // For small label printers that are married, show just the small label one
+    // (no need to show the pair — we only print to the small label side)
+    const married = this.availablePrinters.filter(p => p.is_married);
+    const groups = [];
+    const processed = new Set();
 
-            for (let i = 0; i < married.length; i++) {
-                const printer = married[i];
+    for (let i = 0; i < married.length; i++) {
+        const printer = married[i];
+        if (processed.has(printer.printerid)) continue;
 
-                // Skip if already processed
-                if (processed.has(printer.printerid)) continue;
+        // Just show the small label printer individually (not as a pair)
+        groups.push({
+            label: printer.printername_short,
+            value: printer.printerid.toString(),
+        });
+        processed.add(printer.printerid);
+    }
 
-                // Find its partner (next married printer or itself)
-                const partner = married[i + 1];
-
-                if (partner && !processed.has(partner.printerid)) {
-                    // Found a pair
-                    groups.push({
-                        label: `${printer.printername_short} & ${partner.printername_short}`,
-                        value: `${printer.printerid},${partner.printerid}`, // Store both IDs
-                    });
-                    processed.add(printer.printerid);
-                    processed.add(partner.printerid);
-                } else {
-                    // Single married printer (no partner found)
-                    groups.push({
-                        label: printer.printername_short,
-                        value: printer.printerid.toString(),
-                    });
-                    processed.add(printer.printerid);
-                }
-            }
-
-            return groups;
-        },
+    return groups;
+},
 
         isMergedItem() {
             if (!this.currentProcessItem) {
@@ -1545,72 +1534,179 @@ export default {
         },
 
         // Fetch available printers
-        async fetchAvailablePrinters() {
-            this.loadingPrinters = true;
-            try {
-                console.log("Fetching printers from API...");
+       async fetchAvailablePrinters() {
+    this.loadingPrinters = true;
+    try {
+        console.log("Fetching printers from API...");
 
-                const response = await axios.get(
-                    `${API_BASE_URL}/api/printer/get-printers`,
+        const response = await axios.get(
+            `${API_BASE_URL}/api/printer/get-printers`,
+            {
+                withCredentials: true,
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content,
+                },
+            }
+        );
+
+        if (response.data?.success && response.data.printers) {
+            // ✅ Only small label printers — FNSKU labels must go to small label printer
+            this.availablePrinters = response.data.printers.filter(
+                p => p.printer_type === 'small_label'
+            );
+
+            console.log("Available small label printers:", this.availablePrinters.length);
+
+            if (this.availablePrinters.length === 0) {
+                alert("No active small label printers found. Please check printer configuration.");
+            }
+        } else {
+            console.error("Unexpected printer API response format:", response.data);
+            this.availablePrinters = [];
+            alert("No printers available. Please check printer settings.");
+        }
+    } catch (error) {
+        console.error("Error fetching printers:", error);
+        if (error.response) {
+            alert(`Failed to fetch printers: ${error.response.data.message || error.response.statusText}`);
+        } else {
+            alert("Failed to fetch printers. Please check your connection.");
+        }
+        this.availablePrinters = [];
+    } finally {
+        this.loadingPrinters = false;
+    }
+      },
+
+async onPrinterConfirm({ printerId, fnskuOnly, done }) {
+    this.selectedPrinterForPrint = printerId;
+
+    if (!this.selectedItemsForPrint.length) {
+        done?.();
+        await Swal.fire({ icon: 'warning', title: 'No Items', text: 'No items to print.', confirmButtonColor: '#198754' });
+        return;
+    }
+
+    // Swal confirmation before printing
+    const confirm = await Swal.fire({
+        icon: 'question',
+        title: 'Print FNSKU Labels?',
+        html: `Print FNSKU label for <strong>${this.selectedItemsForPrint.length}</strong> item(s)?`,
+        showCancelButton: true,
+        confirmButtonColor: '#198754',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, Print',
+        cancelButtonText: 'Cancel',
+    });
+
+    if (!confirm.isConfirmed) {
+        done?.();
+        return;
+    }
+
+    const printerIds = printerId.includes(",") ? printerId.split(",") : [printerId];
+    const primaryPrinterId = parseInt(printerIds[0]);
+    this.savePrinterPreference(printerId);
+
+    let successCount = 0;
+    let failCount = 0;
+    const errors = [];
+
+    try {
+        for (const item of this.selectedItemsForPrint) {
+            try {
+                const checkResponse = await axios.post(
+                    `${API_BASE_URL}/api/printer/check-serial`,
+                    { serial_number: item.serialNumber },
                     {
                         withCredentials: true,
                         headers: {
                             "Content-Type": "application/json",
-                            Accept: "application/json",
-                            "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]',
-                            )?.content,
+                            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content,
                         },
-                    },
+                    }
                 );
 
-                console.log("Printer API response:", response.data);
+                if (!checkResponse.data.success || !checkResponse.data.meets_print_conditions) {
+                    failCount++;
+                    errors.push(`${item.serialNumber}: ${checkResponse.data.message}`);
+                    continue;
+                }
 
-                if (
-                    response.data &&
-                    response.data.success &&
-                    response.data.printers
-                ) {
-                    this.availablePrinters = response.data.printers;
-                    console.log(
-                        "Available printers loaded:",
-                        this.availablePrinters.length,
-                    );
+                const productId = checkResponse.data.product_data?.ProductID;
+                if (!productId) {
+                    failCount++;
+                    errors.push(`${item.serialNumber}: Could not get ProductID`);
+                    continue;
+                }
 
-                    if (this.availablePrinters.length === 0) {
-                        alert(
-                            "No active printers found. Please check printer configuration.",
-                        );
+                const printResponse = await axios.post(
+                    `${API_BASE_URL}/api/printer/reprint-single-label`,
+                    {
+                        product_id: productId,
+                        label_type: "fnsku_label",
+                        printer_id: primaryPrinterId,
+                        search_term: item.serialNumber,
+                    },
+                    {
+                        withCredentials: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content,
+                        },
                     }
-                } else {
-                    console.error(
-                        "Unexpected printer API response format:",
-                        response.data,
-                    );
-                    this.availablePrinters = [];
-                    alert(
-                        "No printers available. Please check printer settings.",
-                    );
-                }
-            } catch (error) {
-                console.error("Error fetching printers:", error);
-                console.error("Error response:", error.response?.data);
+                );
 
-                if (error.response) {
-                    alert(
-                        `Failed to fetch printers: ${error.response.data.message || error.response.statusText}`,
-                    );
+                if (printResponse.data.success) {
+                    successCount++;
                 } else {
-                    alert(
-                        "Failed to fetch printers. Please check your connection.",
-                    );
+                    failCount++;
+                    errors.push(`${item.serialNumber}: ${printResponse.data.message}`);
                 }
 
-                this.availablePrinters = [];
-            } finally {
-                this.loadingPrinters = false;
+            } catch (err) {
+                failCount++;
+                errors.push(`${item.serialNumber}: ${err.response?.data?.message || err.message}`);
             }
-        },
+        }
+
+        done?.(); // stop spinner first
+
+        if (failCount === 0) {
+            await Swal.fire({
+                icon: 'success',
+                title: 'Print Complete',
+                html: `<strong>${successCount}</strong> FNSKU label(s) sent to printer successfully.`,
+                confirmButtonColor: '#198754',
+                timer: 3000,
+                timerProgressBar: true,
+            });
+            this.closePrinterSelectionModal();
+            this.closeProcessModal();
+        } else {
+            await Swal.fire({
+                icon: failCount === this.selectedItemsForPrint.length ? 'error' : 'warning',
+                title: 'Print Completed with Errors',
+                html: `
+                    <p>✅ <strong>${successCount}</strong> successful</p>
+                    <p>❌ <strong>${failCount}</strong> failed</p>
+                    ${errors.length ? `<hr><small style="text-align:left;display:block">${errors.slice(0, 5).join('<br>')}</small>` : ''}
+                `,
+                confirmButtonColor: '#198754',
+            });
+            if (successCount > 0) this.closePrinterSelectionModal();
+        }
+
+        this.fetchInventory();
+
+    } catch (err) {
+        done?.();
+        console.error("Error in onPrinterConfirm:", err);
+        await Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#d33' });
+    }
+},
 
         // Validate serial number
         validateSerialNumber() {

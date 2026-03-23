@@ -104,6 +104,12 @@ export default {
             first: 0, //paginator internal state
 
             showAmazonReturnsModal: false,
+
+
+            returnIdValidating: false,       // spinner while checking
+            returnIdValidated: false,        // true = found in tblfbmreturns
+            returnIdNotFound: false,         // true = entered but not found
+            returnIdInfo: null,              // { buyerName, itemName, shippedSerial, asin, msku }
         
         };
     },
@@ -408,82 +414,121 @@ async fetchInventory() {
 },
 
         // ========== MULTI-SERIAL DETECTION ==========
-        async checkDualSerial() {
-            if (!this.serialNumber) return false;
-            try {
-                this.$refs.scanner?.startLoading("Checking product...");
-                const r = await axios.get(`${API_BASE_URL}/api/returns/check-serial`, { params: { serial: this.serialNumber }, withCredentials: true });
-                this.$refs.scanner?.stopLoading();
+async checkDualSerial() {
+    if (!this.serialNumber) return false;
+    try {
+        this.$refs.scanner?.startLoading("Checking product...");
+        const r = await axios.get(`${API_BASE_URL}/api/returns/check-serial`, { params: { serial: this.serialNumber }, withCredentials: true });
+        this.$refs.scanner?.stopLoading();
 
-                if (r.data.success) {
-                    this.productId = r.data.productId || null;
-                    this.fnskuViewer = r.data.fnskuViewer || "";
-                    this.scannedSerialPosition = r.data.scannedSerialPosition || null;
-                    this.isMultiSerial = r.data.isMultiSerial || false;
-                    this.totalSerials = r.data.totalSerials || 1;
-                    this.otherSerials = r.data.otherSerials || [];
+        if (r.data.success) {
+            // ✅ Serial found in system — normal flow continues
+            this.productId = r.data.productId || null;
+            this.fnskuViewer = r.data.fnskuViewer || "";
+            this.scannedSerialPosition = r.data.scannedSerialPosition || null;
+            this.isMultiSerial = r.data.isMultiSerial || false;
+            this.totalSerials = r.data.totalSerials || 1;
+            this.otherSerials = r.data.otherSerials || [];
 
-                    console.log("✅ Product check result:", {
-                        isMultiSerial: this.isMultiSerial,
-                        totalSerials: this.totalSerials,
-                        otherSerials: this.otherSerials
-                    });
+            const isValid = s => s && String(s).trim() !== '' && String(s).toUpperCase() !== 'N/A';
 
-                    const isValid = s => s && String(s).trim() !== '' && String(s).toUpperCase() !== 'N/A';
+            this.dualSerialProduct = false;
+            this.secondSerialNumber = ""; this.showSecondSerialInput = false;
+            this.thirdSerialNumber = ""; this.showThirdSerialInput = false;
+            this.fourthSerialNumber = ""; this.showFourthSerialInput = false;
 
-                    // Reset all serial states
-                    this.dualSerialProduct = false;
-                    this.secondSerialNumber = ""; this.showSecondSerialInput = false;
-                    this.thirdSerialNumber = ""; this.showThirdSerialInput = false;
-                    this.fourthSerialNumber = ""; this.showFourthSerialInput = false;
+            if (this.isMultiSerial && this.otherSerials.length > 0) {
+                this.dualSerialProduct = true;
 
-                    if (this.isMultiSerial && this.otherSerials.length > 0) {
-                        this.dualSerialProduct = true;
-                        
-                        this.otherSerials.forEach((s, i) => {
-                            if (i === 0 && isValid(s.value)) { 
-                                this.secondSerialNumber = s.value; 
-                                this.secondSerialLabel = s.label || "Second Serial"; 
-                                this.showSecondSerialInput = true;
-                                console.log(`📌 Serial 2: ${s.value}`);
-                            }
-                            else if (i === 1 && isValid(s.value)) { 
-                                this.thirdSerialNumber = s.value; 
-                                this.thirdSerialLabel = s.label || "Third Serial"; 
-                                this.showThirdSerialInput = true;
-                                console.log(`📌 Serial 3: ${s.value}`);
-                            }
-                            else if (i === 2 && isValid(s.value)) { 
-                                this.fourthSerialNumber = s.value; 
-                                this.fourthSerialLabel = s.label || "Fourth Serial"; 
-                                this.showFourthSerialInput = true;
-                                console.log(`📌 Serial 4: ${s.value}`);
-                            }
-                        });
-                        
-                        // Highlight second serial input
-                        this.$nextTick(() => {
-                            if (this.$refs.secondSerialInput) {
-                                this.$refs.secondSerialInput.classList.add("highlight-input");
-                                this.$refs.secondSerialInput.select();
-                                setTimeout(() => this.$refs.secondSerialInput?.classList.remove("highlight-input"), 3000);
-                            }
-                        });
-                        
-                        SoundService?.notification?.();
-                        return true;
+                this.otherSerials.forEach((s, i) => {
+                    if (i === 0 && isValid(s.value)) {
+                        this.secondSerialNumber = s.value;
+                        this.secondSerialLabel = s.label || "Second Serial";
+                        this.showSecondSerialInput = true;
                     }
-                    return false;
-                }
+                    else if (i === 1 && isValid(s.value)) {
+                        this.thirdSerialNumber = s.value;
+                        this.thirdSerialLabel = s.label || "Third Serial";
+                        this.showThirdSerialInput = true;
+                    }
+                    else if (i === 2 && isValid(s.value)) {
+                        this.fourthSerialNumber = s.value;
+                        this.fourthSerialLabel = s.label || "Fourth Serial";
+                        this.showFourthSerialInput = true;
+                    }
+                });
+
+                this.$nextTick(() => {
+                    if (this.$refs.secondSerialInput) {
+                        this.$refs.secondSerialInput.classList.add("highlight-input");
+                        this.$refs.secondSerialInput.select();
+                        setTimeout(() => this.$refs.secondSerialInput?.classList.remove("highlight-input"), 3000);
+                    }
+                });
+
+                SoundService?.notification?.();
+                return true;
+            }
+            return false;
+
+        } else {
+            this.$refs.scanner?.stopLoading();
+
+            // ❌ Serial NOT found in system
+            // Check if user already provided a Return ID that was validated
+            if (this.returnIdValidated && this.returnIdInfo) {
+                // ✅ Return ID is already validated — allow proceeding as switcheru
+                // The backend will handle this as an unknown serial with Return ID context
+                this.$refs.scanner?.showScanError(
+                    `⚠️ Serial not found in system — will be logged as switcheru using Return ID`
+                );
+                SoundService?.notification?.();
                 this.resetMultiSerialState();
                 return false;
-            } catch (e) { 
-                console.error(e); 
-                this.$refs.scanner?.stopLoading(); 
-                this.resetMultiSerialState(); 
-                return false; 
             }
-        },
+
+            // 🚫 No Return ID provided — BLOCK the scan entirely
+             SoundService?.error?.();
+
+            // Clear the serial they just scanned
+            this.serialNumber = "";
+            this.resetMultiSerialState();
+
+            // Tell the watcher to focus returnIdInput once it renders
+            this.awaitingReturnIdFocus = true;
+
+            // Show blocking Swal — await so we don't race
+            await Swal.fire({
+                icon: 'warning',
+                title: 'Serial Not Found in System',
+                html: `
+                    <p>This serial number <strong>does not exist</strong> in Stockroom, Shipment, or Sold list.</p>
+                    <br/>
+                    <p>This may be a <strong>switcheru</strong> — the customer returned a different item than what was shipped.</p>
+                    <br/>
+                    <p>Please scan the <strong>Amazon Return ID (RMA)</strong> first so we can verify what was originally shipped to this customer.</p>
+                `,
+                confirmButtonText: 'OK, I will scan the Return ID',
+                confirmButtonColor: '#1890ff',
+            });
+
+            // ✅ FIX: Wait for Swal to fully remove aria-hidden from the DOM
+            // Swal's close animation + cleanup takes ~150-300ms after the promise resolves
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // NOW it's safe to show the field and focus it
+            this.showReturnIdField = true;
+
+            return false;
+        }
+
+    } catch (e) {
+        console.error(e);
+        this.$refs.scanner?.stopLoading();
+        this.resetMultiSerialState();
+        return false;
+    }
+},
 
         resetMultiSerialState() {
             this.productId = null; 
@@ -508,37 +553,96 @@ async fetchInventory() {
 
         // ========== INPUT HANDLERS ==========
         async handleReturnIdInput() {
-            if (!this.showManualInput && this.returnId.trim().length > 5) {
+            const id = this.returnId.trim();
+
+            // Reset state on every keystroke
+            this.returnIdValidated = false;
+            this.returnIdNotFound  = false;
+            this.returnIdInfo      = null;
+
+            if (!id || id.length < 5) return;
+
+            // Debounce — same pattern as your serial input
+            if (this.autoVerifyTimeout) {
                 clearTimeout(this.autoVerifyTimeout);
-                this.autoVerifyTimeout = setTimeout(() => { 
-                    SoundService?.success?.(); 
-                    this.focusNextField("serialNumberInput"); 
-                }, 500);
+                this.autoVerifyTimeout = null;
             }
-        },
-        
-       async handleSerialInput() {
-        if (!/^[a-zA-Z0-9-]*$/.test(this.serialNumber.trim())) {
-            this.$refs.scanner?.showScanError("Invalid Serial Number format");
-            this.$refs.serialNumberInput?.select();
-            SoundService?.error?.();
-            return;
-        }
-        
-        if (this.autoVerifyTimeout) {
-            clearTimeout(this.autoVerifyTimeout);
-            this.autoVerifyTimeout = null;
-        }
-        
-        if (!this.showManualInput && this.serialNumber.trim().length > 5) {
+
             this.autoVerifyTimeout = setTimeout(async () => {
-                await this.checkDualSerial();
-          //      SoundService?.success?.(); // ✅ KEEP THIS - just a sound
-                this.proceedToImageCapture(1);
+                await this.validateReturnId(id);
                 this.autoVerifyTimeout = null;
             }, 500);
-        }
-    },
+        },
+
+
+  async validateReturnId(returnId) {
+            if (!returnId) return;
+
+            this.returnIdValidating = true;
+            this.returnIdValidated  = false;
+            this.returnIdNotFound   = false;
+            this.returnIdInfo       = null;
+
+            try {
+                const r = await axios.get(`${API_BASE_URL}/api/returns/validate-return-id`, {
+                    params: { return_id: returnId },
+                    withCredentials: true,
+                });
+
+                if (r.data.success) {
+                    this.returnIdValidated = true;
+                    this.returnIdInfo      = r.data.info;
+                    SoundService?.success?.();
+
+                    // Only focus serial if we're not waiting to focus returnId
+                    if (!this.awaitingReturnIdFocus) {
+                        this.$nextTick(() => this.$refs.serialNumberInput?.focus());
+                    }
+
+                } else {
+                    this.returnIdNotFound = true;
+                    SoundService?.error?.();
+                }
+
+            } catch (e) {
+                console.error('Return ID validation error:', e);
+                this.returnIdNotFound = true;
+                SoundService?.error?.();
+            } finally {
+                this.returnIdValidating = false;
+            }
+        },
+                            
+async handleSerialInput() {
+    if (!/^[a-zA-Z0-9-]*$/.test(this.serialNumber.trim())) {
+        this.$refs.scanner?.showScanError("Invalid Serial Number format");
+        this.$refs.serialNumberInput?.select();
+        SoundService?.error?.();
+        return;
+    }
+
+    if (this.autoVerifyTimeout) {
+        clearTimeout(this.autoVerifyTimeout);
+        this.autoVerifyTimeout = null;
+    }
+
+    if (!this.showManualInput && this.serialNumber.trim().length > 5) {
+        this.autoVerifyTimeout = setTimeout(async () => {
+            const result = await this.checkDualSerial();
+            this.autoVerifyTimeout = null;
+
+            // ✅ FIX: If serial was cleared/blocked OR we're now waiting
+            //    for the Return ID input, do NOT proceed to image capture.
+            //    Both conditions protect against focus stealing.
+            if (!this.serialNumber.trim() || this.awaitingReturnIdFocus) {
+                return;
+            }
+
+            this.proceedToImageCapture(1);
+        }, 500);
+    }
+},
+
         
         handleSecondSerialInput() {
             if (!/^[a-zA-Z0-9-]*$/.test(this.secondSerialNumber.trim())) { 
@@ -1014,25 +1118,35 @@ async fetchInventory() {
             }
         },
 
-        clearScanFields() {
-            this.returnId = ""; 
-            this.serialNumber = ""; 
-            this.locationInput = "";
-            this.secondSerialNumber = ""; 
-            this.thirdSerialNumber = ""; 
-            this.fourthSerialNumber = "";
-            this.capturedImagesForSerial1 = []; 
-            this.capturedImagesForSerial2 = []; 
-            this.capturedImagesForSerial3 = []; 
-            this.capturedImagesForSerial4 = [];
-            this.serial1CaptureComplete = false;
-            this.serial2CaptureComplete = false;
-            this.serial3CaptureComplete = false;
-            this.serial4CaptureComplete = false;
-            this.currentCaptureStep = 0;
-            this.resetMultiSerialState();
-            if (this.$refs.scanner) this.$refs.scanner.capturedImages = [];
-        },
+   clearScanFields() {
+    this.returnId = ""; 
+    this.serialNumber = ""; 
+    this.locationInput = "";
+    this.secondSerialNumber = ""; 
+    this.thirdSerialNumber = ""; 
+    this.fourthSerialNumber = "";
+    this.capturedImagesForSerial1 = []; 
+    this.capturedImagesForSerial2 = []; 
+    this.capturedImagesForSerial3 = []; 
+    this.capturedImagesForSerial4 = [];
+    this.serial1CaptureComplete = false;
+    this.serial2CaptureComplete = false;
+    this.serial3CaptureComplete = false;
+    this.serial4CaptureComplete = false;
+    this.currentCaptureStep = 0;
+    this.resetMultiSerialState();
+    if (this.$refs.scanner) this.$refs.scanner.capturedImages = [];
+
+    this.returnIdValidating = false;
+    this.returnIdValidated  = false;
+    this.returnIdNotFound   = false;
+    this.returnIdInfo       = null;
+
+    // ✅ Only reset showReturnIdField if we are NOT waiting to focus it
+    if (!this.awaitingReturnIdFocus) {
+        this.showReturnIdField = false;
+    }
+},
 
         handleScanProcess() { this.processScan(); },
         handleHardwareScan(code) { this.processScan(code); },
@@ -1049,6 +1163,49 @@ async fetchInventory() {
     },
     watch: {
         searchQuery() { this.currentPage = 1; this.first = 0; this.fetchInventory(); },
+  
+      // showReturnIdField flips to true AND focus there,
+     showReturnIdField(val) {
+    if (val && this.awaitingReturnIdFocus) {
+        let attempts = 0;
+        const tryFocus = () => {
+            const el = this.$refs.returnIdInput
+                || document.querySelector('input[placeholder*="Return ID"]')
+                || document.querySelector('input[placeholder*="Amazon Order ID"]');
+
+            if (el) {
+                el.focus();
+                el.select();
+                console.log('✅ Focused returnIdInput after', attempts, 'retries');
+
+                // ✅ FIX: Small delay before clearing the flag so that
+                //    clearScanFields (if called in the same tick) still
+                //    sees awaitingReturnIdFocus = true and preserves
+                //    showReturnIdField.
+                setTimeout(() => {
+                    this.awaitingReturnIdFocus = false;
+                }, 100);
+
+                // ✅ FIX: Re-focus if something steals it within 200ms
+                setTimeout(() => {
+                    if (document.activeElement !== el) {
+                        console.log('🔄 Re-focusing returnIdInput (focus was stolen)');
+                        el.focus();
+                        el.select();
+                    }
+                }, 200);
+
+            } else if (attempts < 10) {
+                attempts++;
+                setTimeout(tryFocus, 50);
+            } else {
+                console.warn('❌ Could not find returnIdInput after 10 attempts');
+                this.awaitingReturnIdFocus = false;
+            }
+        };
+        tryFocus();
+    }
+},
     },
     mounted() {
         axios.defaults.baseURL = window.location.origin;

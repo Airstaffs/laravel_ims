@@ -1786,6 +1786,55 @@ class PrinterController extends BasetablesController
         }
     }
 
+//Customer Reason Printing Endpoint
+public function printReturnReason(Request $request)
+{
+    $data = $request->validate([
+        'serial'        => 'required|string',
+        'return_reason' => 'nullable|string',
+        'printer_id'    => 'required|integer',
+        'location'      => 'nullable|string',
+    ]);
+
+    try {
+        $printer = DB::table('tblprinters')
+            ->where('printerid', $data['printer_id'])
+            ->where('status', 'active')
+            ->first();
+
+        if (!$printer) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Printer not found or inactive.',
+            ], 404);
+        }
+
+        $printLabelService = new \App\Services\PrintLabelService();
+
+        // ✅ Now correctly calls the service method with printer object
+        $result = $printLabelService->printReturnReasonLabel(
+            serial:        $data['serial'],
+            returnId:      null,
+            returnReason:  $data['return_reason'] ?? 'No Reason Provided',
+            buyerName:     null,
+            location:      $data['location'] ?? 'L800G',
+            selectedPrinter: $printer
+        );
+
+        return response()->json([
+            'success' => ($result['status'] === 'success'),
+            'message' => $result['message'],
+        ]);
+
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('printReturnReason error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Server error: ' . $e->getMessage(),
+        ], 500);
+    }
+}
+
     /**
      * Clear any cache or temporary files
      *
