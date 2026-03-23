@@ -30,9 +30,6 @@ class PaaAutomationController extends Controller
             )
             ->orderByDesc('id');
 
-        if (!empty($data['store'])) {
-            $query->where('store', $data['store']);
-        }
 
         $rows = $query
             ->limit(200)
