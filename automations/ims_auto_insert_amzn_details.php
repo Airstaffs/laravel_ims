@@ -115,10 +115,10 @@ foreach ($stores as $store) {
                 $currentDateTime = $date->format('Y-m-d H:i:s');
 
                 // Retrieve data safely
-                $FNSKU = strtoupper(trim($summary['fnSku'] ?? ''));
-                $MSKU = strtoupper(trim($results['sku'] ?? ''));
+                $FNSKU = trim($summary['fnSku'] ?? '');
+                $MSKU = trim($results['sku'] ?? '');
                 $skucondition = trim($summary['conditionType'] ?? '');
-                $ASIN = strtoupper(trim($summary['asin'] ?? ''));
+                $ASIN = trim($summary['asin'] ?? '');
                 $PRODUCT_NAME = trim($summary['itemName'] ?? '');
                 $asin_status = null;
 
@@ -212,8 +212,8 @@ foreach ($stores as $store) {
                     $checkQuery = "SELECT FNSKUID, FNSKU, MSKU, ASIN, amazon_status
                         FROM $tblname
                         WHERE storename = ?
-                            AND MSKU = ?
-                            AND ASIN = ?
+                            AND MSKU LIKE ?
+                            AND ASIN LIKE ?
                         ORDER BY insert_date DESC
                         LIMIT 1";
 

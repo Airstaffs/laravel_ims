@@ -30,8 +30,13 @@
                         @click="runSearch(true)" />
                     <Button label="Reset" icon="pi pi-refresh" class="p-button-sm" severity="secondary"
                         :disabled="loading" @click="resetFilters" />
+                    <Button label="Assign Selected to Automation" icon="pi pi-link" class="p-button-sm"
+                        severity="warning" :disabled="loading || !listingSelectedRows.length"
+                        @click="openAssignAutomationModal" />
                     <Button label="Amazon Automated Pricing" icon="pi pi-bolt" class="p-button-sm" severity="help"
                         :disabled="loading" @click="openAutomationModal" />
+
+
                 </div>
             </div>
 
@@ -68,7 +73,9 @@
 
         <!-- Table -->
         <div class="p-0 table-wrap">
-            <DataTable :value="rows" :loading="loading" dataKey="sku" responsiveLayout="scroll" class="p-datatable-sm">
+            <DataTable :value="rows" :loading="loading" dataKey="sku" responsiveLayout="scroll" class="p-datatable-sm"
+                v-model:selection="listingSelectedRows">
+                <Column selectionMode="multiple" headerStyle="width: 3rem" />
                 <Column header="Listing status" style="width: 220px;">
                     <template #body="{ data }">
                         <div class="font-medium">
@@ -280,7 +287,7 @@
             <div class="auto-head-left">
                 <div class="font-medium text-lg">Create / Update Automation</div>
                 <div class="text-500 text-sm mt-1">
-                    Configure pricing windows and assign MSKUs from <b>tblfnsku</b>.
+                    Configure pricing windows and view assigned MSKUs from Amazon Listings.
                 </div>
             </div>
 
@@ -381,63 +388,6 @@
                         Pricing runs every cron tick, but only rules whose current time window matches will apply.
                     </small>
                 </div>
-
-                <!-- MSKU Search -->
-                <div class="auto-card">
-                    <div class="auto-card-top">
-                        <div class="auto-card-title">Search MSKUs</div>
-
-                        <div class="flex gap-2">
-                            <Button label="Search" icon="pi pi-search" class="p-button-sm" severity="secondary"
-                                :loading="automationModal.search.loading" @click="searchFnsku(true, 1)" />
-                            <Button label="Assign Selected" icon="pi pi-plus" class="p-button-sm"
-                                :disabled="!automationModal.searchSelectedRows.length"
-                                @click="assignSelectedFnskuRows" />
-                        </div>
-                    </div>
-
-                    <div class="auto-form-grid mb-3">
-                        <div class="auto-field">
-                            <label class="auto-label">Search</label>
-                            <InputText v-model="automationModal.search.q" class="w-full p-inputtext-sm"
-                                placeholder="Search MSKU / FNSKU / ASIN"
-                                @keydown.enter.prevent="searchFnsku(true, 1)" />
-                        </div>
-
-                        <div class="auto-field">
-                            <label class="auto-label">Store</label>
-                            <Dropdown v-model="automationModal.store" :options="storeOptions" optionLabel="label"
-                                optionValue="value" class="w-full p-inputtext-sm" placeholder="Select store"
-                                @change="onAutomationStoreChanged" />
-                        </div>
-                    </div>
-
-                    <DataTable :value="automationModal.search.rows"
-                        v-model:selection="automationModal.searchSelectedRows" dataKey="FNSKUID"
-                        responsiveLayout="scroll" class="p-datatable-sm" :loading="automationModal.search.loading"
-                        scrollable scrollHeight="260px">
-                        <Column selectionMode="multiple" headerStyle="width: 3rem" />
-                        <Column field="MSKU" header="MSKU" />
-                        <Column field="FNSKU" header="FNSKU" />
-                        <Column field="ASIN" header="ASIN" />
-                        <Column field="fnsku_status" header="Status" />
-                    </DataTable>
-
-                    <div class="flex justify-content-between align-items-center mt-3">
-                        <div class="text-500 text-sm">
-                            {{ automationModal.search.rows.length }} result(s)
-                        </div>
-
-                        <div class="flex gap-2">
-                            <Button label="Prev" class="p-button-sm" severity="secondary" outlined
-                                :disabled="automationModal.search.loading || automationModal.search.page <= 1"
-                                @click="searchFnsku(false, automationModal.search.page - 1)" />
-                            <Button label="Next" class="p-button-sm" severity="secondary" outlined
-                                :disabled="automationModal.search.loading || !automationModal.search.hasMore"
-                                @click="searchFnsku(false, automationModal.search.page + 1)" />
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- Right -->
@@ -448,7 +398,7 @@
                     <div class="auto-assigned">
                         <div class="auto-assigned-top">
                             <div class="text-500 text-sm">
-                                {{ assignedCount }} selected
+                                {{ assignedCount }} assigned
                             </div>
 
                             <Button label="Clear Selected" icon="pi pi-times" severity="secondary" class="p-button-sm"
@@ -456,7 +406,8 @@
                         </div>
 
                         <div v-if="assignedCount" class="auto-assigned-list">
-                            <div v-for="r in automationModal.selectedRows" :key="r.FNSKUID" class="auto-assigned-item">
+                            <div v-for="r in automationModal.selectedRows" :key="r.assigned_item_id"
+                                class="auto-assigned-item">
                                 <div class="auto-assigned-main">
                                     <div class="font-medium">{{ r.MSKU }}</div>
                                     <div class="text-500 text-xs mt-1">
@@ -472,7 +423,7 @@
                         </div>
 
                         <div v-else class="text-500 p-2">
-                            No assigned MSKUs yet. Search tblfnsku and assign rows.
+                            No assigned MSKUs yet. Select listings in Amazon Listings and assign them to an automation.
                         </div>
                     </div>
                 </div>
@@ -505,6 +456,41 @@
         <!-- Footer -->
         <div class="auto-foot">
             <Button label="Close" severity="secondary" class="p-button-sm" @click="automationModal.visible = false" />
+        </div>
+    </Dialog>
+
+    <Dialog v-model:visible="assignAutomationModal.visible" modal :draggable="false" :closable="true"
+        header="Assign Selected Listings to Automation" :style="{ width: '520px', maxWidth: '95vw' }">
+        <div class="flex flex-column gap-3">
+            <div>
+                <label class="auto-label">Automation</label>
+                <Dropdown v-model="assignAutomationModal.selectedAutomationId" :options="assignAutomationModal.list"
+                    optionLabel="label" optionValue="id" class="w-full p-inputtext-sm" placeholder="Select automation"
+                    :disabled="assignAutomationModal.loading || assignAutomationModal.saving" />
+            </div>
+
+            <div class="text-500 text-sm">
+                {{ listingSelectedRows.length }} selected listing(s) will be assigned.
+            </div>
+
+            <div class="border-1 surface-border border-round p-2 max-h-12rem overflow-auto">
+                <div v-for="row in listingSelectedRows" :key="row.sku" class="py-2 border-bottom-1 surface-border">
+                    <div class="font-medium">{{ row.sku || '—' }}</div>
+                    <div class="text-500 text-xs">
+                        <span class="mr-3"><b>ASIN</b> {{ row.asin || '—' }}</span>
+                        <span><b>Store</b> {{ filters.store || '—' }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-content-end gap-2">
+                <Button label="Cancel" severity="secondary" class="p-button-sm"
+                    @click="assignAutomationModal.visible = false" />
+                <Button label="Save to Automation" icon="pi pi-save" class="p-button-sm"
+                    :loading="assignAutomationModal.saving"
+                    :disabled="!assignAutomationModal.selectedAutomationId || !listingSelectedRows.length"
+                    @click="saveSelectedListingsToAutomation" />
+            </div>
         </div>
     </Dialog>
 </template>
@@ -592,6 +578,15 @@ export default {
 
             _suppressAutosave: false,
 
+            listingSelectedRows: [],
+            assignAutomationModal: {
+                visible: false,
+                loading: false,
+                saving: false,
+                list: [],
+                selectedAutomationId: null,
+            },
+
             automationModal: {
                 visible: false,
                 saving: false,
@@ -619,19 +614,7 @@ export default {
                 ],
 
                 defaultDelta: "0",
-
-                search: {
-                    q: "",
-                    loading: false,
-                    rows: [],
-                    page: 1,
-                    pageSize: 20,
-                    hasMore: false,
-                },
-
-                searchSelectedRows: [],
                 selectedRows: [],
-                assigned: [],
             },
         };
     },
@@ -692,7 +675,6 @@ export default {
             if (!a.timezone) return false;
             if (!Array.isArray(a.marketplaceIds) || a.marketplaceIds.length < 1) return false;
             if (!Array.isArray(a.rules) || a.rules.length < 1) return false;
-            if (!Array.isArray(a.selectedRows) || a.selectedRows.length < 1) return false;
 
             const timeOk = (t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(t || "").trim());
 
@@ -1195,7 +1177,6 @@ export default {
             }
 
             await this.loadAutomationList();
-            this.resetFnskuSearch();
             this.newAutomation();
         },
 
@@ -1222,48 +1203,17 @@ export default {
             }
         },
 
-        async onAutomationStoreChanged() {
-            this.automationModal.selectedAutomationId = null;
-            this.automationModal.id = null;
-            this.automationModal.assigned = [];
-            this.resetFnskuSearch();
-            await this.loadAutomationList();
-        },
+        async removeAssigned(row) {
+            const id = row?.assigned_item_id;
+            if (!id) return;
 
-        resetFnskuSearch() {
-            this.automationModal.search.q = "";
-            this.automationModal.search.rows = [];
-            this.automationModal.search.page = 1;
-            this.automationModal.search.hasMore = false;
-        },
-
-        removeAssigned(row) {
-            const id = row?.FNSKUID;
-            this.automationModal.selectedRows = (this.automationModal.selectedRows || []).filter(x => x.FNSKUID !== id);
-        },
-
-        async searchFnsku(resetPage = true, page = 1) {
-            const s = this.automationModal.search;
-            if (resetPage) page = 1;
-
-            s.loading = true;
             try {
-                const payload = {
-                    store: this.automationModal.store,
-                    q: (s.q || "").trim(),
-                    page,
-                    pageSize: s.pageSize,
-                };
+                await axios.delete(`${API_BASE_URL}/amazon/paa/assigned-items/${id}`);
 
-                const res = await axios.post(`${API_BASE_URL}/amazon/paa/fnsku-search`, payload);
-                const raw = res?.data?.data || res?.data || {};
-                s.rows = raw?.rows || [];
-                s.page = page;
-                s.hasMore = !!raw?.hasMore;
+                this.automationModal.selectedRows =
+                    (this.automationModal.selectedRows || []).filter(x => x.assigned_item_id !== id);
             } catch (err) {
-                console.error("fnsku search error:", err?.response?.data || err);
-            } finally {
-                s.loading = false;
+                console.error("removeAssigned error:", err?.response?.data || err);
             }
         },
 
@@ -1308,8 +1258,6 @@ export default {
             a.defaultDelta = "0";
             a.assigned = [];
             a.selectedRows = [];
-
-            this.resetFnskuSearch();
         },
 
         async saveAutomation() {
@@ -1324,7 +1272,6 @@ export default {
                     marketplace_ids: a.marketplaceIds,
                     timezone: a.timezone,
                     is_enabled: a.isEnabled ? 1 : 0,
-
                     rules: (a.rules || []).map(r => ({
                         start: String(r.start || "").trim(),
                         end: String(r.end || "").trim(),
@@ -1332,15 +1279,7 @@ export default {
                         max: Number(r.max),
                         delta: Number(r.delta),
                     })),
-
                     default_delta: Number(a.defaultDelta || 0),
-
-                    items: (a.selectedRows || [])
-                        .map(r => ({
-                            msku: String(r.MSKU || "").trim(),
-                            storename: String(r.storename || a.store || "").trim(),
-                        }))
-                        .filter(x => x.msku && x.storename),
                 };
 
                 const res = await axios.post(`${API_BASE_URL}/amazon/paa/save`, payload);
@@ -1366,7 +1305,7 @@ export default {
 
             a.loading = true;
             try {
-                const res = await axios.get(`${API_BASE_URL}/amazon/paa/automation/${id}`);
+                const res = await axios.get(`${API_BASE_URL}/amazon/paa/automations/${id}`);
                 const row = res?.data?.automation || {};
                 const items = res?.data?.items || [];
 
@@ -1394,7 +1333,7 @@ export default {
                 a.selectedRows = items
                     .filter(x => Number(x.is_active) === 1)
                     .map(x => ({
-                        FNSKUID: `assigned-${x.id}`,
+                        assigned_item_id: x.id,
                         MSKU: x.msku,
                         FNSKU: x.fnsku || null,
                         ASIN: x.asin || null,
@@ -1416,7 +1355,7 @@ export default {
 
             a.deleting = true;
             try {
-                await axios.delete(`${API_BASE_URL}/amazon/paa/automation/${a.id}`);
+                await axios.delete(`${API_BASE_URL}/amazon/paa/automations/${a.id}`);
                 await this.loadAutomationList();
                 this.newAutomation();
             } catch (err) {
@@ -1459,22 +1398,61 @@ export default {
             this.automationModal.rules.sort((a, b) => toNum(a.min) - toNum(b.min));
         },
 
-        assignSelectedFnskuRows() {
-            const existing = new Map(
-                (this.automationModal.selectedRows || []).map(row => [row.FNSKUID, row])
-            );
+        async openAssignAutomationModal() {
+            if (!this.filters.store || !this.listingSelectedRows.length) return;
 
-            for (const row of this.automationModal.searchSelectedRows || []) {
-                if (!existing.has(row.FNSKUID)) {
-                    existing.set(row.FNSKUID, {
-                        ...row,
-                        storename: row.storename || this.automationModal.store,
-                    });
-                }
+            this.assignAutomationModal.visible = true;
+            this.assignAutomationModal.selectedAutomationId = null;
+            this.assignAutomationModal.loading = true;
+
+            try {
+                const res = await axios.get(`${API_BASE_URL}/amazon/paa/automations`, {
+                    params: { store: this.filters.store }
+                });
+
+                const rows = res?.data?.rows || [];
+
+                this.assignAutomationModal.list = rows.map(x => ({
+                    id: x.id,
+                    label: `#${x.id} • ${x.name || "Unnamed"} • ${Number(x.is_enabled) ? "ON" : "OFF"}`
+                }));
+            } catch (err) {
+                console.error("openAssignAutomationModal error:", err?.response?.data || err);
+                this.assignAutomationModal.list = [];
+            } finally {
+                this.assignAutomationModal.loading = false;
             }
+        },
 
-            this.automationModal.selectedRows = Array.from(existing.values());
-            this.automationModal.searchSelectedRows = [];
+        async saveSelectedListingsToAutomation() {
+            const automationId = this.assignAutomationModal.selectedAutomationId;
+            if (!automationId || !this.listingSelectedRows.length) return;
+
+            this.assignAutomationModal.saving = true;
+
+            try {
+                const items = (this.listingSelectedRows || [])
+                    .filter(r => String(r.sku || "").trim() !== "")
+                    .map(r => ({
+                        msku: String(r.sku || "").trim(),
+                        storename: String(this.filters.store || "").trim(),
+                        asin: r.asin || null,
+                    }));
+
+                await axios.post(`${API_BASE_URL}/amazon/paa/assign-items`, {
+                    automation_id: automationId,
+                    store: this.filters.store,
+                    items,
+                });
+
+                this.assignAutomationModal.visible = false;
+                this.assignAutomationModal.selectedAutomationId = null;
+                this.listingSelectedRows = [];
+            } catch (err) {
+                console.error("saveSelectedListingsToAutomation error:", err?.response?.data || err);
+            } finally {
+                this.assignAutomationModal.saving = false;
+            }
         },
     },
 
