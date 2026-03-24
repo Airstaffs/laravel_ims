@@ -116,7 +116,7 @@ foreach ($stores as $store) {
 
                 // Retrieve data safely
                 $FNSKU = trim($summary['fnSku'] ?? '');
-                $MSKU = trim($results['sku'] ?? '');
+                $MSKU = cleanMsku($results['sku'] ?? null);
                 $skucondition = trim($summary['conditionType'] ?? '');
                 $ASIN = trim($summary['asin'] ?? '');
                 $PRODUCT_NAME = trim($summary['itemName'] ?? '');
@@ -172,14 +172,6 @@ foreach ($stores as $store) {
                     $PRODUCT_NAME = null;
                 }
 
-                // Assuming you have retrieved data from your database into $row
-                $words = explode(' ', $MSKU);
-
-                if (count($words) > 1) {
-                    $MSKU = $words[0]; // Set $MSKU to the first word
-                } else {
-                }
-
                 if ($MSKU === null && $ASIN === null) {
                     $logMessage = "All Values are null skipping row! for FNSKU: " . $FNSKU;
                     $nullCount++;
@@ -212,8 +204,8 @@ foreach ($stores as $store) {
                     $checkQuery = "SELECT FNSKUID, FNSKU, MSKU, ASIN, amazon_status
                         FROM $tblname
                         WHERE storename = ?
-                            AND MSKU LIKE ?
-                            AND ASIN LIKE ?
+                            AND MSKU = ?
+                            AND ASIN = ?
                         ORDER BY insert_date DESC
                         LIMIT 1";
 
@@ -274,10 +266,10 @@ foreach ($stores as $store) {
                         // Row already exists in the database
                         $existingRow = $resultCheck->fetch_assoc();
 
-                        $existingRowId = (int)($existingRow['FNSKUID'] ?? 0);
-                        $incomingFnsku = trim((string)$FNSKU);
-                        $incomingStatus = trim((string)$amazon_status);
-                        $existingFnsku = trim((string)($existingRow['FNSKU'] ?? ''));
+                        $existingRowId = (int) ($existingRow['FNSKUID'] ?? 0);
+                        $incomingFnsku = trim((string) $FNSKU);
+                        $incomingStatus = trim((string) $amazon_status);
+                        $existingFnsku = trim((string) ($existingRow['FNSKU'] ?? ''));
                         $existingBaseFnsku = extractBaseFnsku($existingFnsku);
                         $incomingBaseFnsku = extractBaseFnsku($incomingFnsku);
 
@@ -353,11 +345,11 @@ foreach ($stores as $store) {
                         // =========================================================
                         if (strcasecmp($incomingStatus, 'Deleted') === 0) {
                             $updateQuery = "UPDATE tblfnsku
-                                            SET amazon_status = 'Deleted',
+                                            SET amazon_status = 'Deleted', MSKU = ?
                                                 insert_date = ?
                                             WHERE FNSKUID = ?";
                             $stmtUpd = $Connect->prepare($updateQuery);
-                            $stmtUpd->bind_param("si", $currentDateTime, $existingRowId);
+                            $stmtUpd->bind_param("ssi", $currentDateTime, $MSKU, $existingRowId);
                             $stmtUpd->execute();
                             $stmtUpd->close();
 
@@ -372,6 +364,14 @@ foreach ($stores as $store) {
                                 $skipCount++;
                                 updateCronInsertStatus($Connect, $MSKU, $merchantId);
                             } else {
+
+                                $updateQuery = "UPDATE tblfnsku
+                                            SET MSKU = ?
+                                            WHERE FNSKUID = ?";
+                                $stmtUpd = $Connect->prepare($updateQuery);
+                                $stmtUpd->bind_param("si", $MSKU, $existingRowId);
+                                $stmtUpd->execute();
+                                $stmtUpd->close();
 
                                 // =========================================================
                                 // 3) Conflict check BEFORE update
@@ -391,7 +391,7 @@ foreach ($stores as $store) {
                                         $storename,
                                         $existingBaseFnsku,
                                         $incomingBaseFnsku,
-                                        trim((string)($existingRow['grading'] ?? '')),
+                                        trim((string) ($existingRow['grading'] ?? '')),
                                         $skucondition,
                                         $conflictReason
                                     );
@@ -1068,8 +1068,8 @@ function getallnewitems_by_sellerid(mysqli $Connect, string $merchantId): array
 
     $allSkus = [];
     while ($row = mysqli_fetch_assoc($result)) {
-        $msku = $row['sku'];
-        if (!in_array($msku, $allSkus, true)) {
+        $msku = cleanMsku($row['sku'] ?? null);
+        if ($msku !== null && !in_array($msku, $allSkus, true)) {
             $allSkus[] = $msku;
         }
     }
@@ -1190,7 +1190,7 @@ function checkFnskuConflictTblproduct(mysqli $db, string $msku, string $amazonFn
     $mismatchCount = 0;
 
     while ($row = $res->fetch_assoc()) {
-        $raw = trim((string)($row['FNSKUviewer'] ?? ''));
+        $raw = trim((string) ($row['FNSKUviewer'] ?? ''));
         if ($raw === '') {
             continue;
         }
@@ -1265,7 +1265,7 @@ function isFnskuUpdateBlocked(mysqli $db, int $rowId, string $msku, string $stor
     $row = $res->fetch_assoc();
     $stmt->close();
 
-    return ((int)($row['f'] ?? 0) === 1);
+    return ((int) ($row['f'] ?? 0) === 1);
 }
 
 function alreadyNotifiedToday(mysqli $db, int $rowId, string $msku, string $store): bool
@@ -1285,7 +1285,7 @@ function alreadyNotifiedToday(mysqli $db, int $rowId, string $msku, string $stor
     $row = $res->fetch_assoc();
     $stmt->close();
 
-    $d = (string)($row['d'] ?? '');
+    $d = (string) ($row['d'] ?? '');
     return (substr($d, 0, 10) === date('Y-m-d'));
 }
 
@@ -1307,6 +1307,30 @@ function markNotifiedToday(mysqli $db, int $rowId, string $msku, string $store):
     $stmt->close();
 }
 
+function cleanMsku(?string $value): ?string
+{
+    if ($value === null) {
+        return null;
+    }
+
+    $value = (string) $value;
+
+    // remove UTF-8 BOM
+    $value = preg_replace('/^\xEF\xBB\xBF/', '', $value);
+
+    // convert non-breaking spaces to normal spaces
+    $value = str_replace("\xC2\xA0", ' ', $value);
+
+    // remove zero-width / invisible chars
+    $value = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}\x{2060}]/u', '', $value);
+
+    // trim only outer whitespace
+    $value = trim($value);
+
+    return $value === '' ? null : $value;
+}
+
+
 function upsertFnskuConflictRecord(
     mysqli $db,
     int $rowId,
@@ -1319,11 +1343,11 @@ function upsertFnskuConflictRecord(
     ?string $newGrading,
     string $reason = ''
 ): int {
-    $asin = trim((string)$asin);
-    $oldFnsku = trim((string)$oldFnsku);
-    $newFnsku = trim((string)$newFnsku);
-    $oldGrading = trim((string)$oldGrading);
-    $newGrading = trim((string)$newGrading);
+    $asin = trim((string) $asin);
+    $oldFnsku = trim((string) $oldFnsku);
+    $newFnsku = trim((string) $newFnsku);
+    $oldGrading = trim((string) $oldGrading);
+    $newGrading = trim((string) $newGrading);
 
     $chk = $db->prepare("
         SELECT id
@@ -1342,7 +1366,7 @@ function upsertFnskuConflictRecord(
     $chk->close();
 
     if ($existing) {
-        $conflictId = (int)$existing['id'];
+        $conflictId = (int) $existing['id'];
 
         $upd = $db->prepare("
             UPDATE tblfnskuconflicts
@@ -1396,7 +1420,7 @@ function upsertFnskuConflictRecord(
         $reason
     );
     $ins->execute();
-    $newId = (int)$ins->insert_id;
+    $newId = (int) $ins->insert_id;
     $ins->close();
 
     return $newId;
@@ -1420,7 +1444,7 @@ function getLatestPendingConflictId(mysqli $db, string $msku, string $store): in
     $row = $res->fetch_assoc();
     $stmt->close();
 
-    return (int)($row['id'] ?? 0);
+    return (int) ($row['id'] ?? 0);
 }
 
 function getAllUserIdsToNotify(mysqli $db): array
@@ -1439,7 +1463,7 @@ function createNotification(mysqli $db, string $module, string $title, string $s
     $stmt = $db->prepare($sql);
     $stmt->bind_param("ssssss", $module, $title, $subtitle, $content, $severity, $linkJson);
     $stmt->execute();
-    $notifId = (int)$stmt->insert_id;
+    $notifId = (int) $stmt->insert_id;
     $stmt->close();
 
     if ($notifId <= 0) {
@@ -1450,7 +1474,7 @@ function createNotification(mysqli $db, string $module, string $title, string $s
     $stmt2 = $db->prepare($sql2);
 
     foreach ($userIds as $uid) {
-        $uid = (int)$uid;
+        $uid = (int) $uid;
         $stmt2->bind_param("ii", $notifId, $uid);
         $stmt2->execute();
     }
