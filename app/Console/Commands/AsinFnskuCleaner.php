@@ -390,10 +390,37 @@ class AsinFnskuCleaner extends Command
         $rows = explode("\n", trim($retrievedData));
         $out = [];
 
-        foreach ($rows as $row) {
-            if (trim($row) === '')
+        $header = null;
+        $mskuIndex = null;
+
+        foreach ($rows as $rowIndex => $row) {
+            if (trim($row) === '') {
                 continue;
-            $out[] = explode("\t", $row);
+            }
+
+            $columns = explode("\t", $row);
+
+            if ($header === null) {
+                $header = $columns;
+
+                foreach ($header as $index => $columnName) {
+                    $normalized = strtolower(trim((string) $columnName));
+
+                    if (in_array($normalized, ['seller-sku', 'sku', 'msku', 'merchant-sku'])) {
+                        $mskuIndex = $index;
+                        break;
+                    }
+                }
+
+                $out[] = $header;
+                continue;
+            }
+
+            if ($mskuIndex !== null && array_key_exists($mskuIndex, $columns)) {
+                $columns[$mskuIndex] = $this->cleanMsku($columns[$mskuIndex]);
+            }
+
+            $out[] = $columns;
         }
 
         return $out;
@@ -418,5 +445,28 @@ class AsinFnskuCleaner extends Command
         }
 
         fclose($fp);
+    }
+
+    private function cleanMsku(?string $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        $value = (string) $value;
+
+        // remove UTF-8 BOM if present
+        $value = preg_replace('/^\xEF\xBB\xBF/', '', $value);
+
+        // convert non-breaking spaces to normal spaces
+        $value = str_replace("\xC2\xA0", ' ', $value);
+
+        // remove zero-width characters
+        $value = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $value);
+
+        // trim outer spaces only
+        $value = trim($value);
+
+        return $value;
     }
 }

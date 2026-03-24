@@ -1090,11 +1090,7 @@ Route::prefix('api/reconciliation')->middleware(['auth'])->group(function () {
 Route::post('/amazon/search-listings', [ListingController::class, 'searchListings']);
 Route::post('/amazon/listings/update-one', [ListingController::class, 'updateOne']);
 
-Route::post('/amazon/paa/fnsku-search', [PaaAutomationController::class, 'fnskuSearch']);
-Route::post('/amazon/paa/save', [PaaAutomationController::class, 'save']);
-Route::get('/amazon/paa/automations', [PaaAutomationController::class, 'index']);
-Route::get('/amazon/paa/automation/{id}', [PaaAutomationController::class, 'show']);
-Route::delete('/amazon/paa/automation/{id}', [PaaAutomationController::class, 'destroy']);
+
 
 // Announcements
 Route::middleware('auth')->group(function () {
@@ -1130,4 +1126,15 @@ Route::get('/debug-session', function () {
         'auth_user' => auth()->user(),
         'full_session' => session()->all(),
     ]);
+});
+
+Route::prefix('amazon/paa')->group(function () {
+    Route::get('/automations', [PaaAutomationController::class, 'index']);
+    Route::get('/automations/{id}', [PaaAutomationController::class, 'show']);
+    Route::post('/automations/save', [PaaAutomationController::class, 'save']);
+    Route::delete('/automations/{id}', [PaaAutomationController::class, 'destroy']);
+
+    Route::post('/assign-items', [PaaAutomationController::class, 'assignItems']);
+    Route::delete('/assigned-items/{id}', [PaaAutomationController::class, 'removeItem']);
+    Route::post('/assigned-items/bulk-remove', [PaaAutomationController::class, 'bulkRemoveItems']);
 });
