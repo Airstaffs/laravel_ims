@@ -1039,7 +1039,7 @@ export default {
                 this.submitScanData();
             }
         },
-        
+
         async captureSerialImage() {
             if (this.$refs.scanner && this.$refs.scanner.captureFromScanner) {
                 try {
@@ -1553,6 +1553,48 @@ export default {
                     this.$refs.trackingInput.focus();
                 }
             });
+        },
+
+        addChecklistLog(cleanedSerials = []) {
+            const csrfToken = document.querySelector(
+                'meta[name="csrf-token"]',
+            ).content;
+
+            // Non-blocking fire-and-forget
+            axios
+                .post(
+                    `${API_BASE_URL}/api/received/record-checklist`,
+                    {
+                        trackingNumber: this.trackingNumber,
+                        serialNumbers: cleanedSerials.length
+                            ? cleanedSerials
+                            : [null, null, null, null, null],
+                        passFailResult: this.passFailResult,
+                        correctOnOrder: this.checklist.correctOnOrder,
+                        condition: this.checklist.condition,
+                        conditionNotes: this.checklist.conditionNotes ?? null,
+                        productId: this.productId,
+                        rtcounter: this.rtcounter,
+                        // ── Extra fields from saved action ──
+                        pcnNumber: this.pcnNumber,
+                        basketNumber: this.basketNumber,
+                        productTitle: this.productTitle ?? null,
+                        asin: this.asin ?? null,
+                    },
+                    {
+                        headers: {
+                            "X-CSRF-TOKEN": csrfToken,
+                            Accept: "application/json",
+                        },
+                    },
+                )
+                .then(() => console.log("✅ Checklist log saved"))
+                .catch((err) =>
+                    console.warn(
+                        "⚠️ Checklist log failed:",
+                        err.response?.data,
+                    ),
+                );
         },
 
         handleSerialTyping() {

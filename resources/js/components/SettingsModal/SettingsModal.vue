@@ -732,7 +732,7 @@
             <TabPanel>
                 <template #header>
                     <i class="bi bi-shield-lock"></i>
-                    <span> Privileges</span>
+                    <span>Privileges</span>
                 </template>
 
                 <div class="scrollable-content">
@@ -2206,9 +2206,9 @@ export default {
                 { label: "Auxiliary Label", value: "auxiliary" },
                 { label: "Inventory Statistics", value: "inventorystatistics" },
                 { label: "Reconciliation", value: "reconciliation" },
-                {label: "Supplies & Components", value: "suppliescomponents"},
-                 {label: "Switcheru List", value: "switcheru"},
-
+                { label: "Supplies & Components", value: "suppliescomponents" },
+                { label: "Switcheru List", value: "switcheru" },
+                { label: "Item Log", value: "itemlog" },
             ],
             subModules: [
                 { label: "Human Resource", value: "humanresource" },
@@ -2237,8 +2237,9 @@ export default {
                 { label: "Auxiliary Label", value: "auxiliary" },
                 { label: "Inventory Statistics", value: "inventorystatistics" },
                 { label: "Reconciliation", value: "reconciliation" },
-                {label: "Supplies & Components", value: "suppliescomponents"},
-                {label: "Switcheru List", value: "switcheru"},
+                { label: "Supplies & Components", value: "suppliescomponents" },
+                { label: "Switcheru List", value: "switcheru" },
+                { label: "Item Log", value: "itemlog" },
             ],
             userStores: [],
             isSavingPrivileges: false,
