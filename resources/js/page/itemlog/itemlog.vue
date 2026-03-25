@@ -215,7 +215,11 @@
                     <div class="wl-meta-item">
                         <div class="wl-meta-label">FNSKU</div>
                         <div class="wl-meta-value">
-                            {{ selectedLog.fnsku || "—" }}
+                            {{
+                                selectedLog.fnsku ||
+                                selectedLog.fnsku_changed ||
+                                "—"
+                            }}
                         </div>
                     </div>
                     <div class="wl-meta-item">
@@ -226,7 +230,7 @@
                     </div>
                 </div>
 
-                <!-- Meta Row 2: Date Received, Date Completed, Total Processing Time -->
+                <!-- Meta Row 2: Date Received, Date Labelled, RT# -->
                 <div class="wl-meta-grid wl-meta-grid--second">
                     <div class="wl-meta-item">
                         <div class="wl-meta-label">Date Received</div>
@@ -235,27 +239,26 @@
                         </div>
                     </div>
                     <div class="wl-meta-item">
-                        <div class="wl-meta-label">Date Completed</div>
+                        <div class="wl-meta-label">Date Labelled</div>
                         <div class="wl-meta-value">
-                            {{ selectedLog.date_completed || "—" }}
+                            {{ selectedLog.date_labelled || "—" }}
                         </div>
                     </div>
                     <div class="wl-meta-item">
-                        <div class="wl-meta-label">Total Processing Time</div>
+                        <div class="wl-meta-label">RT#</div>
                         <div class="wl-meta-value">
-                            {{ selectedLog.processing_time || "—" }}
+                            {{ selectedLog.rtcounter || "—" }}
                         </div>
                     </div>
                 </div>
 
                 <hr class="wl-divider" />
 
-                <!-- 1. Received Module Section -->
-                <div class="wl-section-header">
+                <!-- 1. Received Module -->
+                <div class="wl-section-header wl-section-header--received">
                     <span>📦</span>
                     <span>1. RECEIVED MODULE</span>
                 </div>
-
                 <div class="wl-section-body">
                     <div class="wl-field">
                         <span class="wl-field-label">Date Received:</span>
@@ -337,6 +340,78 @@
                     </div>
                 </div>
 
+                <!-- 2. Labelling Module — only shown if item passed through Labeling -->
+                <div
+                    v-if="selectedLog.passed_labeling"
+                    class="wl-section-header wl-section-header--labelling"
+                >
+                    <span>🏷️</span>
+                    <span>2. LABELLING MODULE</span>
+                </div>
+                <div v-if="selectedLog.passed_labeling" class="wl-section-body">
+                    <div>
+                        <span class="wl-field-value">{{
+                            selectedLog.labelled_by || "—"
+                        }}</span>
+                    </div>
+                    <div class="wl-field">
+                        <span class="wl-field-label">FNSKU:</span>
+                        <span class="wl-field-value">{{
+                            selectedLog.fnsku ||
+                            selectedLog.fnsku_changed ||
+                            "—"
+                        }}</span>
+                    </div>
+                    <div class="wl-field">
+                        <span class="wl-field-label">ASIN:</span>
+                        <span class="wl-field-value">{{
+                            selectedLog.asin || "—"
+                        }}</span>
+                    </div>
+                    <div class="wl-field">
+                        <span class="wl-field-label">RPN:</span>
+                        <span class="wl-field-value">{{
+                            selectedLog.rpn || "—"
+                        }}</span>
+                    </div>
+                    <div class="wl-field">
+                        <span class="wl-field-label">PRD:</span>
+                        <span class="wl-field-value">{{
+                            selectedLog.prd || "—"
+                        }}</span>
+                    </div>
+                    <div class="wl-field">
+                        <span class="wl-field-label">Grading:</span>
+                        <span class="wl-field-value">{{
+                            selectedLog.grading || "—"
+                        }}</span>
+                    </div>
+                    <div class="wl-field">
+                        <span class="wl-field-label">Priority Rank:</span>
+                        <span class="wl-field-value">{{
+                            selectedLog.priority_rank || "—"
+                        }}</span>
+                    </div>
+                    <div class="wl-field" v-if="selectedLog.sticker_note">
+                        <span class="wl-field-label">Sticker Notes:</span>
+                        <span class="wl-field-value">{{
+                            selectedLog.sticker_note
+                        }}</span>
+                    </div>
+                    <div class="wl-field" v-if="selectedLog.employee_note">
+                        <span class="wl-field-label">Employee Notes:</span>
+                        <span class="wl-field-value">{{
+                            selectedLog.employee_note
+                        }}</span>
+                    </div>
+                    <div class="wl-field">
+                        <span class="wl-field-label">Current Location:</span>
+                        <span class="wl-field-value">{{
+                            selectedLog.current_location || "—"
+                        }}</span>
+                    </div>
+                </div>
+
                 <!-- Footer actions -->
                 <div class="wl-footer-actions">
                     <Button
@@ -358,527 +433,10 @@
 </template>
 
 <script>
-import {
-    Button,
-    InputText,
-    Calendar,
-    DataTable,
-    Column,
-    Dialog,
-} from "primevue";
-
-const API_BASE_URL = window.location.origin;
-
-export default {
-    components: { Button, InputText, Calendar, DataTable, Column, Dialog },
-
-    data() {
-        return {
-            logs: [],
-            selectedRows: [],
-            selectAll: false,
-            loading: false,
-            showLogDialog: false,
-            selectedLog: null,
-            filters: {
-                serial: "",
-                asin: "",
-                from: null,
-                to: null,
-            },
-        };
-    },
-
-    mounted() {
-        this.fetchLogs();
-    },
-
-    methods: {
-        async fetchLogs() {
-            this.loading = true;
-            try {
-                const params = {};
-                if (this.filters.serial) params.serial = this.filters.serial;
-                if (this.filters.asin) params.asin = this.filters.asin;
-                if (this.filters.from)
-                    params.from = this.formatDate(this.filters.from);
-                if (this.filters.to)
-                    params.to = this.formatDate(this.filters.to);
-
-                const response = await axios.get(
-                    `${API_BASE_URL}/api/received/checklist-logs`,
-                    { params },
-                );
-                this.logs = response.data.data ?? response.data;
-            } catch (error) {
-                console.error("Error fetching checklist logs:", error);
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        clearFilters() {
-            this.filters = { serial: "", asin: "", from: null, to: null };
-            this.fetchLogs();
-        },
-
-        formatDate(date) {
-            if (!date) return null;
-            return new Date(date).toISOString().split("T")[0];
-        },
-
-        onSelectAllChange(event) {
-            this.selectAll = event.checked;
-            this.selectedRows = event.checked ? [...this.logs] : [];
-        },
-
-        viewFullLog(row) {
-            this.selectedLog = row;
-            this.showLogDialog = true;
-        },
-
-        parsedSerials(log) {
-            return [
-                log.serialnumber,
-                log.serialnumberb,
-                log.serialnumberc,
-                log.serialnumberd,
-                log.serialnumbere,
-            ].filter(Boolean);
-        },
-
-        printLog(log) {
-            const serials = this.parsedSerials(log);
-            const serialRows = serials
-                .map(
-                    (sn, i) =>
-                        `<div class="wl-field">
-                    <span class="wl-field-label">Serial Number${i > 0 ? " " + (i + 1) : ""}:</span>
-                    <span class="wl-field-value">${sn}</span>
-                </div>`,
-                )
-                .join("");
-
-            const win = window.open("", "_blank");
-            win.document.write(`
-                <html>
-                <head>
-                    <title>Workflow Log Report</title>
-                    <style>
-                        @page { size: 8.5in 11in portrait; margin: 0.75in; }
-                        body { font-family: Arial, sans-serif; font-size: 13px; color: #111; }
-                        .wl-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
-                        .wl-title { font-size: 22px; font-weight: bold; margin: 0 0 4px; }
-                        .wl-subtitle { color: #666; margin: 0; font-size: 13px; }
-                        .wl-serial-badge { background: #4f46e5; color: #fff; padding: 10px 18px; border-radius: 8px; text-align: center; min-width: 130px; }
-                        .wl-serial-label { font-size: 11px; margin-bottom: 4px; }
-                        .wl-serial-value { font-size: 18px; font-weight: bold; }
-                        .wl-meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-bottom: 10px; }
-                        .wl-meta-label { font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 3px; }
-                        .wl-meta-value { font-weight: bold; font-size: 13px; }
-                        hr { border: none; border-top: 1px solid #ddd; margin: 16px 0; }
-                        .wl-section-header { background: #e8eaf6; padding: 8px 12px; border-left: 4px solid #4f46e5; font-weight: bold; font-size: 13px; margin-bottom: 10px; }
-                        .wl-field { display: flex; padding: 5px 0; border-bottom: 1px solid #f1f5f9; }
-                        .wl-field-label { width: 260px; color: #555; }
-                        .wl-field-value { font-weight: 500; }
-                    </style>
-                </head>
-                <body>
-                    <div class="wl-header">
-                        <div>
-                            <div class="wl-title">WORKFLOW LOG REPORT</div>
-                            <div class="wl-subtitle">Complete Item Processing History</div>
-                        </div>
-                        <div class="wl-serial-badge">
-                            <div class="wl-serial-label">Serial Number</div>
-                            <div class="wl-serial-value">${log.serialnumber || "—"}</div>
-                        </div>
-                    </div>
-
-                    <div class="wl-meta-grid">
-                        <div>
-                            <div class="wl-meta-label">ASIN</div>
-                            <div class="wl-meta-value">${log.asin || "—"}</div>
-                        </div>
-                        <div>
-                            <div class="wl-meta-label">FNSKU</div>
-                            <div class="wl-meta-value">${log.fnsku || "—"}</div>
-                        </div>
-                        <div>
-                            <div class="wl-meta-label">Product</div>
-                            <div class="wl-meta-value">${log.product_name || "—"}</div>
-                        </div>
-                    </div>
-                    <div class="wl-meta-grid" style="margin-top:8px;">
-                        <div>
-                            <div class="wl-meta-label">Date Received</div>
-                            <div class="wl-meta-value">${log.date_received || "—"}</div>
-                        </div>
-                        <div>
-                            <div class="wl-meta-label">Date Completed</div>
-                            <div class="wl-meta-value">${log.date_completed || "—"}</div>
-                        </div>
-                        <div>
-                            <div class="wl-meta-label">Total Processing Time</div>
-                            <div class="wl-meta-value">${log.processing_time || "—"}</div>
-                        </div>
-                    </div>
-
-                    <hr/>
-
-                    <div class="wl-section-header">📦 1. RECEIVED MODULE</div>
-                    <div class="wl-field"><span class="wl-field-label">Date Received:</span><span class="wl-field-value">${log.date_received || "—"}</span></div>
-                    <div class="wl-field"><span class="wl-field-label">Tracking Number:</span><span class="wl-field-value">${log.trackingnumber || "—"}</span></div>
-                    ${serialRows || `<div class="wl-field"><span class="wl-field-label">Serial Number:</span><span class="wl-field-value">—</span></div>`}
-                    <div class="wl-field"><span class="wl-field-label">Working / Not Working:</span><span class="wl-field-value">${log.pass_fail_result === "pass" ? "Working" : "Not Working"}</span></div>
-                    <div class="wl-field"><span class="wl-field-label">Received By:</span><span class="wl-field-value">${log.received_by || "—"}</span></div>
-                    <div class="wl-field"><span class="wl-field-label">Item received correct on order:</span><span class="wl-field-value">${log.correct_on_order === "yes" ? "Yes ✓" : "No ✗"}</span></div>
-                    <div class="wl-field"><span class="wl-field-label">Condition on Arrival:</span><span class="wl-field-value" style="text-transform:capitalize;">${log.condition_on_arrival || "—"}${log.condition_on_arrival === "good" ? " ✓" : ""}</span></div>
-                    ${log.condition_notes ? `<div class="wl-field"><span class="wl-field-label">Condition Notes:</span><span class="wl-field-value">${log.condition_notes}</span></div>` : ""}
-                    <div class="wl-field"><span class="wl-field-label">PCN:</span><span class="wl-field-value">${log.pcn_number || "—"}</span></div>
-                    <div class="wl-field"><span class="wl-field-label">Basket:</span><span class="wl-field-value">${log.basket_number || "—"}</span></div>
-                </body>
-                </html>`);
-            win.document.close();
-            win.print();
-        },
-
-        printSelected() {
-            this.triggerPrint(this.selectedRows);
-        },
-
-        printAll() {
-            this.triggerPrint(this.logs);
-        },
-
-        triggerPrint(rows) {
-            const win = window.open("", "_blank");
-            const rows_html = rows
-                .map(
-                    (r) => `
-                <tr>
-                    <td>${r.trackingnumber || "—"}</td>
-                    <td>${r.serialnumber || "—"}</td>
-                    <td>${r.asin || "—"}</td>
-                    <td>${r.product_name || "—"}</td>
-                    <td>${r.pcn_number || "—"}</td>
-                    <td>${r.basket_number || "—"}</td>
-                    <td>${r.pass_fail_result === "pass" ? "✓ Pass" : "✗ Fail"}</td>
-                    <td>${r.date_received || "—"}</td>
-                    <td>${r.received_by || "—"}</td>
-                </tr>`,
-                )
-                .join("");
-
-            win.document.write(`
-                <html><head><title>Item Log Print</title>
-                <style>
-                    body { font-family: Arial, sans-serif; font-size: 12px; }
-                    table { width: 100%; border-collapse: collapse; }
-                    th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
-                    th { background: #f0f0f0; }
-                </style>
-                </head><body>
-                <h2>Item Log Report</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Tracking #</th><th>Serial</th><th>ASIN</th>
-                            <th>Product</th><th>PCN</th><th>Basket</th>
-                            <th>Status</th><th>Date</th><th>Received By</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rows_html}</tbody>
-                </table>
-                </body></html>`);
-            win.document.close();
-            win.print();
-        },
-    },
-};
+import ItemLogs from "./timelog.js";
+export default ItemLogs;
 </script>
 
 <style scoped>
-.log-wrapper {
-    padding: 1.5rem;
-    background: #f0f4ff;
-    min-height: 100vh;
-    font-family: inherit;
-}
-
-.log-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 17px;
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 1.5rem;
-}
-
-.search-card,
-.results-card {
-    background: #fff;
-    border-radius: 10px;
-    padding: 1.25rem;
-    margin-bottom: 1.5rem;
-}
-
-.search-card {
-    border: 1.5px solid #bfdbfe;
-}
-.results-card {
-    border: 1px solid #e2e8f0;
-    padding: 0;
-    overflow: hidden;
-}
-
-.section-label-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 1rem;
-}
-
-.section-badge {
-    font-size: 11px;
-    font-weight: 700;
-    padding: 3px 9px;
-    border-radius: 5px;
-    letter-spacing: 0.04em;
-}
-
-.badge-blue {
-    background: #dbeafe;
-    color: #1d4ed8;
-    border: 1px solid #bfdbfe;
-}
-.badge-green {
-    background: #dcfce7;
-    color: #166534;
-    border: 1px solid #bbf7d0;
-}
-
-.section-title {
-    font-weight: 600;
-    font-size: 15px;
-    color: #1e293b;
-}
-.subtitle {
-    font-weight: 400;
-    font-size: 13px;
-    color: #64748b;
-}
-
-.search-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 1rem;
-}
-
-.field-wrap label {
-    display: block;
-    font-size: 12px;
-    color: #64748b;
-    margin-bottom: 5px;
-}
-.field-wrap .p-inputtext,
-.field-wrap .p-calendar {
-    width: 100%;
-}
-
-.search-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.results-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.print-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.log-table {
-    width: 100%;
-}
-
-.empty-state {
-    text-align: center;
-    padding: 2rem;
-    color: #9ca3af;
-    font-size: 14px;
-}
-
-.serial-link {
-    color: #2563eb;
-    font-weight: 600;
-    cursor: pointer;
-    font-size: 13px;
-}
-.serial-link:hover {
-    text-decoration: underline;
-}
-
-.status-badge {
-    font-size: 12px;
-    font-weight: 600;
-    padding: 3px 10px;
-    border-radius: 5px;
-    border: 1px solid;
-}
-.status-pass {
-    background: #dcfce7;
-    color: #166534;
-    border-color: #86efac;
-}
-.status-fail {
-    background: #fef2f2;
-    color: #991b1b;
-    border-color: #fca5a5;
-}
-
-.view-btn {
-    background: #7c3aed !important;
-    border-color: #7c3aed !important;
-    font-size: 12px !important;
-}
-
-/* Workflow Log Dialog — print-ready layout */
-.wl-page {
-    background: #fff;
-    padding: 32px 36px;
-    font-family: Arial, sans-serif;
-    font-size: 13px;
-    color: #111;
-    position: relative;
-}
-
-.wl-page-number {
-    text-align: right;
-    font-size: 11px;
-    color: #888;
-    margin-bottom: 12px;
-}
-
-.wl-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 20px;
-}
-
-.wl-title {
-    font-size: 22px;
-    font-weight: bold;
-    margin: 0 0 4px;
-    letter-spacing: 0.01em;
-}
-.wl-subtitle {
-    color: #555;
-    margin: 0;
-    font-size: 13px;
-}
-
-.wl-serial-badge {
-    background: #4f46e5;
-    color: #fff;
-    padding: 10px 20px;
-    border-radius: 8px;
-    text-align: center;
-    min-width: 140px;
-}
-.wl-serial-label {
-    font-size: 11px;
-    margin-bottom: 4px;
-    opacity: 0.9;
-}
-.wl-serial-value {
-    font-size: 20px;
-    font-weight: bold;
-    letter-spacing: 0.03em;
-}
-
-.wl-meta-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0;
-    margin-bottom: 12px;
-}
-
-.wl-meta-grid--second {
-    margin-bottom: 0;
-}
-
-.wl-meta-item {
-    padding: 6px 0;
-}
-.wl-meta-label {
-    font-size: 11px;
-    color: #888;
-    margin-bottom: 3px;
-}
-.wl-meta-value {
-    font-weight: 700;
-    font-size: 13px;
-    color: #111;
-}
-
-.wl-divider {
-    border: none;
-    border-top: 1.5px solid #ccc;
-    margin: 16px 0;
-}
-
-.wl-section-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: #e8eaf6;
-    padding: 9px 14px;
-    border-left: 4px solid #4f46e5;
-    font-weight: bold;
-    font-size: 13px;
-    letter-spacing: 0.04em;
-    border-radius: 0 4px 4px 0;
-    margin-bottom: 0;
-}
-
-.wl-section-body {
-    padding: 4px 0 8px 4px;
-}
-
-.wl-field {
-    display: flex;
-    align-items: flex-start;
-    padding: 2px 10px;
-    font-size: 13px;
-}
-
-.wl-field-label {
-    width: 260px;
-    min-width: 260px;
-    color: #444;
-}
-.wl-field-value {
-    font-weight: 500;
-    color: #111;
-}
-
-.wl-footer-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 20px;
-    padding-top: 16px;
-    border-top: 1px solid #e2e8f0;
-}
+@import "./timelog.css";
 </style>

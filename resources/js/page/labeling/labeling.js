@@ -85,7 +85,7 @@ export default {
             currentPage: 1,
             totalData: 0,
             perPage: 10,
-            first: 0  //for prime vues pagination internal state
+            first: 0, //for prime vues pagination internal state
         };
     },
 
@@ -121,22 +121,34 @@ export default {
         //product images
         imageList() {
             return Object.keys(this.item.capturedImages)
-            .filter((key) => key.startsWith("capturedimg") && this.item.capturedImages[key])
-            .map((key) => this.item.capturedImages[key]);
+                .filter(
+                    (key) =>
+                        key.startsWith("capturedimg") &&
+                        this.item.capturedImages[key],
+                )
+                .map((key) => this.item.capturedImages[key]);
         },
 
         //serial images
-         serialImageList() {
+        serialImageList() {
             return Object.keys(this.item.capturedImages)
-            .filter((key) => key.startsWith("serial") && this.item.capturedImages[key])
-            .map((key) => this.item.capturedImages[key]);
+                .filter(
+                    (key) =>
+                        key.startsWith("serial") &&
+                        this.item.capturedImages[key],
+                )
+                .map((key) => this.item.capturedImages[key]);
         },
 
         //tracking images
-         trackingImageList() {
+        trackingImageList() {
             return Object.keys(this.item.capturedImages)
-            .filter((key) => key.startsWith("tracking") && this.item.capturedImages[key])
-            .map((key) => this.item.capturedImages[key]);
+                .filter(
+                    (key) =>
+                        key.startsWith("tracking") &&
+                        this.item.capturedImages[key],
+                )
+                .map((key) => this.item.capturedImages[key]);
         },
 
         // Company path images (capturedimg1 to capturedimg5)
@@ -166,13 +178,13 @@ export default {
             if (this.item.capturedImages?.serialimg2) {
                 images.push(this.item.capturedImages.serialimg2);
             }
-              if (this.item.capturedImages?.serialimg3) {
+            if (this.item.capturedImages?.serialimg3) {
                 images.push(this.item.capturedImages.serialimg3);
             }
-              if (this.item.capturedImages?.serialimg4) {
+            if (this.item.capturedImages?.serialimg4) {
                 images.push(this.item.capturedImages.serialimg4);
             }
-              if (this.item.capturedImages?.serialimg5) {
+            if (this.item.capturedImages?.serialimg5) {
                 images.push(this.item.capturedImages.serialimg5);
             }
 
@@ -240,7 +252,6 @@ export default {
                 this.item?.company || this.product?.company || "Airstaffs";
             return `/images/product_images/${company}/`;
         },
-
 
         serialKeys() {
             return Object.keys(this.item).filter((k) =>
@@ -408,37 +419,45 @@ export default {
 
     methods: {
         //get images to display main thumbnail in the table
-      getFirstAvailableImage(product) {
-    try {
-        if (!product || !product.capturedImages) {
-            return DEFAULT_IMAGE;
-        }
+        getFirstAvailableImage(product) {
+            try {
+                if (!product || !product.capturedImages) {
+                    return DEFAULT_IMAGE;
+                }
 
-        const company = product.company || 'Airstaffs';
-        const basePath = `/images/product_images/${company}/`;
+                const company = product.company || "Airstaffs";
+                const basePath = `/images/product_images/${company}/`;
 
-        const imagesArray = Object.values(product.capturedImages).filter(
-            img => img && img !== 'NULL' && img !== 'null' && img.trim() !== ''
-        );
+                const imagesArray = Object.values(
+                    product.capturedImages,
+                ).filter(
+                    (img) =>
+                        img &&
+                        img !== "NULL" &&
+                        img !== "null" &&
+                        img.trim() !== "",
+                );
 
-        if (imagesArray.length > 0) {
-            return basePath + imagesArray[0];
-        }
+                if (imagesArray.length > 0) {
+                    return basePath + imagesArray[0];
+                }
 
-        //if there is no captured images, display the ebay image
-        const ebayImages = Array.from({ length: 15 }, (_, i) => product[`img${i + 1}`])
-            .filter(Boolean);
+                //if there is no captured images, display the ebay image
+                const ebayImages = Array.from(
+                    { length: 15 },
+                    (_, i) => product[`img${i + 1}`],
+                ).filter(Boolean);
 
-        if (ebayImages.length > 0) {
-            return '/images/thumbnails/' + ebayImages[0];
-        }
+                if (ebayImages.length > 0) {
+                    return "/images/thumbnails/" + ebayImages[0];
+                }
 
-        return DEFAULT_IMAGE;
-    } catch (error) {
-        console.error('❌ Error getting image:', error);
-        return DEFAULT_IMAGE;
-    }
-},
+                return DEFAULT_IMAGE;
+            } catch (error) {
+                console.error("❌ Error getting image:", error);
+                return DEFAULT_IMAGE;
+            }
+        },
         openCopyDetailsModal(item) {
             if (!item) {
                 console.warn("No item provided to copy details modal");
@@ -470,9 +489,9 @@ export default {
         /**
          * Calculate what FNSKU will actually be assigned (with prefix if needed)
          */
-      getNextFnskuToUse(fnsku) {
-     return fnsku.next_fnsku_to_use || fnsku.FNSKU;
-},
+        getNextFnskuToUse(fnsku) {
+            return fnsku.next_fnsku_to_use || fnsku.FNSKU;
+        },
 
         /**
          * Get usage badge class based on usage count - FIXED TYPO
@@ -529,39 +548,45 @@ export default {
         },
 
         // Count captured images (capturedimg1 - capturedimg12)
-      countCapturedImages(item) {
-    if (!item) return 0;
+        countCapturedImages(item) {
+            if (!item) return 0;
 
-    const capturedImagesObj = item.capturedImages;
+            const capturedImagesObj = item.capturedImages;
 
-    // Covers: null, undefined, or empty object {}
-    const hasCapturedImages = capturedImagesObj && Object.keys(capturedImagesObj).length > 0;
+            // Covers: null, undefined, or empty object {}
+            const hasCapturedImages =
+                capturedImagesObj && Object.keys(capturedImagesObj).length > 0;
 
-    if (!hasCapturedImages) {
-        const ebayImages = Array.from({ length: 15 }, (_, i) => item[`img${i + 1}`])
-            .filter(Boolean);
-        return ebayImages.length;
-    }
+            if (!hasCapturedImages) {
+                const ebayImages = Array.from(
+                    { length: 15 },
+                    (_, i) => item[`img${i + 1}`],
+                ).filter(Boolean);
+                return ebayImages.length;
+            }
 
-    let count = 0;
+            let count = 0;
 
-    for (let i = 1; i <= 12; i++) {
-        if (this.isValidImage(capturedImagesObj[`capturedimg${i}`])) count++;
-    }
+            for (let i = 1; i <= 12; i++) {
+                if (this.isValidImage(capturedImagesObj[`capturedimg${i}`]))
+                    count++;
+            }
 
-    if (this.isValidImage(capturedImagesObj.serialimg1)) count++;
-    if (this.isValidImage(capturedImagesObj.serialimg2)) count++;
-    if (this.isValidImage(capturedImagesObj.trackingimg1)) count++;
-    if (this.isValidImage(capturedImagesObj.trackingimg2)) count++;
+            if (this.isValidImage(capturedImagesObj.serialimg1)) count++;
+            if (this.isValidImage(capturedImagesObj.serialimg2)) count++;
+            if (this.isValidImage(capturedImagesObj.trackingimg1)) count++;
+            if (this.isValidImage(capturedImagesObj.trackingimg2)) count++;
 
-    if (count === 0) {
-        const ebayImages = Array.from({ length: 15 }, (_, i) => item[`img${i + 1}`])
-            .filter(Boolean);
-        return ebayImages.length;
-    }
+            if (count === 0) {
+                const ebayImages = Array.from(
+                    { length: 15 },
+                    (_, i) => item[`img${i + 1}`],
+                ).filter(Boolean);
+                return ebayImages.length;
+            }
 
-    return count;
-},
+            return count;
+        },
         // Count all images (regular + captured)
         countAllImages(item) {
             if (!item) {
@@ -686,7 +711,7 @@ export default {
                     console.log("✅ Added serial image 2:", path);
                 }
 
-                 // Load tracking images (trackingimg1 and trackingimg2)
+                // Load tracking images (trackingimg1 and trackingimg2)
                 if (this.isValidImage(capturedImagesObj.trackingimg1)) {
                     const filename = capturedImagesObj.trackingimg1;
                     const path = `/images/product_images/${companyFolder}/${filename}`;
@@ -862,17 +887,17 @@ export default {
             return fullPath;
         },
 
-         onPageChange(event) {
-            this.first = event.first
+        onPageChange(event) {
+            this.first = event.first;
             this.currentPage = event.page + 1; // convert to 1-based
-            this.perPage     = event.rows;
+            this.perPage = event.rows;
             this.fetchInventory();
         },
 
-         onPageChangeFnsku(event) {
-            this.fnskuFirst = event.first
+        onPageChangeFnsku(event) {
+            this.fnskuFirst = event.first;
             this.fnskuCurrentPage = event.page + 1; // convert to 1-based
-            this.fnskuPerPage     = event.rows;
+            this.fnskuPerPage = event.rows;
             this.filterFnskuList();
         },
 
@@ -974,8 +999,8 @@ export default {
 
                     this.fnskuList = validFnskus;
                     this.filteredFnskuList = validFnskus;
-                    this.fnskuTotalData = response.data.total
-                    this.fnskuCurrentPage = response.data.current_page
+                    this.fnskuTotalData = response.data.total;
+                    this.fnskuCurrentPage = response.data.current_page;
                     console.log(
                         "FNSKU List loaded:",
                         this.fnskuList.length,
@@ -2690,7 +2715,7 @@ export default {
     watch: {
         searchQuery() {
             this.currentPage = 1;
-            this.first = 0
+            this.first = 0;
             this.fetchInventory();
         },
 
