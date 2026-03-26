@@ -1810,6 +1810,11 @@ export default {
                     command: () => this.confirmMoveToStockroom(item),
                 },
                 {
+                    label: "Move to Testing",
+                    icon: "pi pi-wrench",
+                    command: () => this.confirmMoveToTesting(item),
+                },
+                {
                     label: "Back to Received",
                     icon: "pi pi-replay",
                     command: () => this.confirmBackToReceived(item),
