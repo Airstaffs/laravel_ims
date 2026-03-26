@@ -109,7 +109,12 @@
                                 </div>
                                 <div class="text-500 text-sm mt-1">
                                     <span class="mr-3"><b>ASIN</b> {{ data.asin || '—' }}</span>
+                                </div>
+                                <div class="text-500 text-sm mt-1">
                                     <span><b>SKU</b> {{ data.sku || '—' }}</span>
+                                </div>
+                                <div class="text-500 text-sm mt-1">
+                                    <span><b>FNSKU</b> {{ data.fnsku || '—' }}</span>
                                 </div>
                                 <div class="text-500 text-xs mt-1" v-if="data.conditionType">
                                     Condition: {{ data.conditionType }}
@@ -904,10 +909,16 @@ export default {
                 const imsQty = it?.ims?.count ?? null;
                 const imsMatchedBy = it?.ims?.matchedBy ?? null;
 
+                const fnsku =
+                    it?.summaries?.[0]?.fnSku ||
+                    it?.attributes?.fulfillment_availability?.[0]?.fnsku || // fallback if ever present
+                    null;
+
                 return {
                     raw: it,
                     sku,
                     asin,
+                    fnsku,
                     title,
                     image,
                     status,

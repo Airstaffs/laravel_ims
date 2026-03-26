@@ -410,7 +410,7 @@ foreach ($stores as $store) {
                                                     "label" => "Apply New FNSKU",
                                                     "type" => "api",
                                                     "method" => "POST",
-                                                    "url" => "/api/fnsku-conflicts/apply",
+                                                    "url" => "/fnsku-conflicts/apply",
                                                     "payload" => [
                                                         "conflict_id" => $conflictId,
                                                         "msku" => $MSKU,
@@ -422,7 +422,7 @@ foreach ($stores as $store) {
                                                     "label" => "Keep Current FNSKU",
                                                     "type" => "api",
                                                     "method" => "POST",
-                                                    "url" => "/api/fnsku-conflicts/override",
+                                                    "url" => "/fnsku-conflicts/override",
                                                     "payload" => [
                                                         "conflict_id" => $conflictId,
                                                         "msku" => $MSKU,

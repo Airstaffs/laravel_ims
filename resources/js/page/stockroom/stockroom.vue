@@ -701,34 +701,45 @@
                                     v-model="selectedItems"
                                     :value="serial.ProductID"
                                 />
-                                <span>
-                                    [{{ serial.storename }}]
-                                    {{
-                                        formatRTNumber(
-                                            serial.rtcounter,
-                                            serial.storename,
-                                        )
-                                    }}
-                                    - {{ serial.serialnumber }} -
-                                    {{ serial.FNSKUviewer }} -
-                                    {{
-                                        serial.display_grading ||
-                                        getDisplayGrading(
-                                            serial,
-                                            serial.storename,
-                                        )
-                                    }}
-                                    -
-                                    {{
-                                        serial.warehouselocation ||
-                                        "No Location"
-                                    }}
-                                    <span
-                                        v-if="serial.mergeID"
-                                        class="merged-badge"
-                                        >🔗 MERGED</span
-                                    >
-                                </span>
+<span>
+    [{{ serial.storename }}]
+    {{
+        formatRTNumber(
+            serial.rtcounter,
+            serial.storename,
+        )
+    }}
+    - {{ serial.serialnumber }} -
+    
+    <!-- 🔥 UPDATED HERE -->
+    <span class="d-inline-flex align-items-center gap-1">
+        {{ serial.FNSKUviewer }}
+        <i
+            v-if="Number(serial.fnsku_update_conflict) === 1"
+            class="pi pi-exclamation-triangle text-danger"
+            title="FNSKU conflict detected"
+        ></i>
+    </span>
+    -
+
+    {{
+        serial.display_grading ||
+        getDisplayGrading(
+            serial,
+            serial.storename,
+        )
+    }}
+    -
+    {{
+        serial.warehouselocation ||
+        "No Location"
+    }}
+
+    <span
+        v-if="serial.mergeID"
+        class="merged-badge"
+    >🔗 MERGED</span>
+</span>
                             </label>
                         </div>
                     </div>
