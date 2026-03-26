@@ -100,8 +100,20 @@ function fetchBuyerComment($credentials, $accessToken, $amazonOrderId) {
     $region = 'us-east-1';
     $method = 'GET';
 
+    // Get RDT token for this restricted path
+    $restrictedResources = [['method' => 'GET', 'path' => $path]];
+    $rdtResponse = fetchRestrictedDataToken($accessToken, $restrictedResources);
+
+    if (isset($rdtResponse['errors'])) {
+        echo "<br>RDT Error for $amazonOrderId: " . $rdtResponse['errors'][0]['message'] . "<br>";
+        return NULL;
+    }
+
+    // Use the RDT token instead of the regular access token
+    $rdtToken = $rdtResponse['restrictedDataToken'];
+
     do {
-        $headers = buildHeaders($credentials, $accessToken, $path, $region, $service, $method);
+        $headers = buildHeaders($credentials, $rdtToken, $path, $region, $service, $method);
         $ch = curl_init("{$endpoint}{$path}");
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
