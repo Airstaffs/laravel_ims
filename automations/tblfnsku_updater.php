@@ -287,7 +287,7 @@ foreach ($items as $row) {
                                 "label" => "Apply New FNSKU",
                                 "type" => "api",
                                 "method" => "POST",
-                                "url" => "/api/fnsku-conflicts/apply",
+                                "url" => "/fnsku-conflicts/apply",
                                 "payload" => [
                                     "conflict_id" => $conflictLogId,
                                     "msku" => $msku,
@@ -299,7 +299,7 @@ foreach ($items as $row) {
                                 "label" => "Keep Current FNSKU",
                                 "type" => "api",
                                 "method" => "POST",
-                                "url" => "/api/fnsku-conflicts/override",
+                                "url" => "/fnsku-conflicts/override",
                                 "payload" => [
                                     "conflict_id" => $conflictLogId,
                                     "msku" => $msku,
