@@ -2039,6 +2039,7 @@ class ReturnScannerController extends BasetablesController
                     'amazonOrderId' => $fbaReturn->order_id ?? null,
                     'shippedSerial' => null,
                     'returnReason'  => $fbaReturn->reason ?? null,
+                      'customerComments' => $fbaReturn->customer_comments ?? null,
                     'storeName'     => $fbaReturn->store_name ?? null,
                     'lpn'           => $fbaReturn->license_plate_number ?? null,
                 ],

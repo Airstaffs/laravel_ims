@@ -19,20 +19,19 @@ class StockroomController extends BasetablesController
     /**
      * Extract base FNSKU from prefixed FNSKU
      */
-    private function extractBaseFnsku($fnsku)
-    {
-        if (empty($fnsku)) {
-            return $fnsku;
-        }
-
-        // Check if it's a prefixed FNSKU (starts with letter C-W or Y-Z, excluding X)
-        // Pattern: Letter(C-W,Y-Z) + Number(1-9) + BaseFNSKU (which starts with X)
-        if (preg_match('/^([C-W]|[Y-Z])(\d+)(X.+)$/', $fnsku, $matches)) {
-            return $matches[3]; // Return the base FNSKU (starting with X)
-        }
-
-        return $fnsku; // Return as-is if not prefixed
+   private function extractBaseFnsku($fnsku)
+{
+    if (empty($fnsku)) {
+        return $fnsku;
     }
+
+    // Prefix is always: 1 letter (C-W or Y-Z) + 1 digit (1-9) + base FNSKU
+    if (preg_match('/^([C-W]|[Y-Z])([1-9])(.{10,})$/', $fnsku, $matches)) {
+        return $matches[3];
+    }
+
+    return $fnsku;
+}
 
     /**
      * Generate the next available FNSKU with incremental prefix based on remaining units

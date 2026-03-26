@@ -469,4 +469,47 @@ class AsinFnskuCleaner extends Command
 
         return $value;
     }
+
+    private function cleanDatabaseMskus(): void
+    {
+        $rows = DB::table('tblfnsku')
+            ->select('FNSKUID', 'MSKU')
+            ->whereNotNull('MSKU')
+            ->get();
+
+        $updated = 0;
+        $skipped = 0;
+
+        foreach ($rows as $row) {
+            $original = $row->MSKU;
+            $cleaned = $this->cleanMsku($original);
+
+            // skip if no change
+            if ($original === $cleaned) {
+                continue;
+            }
+
+            // check if cleaned value already exists (avoid conflicts)
+            $exists = DB::table('tblfnsku')
+                ->where('MSKU', $cleaned)
+                ->where('FNSKUID', '!=', $row->FNSKUID)
+                ->exists();
+
+            if ($exists) {
+                $this->warn("⚠️ Conflict: {$original} → {$cleaned} already exists, skipping");
+                $skipped++;
+                continue;
+            }
+
+            DB::table('tblfnsku')
+                ->where('FNSKUID', $row->FNSKUID)
+                ->update(['MSKU' => $cleaned]);
+
+            $this->info("✅ Updated: {$original} → {$cleaned}");
+            $updated++;
+        }
+
+        $this->info("Done cleaning MSKUs. Updated: {$updated}, Skipped: {$skipped}");
+    }
 }
+

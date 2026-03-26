@@ -377,10 +377,10 @@ class ASINlistController extends BasetablesController
                     'storename' => $row['storename'],
                     'insert_date' => now(),
                     'amazon_status' => 'Notposted',
-                    'fnsku_status' => 'available',
+                    'fnsku_status' => 'Available',
                     'LimitStatus' => 'False',
                     'donotreplenish' => 'none',
-                    'Units' => 11,
+                    'Units' => 30,
                 ]);
                 $success[] = $row['msku'];
             } catch (\Exception $e) {
