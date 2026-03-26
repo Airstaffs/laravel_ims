@@ -1865,26 +1865,32 @@ class PrintLabelService extends BasetablesController
     }
 
 public function printReturnReasonLabel(
-    string $serial,
+    string  $serial,
     ?string $returnId,
     ?string $returnReason,
     ?string $buyerName,
     string  $location,
-    object  $selectedPrinter
+    object  $selectedPrinter,
+    ?string $returnType         = null,   // ← ADD
+    ?string $customerComments   = null    // ← ADD
 ): array {
     try {
+        // FBA → print customer_comments (fallback to reason); FBM → print reason
+        $labelText = ($returnType === 'FBA')
+            ? ($customerComments ?: $returnReason ?: 'No Comments Provided')
+            : ($returnReason ?: 'No Reason Provided');
+
         Log::info('Printing return reason label', [
-            'serial'       => $serial,
-            'return_reason'=> $returnReason,
-            'printer'      => $selectedPrinter->printername ?? 'unknown',
-            'printer_ip'   => $selectedPrinter->printerip   ?? 'unknown',
-            'printer_type' => $selectedPrinter->printer_type ?? 'unknown',
+            'serial'           => $serial,
+            'return_type'      => $returnType,
+            'return_reason'    => $returnReason,
+            'customer_comments'=> $customerComments,
+            'label_text'       => $labelText,
+            'printer'          => $selectedPrinter->printername ?? 'unknown',
+            'printer_ip'       => $selectedPrinter->printerip   ?? 'unknown',
         ]);
 
-        // ✅ Only pass returnReason — matches the method signature below
-        $zpl = $this->generateReturnReasonZpl($returnReason ?? 'No Reason Provided');
-
-        // ✅ Use selected printer IP — NOT the default large printer
+        $zpl    = $this->generateReturnReasonZpl($labelText);
         $result = $this->sendToPrinter($zpl, $selectedPrinter->printerip);
 
         if ($result['status'] === 'success') {
@@ -1924,29 +1930,38 @@ public function printReturnReasonLabel(
     }
 }
 
-
 /**
  * Generate ZPL for the Return Reason label.
+ * Small label: 2.25" x 1.25" @ 203dpi = 456 x 254 dots
+ *
+ * Handles newlines in customer_comments by replacing them with
+ * a space so ZPL ^FB word-wrap takes over cleanly.
  */
-// Small label: 2.25" x 1.25" @ 203dpi = 456 x 254 dots
 private function generateReturnReasonZpl(string $returnReason): string
 {
-    $safe = mb_substr(
-        str_replace(['^', '~', '\\'], ' ', $returnReason ?: 'No Reason Provided'),
-        0, 80
-    );
+    $clean = str_replace(['^', '~', '\\'], ' ', $returnReason ?: 'No Reason Provided');
+
+    // Normalise all newline variants → single space so ^FB handles wrapping
+    $clean = preg_replace('/\r\n|\r|\n/', ' ', $clean);
+
+    // Collapse multiple spaces
+    $clean = preg_replace('/\s{2,}/', ' ', $clean);
+
+    // Limit to 160 chars (4 lines × ~40 chars)
+    $safe = mb_substr(trim($clean), 0, 160);
 
     $zpl  = '^XA';
     $zpl .= '^MMT';
     $zpl .= '^PW456';
-    $zpl .= '^LL0400';   // taller label to give more vertical room
+    $zpl .= '^LL0400';
 
-    // Header bar — moved down
+    // Header bar
     $zpl .= '^FO0,60^GB456,40,40^FS';
     $zpl .= '^FO5,68^FR^A0N,22,20^FDRETURN REASON^FS';
 
-    // Reason text — moved down
-    $zpl .= '^FO10,115^FB436,4,2,L,0^A0N,32,28^FD' . $safe . '^FS';
+    // Reason text — ^FB(width, maxLines, lineSpacing, justification)
+    // 436 dots wide, up to 4 lines, 4 dot spacing, left-aligned
+    $zpl .= '^FO10,115^FB436,4,4,L,0^A0N,28,24^FD' . $safe . '^FS';
 
     $zpl .= '^XZ';
 

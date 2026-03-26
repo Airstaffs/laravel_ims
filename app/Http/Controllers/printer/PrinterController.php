@@ -1789,11 +1789,15 @@ class PrinterController extends BasetablesController
 //Customer Reason Printing Endpoint
 public function printReturnReason(Request $request)
 {
+    \Illuminate\Support\Facades\Log::info('🖨️ printReturnReason received', $request->all());
+    
     $data = $request->validate([
-        'serial'        => 'required|string',
-        'return_reason' => 'nullable|string',
-        'printer_id'    => 'required|integer',
-        'location'      => 'nullable|string',
+        'serial'            => 'required|string',
+        'return_reason'     => 'nullable|string',
+        'printer_id'        => 'required|integer',
+        'location'          => 'nullable|string',
+        'return_type'       => 'nullable|string|in:FBM,FBA',  // ← ADD
+        'customer_comments' => 'nullable|string',              // ← ADD
     ]);
 
     try {
@@ -1811,14 +1815,15 @@ public function printReturnReason(Request $request)
 
         $printLabelService = new \App\Services\PrintLabelService();
 
-        // ✅ Now correctly calls the service method with printer object
         $result = $printLabelService->printReturnReasonLabel(
-            serial:        $data['serial'],
-            returnId:      null,
-            returnReason:  $data['return_reason'] ?? 'No Reason Provided',
-            buyerName:     null,
-            location:      $data['location'] ?? 'L800G',
-            selectedPrinter: $printer
+            serial:           $data['serial'],
+            returnId:         null,
+            returnReason:     $data['return_reason'] ?? null,
+            buyerName:        null,
+            location:         $data['location'] ?? 'L800G',
+            selectedPrinter:  $printer,
+            returnType:       $data['return_type']       ?? null,  // ← ADD
+            customerComments: $data['customer_comments'] ?? null   // ← ADD
         );
 
         return response()->json([

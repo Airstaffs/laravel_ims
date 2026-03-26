@@ -124,6 +124,9 @@ export default {
             rememberedPrinterId: null,
             singlePrinters: [],
             marriedPrinterGroups: [],
+
+            showReturnIdInfoCard: true,
+            showSerialsSummary: true,
         
         };
     },
@@ -983,14 +986,16 @@ async processScan() {
     };
 
     // ── SHOW PRINT MODAL FIRST ───────────────────────────────
-  this.pendingReturnPrintInfo = {
-    serial:       this.serialNumber,
-    returnId:     this.returnId || null,
-    returnReason: this.returnIdInfo?.returnReason
-               || this.returnIdInfo?.return_reason_code
-               || 'No reason provided',
-    buyerName:    this.returnIdInfo?.buyerName || null,
-    location:     this.locationInput || 'L800G',
+this.pendingReturnPrintInfo = {
+    serial:           this.serialNumber,
+    returnId:         this.returnId || null,
+    returnReason:     this.returnType === 'FBA'
+                        ? (this.returnIdInfo?.customerComments || 'No comments provided')
+                        : (this.returnIdInfo?.returnReason || 'No reason provided'),
+    buyerName:        this.returnIdInfo?.buyerName || null,
+    location:         this.locationInput || 'L800G',
+    returnType:       this.returnType ?? null,                      // ← SNAPSHOT
+    customerComments: this.returnIdInfo?.customerComments ?? null,  // ← SNAPSHOT
 };
     await this.loadReturnPrinters();
 
@@ -1166,10 +1171,12 @@ async onReturnReasonPrint({ printerId, done }) {
         const response = await axios.post(
             `${API_BASE_URL}/api/printer/print-return-reason`,
             {
-                serial:        info.serial,
-                return_reason: info.returnReason,
-                printer_id:    primaryPrinterId,
-                location:      info.location || 'L800G',
+                serial:            info.serial,
+                return_reason:     info.returnReason,
+                printer_id:        primaryPrinterId,
+                location:          info.location || 'L800G',
+                return_type:       info.returnType       ?? null,  // ← from info
+                customer_comments: info.customerComments ?? null,  // ← from info
             },
             {
                 withCredentials: true,
