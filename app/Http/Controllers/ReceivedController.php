@@ -927,135 +927,75 @@ class ReceivedController extends BasetablesController
 
     public function recordChecklist(Request $request)
     {
-        Log::info('recordChecklist payload:', $request->all());
+        DB::table('tblreceivedchecklist')->insert([
+            'trackingnumber' => $request->trackingNumber,
+            'serialnumber' => $request->serialNumbers[0] ?? null,
+            'serialnumberb' => $request->serialNumbers[1] ?? null,
+            'serialnumberc' => $request->serialNumbers[2] ?? null,
+            'serialnumberd' => $request->serialNumbers[3] ?? null,
+            'serialnumbere' => $request->serialNumbers[4] ?? null,
+            'pass_fail_result' => $request->passFailResult,
+            'correct_on_order' => $request->correctOnOrder,
+            'condition_on_arrival' => $request->condition,
+            'condition_notes' => $request->conditionNotes,
+            'pcn_number' => $request->pcnNumber,
+            'basket_number' => $request->basketNumber,
+            'ProductID' => $request->productId,
+            'rtcounter' => $request->rtcounter,
+            'received_by' => auth()->user()->name ?? 'Unknown',
+            'date_received' => now()->toDateString(),
+        ]);
+    }
 
-        try {
-            $request->validate([
-                'trackingNumber' => 'required|string',
-                'serialNumbers' => 'required|array|min:1|max:5',
-                'serialNumbers.0' => ['nullable', 'regex:/^[A-Z0-9]+$/i'],
-                'serialNumbers.1' => ['nullable', 'regex:/^[A-Z0-9]+$/i'],
-                'serialNumbers.2' => ['nullable', 'regex:/^[A-Z0-9]+$/i'],
-                'serialNumbers.3' => ['nullable', 'regex:/^[A-Z0-9]+$/i'],
-                'serialNumbers.4' => ['nullable', 'regex:/^[A-Z0-9]+$/i'],
-                'passFailResult' => 'required|in:pass,fail',
-                'correctOnOrder' => 'required|in:yes,no',
-                'condition' => 'required|in:good,damaged,defective,incomplete',
-                'conditionNotes' => [
-                    'nullable',
-                    'string',
-                    'max:1000',
-                    // required when condition is not good
-                    function ($attribute, $value, $fail) use ($request) {
-                        if ($request->condition !== 'good' && empty(trim($value ?? ''))) {
-                            $fail('Condition notes are required when condition is not Good.');
-                        }
-                    },
-                ],
-                'productId' => 'nullable|integer',
-                'rtcounter' => 'required',
+    public function checklistLogs(Request $request)
+    {
+        $query = DB::table('tblreceivedchecklist')
+            ->leftJoin('tblproduct', 'tblreceivedchecklist.ProductID', '=', 'tblproduct.ProductID')
+            ->select([
+                'tblreceivedchecklist.checklist_id',
+                'tblreceivedchecklist.rtcounter',
+                'tblreceivedchecklist.ProductID',
+                'tblreceivedchecklist.trackingnumber',
+                'tblreceivedchecklist.serialnumber',
+                'tblreceivedchecklist.serialnumberb',
+                'tblreceivedchecklist.serialnumberc',
+                'tblreceivedchecklist.serialnumberd',
+                'tblreceivedchecklist.serialnumbere',
+                'tblreceivedchecklist.pass_fail_result',
+                'tblreceivedchecklist.correct_on_order',
+                'tblreceivedchecklist.condition_on_arrival',
+                'tblreceivedchecklist.condition_notes',
+                'tblreceivedchecklist.date_received',
+                'tblreceivedchecklist.received_by',
+                'tblproduct.ASINviewer as asin',
+                'tblproduct.ProductTitle as product_name',
+                'tblproduct.PCN as pcn_number',
+                'tblproduct.basketnumber as basket_number',
             ]);
 
-            $user = $this->getCurrentUserName();
-            $last12Digits = substr($request->trackingNumber, -12);
-            $primarySerial = trim($request->serialNumbers[0] ?? '');
-
-            $tableName = 'tblreceivedchecklist';
-
-            // ── Auto-create table if missing ──────────────────────────
-            if (! Schema::hasTable($tableName)) {
-                Schema::create($tableName, function ($table) {
-                    $table->id('checklist_id');
-                    $table->string('rtcounter', 50)->index();
-                    $table->unsignedBigInteger('ProductID')->nullable()->index();
-                    $table->string('trackingnumber', 255)->index();
-                    $table->string('serialnumber', 100)->nullable();
-                    $table->string('serialnumberb', 100)->nullable();
-                    $table->string('serialnumberc', 100)->nullable();
-                    $table->string('serialnumberd', 100)->nullable();
-                    $table->string('serialnumbere', 100)->nullable();
-                    $table->date('date_received');
-                    $table->enum('pass_fail_result', ['pass', 'fail']);
-                    $table->enum('correct_on_order', ['yes', 'no']);
-                    $table->enum('condition_on_arrival', ['good', 'damaged', 'defective', 'incomplete']);
-                    $table->text('condition_notes')->nullable();
-                    $table->string('received_by', 100);
-                    $table->timestamps();
-                });
-
-                Log::info("Created table: {$tableName}");
-            }
-
-            $serialCols = $this->mapSerials($request->input('serialNumbers', []));
-
-            $checklistData = array_merge([
-                'rtcounter' => (string) $request->rtcounter,
-                'ProductID' => $request->productId,
-                'trackingnumber' => $request->trackingNumber,
-                'date_received' => now()->toDateString(),
-                'pass_fail_result' => $request->passFailResult,
-                'correct_on_order' => $request->correctOnOrder,
-                'condition_on_arrival' => $request->condition,
-                'condition_notes' => $request->condition !== 'good'
-                                            ? trim($request->conditionNotes ?? '')
-                                            : null,
-                'received_by' => $user,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ], $serialCols);
-
-            // ── Upsert: one checklist row per rtcounter + ProductID ──
-            $existing = DB::table($tableName)
-                ->where('rtcounter', $request->rtcounter)
-                ->when($request->productId, fn ($q) => $q->where('ProductID', $request->productId))
-                ->first();
-
-            if ($existing) {
-                DB::table($tableName)
-                    ->where('checklist_id', $existing->checklist_id)
-                    ->update(array_merge($checklistData, ['updated_at' => now()]));
-
-                $checklistId = $existing->checklist_id;
-                $action = 'updated';
-            } else {
-                $checklistId = DB::table($tableName)->insertGetId($checklistData);
-                $action = 'created';
-            }
-
-            Log::info("Checklist record {$action}", [
-                'checklist_id' => $checklistId,
-                'rtcounter' => $request->rtcounter,
-                'ProductID' => $request->productId,
-                'pass_fail' => $request->passFailResult,
-                'condition' => $request->condition,
-                'received_by' => $user,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'checklist_id' => $checklistId,
-                'action' => $action,
-                'message' => "Checklist {$action} successfully.",
-            ]);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('Checklist validation error:', ['errors' => $e->errors()]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation error: '.json_encode($e->errors()),
-                'errors' => $e->errors(),
-                'reason' => 'validation_error',
-            ], 422);
-
-        } catch (\Exception $e) {
-            $this->logError('Error recording checklist', $e, $request->all());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Error recording checklist: '.$e->getMessage(),
-                'reason' => 'server_error',
-            ], 500);
+        if ($request->serial) {
+            $query->where('serialnumber', 'like', "%{$request->serial}%");
         }
+        if ($request->asin) {
+            if ($request->asin) {
+                $query->where('tblproduct.ASINviewer', 'like', "%{$request->asin}%");
+            }
+        }
+        if ($request->tracking) {
+            $query->where('trackingnumber', 'like', "%{$request->tracking}%");
+        }
+        if ($request->status) {
+            $query->where('pass_fail_result', $request->status);
+        }
+        if ($request->from) {
+            $query->whereDate('date_received', '>=', $request->from);
+        }
+        if ($request->to) {
+            $query->whereDate('date_received', '<=', $request->to);
+        }
+
+        $logs = $query->orderByDesc('date_received')->paginate(10);
+
+        return response()->json($logs);
     }
 }

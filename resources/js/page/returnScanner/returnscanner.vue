@@ -73,7 +73,12 @@
                     </div>
 
                     <!-- Info card shown when Return ID is found -->
-                  <div v-if="returnIdValidated && returnIdInfo" class="return-id-info-card">
+                <div v-if="returnIdValidated && returnIdInfo" class="return-id-info-card">
+
+                        <!-- Collapse toggle sits in the top-right corner of the card -->
+                        <button type="button" class="card-collapse-btn" @click="showReturnIdInfoCard = !showReturnIdInfoCard" :title="showReturnIdInfoCard ? 'Hide details' : 'Show details'">
+                            <i :class="['fas', showReturnIdInfoCard ? 'fa-minus' : 'fa-plus']"></i>
+                        </button>
 
                         <!-- FBA badge -->
                         <div v-if="returnType === 'FBA'" class="return-id-type-badge fba-badge">
@@ -84,54 +89,43 @@
                             <i class="fas fa-box"></i> FBM Return
                         </div>
 
-                        <!-- Buyer (FBM only — FBA has no buyer name) -->
-                        <div v-if="returnIdInfo.buyerName" class="return-id-info-row">
-                            <i class="fas fa-user"></i>
-                            <span><strong>Buyer:</strong> {{ returnIdInfo.buyerName }}</span>
-                        </div>
-
-                        <!-- Item name -->
-                        <div v-if="returnIdInfo.itemName" class="return-id-info-row">
-                            <i class="fas fa-box"></i>
-                            <span><strong>Item:</strong> {{ returnIdInfo.itemName }}</span>
-                        </div>
-
-                        <!-- Shipped serial (FBM only) -->
-                        <div v-if="returnIdInfo.shippedSerial" class="return-id-info-row">
-                            <i class="fas fa-barcode"></i>
-                            <span>
-                                <strong>Shipped Serial:</strong>
-                                <code class="shipped-serial-badge">{{ returnIdInfo.shippedSerial }}</code>
-                            </span>
-                        </div>
-
-                        <!-- FBA: no shipped serial — show note instead -->
-                        <div v-else-if="returnType === 'FBA'" class="return-id-info-row return-id-fba-note">
-                            <i class="fas fa-info-circle"></i>
-                            <span>Amazon fulfilled — shipped serial unknown. Any unrecognised serial will be flagged as switcheru.</span>
-                        </div>
-
-                        <!-- ASIN -->
-                        <div v-if="returnIdInfo.asin" class="return-id-info-row">
-                            <i class="fas fa-tag"></i>
-                            <span><strong>ASIN:</strong> {{ returnIdInfo.asin }}</span>
-                        </div>
-
-                        <!-- Return reason -->
-                        <div v-if="returnIdInfo.returnReason" class="return-id-info-row">
-                            <i class="fas fa-exclamation-circle"></i>
-                            <span><strong>Reason:</strong> {{ returnIdInfo.returnReason }}</span>
-                        </div>
-
-                        <!-- FBM: tracking used to look up, show canonical RMA -->
-                        <div v-if="returnType === 'FBM' && returnIdInfo.trackingId && returnIdInfo.trackingId !== canonicalReturnId"
-                            class="return-id-info-row">
-                            <i class="fas fa-truck"></i>
-                            <span>
-                                <strong>Tracking:</strong> {{ returnIdInfo.trackingId }}
-                                <em style="font-size:11px;color:#888;"> → RMA: {{ canonicalReturnId }}</em>
-                            </span>
-                        </div>
+                        <!-- Collapsible rows -->
+                        <template v-if="showReturnIdInfoCard">
+                            <div v-if="returnIdInfo.buyerName" class="return-id-info-row">
+                                <i class="fas fa-user"></i>
+                                <span><strong>Buyer:</strong> {{ returnIdInfo.buyerName }}</span>
+                            </div>
+                            <div v-if="returnIdInfo.itemName" class="return-id-info-row">
+                                <i class="fas fa-box"></i>
+                                <span><strong>Item:</strong> {{ returnIdInfo.itemName }}</span>
+                            </div>
+                            <div v-if="returnIdInfo.shippedSerial" class="return-id-info-row">
+                                <i class="fas fa-barcode"></i>
+                                <span>
+                                    <strong>Shipped Serial:</strong>
+                                    <code class="shipped-serial-badge">{{ returnIdInfo.shippedSerial }}</code>
+                                </span>
+                            </div>
+                            <div v-else-if="returnType === 'FBA'" class="return-id-info-row return-id-fba-note">
+                                <i class="fas fa-info-circle"></i>
+                                <span>Amazon fulfilled — shipped serial unknown. Any unrecognised serial will be flagged as switcheru.</span>
+                            </div>
+                            <div v-if="returnIdInfo.asin" class="return-id-info-row">
+                                <i class="fas fa-tag"></i>
+                                <span><strong>ASIN:</strong> {{ returnIdInfo.asin }}</span>
+                            </div>
+                            <div v-if="returnIdInfo.returnReason" class="return-id-info-row">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span><strong>Reason:</strong> {{ returnIdInfo.returnReason }}</span>
+                            </div>
+                            <div v-if="returnType === 'FBM' && returnIdInfo.trackingId && returnIdInfo.trackingId !== canonicalReturnId" class="return-id-info-row">
+                                <i class="fas fa-truck"></i>
+                                <span>
+                                    <strong>Tracking:</strong> {{ returnIdInfo.trackingId }}
+                                    <em style="font-size:11px;color:#888;"> → RMA: {{ canonicalReturnId }}</em>
+                                </span>
+                            </div>
+                        </template>
                     </div>
 
                     <!-- Warning when Return ID not found -->
@@ -273,8 +267,13 @@
 
                     <!-- Serials Summary -->
                     <div class="serials-summary" v-if="getActiveSerials().length > 0">
-                        <strong>Serials to return ({{ getActiveSerials().length }}):</strong>
-                        <div class="serial-chips">
+                        <strong>
+                            Serials to return ({{ getActiveSerials().length }}):
+                            <button type="button" class="card-collapse-btn summary-collapse-btn" @click="showSerialsSummary = !showSerialsSummary" :title="showSerialsSummary ? 'Hide' : 'Show'">
+                                <i :class="['fas', showSerialsSummary ? 'fa-minus' : 'fa-plus']"></i>
+                            </button>
+                        </strong>
+                        <div class="serial-chips" v-if="showSerialsSummary">
                             <span class="serial-chip" v-for="s in getActiveSerials()" :key="s">{{ s }}</span>
                         </div>
                     </div>

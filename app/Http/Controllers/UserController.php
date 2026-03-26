@@ -56,6 +56,7 @@ class UserController extends Controller
                 'reconciliation',
                 'suppliescomponents',
                 'switcheru',
+                'itemlog'
             )
             ->where('id', $currentUserId)
             ->first();
@@ -225,6 +226,7 @@ class UserController extends Controller
                     'reconciliation' => (bool) $selectedUser->reconciliation,
                     'suppliescomponents' => (bool) $selectedUser->suppliescomponents,
                     'switcheru' => (bool) $selectedUser->switcheru,
+                    'itemlog' => (bool) $selectedUser->itemlog,
                 ],
                 'privileges_stores' => $storePrivileges, // Pass the processed store privileges
             ];
@@ -380,6 +382,7 @@ class UserController extends Controller
                 'Reconciliation' => 'reconciliation',
                 'Supplies & Components' => 'suppliescomponents',
                 'Switcheru List' => 'switcheru',
+                'Item Log' => 'itemlog',
             ];
 
             // Convert main module from display name to database column name
@@ -432,7 +435,7 @@ class UserController extends Controller
                 'reconciliation',
                 'suppliescomponents',
                 'switcheru',
-
+                'itemlog',
             ];
 
             // First reset all modules to 0
@@ -583,6 +586,7 @@ class UserController extends Controller
                 'reconciliation',
                 'suppliescomponents',
                 'switcheru',
+                'itemlog',
             ];
 
             // Get main module and ensure it's lowercase with no spaces

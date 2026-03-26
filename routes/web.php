@@ -488,6 +488,7 @@ Route::prefix('api/received')->group(function () {
     Route::post('validate-pcn', [ReceivedController::class, 'validatePcn']);
     Route::post('process-scan', [ReceivedController::class, 'processScan']);
     Route::post('record-checklist', [ReceivedController::class, 'recordChecklist']);
+    Route::get('checklist-logs', [ReceivedController::class, 'checklistLogs']);
 });
 
 Route::post('api/images/upload', [App\Http\Controllers\ImageUploadController::class, 'upload']);
@@ -515,8 +516,8 @@ Route::prefix('api/orders')->middleware(['auth'])->group(function () {
         ->name('orders.incoming.count');
     Route::get('incoming-count-details', [OrdersController::class, 'getIncomingCountDetails'])
         ->name('orders.incoming.details');
-Route::post('/products/upload-images',     [OrdersController::class, 'uploadImages']);
-   Route::post('/products/store-with-images', [OrdersController::class, 'storeWithImages']);
+    Route::post('/products/upload-images', [OrdersController::class, 'uploadImages']);
+    Route::post('/products/store-with-images', [OrdersController::class, 'storeWithImages']);
 
 });
 

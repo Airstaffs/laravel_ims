@@ -925,7 +925,7 @@
     border-radius: 6px;
     transition: all 0.3s ease;
     flex: 0 0 auto;
-    min-width: 160px;
+    width: calc(100% / 6 - 0.5rem);
 }
 
 .privilege-item:hover {
