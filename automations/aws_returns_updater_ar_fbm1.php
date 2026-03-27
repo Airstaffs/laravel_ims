@@ -262,20 +262,55 @@ function insertToDb($Connect, $response, $credentials, $accessToken, $rdtBulkTok
 }
 
 function fetchRestrictedDataToken($accessToken, $restrictedResources) {
-    $postfields = json_encode(['restrictedResources' => $restrictedResources]);
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, 'https://sellingpartnerapi-na.amazon.com/tokens/2021-03-01/restrictedDataToken');
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($ch, CURLOPT_POST, 1);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $postfields);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'Authorization: Bearer ' . $accessToken,
-        'x-amz-access-token: ' . $accessToken
-    ]);
+    $credentials = getAWSCredentials(connectDatabase("vps"));
+    $region = 'us-east-1';
+    $host = 'sellingpartnerapi-na.amazon.com';
+    $endpoint = "https://{$host}/tokens/2021-03-01/restrictedDataToken";
+
+    $payload = json_encode(['restrictedResources' => $restrictedResources]);
+
+    $amzDate = gmdate('Ymd\THis\Z');
+    $date    = gmdate('Ymd');
+
+    $canonicalUri         = '/tokens/2021-03-01/restrictedDataToken';
+    $canonicalQuerystring = '';
+    $canonicalHeaders     = "content-type:application/json\nhost:{$host}\nx-amz-access-token:{$accessToken}\nx-amz-date:{$amzDate}\n";
+    $signedHeaders        = 'content-type;host;x-amz-access-token;x-amz-date';
+    $payloadHash          = hash('sha256', $payload);
+
+    $canonicalRequest = "POST\n{$canonicalUri}\n{$canonicalQuerystring}\n{$canonicalHeaders}\n{$signedHeaders}\n{$payloadHash}";
+
+    $algorithm       = 'AWS4-HMAC-SHA256';
+    $credentialScope = "{$date}/{$region}/execute-api/aws4_request";
+    $stringToSign    = "{$algorithm}\n{$amzDate}\n{$credentialScope}\n" . hash('sha256', $canonicalRequest);
+
+    $kSecret  = 'AWS4' . $credentials['client_secret'];
+    $kDate    = hash_hmac('sha256', $date, $kSecret, true);
+    $kRegion  = hash_hmac('sha256', $region, $kDate, true);
+    $kService = hash_hmac('sha256', 'execute-api', $kRegion, true);
+    $kSigning = hash_hmac('sha256', 'aws4_request', $kService, true);
+    $signature = hash_hmac('sha256', $stringToSign, $kSigning);
+
+    $authorizationHeader = "{$algorithm} Credential={$credentials['client_id']}/{$credentialScope}, SignedHeaders={$signedHeaders}, Signature={$signature}";
+
+    $headers = [
+        "Content-Type: application/json",
+        "Host: {$host}",
+        "x-amz-access-token: {$accessToken}",
+        "x-amz-date: {$amzDate}",
+        "Authorization: {$authorizationHeader}"
+    ];
+
+    $ch = curl_init($endpoint);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
     $response = curl_exec($ch);
-    if ($response === FALSE) die('cURL Error: ' . curl_error($ch));
+    if (curl_errno($ch)) die('cURL Error: ' . curl_error($ch));
     curl_close($ch);
+
     return json_decode($response, true);
 }
 
