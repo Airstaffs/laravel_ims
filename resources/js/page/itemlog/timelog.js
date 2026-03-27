@@ -100,6 +100,58 @@ export default {
                 )
                 .join("");
 
+            const labellingSection = log.passed_labeling
+                ? `
+                <div class="wl-section-header wl-section-header--labelling">🏷️ 2. LABELLING MODULE</div>
+                <div class="wl-field"><span class="wl-field-label">Date Labelled:</span><span class="wl-field-value">${log.date_labelled || "—"}</span></div>
+                <div class="wl-field"><span class="wl-field-label">Labelled By:</span><span class="wl-field-value">${log.labelled_by || "—"}</span></div>
+                <div class="wl-field"><span class="wl-field-label">FNSKU:</span><span class="wl-field-value">${log.fnsku || "—"}</span></div>
+                <div class="wl-field"><span class="wl-field-label">ASIN:</span><span class="wl-field-value">${log.asin || "—"}</span></div>
+                <div class="wl-field"><span class="wl-field-label">MSKU:</span><span class="wl-field-value">${log.msku || "—"}</span></div>
+                <div class="wl-field"><span class="wl-field-label">RPN:</span><span class="wl-field-value">${log.rpn || "—"}</span></div>
+                <div class="wl-field"><span class="wl-field-label">PRD:</span><span class="wl-field-value">${log.prd || "—"}</span></div>
+
+                <div class="wl-field"><span class="wl-field-label">Priority Rank:</span><span class="wl-field-value">${log.priority_rank || "—"}</span></div>
+                ${log.sticker_note ? `<div class="wl-field"><span class="wl-field-label">Sticker Notes:</span><span class="wl-field-value">${log.sticker_note}</span></div>` : ""}
+                ${log.employee_note ? `<div class="wl-field"><span class="wl-field-label">Employee Notes:</span><span class="wl-field-value">${log.employee_note}</span></div>` : ""}
+                <div class="wl-field"><span class="wl-field-label">Current Location:</span><span class="wl-field-value">${log.current_location || "—"}</span></div>
+                ${
+                    log.last_edited_at
+                        ? `
+                <div class="wl-field"><span class="wl-field-label">Last Edited:</span><span class="wl-field-value">${log.last_edited_at}</span></div>
+                <div class="wl-field"><span class="wl-field-label">Edited By:</span><span class="wl-field-value">${log.last_edited_by || "—"}</span></div>
+                ${log.edit_before ? `<div class="wl-field"><span class="wl-field-label">Before Edit:</span><span class="wl-field-value" style="font-size:11px;">${log.edit_before}</span></div>` : ""}
+                ${log.edit_after ? `<div class="wl-field"><span class="wl-field-label">After Edit:</span><span class="wl-field-value" style="font-size:11px;">${log.edit_after}</span></div>` : ""}
+                `
+                        : ""
+                }
+                ${
+                    log.moved_to_validation_at
+                        ? `
+                <div class="wl-field"><span class="wl-field-label">Moved to Validation:</span><span class="wl-field-value pass">${log.moved_to_validation_at}</span></div>
+                <div class="wl-field"><span class="wl-field-label">Moved by:</span><span class="wl-field-value">${log.moved_to_validation_by || "—"}</span></div>
+                `
+                        : ""
+                }
+                ${
+                    log.moved_to_stockroom_at
+                        ? `
+                <div class="wl-field"><span class="wl-field-label">Moved to Stockroom:</span><span class="wl-field-value pass">${log.moved_to_stockroom_at}</span></div>
+                <div class="wl-field"><span class="wl-field-label">Moved by:</span><span class="wl-field-value">${log.moved_to_stockroom_by || "—"}</span></div>
+                `
+                        : ""
+                }
+            `
+                : "";
+
+            const testingSection = log.passed_testing
+                ? `
+                <div class="wl-section-header wl-section-header--testing">🔬 3. TESTING MODULE</div>
+                <div class="wl-field"><span class="wl-field-label">Status:</span><span class="wl-field-value pass">Completed ✓</span></div>
+                <div class="wl-field"><span class="wl-field-label">Current Location:</span><span class="wl-field-value">${log.current_location || "—"}</span></div>
+            `
+                : "";
+
             const win = window.open("", "_blank");
             win.document.write(`
                 <html>
@@ -107,23 +159,26 @@ export default {
                     <title>Workflow Log Report</title>
                     <style>
                         @page { size: 8.5in 11in portrait; margin: 0.75in; }
-                        body { font-family: Arial, sans-serif; font-size: 13px; color: #111; }
+                        body  { font-family: Arial, sans-serif; font-size: 13px; color: #111; }
                         .wl-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
-                        .wl-title { font-size: 22px; font-weight: bold; margin: 0 0 4px; }
+                        .wl-title  { font-size: 22px; font-weight: bold; margin: 0 0 4px; }
                         .wl-subtitle { color: #666; margin: 0; font-size: 13px; }
                         .wl-serial-badge { background: #4f46e5; color: #fff; padding: 10px 18px; border-radius: 8px; text-align: center; min-width: 130px; }
                         .wl-serial-label { font-size: 11px; margin-bottom: 4px; }
                         .wl-serial-value { font-size: 18px; font-weight: bold; }
-                        .wl-meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-bottom: 10px; }
+                        .wl-meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: 10px; }
                         .wl-meta-label { font-size: 11px; color: #888; margin-bottom: 3px; }
                         .wl-meta-value { font-weight: bold; font-size: 13px; }
                         hr { border: none; border-top: 1px solid #ddd; margin: 16px 0; }
-                        .wl-section-header { padding: 8px 12px; font-weight: bold; font-size: 13px; margin-bottom: 0; margin-top: 16px; }
-                        .wl-section-header--received { background: #e8eaf6; border-left: 4px solid #4f46e5; }
+                        .wl-section-header { padding: 8px 12px; font-weight: bold; font-size: 13px; margin-top: 16px; margin-bottom: 0; }
+                        .wl-section-header--received  { background: #e8eaf6; border-left: 4px solid #4f46e5; }
                         .wl-section-header--labelling { background: #f3e8ff; border-left: 4px solid #7c3aed; }
+                        .wl-section-header--testing   { background: #dcfce7; border-left: 4px solid #16a34a; }
                         .wl-field { display: flex; padding: 5px 0; border-bottom: 1px solid #f1f5f9; }
                         .wl-field-label { width: 260px; color: #555; }
                         .wl-field-value { font-weight: 500; }
+                        .pass { color: #166534; }
+                        .fail { color: #991b1b; }
                     </style>
                 </head>
                 <body>
@@ -140,7 +195,7 @@ export default {
 
                     <div class="wl-meta-grid">
                         <div><div class="wl-meta-label">ASIN</div><div class="wl-meta-value">${log.asin || "—"}</div></div>
-                        <div><div class="wl-meta-label">FNSKU</div><div class="wl-meta-value">${log.fnsku || log.fnsku_changed || "—"}</div></div>
+                        <div><div class="wl-meta-label">FNSKU</div><div class="wl-meta-value">${log.fnsku || "—"}</div></div>
                         <div><div class="wl-meta-label">Product</div><div class="wl-meta-value">${log.product_name || "—"}</div></div>
                     </div>
                     <div class="wl-meta-grid" style="margin-top:8px;">
@@ -155,24 +210,16 @@ export default {
                     <div class="wl-field"><span class="wl-field-label">Date Received:</span><span class="wl-field-value">${log.date_received || "—"}</span></div>
                     <div class="wl-field"><span class="wl-field-label">Tracking Number:</span><span class="wl-field-value">${log.trackingnumber || "—"}</span></div>
                     ${serialRows || `<div class="wl-field"><span class="wl-field-label">Serial Number:</span><span class="wl-field-value">—</span></div>`}
-                    <div class="wl-field"><span class="wl-field-label">Working / Not Working:</span><span class="wl-field-value">${log.pass_fail_result === "pass" ? "Working" : "Not Working"}</span></div>
+                    <div class="wl-field"><span class="wl-field-label">Working / Not Working:</span><span class="wl-field-value ${log.pass_fail_result === "pass" ? "pass" : "fail"}">${log.pass_fail_result === "pass" ? "Working ✓" : "Not Working ✗"}</span></div>
                     <div class="wl-field"><span class="wl-field-label">Received By:</span><span class="wl-field-value">${log.received_by || "—"}</span></div>
-                    <div class="wl-field"><span class="wl-field-label">Item received correct on order:</span><span class="wl-field-value">${log.correct_on_order === "yes" ? "Yes ✓" : "No ✗"}</span></div>
+                    <div class="wl-field"><span class="wl-field-label">Item received correct on order:</span><span class="wl-field-value ${log.correct_on_order === "yes" ? "pass" : "fail"}">${log.correct_on_order === "yes" ? "Yes ✓" : "No ✗"}</span></div>
                     <div class="wl-field"><span class="wl-field-label">Condition on Arrival:</span><span class="wl-field-value" style="text-transform:capitalize;">${log.condition_on_arrival || "—"}${log.condition_on_arrival === "good" ? " ✓" : ""}</span></div>
                     ${log.condition_notes ? `<div class="wl-field"><span class="wl-field-label">Condition Notes:</span><span class="wl-field-value">${log.condition_notes}</span></div>` : ""}
+                    <div class="wl-field"><span class="wl-field-label">PCN:</span><span class="wl-field-value">${log.pcn_number || "—"}</span></div>
+                    <div class="wl-field"><span class="wl-field-label">Basket:</span><span class="wl-field-value">${log.basket_number || "—"}</span></div>
 
-                    <div class="wl-section-header wl-section-header--labelling">🏷️ 2. LABELLING MODULE</div>
-                    <div class="wl-field"><span class="wl-field-label">Date Labelled:</span><span class="wl-field-value">${log.date_labelled || "—"}</span></div>
-                    <div class="wl-field"><span class="wl-field-label">Labelled By:</span><span class="wl-field-value">${log.labelled_by || "—"}</span></div>
-                    <div class="wl-field"><span class="wl-field-label">FNSKU:</span><span class="wl-field-value">${log.fnsku || log.fnsku_changed || "—"}</span></div>
-                    <div class="wl-field"><span class="wl-field-label">ASIN:</span><span class="wl-field-value">${log.asin || "—"}</span></div>
-                    <div class="wl-field"><span class="wl-field-label">RPN:</span><span class="wl-field-value">${log.rpn || "—"}</span></div>
-                    <div class="wl-field"><span class="wl-field-label">PRD:</span><span class="wl-field-value">${log.prd || "—"}</span></div>
-                    <div class="wl-field"><span class="wl-field-label">Grading:</span><span class="wl-field-value">${log.grading || "—"}</span></div>
-                    <div class="wl-field"><span class="wl-field-label">Priority Rank:</span><span class="wl-field-value">${log.priority_rank || "—"}</span></div>
-                    ${log.sticker_note ? `<div class="wl-field"><span class="wl-field-label">Sticker Notes:</span><span class="wl-field-value">${log.sticker_note}</span></div>` : ""}
-                    ${log.employee_note ? `<div class="wl-field"><span class="wl-field-label">Employee Notes:</span><span class="wl-field-value">${log.employee_note}</span></div>` : ""}
-                    <div class="wl-field"><span class="wl-field-label">Current Location:</span><span class="wl-field-value">${log.current_location || "—"}</span></div>
+                    ${labellingSection}
+                    ${testingSection}
                 </body>
                 </html>`);
             win.document.close();
