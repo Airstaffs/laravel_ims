@@ -596,6 +596,28 @@ class LabelingController extends BasetablesController
 
             Log::info('Product found, current location: '.$existingProduct->ProductModuleLoc);
 
+            // 🔒 Check if item has been tested
+            if (! $existingProduct->isTested) {
+                Log::warning('Cannot move to Stockroom - item has not been tested yet', [
+                    'product_id' => $request->product_id,
+                    'rt_counter' => $request->rt_counter,
+                    'isTested' => $existingProduct->isTested,
+                ]);
+
+                $this->trackHistory(
+                    'Labeling',
+                    'Move to Stockroom Failed',
+                    "RTC: {$request->rt_counter}",
+                    'Item not yet tested'
+                );
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot move to Stockroom. This item has not been tested yet. Please move it to Testing first.',
+                    'requires_testing' => true,
+                ], 422);
+            }
+
             // Extract base FNSKU and get related data
             $baseFnsku = $this->extractBaseFnsku($existingProduct->FNSKUviewer);
 
@@ -630,7 +652,6 @@ class LabelingController extends BasetablesController
                     'missing_fields' => $missingFields,
                 ]);
 
-                // ✅ Track failed attempt with TracksHistory
                 $this->trackHistory(
                     'Labeling',
                     'Move to Stockroom Failed',
@@ -659,7 +680,6 @@ class LabelingController extends BasetablesController
 
             Log::info('Update result: '.$updateResult.' rows affected');
 
-            // ✅ Track successful move with TracksHistory
             $this->trackLocationChange(
                 'Labeling',
                 "RTC: {$request->rt_counter} | FNSKU: {$baseFnsku}",
@@ -674,6 +694,7 @@ class LabelingController extends BasetablesController
                     'rows_affected' => $updateResult,
                 ],
             ]);
+
         } catch (\Exception $e) {
             Log::error('Exception in moveToStockroom', [
                 'message' => $e->getMessage(),
@@ -682,7 +703,6 @@ class LabelingController extends BasetablesController
                 'request_data' => $request->all(),
             ]);
 
-            // ✅ Track error with TracksHistory
             if (isset($request->rt_counter)) {
                 $this->trackHistory(
                     'Labeling',

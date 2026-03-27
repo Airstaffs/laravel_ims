@@ -1911,11 +1911,11 @@ export default {
                     icon: "error",
                     title: "Invalid Serial Number",
                     html: `
-                        <strong>Detected serial numbers:</strong><br>
-                        ${serialValidationResult.invalidSerials.map((s) => `• ${s}`).join("<br>")}
-                        <br><br>
-                        Please input valid serial number.
-                    `,
+                <strong>Detected serial numbers:</strong><br>
+                ${serialValidationResult.invalidSerials.map((s) => `• ${s}`).join("<br>")}
+                <br><br>
+                Please input valid serial number.
+            `,
                 });
                 return;
             }
@@ -1964,7 +1964,7 @@ export default {
                 return;
             }
 
-            // --- Identification fields check (only these four) ---
+            // --- Identification fields check ---
             const idFields = {
                 "RT Counter": item?.rtcounter,
                 ASIN: item?.ASIN,
@@ -1979,7 +1979,6 @@ export default {
                 (k) => !isFilled(idFields[k]),
             );
 
-            // ❌ Stop if any are missing
             if (missingFields.length > 0) {
                 await Swal.fire({
                     icon: "error",
@@ -1989,7 +1988,7 @@ export default {
                      ${missingFields.map((f) => `<li>${f}</li>`).join("")}
                    </ul>`,
                 });
-                return; // stop execution
+                return;
             }
 
             try {
@@ -2043,10 +2042,30 @@ export default {
                 }
             } catch (error) {
                 console.error("Error moving item to Stockroom:", error);
+
+                Swal.close();
+
+                // 🔒 Item not yet tested
+                if (error.response?.data?.requires_testing) {
+                    await Swal.fire({
+                        icon: "warning",
+                        title: "Testing Required",
+                        html: `
+                    <p><strong>${item.ProductTitle || "—"}</strong> has not been tested yet.</p>
+                    <p>Please move this item to <strong>Testing</strong> first before proceeding to Stockroom.</p>
+                `,
+                        confirmButtonText: "OK",
+                    });
+                    return;
+                }
+
+                // Handle all other errors
                 await Swal.fire({
                     icon: "error",
                     title: "Error",
-                    text: "An error occurred while moving the item to Stockroom. Please try again.",
+                    text:
+                        error.response?.data?.message ||
+                        "An error occurred while moving the item to Stockroom. Please try again.",
                 });
             }
         },
