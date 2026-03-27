@@ -79,8 +79,22 @@ if ($status['processingStatus'] == 'DONE') {
     $retrievedData = download($url, $compressionAlgorithm);
     $response = processRetrievedData($Connect, $retrievedData);
 
-    // Pass credentials and accessToken so we can fetch buyer comments
-    insertToDb($Connect, $response, $credentials, $accessToken);
+    // Pre-fetch ONE RDT token covering all order return paths
+    $orderIds = array_column($response['return_details'], 'order_id');
+    $restrictedResources = array_map(fn($id) => [
+        'method' => 'GET',
+        'path'   => "/orders/v0/orders/{$id}/returns"
+    ], $orderIds);
+
+    $rdtBulk = fetchRestrictedDataToken($accessToken, $restrictedResources);
+    $rdtBulkToken = $rdtBulk['restrictedDataToken'] ?? null;
+
+    if (!$rdtBulkToken) {
+        echo "<br>Bulk RDT failed: " . ($rdtBulk['errors'][0]['message'] ?? 'unknown') . "<br>";
+        echo "<br>Make sure your SP-API app has Orders > Buyer Info permission enabled in Amazon Developer Console.<br>";
+    }
+
+    insertToDb($Connect, $response, $credentials, $accessToken, $rdtBulkToken);
 
 } else if ($status['processingStatus'] == 'CANCELLED') {
     echo "<br> CANCELLED!";
@@ -93,24 +107,22 @@ if ($status['processingStatus'] == 'DONE') {
 // FUNCTIONS
 // ================================================================
 
-function fetchBuyerComment($credentials, $accessToken, $amazonOrderId) {
+function fetchBuyerComment($credentials, $accessToken, $amazonOrderId, $rdtToken = null) {
     $endpoint = 'https://sellingpartnerapi-na.amazon.com';
     $path = "/orders/v0/orders/{$amazonOrderId}/returns";
     $service = 'execute-api';
     $region = 'us-east-1';
     $method = 'GET';
 
-    // Get RDT token for this restricted path
-    $restrictedResources = [['method' => 'GET', 'path' => $path]];
-    $rdtResponse = fetchRestrictedDataToken($accessToken, $restrictedResources);
-
-    if (isset($rdtResponse['errors'])) {
-        echo "<br>RDT Error for $amazonOrderId: " . $rdtResponse['errors'][0]['message'] . "<br>";
-        return NULL;
+    // If no shared RDT token passed, try to get one
+    if (!$rdtToken) {
+        $rdtResponse = fetchRestrictedDataToken($accessToken, [['method' => 'GET', 'path' => $path]]);
+        if (isset($rdtResponse['errors'])) {
+            echo "<br>RDT Error for $amazonOrderId: " . $rdtResponse['errors'][0]['message'] . "<br>";
+            return NULL;
+        }
+        $rdtToken = $rdtResponse['restrictedDataToken'];
     }
-
-    // Use the RDT token instead of the regular access token
-    $rdtToken = $rdtResponse['restrictedDataToken'];
 
     do {
         $headers = buildHeaders($credentials, $rdtToken, $path, $region, $service, $method);
@@ -132,7 +144,6 @@ function fetchBuyerComment($credentials, $accessToken, $amazonOrderId) {
 
     $data = json_decode($result, true);
 
-    // Extract buyer comment
     $comment = NULL;
     if (isset($data['payload']['returnsItems'])) {
         foreach ($data['payload']['returnsItems'] as $item) {
@@ -146,7 +157,7 @@ function fetchBuyerComment($credentials, $accessToken, $amazonOrderId) {
     return $comment;
 }
 
-function insertToDb($Connect, $response, $credentials, $accessToken) {
+function insertToDb($Connect, $response, $credentials, $accessToken, $rdtBulkToken = null) {
     echo "Sheesh<br><pre>";
     print_r($response);
     echo "</pre>";
@@ -169,8 +180,8 @@ function insertToDb($Connect, $response, $credentials, $accessToken) {
         $order_date_la           = convertToLosAngelesTime($order_date);
         $return_request_date_la  = convertToLosAngelesTime($return_request_date);
 
-        // Fetch buyer comment from SP-API
-        $customer_comment = fetchBuyerComment($credentials, $accessToken, $amazonOrderId);
+        // Fetch buyer comment — pass the shared RDT token
+        $customer_comment = fetchBuyerComment($credentials, $accessToken, $amazonOrderId, $rdtBulkToken);
         echo "<br>Buyer Comment for $amazonOrderId: " . ($customer_comment ?? 'NULL') . "<br>";
 
         // Check if record exists
