@@ -551,6 +551,7 @@ Route::prefix('api/labeling')->group(function () {
     // ADD THESE MISSING ROUTES:
     Route::post('move-to-validation', [LabelingController::class, 'moveToValidation']);
     Route::post('move-to-stockroom', [LabelingController::class, 'moveToStockroom']);
+    Route::post('move-to-testing', [LabelingController::class, 'moveToTesting']);
     Route::post('move-back-to-received', [LabelingController::class, 'moveBackToReceived']);
 
     Route::post('check-duplicate-serial', [LabelingController::class, 'checkDuplicateSerial'])
@@ -1089,8 +1090,6 @@ Route::prefix('api/reconciliation')->middleware(['auth'])->group(function () {
 
 Route::post('/amazon/search-listings', [ListingController::class, 'searchListings']);
 Route::post('/amazon/listings/update-one', [ListingController::class, 'updateOne']);
-
-
 
 // Announcements
 Route::middleware('auth')->group(function () {

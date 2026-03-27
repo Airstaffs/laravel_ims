@@ -1850,21 +1850,31 @@ export default {
 
                 Swal.close();
 
-                // ✅ NEW: Handle quantity > 1 error with split prompt
+                // 🔒 Item not yet tested
+                if (error.response?.data?.requires_testing) {
+                    await Swal.fire({
+                        icon: "warning",
+                        title: "Testing Required",
+                        html: `
+                <p><strong>${this.getDisplayTitle(item)}</strong> has not been tested yet.</p>
+                <p>Please move this item to <strong>Testing</strong> first before proceeding to Validation.</p>
+            `,
+                        confirmButtonText: "OK",
+                    });
+                    return;
+                }
+
+                // Handle quantity > 1 error with split prompt
                 if (error.response?.data?.requires_split) {
                     const result = await Swal.fire({
                         icon: "warning",
                         title: "Split Required",
                         html: `
-                    <p>
-                    <strong>
-                    ${this.getDisplayTitle(item)}</strong> 
-                        has a quantity of <strong>${
-                            error.response.data.quantity
-                        }</strong>.</p>
-                    <p>Items must be split into individual units (quantity = 1) before moving to Validation.</p>
-                    <p class="mt-3">Would you like to split this item now?</p>
-                `,
+                <p><strong>${this.getDisplayTitle(item)}</strong> 
+                has a quantity of <strong>${error.response.data.quantity}</strong>.</p>
+                <p>Items must be split into individual units (quantity = 1) before moving to Validation.</p>
+                <p class="mt-3">Would you like to split this item now?</p>
+            `,
                         showCancelButton: true,
                         confirmButtonText: "Yes, Split Item",
                         cancelButtonText: "Cancel",
@@ -1874,7 +1884,6 @@ export default {
                     });
 
                     if (result.isConfirmed) {
-                        // Open the split modal with the product data from error response
                         const productData =
                             error.response.data.product_data || item;
                         this.confirmSplitItem(productData);
@@ -1882,7 +1891,7 @@ export default {
                     return;
                 }
 
-                // Handle other errors
+                // Handle all other errors
                 await Swal.fire({
                     icon: "error",
                     title: "Error",
@@ -1902,11 +1911,11 @@ export default {
                     icon: "error",
                     title: "Invalid Serial Number",
                     html: `
-                        <strong>Detected serial numbers:</strong><br>
-                        ${serialValidationResult.invalidSerials.map((s) => `• ${s}`).join("<br>")}
-                        <br><br>
-                        Please input valid serial number.
-                    `,
+                <strong>Detected serial numbers:</strong><br>
+                ${serialValidationResult.invalidSerials.map((s) => `• ${s}`).join("<br>")}
+                <br><br>
+                Please input valid serial number.
+            `,
                 });
                 return;
             }
@@ -1955,7 +1964,7 @@ export default {
                 return;
             }
 
-            // --- Identification fields check (only these four) ---
+            // --- Identification fields check ---
             const idFields = {
                 "RT Counter": item?.rtcounter,
                 ASIN: item?.ASIN,
@@ -1970,7 +1979,6 @@ export default {
                 (k) => !isFilled(idFields[k]),
             );
 
-            // ❌ Stop if any are missing
             if (missingFields.length > 0) {
                 await Swal.fire({
                     icon: "error",
@@ -1980,7 +1988,7 @@ export default {
                      ${missingFields.map((f) => `<li>${f}</li>`).join("")}
                    </ul>`,
                 });
-                return; // stop execution
+                return;
             }
 
             try {
@@ -2034,10 +2042,30 @@ export default {
                 }
             } catch (error) {
                 console.error("Error moving item to Stockroom:", error);
+
+                Swal.close();
+
+                // 🔒 Item not yet tested
+                if (error.response?.data?.requires_testing) {
+                    await Swal.fire({
+                        icon: "warning",
+                        title: "Testing Required",
+                        html: `
+                    <p><strong>${item.ProductTitle || "—"}</strong> has not been tested yet.</p>
+                    <p>Please move this item to <strong>Testing</strong> first before proceeding to Stockroom.</p>
+                `,
+                        confirmButtonText: "OK",
+                    });
+                    return;
+                }
+
+                // Handle all other errors
                 await Swal.fire({
                     icon: "error",
                     title: "Error",
-                    text: "An error occurred while moving the item to Stockroom. Please try again.",
+                    text:
+                        error.response?.data?.message ||
+                        "An error occurred while moving the item to Stockroom. Please try again.",
                 });
             }
         },
@@ -2136,6 +2164,160 @@ export default {
                     icon: "error",
                     title: "Error",
                     text: "An error occurred while moving the item back to Received. Please try again.",
+                });
+            }
+        },
+
+        async confirmMoveToTesting(item) {
+            const serialValidationResult = this.validateItemSerials(item);
+
+            if (!serialValidationResult.valid) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Invalid Serial Number",
+                    html: `
+                <strong>Detected serial numbers:</strong><br>
+                ${serialValidationResult.invalidSerials.map((s) => `• ${s}`).join("<br>")}
+                <br><br>
+                Please input valid serial number.
+            `,
+                });
+                return;
+            }
+
+            if (!item || !item.ProductID) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Invalid Item",
+                    text: "The selected item does not have a valid Product ID.",
+                });
+                return;
+            }
+
+            const result = await Swal.fire({
+                title: "Confirm Move to Testing",
+                html: `
+            <p>Are you sure you want to move 
+            <strong>${item.ProductTitle || "—"}</strong>
+            to <strong>Testing</strong>?</p>
+            <ul style="text-align:left">
+                <li><strong>RT Counter:</strong> ${item.rtcounter || "N/A"}</li>
+                <li><strong>ASIN:</strong> ${item.ASIN || "—"}</li>
+                <li><strong>FNSKU:</strong> ${item.FNSKU || "—"}</li>
+                <li><strong>Serial:</strong> ${item.serialnumber || "—"}</li>
+            </ul>
+        `,
+                icon: "question",
+                showCancelButton: true,
+                confirmButtonText: "Yes, move it",
+                cancelButtonText: "Cancel",
+                reverseButtons: true,
+            });
+
+            if (result.isConfirmed) {
+                this.moveToTesting(item);
+            }
+        },
+
+        async moveToTesting(item) {
+            if (!item || !item.ProductID) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Invalid Item",
+                    text: "The selected item does not have a valid Product ID.",
+                });
+                return;
+            }
+
+            // --- Identification fields check ---
+            const idFields = {
+                "RT Counter": item?.rtcounter,
+                ASIN: item?.ASIN,
+                FNSKU: item?.FNSKU,
+                "Serial Number": item?.serialnumber,
+            };
+
+            const isFilled = (v) =>
+                v !== undefined && v !== null && String(v).trim() !== "";
+
+            const missingFields = Object.keys(idFields).filter(
+                (k) => !isFilled(idFields[k]),
+            );
+
+            if (missingFields.length > 0) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Missing Required Fields",
+                    html: `<p>Please fill in all required fields before proceeding:</p>
+                   <ul style="text-align:left;margin:0;padding-left:1.2rem;">
+                     ${missingFields.map((f) => `<li>${f}</li>`).join("")}
+                   </ul>`,
+                });
+                return;
+            }
+
+            try {
+                const csrfToken = document
+                    .querySelector('meta[name="csrf-token"]')
+                    .getAttribute("content");
+
+                Swal.fire({
+                    title: "Moving to Testing...",
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    },
+                });
+
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/labeling/move-to-testing`,
+                    {
+                        product_id: item.ProductID,
+                        rt_counter: item.rtcounter,
+                        current_location: "Labeling",
+                        new_location: "Testing",
+                    },
+                    {
+                        headers: {
+                            "X-CSRF-TOKEN": csrfToken,
+                        },
+                    },
+                );
+
+                Swal.close();
+
+                if (response.data.success) {
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Success",
+                        text: `Item ${item.rtcounter} successfully moved to Testing.`,
+                        confirmButtonText: "OK",
+                    });
+                    if (this && typeof this.fetchInventory === "function") {
+                        this.fetchInventory();
+                    }
+                } else {
+                    await Swal.fire({
+                        icon: "warning",
+                        title: "Failed",
+                        text:
+                            response.data.message ||
+                            "Failed to move item to Testing.",
+                    });
+                }
+            } catch (error) {
+                Swal.close();
+                console.error("Error moving item to Testing:", error);
+                const msg =
+                    error?.response?.data?.message ||
+                    error?.response?.data?.error ||
+                    error?.message ||
+                    "An unexpected error occurred.";
+                const status = error?.response?.status ?? "No response";
+                await Swal.fire({
+                    icon: "error",
+                    title: `Error (${status})`,
+                    text: msg,
                 });
             }
         },
