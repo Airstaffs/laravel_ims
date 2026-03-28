@@ -1441,12 +1441,6 @@ export default {
                     icon: "pi pi-megaphone",
                     enabled: false,
                 },
-                {
-                    key: "itemlog",
-                    label: "Item Log",
-                    icon: "pi pi-book",
-                    enabled: false,
-                },
             ],
 
             // My Schedule

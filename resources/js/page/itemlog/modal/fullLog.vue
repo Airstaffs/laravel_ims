@@ -3,8 +3,8 @@
         v-model:visible="visible"
         :showHeader="false"
         :modal="true"
-        :style="{ width: '720px', padding: '0', height: '90vh' }"
-        :breakpoints="{ '768px': '95vw' }"
+        :style="{ width: '1200px', padding: '0', height: '90vh' }"
+        :breakpoints="{ '1260px': '95vw' }"
         :pt="{
             content: {
                 style: 'padding: 0; height: 100%; display: flex; flex-direction: column;',

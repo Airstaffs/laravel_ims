@@ -614,7 +614,6 @@ const asyncComponentMap = {
         import("./page/asinoption/fnskucreation/creation_msku.vue"),
     scheduling: () => import("./page/hr/components/scheduling.vue"),
     supplierslist: () => import("./page/suppliersList/suppliersList.vue"),
-    itemlog: () => import("./page/itemlog/itemlog.vue"),
 };
 
 window.asyncComponentMap = asyncComponentMap;
@@ -788,7 +787,6 @@ const app = createApp({
             const hasAccess =
                 navName === "fbashipmentinbound" ||
                 navName === "history" ||
-                navName === "itemlog" ||
                 allowedModules.includes(navName) ||
                 navName === mainModule ||
                 customModules.includes(navName);
