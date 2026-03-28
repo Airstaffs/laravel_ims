@@ -79,8 +79,22 @@ if ($status['processingStatus'] == 'DONE') {
     $retrievedData = download($url, $compressionAlgorithm);
     $response = processRetrievedData($Connect, $retrievedData);
 
-    // Pass credentials and accessToken so we can fetch buyer comments
-    insertToDb($Connect, $response, $credentials, $accessToken);
+    // Pre-fetch ONE RDT token covering all order return paths
+    $orderIds = array_column($response['return_details'], 'order_id');
+    $restrictedResources = array_map(fn($id) => [
+        'method' => 'GET',
+        'path'   => "/orders/v0/orders/{$id}/returns"
+    ], $orderIds);
+
+    $rdtBulk = fetchRestrictedDataToken($accessToken, $restrictedResources);
+    $rdtBulkToken = $rdtBulk['restrictedDataToken'] ?? null;
+
+    if (!$rdtBulkToken) {
+        echo "<br>Bulk RDT failed: " . ($rdtBulk['errors'][0]['message'] ?? 'unknown') . "<br>";
+        echo "<br>Make sure your SP-API app has Orders > Buyer Info permission enabled in Amazon Developer Console.<br>";
+    }
+
+    insertToDb($Connect, $response, $credentials, $accessToken, $rdtBulkToken);
 
 } else if ($status['processingStatus'] == 'CANCELLED') {
     echo "<br> CANCELLED!";
@@ -93,24 +107,22 @@ if ($status['processingStatus'] == 'DONE') {
 // FUNCTIONS
 // ================================================================
 
-function fetchBuyerComment($credentials, $accessToken, $amazonOrderId) {
+function fetchBuyerComment($credentials, $accessToken, $amazonOrderId, $rdtToken = null) {
     $endpoint = 'https://sellingpartnerapi-na.amazon.com';
     $path = "/orders/v0/orders/{$amazonOrderId}/returns";
     $service = 'execute-api';
     $region = 'us-east-1';
     $method = 'GET';
 
-    // Get RDT token for this restricted path
-    $restrictedResources = [['method' => 'GET', 'path' => $path]];
-    $rdtResponse = fetchRestrictedDataToken($accessToken, $restrictedResources);
-
-    if (isset($rdtResponse['errors'])) {
-        echo "<br>RDT Error for $amazonOrderId: " . $rdtResponse['errors'][0]['message'] . "<br>";
-        return NULL;
+    // If no shared RDT token passed, try to get one
+    if (!$rdtToken) {
+        $rdtResponse = fetchRestrictedDataToken($accessToken, [['method' => 'GET', 'path' => $path]]);
+        if (isset($rdtResponse['errors'])) {
+            echo "<br>RDT Error for $amazonOrderId: " . $rdtResponse['errors'][0]['message'] . "<br>";
+            return NULL;
+        }
+        $rdtToken = $rdtResponse['restrictedDataToken'];
     }
-
-    // Use the RDT token instead of the regular access token
-    $rdtToken = $rdtResponse['restrictedDataToken'];
 
     do {
         $headers = buildHeaders($credentials, $rdtToken, $path, $region, $service, $method);
@@ -132,7 +144,6 @@ function fetchBuyerComment($credentials, $accessToken, $amazonOrderId) {
 
     $data = json_decode($result, true);
 
-    // Extract buyer comment
     $comment = NULL;
     if (isset($data['payload']['returnsItems'])) {
         foreach ($data['payload']['returnsItems'] as $item) {
@@ -146,7 +157,7 @@ function fetchBuyerComment($credentials, $accessToken, $amazonOrderId) {
     return $comment;
 }
 
-function insertToDb($Connect, $response, $credentials, $accessToken) {
+function insertToDb($Connect, $response, $credentials, $accessToken, $rdtBulkToken = null) {
     echo "Sheesh<br><pre>";
     print_r($response);
     echo "</pre>";
@@ -169,8 +180,8 @@ function insertToDb($Connect, $response, $credentials, $accessToken) {
         $order_date_la           = convertToLosAngelesTime($order_date);
         $return_request_date_la  = convertToLosAngelesTime($return_request_date);
 
-        // Fetch buyer comment from SP-API
-        $customer_comment = fetchBuyerComment($credentials, $accessToken, $amazonOrderId);
+        // Fetch buyer comment — pass the shared RDT token
+        $customer_comment = fetchBuyerComment($credentials, $accessToken, $amazonOrderId, $rdtBulkToken);
         echo "<br>Buyer Comment for $amazonOrderId: " . ($customer_comment ?? 'NULL') . "<br>";
 
         // Check if record exists
@@ -251,20 +262,55 @@ function insertToDb($Connect, $response, $credentials, $accessToken) {
 }
 
 function fetchRestrictedDataToken($accessToken, $restrictedResources) {
-    $postfields = json_encode(['restrictedResources' => $restrictedResources]);
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, 'https://sellingpartnerapi-na.amazon.com/tokens/2021-03-01/restrictedDataToken');
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($ch, CURLOPT_POST, 1);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $postfields);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'Authorization: Bearer ' . $accessToken,
-        'x-amz-access-token: ' . $accessToken
-    ]);
+    $credentials = getAWSCredentials(connectDatabase("vps"));
+    $region = 'us-east-1';
+    $host = 'sellingpartnerapi-na.amazon.com';
+    $endpoint = "https://{$host}/tokens/2021-03-01/restrictedDataToken";
+
+    $payload = json_encode(['restrictedResources' => $restrictedResources]);
+
+    $amzDate = gmdate('Ymd\THis\Z');
+    $date    = gmdate('Ymd');
+
+    $canonicalUri         = '/tokens/2021-03-01/restrictedDataToken';
+    $canonicalQuerystring = '';
+    $canonicalHeaders     = "content-type:application/json\nhost:{$host}\nx-amz-access-token:{$accessToken}\nx-amz-date:{$amzDate}\n";
+    $signedHeaders        = 'content-type;host;x-amz-access-token;x-amz-date';
+    $payloadHash          = hash('sha256', $payload);
+
+    $canonicalRequest = "POST\n{$canonicalUri}\n{$canonicalQuerystring}\n{$canonicalHeaders}\n{$signedHeaders}\n{$payloadHash}";
+
+    $algorithm       = 'AWS4-HMAC-SHA256';
+    $credentialScope = "{$date}/{$region}/execute-api/aws4_request";
+    $stringToSign    = "{$algorithm}\n{$amzDate}\n{$credentialScope}\n" . hash('sha256', $canonicalRequest);
+
+    $kSecret  = 'AWS4' . $credentials['client_secret'];
+    $kDate    = hash_hmac('sha256', $date, $kSecret, true);
+    $kRegion  = hash_hmac('sha256', $region, $kDate, true);
+    $kService = hash_hmac('sha256', 'execute-api', $kRegion, true);
+    $kSigning = hash_hmac('sha256', 'aws4_request', $kService, true);
+    $signature = hash_hmac('sha256', $stringToSign, $kSigning);
+
+    $authorizationHeader = "{$algorithm} Credential={$credentials['client_id']}/{$credentialScope}, SignedHeaders={$signedHeaders}, Signature={$signature}";
+
+    $headers = [
+        "Content-Type: application/json",
+        "Host: {$host}",
+        "x-amz-access-token: {$accessToken}",
+        "x-amz-date: {$amzDate}",
+        "Authorization: {$authorizationHeader}"
+    ];
+
+    $ch = curl_init($endpoint);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
     $response = curl_exec($ch);
-    if ($response === FALSE) die('cURL Error: ' . curl_error($ch));
+    if (curl_errno($ch)) die('cURL Error: ' . curl_error($ch));
     curl_close($ch);
+
     return json_decode($response, true);
 }
 
