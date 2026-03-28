@@ -118,31 +118,26 @@
                 </template>
 
                 <Column selectionMode="multiple" style="width: 3rem" />
-
                 <Column field="serialnumber" header="Serial Number" sortable>
                     <template #body="{ data }">
-                        <span class="serial-link" @click="viewFullLog(data)">
-                            {{ data.serialnumber || "—" }}
-                        </span>
+                        <span class="serial-link" @click="viewFullLog(data)">{{
+                            data.serialnumber || "—"
+                        }}</span>
                     </template>
                 </Column>
-
                 <Column field="asin" header="ASIN" sortable>
                     <template #body="{ data }">{{ data.asin || "—" }}</template>
                 </Column>
-
                 <Column field="product_name" header="Product Name" sortable>
                     <template #body="{ data }">{{
                         data.product_name || "—"
                     }}</template>
                 </Column>
-
                 <Column field="date_received" header="Date Stored" sortable>
                     <template #body="{ data }">{{
                         data.date_received
                     }}</template>
                 </Column>
-
                 <Column field="pass_fail_result" header="Status" sortable>
                     <template #body="{ data }">
                         <span
@@ -161,7 +156,6 @@
                         </span>
                     </template>
                 </Column>
-
                 <Column header="Action">
                     <template #body="{ data }">
                         <Button
@@ -176,382 +170,22 @@
         </div>
 
         <!-- View Full Log Dialog -->
-        <Dialog
-            v-model:visible="showLogDialog"
-            :showHeader="false"
-            :modal="true"
-            :style="{ width: '720px', padding: '0' }"
-            :breakpoints="{ '768px': '95vw' }"
-            :pt="{ content: { style: 'padding: 0;' } }"
-        >
-            <div v-if="selectedLog" class="wl-page">
-                <div class="wl-page-number">Page 1 of 1</div>
-
-                <!-- Header -->
-                <div class="wl-header">
-                    <div class="wl-header-left">
-                        <h2 class="wl-title">WORKFLOW LOG REPORT</h2>
-                        <p class="wl-subtitle">
-                            Complete Item Processing History
-                        </p>
-                    </div>
-                    <div class="wl-serial-badge">
-                        <div class="wl-serial-label">Serial Number</div>
-                        <div class="wl-serial-value">
-                            {{ selectedLog.serialnumber || "—" }}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Meta Row 1 -->
-                <div class="wl-meta-grid">
-                    <div class="wl-meta-item">
-                        <div class="wl-meta-label">ASIN</div>
-                        <div class="wl-meta-value">
-                            {{ selectedLog.asin || "—" }}
-                        </div>
-                    </div>
-                    <div class="wl-meta-item">
-                        <div class="wl-meta-label">FNSKU</div>
-                        <div class="wl-meta-value">
-                            {{ selectedLog.fnsku || "—" }}
-                        </div>
-                    </div>
-                    <div class="wl-meta-item">
-                        <div class="wl-meta-label">Product</div>
-                        <div class="wl-meta-value">
-                            {{ selectedLog.product_name || "—" }}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Meta Row 2 -->
-                <div class="wl-meta-grid wl-meta-grid--second">
-                    <div class="wl-meta-item">
-                        <div class="wl-meta-label">Date Received</div>
-                        <div class="wl-meta-value">
-                            {{ selectedLog.date_received || "—" }}
-                        </div>
-                    </div>
-                    <div class="wl-meta-item">
-                        <div class="wl-meta-label">Date Labelled</div>
-                        <div class="wl-meta-value">
-                            {{ selectedLog.date_labelled || "—" }}
-                        </div>
-                    </div>
-                    <div class="wl-meta-item">
-                        <div class="wl-meta-label">RT#</div>
-                        <div class="wl-meta-value">
-                            {{ selectedLog.rtcounter || "—" }}
-                        </div>
-                    </div>
-                </div>
-
-                <hr class="wl-divider" />
-
-                <!-- 1. Received Module -->
-                <div class="wl-section-header wl-section-header--received">
-                    <span>📦</span>
-                    <span>1. RECEIVED MODULE</span>
-                </div>
-                <div class="wl-section-body">
-                    <div class="wl-field">
-                        <span class="wl-field-label">Date Received:</span>
-                        <span class="wl-field-value">{{
-                            selectedLog.date_received || "—"
-                        }}</span>
-                    </div>
-                    <div class="wl-field">
-                        <span class="wl-field-label">Tracking Number:</span>
-                        <span class="wl-field-value">{{
-                            selectedLog.trackingnumber || "—"
-                        }}</span>
-                    </div>
-                    <template v-if="parsedSerials(selectedLog).length">
-                        <div
-                            class="wl-field"
-                            v-for="(sn, i) in parsedSerials(selectedLog)"
-                            :key="i"
-                        >
-                            <span class="wl-field-label"
-                                >Serial Number{{
-                                    i > 0 ? " " + (i + 1) : ""
-                                }}:</span
-                            >
-                            <span class="wl-field-value">{{ sn }}</span>
-                        </div>
-                    </template>
-                    <div class="wl-field" v-else>
-                        <span class="wl-field-label">Serial Number:</span>
-                        <span class="wl-field-value">—</span>
-                    </div>
-                    <div class="wl-field">
-                        <span class="wl-field-label"
-                            >Working / Not Working:</span
-                        >
-                        <span
-                            class="wl-field-value"
-                            :class="
-                                selectedLog.pass_fail_result === 'pass'
-                                    ? 'text-success'
-                                    : 'text-danger'
-                            "
-                        >
-                            {{
-                                selectedLog.pass_fail_result === "pass"
-                                    ? "Working ✓"
-                                    : "Not Working ✗"
-                            }}
-                        </span>
-                    </div>
-                    <div class="wl-field">
-                        <span class="wl-field-label">Received By:</span>
-                        <span class="wl-field-value">{{
-                            selectedLog.received_by || "—"
-                        }}</span>
-                    </div>
-                    <div class="wl-field">
-                        <span class="wl-field-label"
-                            >Item received correct on order:</span
-                        >
-                        <span
-                            class="wl-field-value"
-                            :class="
-                                selectedLog.correct_on_order === 'yes'
-                                    ? 'text-success'
-                                    : 'text-danger'
-                            "
-                        >
-                            {{
-                                selectedLog.correct_on_order === "yes"
-                                    ? "Yes ✓"
-                                    : "No ✗"
-                            }}
-                        </span>
-                    </div>
-                    <div class="wl-field">
-                        <span class="wl-field-label"
-                            >Condition on Arrival:</span
-                        >
-                        <span
-                            class="wl-field-value"
-                            style="text-transform: capitalize"
-                        >
-                            {{ selectedLog.condition_on_arrival || "—"
-                            }}{{
-                                selectedLog.condition_on_arrival === "good"
-                                    ? " ✓"
-                                    : ""
-                            }}
-                        </span>
-                    </div>
-                    <div class="wl-field" v-if="selectedLog.condition_notes">
-                        <span class="wl-field-label">Condition Notes:</span>
-                        <span class="wl-field-value">{{
-                            selectedLog.condition_notes
-                        }}</span>
-                    </div>
-                    <div class="wl-field">
-                        <span class="wl-field-label">PCN:</span>
-                        <span class="wl-field-value">{{
-                            selectedLog.pcn_number || "—"
-                        }}</span>
-                    </div>
-                    <div class="wl-field">
-                        <span class="wl-field-label">Basket:</span>
-                        <span class="wl-field-value">{{
-                            selectedLog.basket_number || "—"
-                        }}</span>
-                    </div>
-                </div>
-
-                <!-- 2. Labelling Module -->
-                <template v-if="selectedLog.passed_labeling">
-                    <div class="wl-section-header wl-section-header--labelling">
-                        <span>🏷️</span>
-                        <span>2. LABELLING MODULE</span>
-                    </div>
-                    <div class="wl-section-body">
-                        <div class="wl-field">
-                            <span class="wl-field-label">Date Labelled:</span>
-                            <span class="wl-field-value">{{
-                                selectedLog.date_labelled || "—"
-                            }}</span>
-                        </div>
-                        <div class="wl-field">
-                            <span class="wl-field-label">Labelled By:</span>
-                            <span class="wl-field-value">{{
-                                selectedLog.labelled_by || "—"
-                            }}</span>
-                        </div>
-                        <div class="wl-field">
-                            <span class="wl-field-label">FNSKU:</span>
-                            <span class="wl-field-value">{{
-                                selectedLog.fnsku || "—"
-                            }}</span>
-                        </div>
-                        <div class="wl-field">
-                            <span class="wl-field-label">ASIN:</span>
-                            <span class="wl-field-value">{{
-                                selectedLog.asin || "—"
-                            }}</span>
-                        </div>
-                        <div class="wl-field">
-                            <span class="wl-field-label">MSKU:</span>
-                            <span class="wl-field-value">{{
-                                selectedLog.msku || "—"
-                            }}</span>
-                        </div>
-                        <div class="wl-field">
-                            <span class="wl-field-label">RPN:</span>
-                            <span class="wl-field-value">{{
-                                selectedLog.rpn || "—"
-                            }}</span>
-                        </div>
-                        <div class="wl-field">
-                            <span class="wl-field-label">PRD:</span>
-                            <span class="wl-field-value">{{
-                                selectedLog.prd || "—"
-                            }}</span>
-                        </div>
-
-                        <div class="wl-field">
-                            <span class="wl-field-label">Priority Rank:</span>
-                            <span class="wl-field-value">{{
-                                selectedLog.priority_rank || "—"
-                            }}</span>
-                        </div>
-                        <div class="wl-field" v-if="selectedLog.sticker_note">
-                            <span class="wl-field-label">Sticker Notes:</span>
-                            <span class="wl-field-value">{{
-                                selectedLog.sticker_note
-                            }}</span>
-                        </div>
-                        <div class="wl-field" v-if="selectedLog.employee_note">
-                            <span class="wl-field-label">Employee Notes:</span>
-                            <span class="wl-field-value">{{
-                                selectedLog.employee_note
-                            }}</span>
-                        </div>
-                        <div class="wl-field">
-                            <span class="wl-field-label"
-                                >Current Location:</span
-                            >
-                            <span class="wl-field-value">{{
-                                selectedLog.current_location || "—"
-                            }}</span>
-                        </div>
-                        <template v-if="selectedLog.last_edited_at">
-                            <div class="wl-field">
-                                <span class="wl-field-label">Last Edited:</span>
-                                <span class="wl-field-value">{{
-                                    selectedLog.last_edited_at
-                                }}</span>
-                            </div>
-                            <div class="wl-field">
-                                <span class="wl-field-label">Edited By:</span>
-                                <span class="wl-field-value">{{
-                                    selectedLog.last_edited_by || "—"
-                                }}</span>
-                            </div>
-                            <div
-                                class="wl-field"
-                                v-if="selectedLog.edit_before"
-                            >
-                                <span class="wl-field-label">Before Edit:</span>
-                                <span class="wl-field-value wl-text-small">{{
-                                    selectedLog.edit_before
-                                }}</span>
-                            </div>
-                            <div class="wl-field" v-if="selectedLog.edit_after">
-                                <span class="wl-field-label">After Edit:</span>
-                                <span class="wl-field-value wl-text-small">{{
-                                    selectedLog.edit_after
-                                }}</span>
-                            </div>
-                        </template>
-                        <template v-if="selectedLog.moved_to_validation_at">
-                            <div class="wl-field">
-                                <span class="wl-field-label"
-                                    >Moved to Validation:</span
-                                >
-                                <span class="wl-field-value text-success">{{
-                                    selectedLog.moved_to_validation_at
-                                }}</span>
-                            </div>
-                            <div class="wl-field">
-                                <span class="wl-field-label">Moved by:</span>
-                                <span class="wl-field-value">{{
-                                    selectedLog.moved_to_validation_by || "—"
-                                }}</span>
-                            </div>
-                        </template>
-                        <template v-if="selectedLog.moved_to_stockroom_at">
-                            <div class="wl-field">
-                                <span class="wl-field-label"
-                                    >Moved to Stockroom:</span
-                                >
-                                <span class="wl-field-value text-success">{{
-                                    selectedLog.moved_to_stockroom_at
-                                }}</span>
-                            </div>
-                            <div class="wl-field">
-                                <span class="wl-field-label">Moved by:</span>
-                                <span class="wl-field-value">{{
-                                    selectedLog.moved_to_stockroom_by || "—"
-                                }}</span>
-                            </div>
-                        </template>
-                    </div>
-                </template>
-                <template v-if="selectedLog.passed_testing">
-                    <div class="wl-section-header wl-section-header--testing">
-                        <span>🔬</span>
-                        <span>3. TESTING MODULE</span>
-                    </div>
-                    <div class="wl-section-body">
-                        <div class="wl-field">
-                            <span class="wl-field-label">Status:</span>
-                            <span class="wl-field-value text-success"
-                                >Completed ✓</span
-                            >
-                        </div>
-                        <div class="wl-field">
-                            <span class="wl-field-label"
-                                >Current Location:</span
-                            >
-                            <span class="wl-field-value">{{
-                                selectedLog.current_location || "—"
-                            }}</span>
-                        </div>
-                    </div>
-                </template>
-
-                <!-- Footer -->
-                <div class="wl-footer-actions">
-                    <Button
-                        label="Print"
-                        icon="pi pi-print"
-                        class="p-button-success"
-                        @click="printLog(selectedLog)"
-                    />
-                    <Button
-                        label="Close"
-                        icon="pi pi-times"
-                        class="p-button-secondary"
-                        @click="showLogDialog = false"
-                    />
-                </div>
-            </div>
-        </Dialog>
+        <FullLog v-model="showLogDialog" :log="selectedLog" @print="printLog" />
     </div>
 </template>
 
 <script>
-import ItemLogs from "./timelog.js";
-export default ItemLogs;
+import ItemLogs from "./itemlog.js";
+import FullLog from "./modal/fullLog.vue";
+export default {
+    ...ItemLogs,
+    components: {
+        ...ItemLogs.components,
+        FullLog,
+    },
+};
 </script>
 
 <style scoped>
-@import "./timelog.css";
+@import "./itemlog.css";
 </style>

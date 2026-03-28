@@ -47,7 +47,7 @@ export default {
                     params.to = this.formatDate(this.filters.to);
 
                 const response = await axios.get(
-                    `${API_BASE_URL}/api/received/checklist-logs`,
+                    `${API_BASE_URL}/api/log/checklist-logs`,
                     { params },
                 );
                 this.logs = response.data.data ?? response.data;

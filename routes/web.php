@@ -31,6 +31,7 @@ use App\Http\Controllers\KanbanCommentController;
 use App\Http\Controllers\KanbanTaskController;
 use App\Http\Controllers\KanbanUserPermissionController;
 use App\Http\Controllers\LabelingController;
+use App\Http\Controllers\LogController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\notfoundController;
 use App\Http\Controllers\NotificationController;
@@ -486,9 +487,12 @@ Route::prefix('api/received')->group(function () {
     Route::get('products', [ReceivedController::class, 'index']);
     Route::get('verify-tracking', [ReceivedController::class, 'verifyTracking']);
     Route::post('validate-pcn', [ReceivedController::class, 'validatePcn']);
-    Route::post('process-scan', [ReceivedController::class, 'processScan']);
-    Route::post('record-checklist', [ReceivedController::class, 'recordChecklist']);
-    Route::get('checklist-logs', [ReceivedController::class, 'checklistLogs']);
+});
+
+// Routes for Checklist Logs
+Route::prefix('api/log')->group(function () {
+    Route::post('record-checklist', [LogController::class, 'recordChecklist']);
+    Route::get('checklist-logs', [LogController::class, 'checklistLogs']);
 });
 
 Route::post('api/images/upload', [App\Http\Controllers\ImageUploadController::class, 'upload']);

@@ -146,7 +146,6 @@ const asinSubItems = ref([
     { id: "asinlist", label: "ASIN List", icon: "pi-list" },
     { id: "fnsku", label: "FNSKU List", icon: "pi-barcode" },
     { id: "mskucreation", label: "FNSKU Creation", icon: "pi-plus-circle" },
-    { id: "itemlog", label: "Item Log", icon: "pi-book" },
 ]);
 
 // Module names
@@ -179,7 +178,6 @@ const modules = ref({
     fnsku: "FNSKU List",
     mskucreation: "FNSKU Creation",
     switcheru: "Switcheru List",
-    itemlog: "Item Log",
 });
 
 // Icons for each module
@@ -212,7 +210,6 @@ const moduleIcons = {
     inventorystatistics: "pi-chart-bar",
     reconciliation: "pi-check",
     switcheru: "pi-exchange",
-    itemlog: "pi-book",
 };
 
 // Get array of ASIN sub-item IDs

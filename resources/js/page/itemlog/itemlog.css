@@ -309,9 +309,30 @@
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    margin-top: 20px;
     padding-top: 16px;
     border-top: 1px solid #e2e8f0;
+}
+
+.wl-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.wl-scrollable {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem 1.5rem 0;
+}
+
+.wl-footer-actions {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    border-top: 1px solid #e2e8f0;
+    background: #fff;
 }
 
 /* ─── Responsive ─────────────────────────────────────────── */

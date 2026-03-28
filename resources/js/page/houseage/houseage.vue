@@ -1,19 +1,34 @@
 <template>
     <div class="vue-container houseage-module">
-         <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
+        <div
+            class="d-flex align-items-center justify-content-between flex-wrap mb-4"
+        >
             <TitlePage
                 title="Houseage Module"
                 subtitle="Manage all products in the internal processing flow, including grading, return status, and next module assignment."
             />
 
             <div class="d-flex justify-content-center gap-2 mx-4 flex-wrap">
-                <Button severity="secondary" size="small" outlined @click="showInvoiceModal = true"
-                    label="Generate Invoice" icon="pi pi-file" :disabled="selectedRows.length === 0" v-show="!isUSAccount"/>
-                <Button severity="secondary" size="small" outlined @click="goToSuppliersList"
-                    label="Suppliers List" icon="pi pi-list" />
+                <Button
+                    severity="secondary"
+                    size="small"
+                    outlined
+                    @click="showInvoiceModal = true"
+                    label="Generate Invoice"
+                    icon="pi pi-file"
+                    :disabled="selectedRows.length === 0"
+                    v-show="!isUSAccount"
+                />
+                <Button
+                    severity="secondary"
+                    size="small"
+                    outlined
+                    @click="goToSuppliersList"
+                    label="Suppliers List"
+                    icon="pi pi-list"
+                />
             </div>
-         </div>
-        
+        </div>
 
         <!-- Desktop Table Container -->
         <AnimateDiv :delay="200" class="px-4">
@@ -151,6 +166,15 @@
                             icon="pi pi-pencil"
                             @click="openEditModal(data)"
                         />
+                        <Button
+                            severity="contrast"
+                            variant="text"
+                            size="small"
+                            class="text-info"
+                            label="View Full Log"
+                            icon="pi pi-eye"
+                            @click="openItemLogs(data)"
+                        />
                     </div>
                 </template>
             </XDataTable>
@@ -177,7 +201,16 @@
                 >
                     <div class="mobile-card-header">
                         <div class="mobile-checkbox">
-                            <input type="checkbox" v-model="item.checked" @change="onSelectionChange(item, $event.target.checked)"/>
+                            <input
+                                type="checkbox"
+                                v-model="item.checked"
+                                @change="
+                                    onSelectionChange(
+                                        item,
+                                        $event.target.checked,
+                                    )
+                                "
+                            />
                         </div>
 
                         <!-- Updated mobile gallery with captured images support -->
@@ -322,6 +355,13 @@
                             label="Edit"
                             icon="pi pi-pencil"
                             @click="openEditModal(item)"
+                        />
+                        <Button
+                            severity="secondary"
+                            size="small"
+                            label="View Full Log"
+                            icon="pi pi-eye"
+                            @click="openItemLogs(item)"
                         />
                     </div>
 
@@ -1239,9 +1279,15 @@
                 </div>
             </div>
         </Dialog>
-        <ProductInvoiceModal :productIds="selectedRows" v-model:visible="showInvoiceModal" />
+
+        <ProductInvoiceModal
+            :productIds="selectedRows"
+            v-model:visible="showInvoiceModal"
+        />
         <ScrollTop />
     </div>
+
+    <FullLog v-model="showItemLogs" :log="selectedLogData" />
 </template>
 
 <script>
@@ -1266,6 +1312,7 @@ import { ROWS_PER_PAGE } from "../../constant.js";
 import { showPricingForPH } from "../../utils/helpers.js";
 import ProductImageGallery from "../../components/ProductImageGallery/ProductImageGallery.vue";
 import ProductInvoiceModal from "./ProductInvoiceModal.vue";
+import FullLog from "../itemlog/modal/fullLog.vue";
 
 const TABLE_COLUMNS = [
     {
@@ -1338,6 +1385,7 @@ const TABLE_COLUMNS = [
         bodyStyle: { fontSize: "14px" },
     },
 ];
+
 export default {
     mixins: [Houseage],
     components: {
@@ -1356,8 +1404,10 @@ export default {
         AnimateDiv,
         ProductImageGallery,
         Paginator,
-        ProductInvoiceModal
+        ProductInvoiceModal,
+        FullLog,
     },
+
     data() {
         return {
             columns: TABLE_COLUMNS,
@@ -1397,8 +1447,12 @@ export default {
 
             currentTimezone: "UTC",
             timezoneLabel: "Loading...",
+
+            showItemLogs: false,
+            selectedLogData: null,
         };
     },
+
     methods: {
         convertToLocalDate(dateString) {
             if (!dateString) return "";
@@ -1526,7 +1580,71 @@ export default {
                 this.timezoneLabel = "UTC";
             }
         },
+
+        openItemLogs(data) {
+            // Map product fields → fullLog.vue expected field names
+            this.selectedLogData = {
+                // Identity
+                rtcounter: data.rtcounter,
+                asin: data.ASINviewer ?? data.ASIN,
+                fnsku: data.FNSKUviewer ?? data.FNSKU,
+                msku: data.MSKUviewer ?? data.MSKU,
+                product_name: data.AStitle ?? data.ProductTitle,
+                trackingnumber: data.trackingnumber,
+
+                // Serials
+                serialnumber: data.serialnumber,
+                serialnumberb: data.serialnumberb,
+                serialnumberc: data.serialnumberc,
+                serialnumberd: data.serialnumberd,
+                serialnumbere: data.serialnumbere,
+
+                // Received module
+                date_received: data.date_received ?? data.lastDateUpdate,
+                received_by: data.Username,
+                pass_fail_result: data.pass_fail_result,
+                correct_on_order: data.correct_on_order,
+                condition_on_arrival: data.condition_on_arrival,
+                condition_notes: data.condition_notes,
+                pcn_number: data.PCN,
+                basket_number: data.basketnumber,
+
+                // Labelling module
+                date_labelled: data.lastDateUpdate,
+                labelled_by: data.Username,
+                rpn: data.RPN,
+                prd: data.PRD,
+                priority_rank: data.priorityrank,
+                sticker_note: data.stickernote,
+                employee_note: data.EmployeeNote,
+                current_location: data.ProductModuleLoc,
+
+                // History flags
+                passed_labeling: data.MSKUviewer ? 1 : 0,
+                passed_testing: [
+                    "Testing",
+                    "Cleaning",
+                    "Stockroom",
+                    "Validation",
+                    "Sold",
+                ].includes(data.ProductModuleLoc)
+                    ? 1
+                    : 0,
+
+                // Edit history (from product row if available)
+                last_edited_at: data.last_edited_at ?? null,
+                last_edited_by: data.last_edited_by ?? null,
+                edit_before: data.edit_before ?? null,
+                edit_after: data.edit_after ?? null,
+                moved_to_validation_at: data.moved_to_validation_at ?? null,
+                moved_to_validation_by: data.moved_to_validation_by ?? null,
+                moved_to_stockroom_at: data.moved_to_stockroom_at ?? null,
+                moved_to_stockroom_by: data.moved_to_stockroom_by ?? null,
+            };
+            this.showItemLogs = true;
+        },
     },
+
     computed: {
         courierOptions() {
             return this.carrierOptions.map((carrier) => ({
@@ -1594,9 +1712,11 @@ export default {
             },
         },
     },
+
     mounted() {
         window.addEventListener("resize", this.updatePricingView);
     },
+
     beforeUnmount() {
         window.removeEventListener("resize", this.updatePricingView);
     },
