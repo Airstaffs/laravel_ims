@@ -48,57 +48,47 @@ export default {
             showBulkInstructionCardModal: false,
             bulkUploadData: {
                 asinList: "",
-                files: {
-                    card1: null,
-                    card2: null,
-                    card3: null,
-                },
+                files: { card1: null, card2: null, card3: null },
                 uploading: false,
-                uploadResults: {
-                    success: [],
-                    failed: [],
-                    skipped: [],
-                },
+                uploadResults: { success: [], failed: [], skipped: [] },
             },
 
             // Edit mode
             editMode: false,
             editedAsin: {},
 
-            // Image upload - now supports multiple cards (1, 2, 3)
-            instructionCardUploading: false, // Can be false, 1, 2, or 3
-            instructionCardUrls: {}, // Store uploaded image URLs per ASIN
+            // Image upload
+            instructionCardUploading: false,
+            instructionCardUrls: {},
 
             // User manual upload
             userManualUploading: false,
-            userManualUrls: {}, // Store uploaded PDF URLs per ASIN
+            userManualUrls: {},
 
             // ASIN image upload
             asinImageUploading: false,
-            asinImageUrls: {}, // Store uploaded image URLs per ASIN
+            asinImageUrls: {},
 
             // Vector image upload
             vectorImageUploading: false,
-            vectorImageUrls: {}, // Store uploaded vector image URLs per ASIN
+            vectorImageUrls: {},
 
             // Saving states
             savingRelatedAsins: false,
             savingAsinDetails: false,
             savingDefaultDimensions: false,
 
-            // For image handling
+            // Image handling
             defaultImagePath: "/images/default-product.png",
             isLoading: false,
+            imageCacheBuster: {},
 
-            // NEW: For dynamic image updates
-            imageCacheBuster: {}, // Track cache busters per ASIN and image type
-
-            //pagination
+            // Pagination
             currentPage: 1,
             totalRecords: 0,
             perPage: 10,
 
-            //
+            // ── Per-ASIN Config ──────────────────────────────────────
             showASINConfig: false,
             selectedConfig: {},
             labelingFields: [],
@@ -108,245 +98,204 @@ export default {
             packagingImage: null,
             packagingComponents: [],
             boxSpecs: { size: "", type: "", weight: "", materials: "" },
+
             labelingCollapsed: false,
             testingCollapsed: false,
             repairCollapsed: false,
             cleaningCollapsed: false,
             packagingCollapsed: false,
-
             guideCollapsed: false,
 
             savingAll: false,
             publishing: false,
+
+            // Field type options (shared by per-ASIN and global config)
+            fieldTypeOptions: [
+                "Text",
+                "Number",
+                "Dropdown/Select",
+                "Checkbox",
+                "Date",
+                "Textarea",
+            ],
+
+            // ── Global Config ────────────────────────────────────────
+            showGlobalConfig: false,
+            savingGlobalConfig: false,
+
+            globalLabelingCollapsed: false,
+            globalTestingCollapsed: false,
+            globalRepairCollapsed: false,
+            globalCleaningCollapsed: false,
+            globalPackagingCollapsed: false,
+
+            globalLabelingFields: [],
+            globalTestingFields: [],
+            globalRepairFields: [],
+            globalCleaningFields: [],
+            globalPackagingComponents: [],
+            globalBoxSpecs: { size: "", type: "", weight: "", materials: "" },
+
+            // Inherited preview toggle (inside per-ASIN config dialog)
+            showInheritedPreview: false,
         };
     },
     computed: {
         searchQuery() {
             return eventBus.searchQuery;
         },
+
         sortedAsinData() {
             if (!this.sortColumn) return this.asinData;
             return [...this.asinData].sort((a, b) => {
-                const valueA = a[this.sortColumn];
-                const valueB = b[this.sortColumn];
-
-                if (typeof valueA === "number" && typeof valueB === "number") {
-                    return this.sortOrder === "asc"
-                        ? valueA - valueB
-                        : valueB - valueA;
+                const vA = a[this.sortColumn];
+                const vB = b[this.sortColumn];
+                if (typeof vA === "number" && typeof vB === "number") {
+                    return this.sortOrder === "asc" ? vA - vB : vB - vA;
                 }
-
                 return this.sortOrder === "asc"
-                    ? String(valueA).localeCompare(String(valueB))
-                    : String(valueB).localeCompare(String(valueA));
+                    ? String(vA).localeCompare(String(vB))
+                    : String(vB).localeCompare(String(vA));
             });
         },
+
         isMobile() {
             return window.innerWidth <= 768;
         },
 
-        getDisplayTitle(item) {
-            return item.system_title || item.AStitle || item.internal;
+        storeOptions() {
+            return [
+                { value: "", label: "All Stores" },
+                ...this.stores.map((s) => ({ value: s, label: s })),
+            ];
+        },
+
+        // ── Global Config computed ───────────────────────────────
+        /** True when any global section has at least one entry */
+        hasGlobalConfig() {
+            return (
+                this.globalLabelingFields.length > 0 ||
+                this.globalTestingFields.length > 0 ||
+                this.globalRepairFields.length > 0 ||
+                this.globalCleaningFields.length > 0 ||
+                this.globalPackagingComponents.length > 0 ||
+                !!this.globalBoxSpecs.size
+            );
+        },
+
+        /** Total inherited item count shown in the per-ASIN banner */
+        globalInheritedCount() {
+            return (
+                this.globalLabelingFields.length +
+                this.globalTestingFields.length +
+                this.globalRepairFields.length +
+                this.globalCleaningFields.length +
+                this.globalPackagingComponents.length
+            );
         },
     },
     methods: {
-        // NEW: Method to force image refresh - Vue 3 Compatible
+        // ── Image helpers ────────────────────────────────────────
         forceImageRefresh(asin, imageType, cardSlot = null) {
             const cacheBuster = Date.now();
             let keys = [];
-
             if (imageType === "instruction_card" && cardSlot) {
                 keys.push(`${asin}_card${cardSlot}`);
             } else if (imageType === "instruction_card_main") {
-                // Refresh all instruction card cache busters
                 keys.push(`${asin}_card1`, `${asin}_card2`, `${asin}_card3`);
             } else if (imageType === "main") {
                 keys.push(`${asin}_main`);
             } else if (imageType === "vector") {
                 keys.push(`${asin}_vector`);
             }
-
-            // Vue 3 compatible reactivity - direct assignment triggers reactivity
             keys.forEach((key) => {
                 this.imageCacheBuster[key] = cacheBuster;
             });
-
-            // Force Vue to re-render
             this.$nextTick(() => {
                 this.$forceUpdate();
             });
         },
 
-        // Updated Image handling methods with cache busting
         getImagePath(asin) {
             if (!asin) return this.defaultImagePath;
-
-            const cacheBuster = this.imageCacheBuster[`${asin}_main`] || "";
-            const cacheParam = cacheBuster ? `?t=${cacheBuster}` : "";
-
-            // Check if we have a stored URL for this ASIN from recent upload
-            if (this.asinImageUrls[asin]) {
-                return `${this.asinImageUrls[asin]}${cacheParam}`;
+            const cb = this.imageCacheBuster[`${asin}_main`] || "";
+            const cp = cb ? `?t=${cb}` : "";
+            if (this.asinImageUrls[asin])
+                return `${this.asinImageUrls[asin]}${cp}`;
+            if (this.selectedAsin?.ASIN === asin) {
+                if (this.selectedAsin.asinimg)
+                    return `${window.location.origin}/images/asinimg/${this.selectedAsin.asinimg}${cp}`;
+                if (this.selectedAsin.asin_image_url)
+                    return `${this.selectedAsin.asin_image_url}${cp}`;
             }
-
-            // Check if the selected ASIN has image from the API
-            if (this.selectedAsin && this.selectedAsin.ASIN === asin) {
-                if (this.selectedAsin.asinimg) {
-                    return `${window.location.origin}/images/asinimg/${this.selectedAsin.asinimg}${cacheParam}`;
-                }
-                if (this.selectedAsin.asin_image_url) {
-                    return `${this.selectedAsin.asin_image_url}${cacheParam}`;
-                }
+            const d = this.asinData.find((i) => i.ASIN === asin);
+            if (d) {
+                if (d.asinimg)
+                    return `${window.location.origin}/images/asinimg/${d.asinimg}${cp}`;
+                if (d.asin_image_url) return `${d.asin_image_url}${cp}`;
             }
-
-            // Check in the main data array
-            const asinData = this.asinData.find((item) => item.ASIN === asin);
-            if (asinData) {
-                if (asinData.asinimg) {
-                    return `${window.location.origin}/images/asinimg/${asinData.asinimg}${cacheParam}`;
-                }
-                if (asinData.asin_image_url) {
-                    return `${asinData.asin_image_url}${cacheParam}`;
-                }
-            }
-
-            // Default fallback to the old pattern
-            return `/images/asinimg/${asin}_0.webp${cacheParam}`;
+            return `/images/asinimg/${asin}_0.webp${cp}`;
         },
 
-        // Updated to handle card 3 with cache busting
         getInstructionCardPath(asin, cardSlot = 1) {
             if (!asin) return this.defaultImagePath;
-
-            const cacheKey = `${asin}_card${cardSlot}`;
-            const cacheBuster = this.imageCacheBuster[cacheKey] || "";
-            const cacheParam = cacheBuster ? `?t=${cacheBuster}` : "";
-
-            // Check if we have a stored URL for this ASIN and card slot from recent upload
+            const cb = this.imageCacheBuster[`${asin}_card${cardSlot}`] || "";
+            const cp = cb ? `?t=${cb}` : "";
             const uploadKey = `${asin}_card${cardSlot}`;
-            if (this.instructionCardUrls[uploadKey]) {
-                return `${this.instructionCardUrls[uploadKey]}${cacheParam}`;
+            if (this.instructionCardUrls[uploadKey])
+                return `${this.instructionCardUrls[uploadKey]}${cp}`;
+            const src =
+                this.selectedAsin?.ASIN === asin ? this.selectedAsin : null;
+            const fallback = this.asinData.find((i) => i.ASIN === asin);
+            for (const obj of [src, fallback]) {
+                if (!obj) continue;
+                if (cardSlot === 1 && obj.instructioncard)
+                    return `${window.location.origin}/images/instructioncard/${obj.instructioncard}${cp}`;
+                if (cardSlot === 2 && obj.instructioncard2)
+                    return `${window.location.origin}/images/instructioncard/${obj.instructioncard2}${cp}`;
+                if (cardSlot === 3 && obj.instructioncard3)
+                    return `${window.location.origin}/images/instructioncard/${obj.instructioncard3}${cp}`;
+                const cardUrl = obj.instruction_card_urls?.[`card${cardSlot}`];
+                if (cardUrl) return `${cardUrl}${cp}`;
             }
-
-            // Check if the selected ASIN has instruction card URLs from the API
-            if (this.selectedAsin && this.selectedAsin.ASIN === asin) {
-                if (cardSlot === 1 && this.selectedAsin.instructioncard) {
-                    return `${window.location.origin}/images/instructioncard/${this.selectedAsin.instructioncard}${cacheParam}`;
-                }
-                if (cardSlot === 2 && this.selectedAsin.instructioncard2) {
-                    return `${window.location.origin}/images/instructioncard/${this.selectedAsin.instructioncard2}${cacheParam}`;
-                }
-                if (cardSlot === 3 && this.selectedAsin.instructioncard3) {
-                    return `${window.location.origin}/images/instructioncard/${this.selectedAsin.instructioncard3}${cacheParam}`;
-                }
-
-                // Check instruction_card_urls if available
-                if (this.selectedAsin.instruction_card_urls) {
-                    const cardUrl =
-                        this.selectedAsin.instruction_card_urls[
-                            `card${cardSlot}`
-                        ];
-                    if (cardUrl) return `${cardUrl}${cacheParam}`;
-                }
-            }
-
-            // Check in the main data array
-            const asinData = this.asinData.find((item) => item.ASIN === asin);
-            if (asinData) {
-                if (cardSlot === 1 && asinData.instructioncard) {
-                    return `${window.location.origin}/images/instructioncard/${asinData.instructioncard}${cacheParam}`;
-                }
-                if (cardSlot === 2 && asinData.instructioncard2) {
-                    return `${window.location.origin}/images/instructioncard/${asinData.instructioncard2}${cacheParam}`;
-                }
-                if (cardSlot === 3 && asinData.instructioncard3) {
-                    return `${window.location.origin}/images/instructioncard/${asinData.instructioncard3}${cacheParam}`;
-                }
-
-                // Check instruction_card_urls if available
-                if (asinData.instruction_card_urls) {
-                    const cardUrl =
-                        asinData.instruction_card_urls[`card${cardSlot}`];
-                    if (cardUrl) return `${cardUrl}${cacheParam}`;
-                }
-            }
-
-            // Default fallback
             return this.defaultImagePath;
         },
 
-        // Updated to check card 3
         getMainInstructionCardPath(asin) {
-            // Show card 1 if available, otherwise card 2, otherwise card 3, otherwise default
-            const card1Path = this.getInstructionCardPath(asin, 1);
-            if (card1Path !== this.defaultImagePath) {
-                return card1Path;
+            for (const slot of [1, 2, 3]) {
+                const p = this.getInstructionCardPath(asin, slot);
+                if (p !== this.defaultImagePath) return p;
             }
-
-            const card2Path = this.getInstructionCardPath(asin, 2);
-            if (card2Path !== this.defaultImagePath) {
-                return card2Path;
-            }
-
-            const card3Path = this.getInstructionCardPath(asin, 3);
-            if (card3Path !== this.defaultImagePath) {
-                return card3Path;
-            }
-
             return this.defaultImagePath;
         },
 
         getVectorImagePath(asin) {
             if (!asin) return null;
-
-            const cacheBuster = this.imageCacheBuster[`${asin}_vector`] || "";
-            const cacheParam = cacheBuster ? `?t=${cacheBuster}` : "";
-
-            // Check if we have a stored URL for this ASIN from recent upload
-            if (this.vectorImageUrls[asin]) {
-                return `${this.vectorImageUrls[asin]}${cacheParam}`;
+            const cb = this.imageCacheBuster[`${asin}_vector`] || "";
+            const cp = cb ? `?t=${cb}` : "";
+            if (this.vectorImageUrls[asin])
+                return `${this.vectorImageUrls[asin]}${cp}`;
+            const src =
+                this.selectedAsin?.ASIN === asin ? this.selectedAsin : null;
+            const fallback = this.asinData.find((i) => i.ASIN === asin);
+            for (const obj of [src, fallback]) {
+                if (!obj) continue;
+                if (obj.vectorimage)
+                    return `${window.location.origin}/images/asinvectorsimg/${obj.vectorimage}${cp}`;
+                if (obj.vector_image_url) return `${obj.vector_image_url}${cp}`;
             }
-
-            // Check if the selected ASIN has vector image from the API
-            if (this.selectedAsin && this.selectedAsin.ASIN === asin) {
-                if (this.selectedAsin.vectorimage) {
-                    return `${window.location.origin}/images/asinvectorsimg/${this.selectedAsin.vectorimage}${cacheParam}`;
-                }
-                if (this.selectedAsin.vector_image_url) {
-                    return `${this.selectedAsin.vector_image_url}${cacheParam}`;
-                }
-            }
-
-            // Check in the main data array
-            const asinData = this.asinData.find((item) => item.ASIN === asin);
-            if (asinData) {
-                if (asinData.vectorimage) {
-                    return `${window.location.origin}/images/asinvectorsimg/${asinData.vectorimage}${cacheParam}`;
-                }
-                if (asinData.vector_image_url) {
-                    return `${asinData.vector_image_url}${cacheParam}`;
-                }
-            }
-
             return null;
         },
 
         getMainAsinImagePath(asin) {
-            // Get ASIN image if available, otherwise default
-            const asinPath = this.getImagePath(asin);
-            if (asinPath !== this.defaultImagePath) {
-                return asinPath;
-            }
-            return this.defaultImagePath;
+            const p = this.getImagePath(asin);
+            return p !== this.defaultImagePath ? p : this.defaultImagePath;
         },
 
         getMainVectorImagePath(asin) {
-            // Get vector image if available, otherwise default vector icon
-            const vectorPath = this.getVectorImagePath(asin);
-            if (vectorPath) {
-                return vectorPath;
-            }
-            return this.createDefaultVectorSVG();
+            return (
+                this.getVectorImagePath(asin) || this.createDefaultVectorSVG()
+            );
         },
 
         hasVectorImage(asin) {
@@ -355,33 +304,16 @@ export default {
 
         getUserManualPath(asin) {
             if (!asin) return null;
-
-            // Check if we have a stored URL for this ASIN from recent upload
-            if (this.userManualUrls[asin]) {
-                return this.userManualUrls[asin];
+            if (this.userManualUrls[asin]) return this.userManualUrls[asin];
+            const src =
+                this.selectedAsin?.ASIN === asin ? this.selectedAsin : null;
+            const fallback = this.asinData.find((i) => i.ASIN === asin);
+            for (const obj of [src, fallback]) {
+                if (!obj) continue;
+                if (obj.usermanuallink)
+                    return `${window.location.origin}/images/usermanual/${obj.usermanuallink}`;
+                if (obj.user_manual_url) return obj.user_manual_url;
             }
-
-            // Check if the selected ASIN has user manual from the API
-            if (this.selectedAsin && this.selectedAsin.ASIN === asin) {
-                if (this.selectedAsin.usermanuallink) {
-                    return `${window.location.origin}/images/usermanual/${this.selectedAsin.usermanuallink}`;
-                }
-                if (this.selectedAsin.user_manual_url) {
-                    return this.selectedAsin.user_manual_url;
-                }
-            }
-
-            // Check in the main data array
-            const asinData = this.asinData.find((item) => item.ASIN === asin);
-            if (asinData) {
-                if (asinData.usermanuallink) {
-                    return `${window.location.origin}/images/usermanual/${asinData.usermanuallink}`;
-                }
-                if (asinData.user_manual_url) {
-                    return asinData.user_manual_url;
-                }
-            }
-
             return null;
         },
 
@@ -390,8 +322,10 @@ export default {
         },
 
         hasInstructionCard(asin, cardSlot) {
-            const path = this.getInstructionCardPath(asin, cardSlot);
-            return path !== this.defaultImagePath;
+            return (
+                this.getInstructionCardPath(asin, cardSlot) !==
+                this.defaultImagePath
+            );
         },
 
         handleImageError(event, item) {
@@ -399,7 +333,7 @@ export default {
             if (item) item.useDefaultImage = true;
         },
 
-        handleInstructionCardError(event, cardSlot) {
+        handleInstructionCardError(event) {
             event.target.src = this.defaultImagePath;
             event.target.style.opacity = "0.5";
         },
@@ -412,18 +346,17 @@ export default {
             return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f8f9fa' stroke='%23dee2e6'/%3E%3Cpath d='M30 30h40v40H30z' fill='none' stroke='%236f42c1' stroke-width='2'/%3E%3Cpath d='M35 35l30 30M65 35l-30 30' stroke='%236f42c1' stroke-width='1'/%3E%3Ctext x='50' y='85' text-anchor='middle' font-family='Arial' font-size='8' fill='%23999'%3ENo Vector%3C/text%3E%3C/svg%3E`;
         },
 
-        // Store management
+        // ── Store management ─────────────────────────────────────
         async fetchStores() {
             try {
-                const response = await axios.get(
+                const res = await axios.get(
                     `${API_BASE_URL}/api/asinlist/stores`,
                     {
                         withCredentials: true,
                     },
                 );
-                this.stores = response.data;
-            } catch (error) {
-                console.error("Error fetching stores:", error);
+                this.stores = res.data;
+            } catch {
                 this.stores = [];
             }
         },
@@ -433,11 +366,11 @@ export default {
             this.fetchAsinData();
         },
 
-        // Data fetching
+        // ── Data fetching ────────────────────────────────────────
         async fetchAsinData() {
             this.loading = true;
             try {
-                const response = await axios.get(
+                const res = await axios.get(
                     `${API_BASE_URL}/api/asinlist/products`,
                     {
                         params: {
@@ -449,39 +382,34 @@ export default {
                         withCredentials: true,
                     },
                 );
-
-                const asinItems = (response.data.data || []).map((item) => ({
+                this.asinData = (res.data.data || []).map((item) => ({
                     ...item,
                     useDefaultImage: false,
                     fnskus: item.fnskus || [],
                 }));
-
-                this.asinData = asinItems;
-                this.totalRecords = response.data.total || 1;
-            } catch (error) {
-                console.error("Error fetching ASIN data:", error);
+                this.totalRecords = res.data.total || 1;
+            } catch {
                 this.asinData = [];
             } finally {
                 this.loading = false;
             }
         },
 
-        // Pagination
+        // ── Pagination ───────────────────────────────────────────
         onPageChange(event) {
             this.first = event.first;
-            this.currentPage = event.page + 1; // convert to 1-based
+            this.currentPage = event.page + 1;
             this.perPage = event.rows;
             this.fetchAsinData();
         },
 
-        // UI
+        // ── UI ───────────────────────────────────────────────────
         toggleDetails(index) {
-            const updatedExpandedRows = { ...this.expandedRows };
-            updatedExpandedRows[index] = !updatedExpandedRows[index];
-            this.expandedRows = updatedExpandedRows;
+            const updated = { ...this.expandedRows };
+            updated[index] = !updated[index];
+            this.expandedRows = updated;
         },
 
-        // Sorting
         sortBy(column) {
             if (this.sortColumn === column) {
                 this.sortOrder = this.sortOrder === "asc" ? "desc" : "asc";
@@ -491,20 +419,29 @@ export default {
             }
         },
 
-        // Modal management
+        handleResize() {
+            this.$forceUpdate();
+        },
+
+        url(path) {
+            if (!path) return this.defaultImagePath;
+            if (path.startsWith("http")) return path;
+            return `${window.location.origin}/${path}`;
+        },
+
+        // ── ASIN Details Modal ───────────────────────────────────
         viewAsinDetails(item) {
             this.selectedAsin = item;
             this.fnskuLimit = item.asin_limit || 0;
             this.showAsinDetailsModal = true;
         },
 
-        // Updated to handle card 3
         closeAsinDetailsModal() {
             this.showAsinDetailsModal = false;
             this.selectedAsin = null;
             this.editMode = false;
             this.editedAsin = {};
-            this.instructionCardUploading = false; // Can be false, 1, 2, or 3
+            this.instructionCardUploading = false;
             this.userManualUploading = false;
             this.asinImageUploading = false;
             this.vectorImageUploading = false;
@@ -513,29 +450,23 @@ export default {
             this.savingDefaultDimensions = false;
         },
 
-        // Instruction Card Modal Management
         openInstructionCardModal() {
             this.showInstructionCardModal = true;
         },
-
-        // Updated to handle card 3
         closeInstructionCardModal() {
             this.showInstructionCardModal = false;
-            this.instructionCardUploading = false; // Can be false, 1, 2, or 3
+            this.instructionCardUploading = false;
         },
 
-        // ASIN Image Modal Management
         openAsinImageModal() {
             this.showAsinImageModal = true;
         },
-
         closeAsinImageModal() {
             this.showAsinImageModal = false;
             this.asinImageUploading = false;
             this.vectorImageUploading = false;
         },
 
-        // Bulk Instruction Card Modal Management
         openBulkInstructionCardModal() {
             this.showBulkInstructionCardModal = true;
             this.resetBulkUploadData();
@@ -549,21 +480,13 @@ export default {
         resetBulkUploadData() {
             this.bulkUploadData = {
                 asinList: "",
-                files: {
-                    card1: null,
-                    card2: null,
-                    card3: null,
-                },
+                files: { card1: null, card2: null, card3: null },
                 uploading: false,
-                uploadResults: {
-                    success: [],
-                    failed: [],
-                    skipped: [],
-                },
+                uploadResults: { success: [], failed: [], skipped: [] },
             };
         },
 
-        // Edit Mode
+        // ── Edit Mode ────────────────────────────────────────────
         toggleEditMode() {
             this.editMode = !this.editMode;
             if (this.editMode) {
@@ -576,13 +499,12 @@ export default {
                     TRANSPARENCY_QR_STATUS:
                         this.selectedAsin.TRANSPARENCY_QR_STATUS || "",
                     QuantityInside: this.selectedAsin.QuantityInside || null,
-                    system_title: this.selectedAsin.system_title || "", // Added system_title
+                    system_title: this.selectedAsin.system_title || "",
                     ParentAsin: this.selectedAsin.ParentAsin || "",
                     CousinASIN: this.selectedAsin.CousinASIN || "",
                     UpgradeASIN: this.selectedAsin.UpgradeASIN || "",
                     GrandASIN: this.selectedAsin.GrandASIN || "",
                     asin_limit: this.selectedAsin.asin_limit || 0,
-                    // Default dimensions (editable)
                     def_length: this.selectedAsin.white_length || "",
                     def_width: this.selectedAsin.white_width || "",
                     def_height: this.selectedAsin.white_height || "",
@@ -594,27 +516,15 @@ export default {
             }
         },
 
-        // ASIN Details Management - Enhanced with new fields
+        // ── ASIN Details Save ────────────────────────────────────
         async saveAsinDetails() {
             if (!this.editedAsin.ASIN) {
                 alert("ASIN is required");
                 return;
             }
-
             this.savingAsinDetails = true;
             try {
-                console.log("Saving ASIN details:", {
-                    asin: this.editedAsin.ASIN,
-                    ean: this.editedAsin.EAN,
-                    upc: this.editedAsin.UPC,
-                    instruction_link: this.editedAsin.instructionlink,
-                    metakeyword: this.editedAsin.metakeyword,
-                    transparency_qr_status:
-                        this.editedAsin.TRANSPARENCY_QR_STATUS,
-                    system_title: this.editedAsin.system_title, // Added system_title
-                });
-
-                const response = await axios.post(
+                const res = await axios.post(
                     `${API_BASE_URL}/api/asinlist/update-asin-details`,
                     {
                         asin: this.editedAsin.ASIN,
@@ -626,7 +536,7 @@ export default {
                         transparency_qr_status:
                             this.editedAsin.TRANSPARENCY_QR_STATUS || null,
                         quantity_inside: this.editedAsin.QuantityInside || null,
-                        system_title: this.editedAsin.system_title || null, // Added system_title
+                        system_title: this.editedAsin.system_title || null,
                         asin_limit: this.editedAsin.asin_limit || 0,
                     },
                     {
@@ -637,81 +547,56 @@ export default {
                         },
                     },
                 );
-
-                console.log("Save response:", response.data);
-
-                if (response.data.success) {
-                    // Update the selected ASIN
-                    this.selectedAsin.EAN = this.editedAsin.EAN;
-                    this.selectedAsin.UPC = this.editedAsin.UPC;
-                    this.selectedAsin.instructionlink =
-                        this.editedAsin.instructionlink;
-                    this.selectedAsin.metakeyword = this.editedAsin.metakeyword;
-                    this.selectedAsin.TRANSPARENCY_QR_STATUS =
-                        this.editedAsin.TRANSPARENCY_QR_STATUS;
-                    this.selectedAsin.QuantityInside =
-                        this.editedAsin.QuantityInside;
-                    this.selectedAsin.system_title =
-                        this.editedAsin.system_title; // Added system_title
-                    this.selectedAsin.asin_limit = this.editedAsin.asin_limit;
-
-                    // Update display_title based on system_title priority
-                    this.selectedAsin.display_title =
-                        this.editedAsin.system_title ||
-                        this.selectedAsin.AStitle;
-
-                    // Update the main data array
-                    const asinIndex = this.asinData.findIndex(
-                        (item) => item.ASIN === this.editedAsin.ASIN,
-                    );
-                    if (asinIndex !== -1) {
-                        this.asinData[asinIndex].EAN = this.editedAsin.EAN;
-                        this.asinData[asinIndex].UPC = this.editedAsin.UPC;
-                        this.asinData[asinIndex].instructionlink =
-                            this.editedAsin.instructionlink;
-                        this.asinData[asinIndex].metakeyword =
-                            this.editedAsin.metakeyword;
-                        this.asinData[asinIndex].TRANSPARENCY_QR_STATUS =
-                            this.editedAsin.TRANSPARENCY_QR_STATUS;
-                        this.asinData[asinIndex].QuantityInside =
-                            this.editedAsin.QuantityInside;
-                        this.asinData[asinIndex].system_title =
-                            this.editedAsin.system_title; // Added system_title
-                        this.asinData[asinIndex].display_title =
+                if (res.data.success) {
+                    Object.assign(this.selectedAsin, {
+                        EAN: this.editedAsin.EAN,
+                        UPC: this.editedAsin.UPC,
+                        instructionlink: this.editedAsin.instructionlink,
+                        metakeyword: this.editedAsin.metakeyword,
+                        TRANSPARENCY_QR_STATUS:
+                            this.editedAsin.TRANSPARENCY_QR_STATUS,
+                        QuantityInside: this.editedAsin.QuantityInside,
+                        system_title: this.editedAsin.system_title,
+                        asin_limit: this.editedAsin.asin_limit,
+                        display_title:
                             this.editedAsin.system_title ||
-                            this.asinData[asinIndex].AStitle;
-                        this.asinData[asinIndex].asin_limit =
-                            this.editedAsin.asin_limit;
-                    }
-
+                            this.selectedAsin.AStitle,
+                    });
+                    const idx = this.asinData.findIndex(
+                        (i) => i.ASIN === this.editedAsin.ASIN,
+                    );
+                    if (idx !== -1)
+                        Object.assign(this.asinData[idx], {
+                            ...this.editedAsin,
+                            display_title:
+                                this.editedAsin.system_title ||
+                                this.asinData[idx].AStitle,
+                        });
                     alert("ASIN details updated successfully");
                 } else {
                     throw new Error(
-                        response.data.message ||
-                            "Failed to update ASIN details",
+                        res.data.message || "Failed to update ASIN details",
                     );
                 }
-            } catch (error) {
-                console.error("Error updating ASIN details:", error);
+            } catch (e) {
                 alert(
                     "Failed to update ASIN details: " +
-                        (error.response?.data?.message || error.message),
+                        (e.response?.data?.message || e.message),
                 );
             } finally {
                 this.savingAsinDetails = false;
             }
         },
 
-        // Default Dimensions Management
+        // ── Default Dimensions Save ──────────────────────────────
         async saveDefaultDimensions() {
             if (!this.editedAsin.ASIN) {
                 alert("ASIN is required");
                 return;
             }
-
             this.savingDefaultDimensions = true;
             try {
-                const response = await axios.post(
+                const res = await axios.post(
                     `${API_BASE_URL}/api/asinlist/update-default-dimensions`,
                     {
                         asin: this.editedAsin.ASIN,
@@ -722,60 +607,49 @@ export default {
                         def_weight_unit:
                             this.editedAsin.def_weight_unit || null,
                     },
-                    {
-                        withCredentials: true,
-                    },
+                    { withCredentials: true },
                 );
-
-                if (response.data.success) {
-                    // Update the selected ASIN
-                    this.selectedAsin.white_length = this.editedAsin.def_length;
-                    this.selectedAsin.white_width = this.editedAsin.def_width;
-                    this.selectedAsin.white_height = this.editedAsin.def_height;
-                    this.selectedAsin.white_value = this.editedAsin.def_weight;
-                    this.selectedAsin.white_unit =
-                        this.editedAsin.def_weight_unit;
-
-                    // Update the main data array
-                    const asinIndex = this.asinData.findIndex(
-                        (item) => item.ASIN === this.editedAsin.ASIN,
+                if (res.data.success) {
+                    Object.assign(this.selectedAsin, {
+                        white_length: this.editedAsin.def_length,
+                        white_width: this.editedAsin.def_width,
+                        white_height: this.editedAsin.def_height,
+                        white_value: this.editedAsin.def_weight,
+                        white_unit: this.editedAsin.def_weight_unit,
+                    });
+                    const idx = this.asinData.findIndex(
+                        (i) => i.ASIN === this.editedAsin.ASIN,
                     );
-                    if (asinIndex !== -1) {
-                        this.asinData[asinIndex].white_length =
-                            this.editedAsin.def_length;
-                        this.asinData[asinIndex].white_width =
-                            this.editedAsin.def_width;
-                        this.asinData[asinIndex].white_height =
-                            this.editedAsin.def_height;
-                        this.asinData[asinIndex].white_value =
-                            this.editedAsin.def_weight;
-                        this.asinData[asinIndex].white_unit =
-                            this.editedAsin.def_weight_unit;
-                    }
-
+                    if (idx !== -1)
+                        Object.assign(this.asinData[idx], {
+                            white_length: this.editedAsin.def_length,
+                            white_width: this.editedAsin.def_width,
+                            white_height: this.editedAsin.def_height,
+                            white_value: this.editedAsin.def_weight,
+                            white_unit: this.editedAsin.def_weight_unit,
+                        });
                     alert("Default dimensions updated successfully");
                 } else {
                     throw new Error(
-                        response.data.message ||
+                        res.data.message ||
                             "Failed to update default dimensions",
                     );
                 }
-            } catch (error) {
-                console.error("Error updating default dimensions:", error);
+            } catch (e) {
                 alert(
                     "Failed to update default dimensions: " +
-                        (error.response?.data?.message || error.message),
+                        (e.response?.data?.message || e.message),
                 );
             } finally {
                 this.savingDefaultDimensions = false;
             }
         },
 
-        // Related ASINs Management
+        // ── Related ASINs Save ───────────────────────────────────
         async saveRelatedAsins() {
             this.savingRelatedAsins = true;
             try {
-                const response = await axios.post(
+                const res = await axios.post(
                     `${API_BASE_URL}/api/asinlist/update-related-asins`,
                     {
                         asin: this.editedAsin.ASIN,
@@ -784,111 +658,78 @@ export default {
                         upgrade_asin: this.editedAsin.UpgradeASIN || null,
                         grand_asin: this.editedAsin.GrandASIN || null,
                     },
-                    {
-                        withCredentials: true,
-                    },
+                    { withCredentials: true },
                 );
-
-                if (response.data.success) {
-                    this.selectedAsin.ParentAsin = this.editedAsin.ParentAsin;
-                    this.selectedAsin.CousinASIN = this.editedAsin.CousinASIN;
-                    this.selectedAsin.UpgradeASIN = this.editedAsin.UpgradeASIN;
-                    this.selectedAsin.GrandASIN = this.editedAsin.GrandASIN;
-
-                    // Update the main data array
-                    const asinIndex = this.asinData.findIndex(
-                        (item) => item.ASIN === this.editedAsin.ASIN,
+                if (res.data.success) {
+                    Object.assign(this.selectedAsin, {
+                        ParentAsin: this.editedAsin.ParentAsin,
+                        CousinASIN: this.editedAsin.CousinASIN,
+                        UpgradeASIN: this.editedAsin.UpgradeASIN,
+                        GrandASIN: this.editedAsin.GrandASIN,
+                    });
+                    const idx = this.asinData.findIndex(
+                        (i) => i.ASIN === this.editedAsin.ASIN,
                     );
-                    if (asinIndex !== -1) {
-                        this.asinData[asinIndex].ParentAsin =
-                            this.editedAsin.ParentAsin;
-                        this.asinData[asinIndex].CousinASIN =
-                            this.editedAsin.CousinASIN;
-                        this.asinData[asinIndex].UpgradeASIN =
-                            this.editedAsin.UpgradeASIN;
-                        this.asinData[asinIndex].GrandASIN =
-                            this.editedAsin.GrandASIN;
-                    }
-
+                    if (idx !== -1)
+                        Object.assign(this.asinData[idx], {
+                            ParentAsin: this.editedAsin.ParentAsin,
+                            CousinASIN: this.editedAsin.CousinASIN,
+                            UpgradeASIN: this.editedAsin.UpgradeASIN,
+                            GrandASIN: this.editedAsin.GrandASIN,
+                        });
                     alert("Related ASINs updated successfully");
                 } else {
                     throw new Error(
-                        response.data.message ||
-                            "Failed to update related ASINs",
+                        res.data.message || "Failed to update related ASINs",
                     );
                 }
-            } catch (error) {
-                console.error("Error updating related ASINs:", error);
+            } catch {
                 alert("Failed to update related ASINs");
             } finally {
                 this.savingRelatedAsins = false;
             }
         },
 
-        // UPDATED: Instruction Card Upload - with dynamic refresh
+        // ── Instruction Card Upload ──────────────────────────────
         async handleInstructionCardUpload(event, cardSlot) {
             const file = event.target.files[0];
             if (!file) return;
-
             if (!file.type.startsWith("image/")) {
                 alert("Please select an image file");
                 return;
             }
-
             if (file.size > 5 * 1024 * 1024) {
                 alert("File size must be less than 5MB");
                 return;
             }
-
             this.instructionCardUploading = cardSlot;
-
             try {
-                const formData = new FormData();
-                formData.append("instruction_card", file);
-                formData.append("asin", this.selectedAsin.ASIN);
-                formData.append("card_slot", cardSlot);
-
-                const response = await axios.post(
+                const fd = new FormData();
+                fd.append("instruction_card", file);
+                fd.append("asin", this.selectedAsin.ASIN);
+                fd.append("card_slot", cardSlot);
+                const res = await axios.post(
                     `${API_BASE_URL}/api/asinlist/upload-instruction-card`,
-                    formData,
+                    fd,
                     {
-                        headers: {
-                            "Content-Type": "multipart/form-data",
-                        },
+                        headers: { "Content-Type": "multipart/form-data" },
                         withCredentials: true,
                     },
                 );
-
-                if (response.data.success) {
-                    alert(`Instruction card ${cardSlot} uploaded successfully`);
-
-                    // Store the uploaded file URL for this ASIN and card slot
+                if (res.data.success) {
                     const uploadKey = `${this.selectedAsin.ASIN}_card${cardSlot}`;
-                    this.instructionCardUrls[uploadKey] =
-                        response.data.file_url;
-
-                    // Update the selected ASIN data
-                    let columnName;
-                    if (cardSlot === 1) {
-                        columnName = "instructioncard";
-                    } else if (cardSlot === 2) {
-                        columnName = "instructioncard2";
-                    } else if (cardSlot === 3) {
-                        columnName = "instructioncard3";
-                    }
-
-                    this.selectedAsin[columnName] = response.data.filename;
-
-                    // Update the main data array
-                    const asinIndex = this.asinData.findIndex(
-                        (item) => item.ASIN === this.selectedAsin.ASIN,
+                    this.instructionCardUrls[uploadKey] = res.data.file_url;
+                    const col =
+                        cardSlot === 1
+                            ? "instructioncard"
+                            : cardSlot === 2
+                              ? "instructioncard2"
+                              : "instructioncard3";
+                    this.selectedAsin[col] = res.data.filename;
+                    const idx = this.asinData.findIndex(
+                        (i) => i.ASIN === this.selectedAsin.ASIN,
                     );
-                    if (asinIndex !== -1) {
-                        this.asinData[asinIndex][columnName] =
-                            this.selectedAsin[columnName];
-                    }
-
-                    // CRITICAL: Force immediate image refresh
+                    if (idx !== -1) this.asinData[idx][col] = res.data.filename;
                     this.forceImageRefresh(
                         this.selectedAsin.ASIN,
                         "instruction_card",
@@ -898,31 +739,16 @@ export default {
                         this.selectedAsin.ASIN,
                         "instruction_card_main",
                     );
-
-                    // Add visual feedback
-                    this.$nextTick(() => {
-                        const images = document.querySelectorAll(
-                            `img[alt*="card ${cardSlot}"], img[alt*="Instruction card ${cardSlot}"]`,
-                        );
-                        images.forEach((img) => {
-                            img.classList.add("image-uploaded");
-                            setTimeout(
-                                () => img.classList.remove("image-uploaded"),
-                                600,
-                            );
-                        });
-                    });
+                    alert(`Instruction card ${cardSlot} uploaded successfully`);
                 } else {
                     throw new Error(
-                        response.data.message ||
-                            "Failed to upload instruction card",
+                        res.data.message || "Failed to upload instruction card",
                     );
                 }
-            } catch (error) {
-                console.error("Error uploading instruction card:", error);
+            } catch (e) {
                 alert(
                     "Failed to upload instruction card: " +
-                        (error.response?.data?.message || error.message),
+                        (e.response?.data?.message || e.message),
                 );
             } finally {
                 this.instructionCardUploading = false;
@@ -930,73 +756,54 @@ export default {
             }
         },
 
-        // User Manual Upload
+        // ── User Manual Upload ───────────────────────────────────
         async handleUserManualUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             if (file.type !== "application/pdf") {
                 alert("Please select a PDF file");
                 return;
             }
-
             if (file.size > 10 * 1024 * 1024) {
                 alert("File size must be less than 10MB");
                 return;
             }
-
             this.userManualUploading = true;
-
             try {
-                const formData = new FormData();
-                formData.append("user_manual", file);
-                formData.append("asin", this.selectedAsin.ASIN);
-
-                const response = await axios.post(
+                const fd = new FormData();
+                fd.append("user_manual", file);
+                fd.append("asin", this.selectedAsin.ASIN);
+                const res = await axios.post(
                     `${API_BASE_URL}/api/asinlist/upload-user-manual`,
-                    formData,
+                    fd,
                     {
-                        headers: {
-                            "Content-Type": "multipart/form-data",
-                        },
+                        headers: { "Content-Type": "multipart/form-data" },
                         withCredentials: true,
                     },
                 );
-
-                if (response.data.success) {
-                    alert("User manual uploaded successfully");
-
-                    // Store the uploaded file URL for this ASIN
+                if (res.data.success) {
                     this.userManualUrls[this.selectedAsin.ASIN] =
-                        response.data.file_url;
-
-                    // Update the selected ASIN data
-                    this.selectedAsin.usermanuallink = response.data.filename;
-                    this.selectedAsin.user_manual_url = response.data.file_url;
-
-                    // Update the main data array
-                    const asinIndex = this.asinData.findIndex(
-                        (item) => item.ASIN === this.selectedAsin.ASIN,
+                        res.data.file_url;
+                    this.selectedAsin.usermanuallink = res.data.filename;
+                    this.selectedAsin.user_manual_url = res.data.file_url;
+                    const idx = this.asinData.findIndex(
+                        (i) => i.ASIN === this.selectedAsin.ASIN,
                     );
-                    if (asinIndex !== -1) {
-                        this.asinData[asinIndex].usermanuallink =
-                            this.selectedAsin.usermanuallink;
-                        this.asinData[asinIndex].user_manual_url =
-                            this.selectedAsin.user_manual_url;
+                    if (idx !== -1) {
+                        this.asinData[idx].usermanuallink = res.data.filename;
+                        this.asinData[idx].user_manual_url = res.data.file_url;
                     }
-
-                    // Force Vue to re-render
                     this.$forceUpdate();
+                    alert("User manual uploaded successfully");
                 } else {
                     throw new Error(
-                        response.data.message || "Failed to upload user manual",
+                        res.data.message || "Failed to upload user manual",
                     );
                 }
-            } catch (error) {
-                console.error("Error uploading user manual:", error);
+            } catch (e) {
                 alert(
                     "Failed to upload user manual: " +
-                        (error.response?.data?.message || error.message),
+                        (e.response?.data?.message || e.message),
                 );
             } finally {
                 this.userManualUploading = false;
@@ -1004,143 +811,72 @@ export default {
             }
         },
 
-        // UPDATED: ASIN Image Upload - with dynamic refresh
+        // ── ASIN Image Upload ────────────────────────────────────
         async handleAsinImageUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             if (!file.type.startsWith("image/")) {
                 alert("Please select an image file");
                 return;
             }
-
             if (file.size > 5 * 1024 * 1024) {
                 alert("File size must be less than 5MB");
                 return;
             }
-
             this.asinImageUploading = true;
-
             try {
                 let uploadFile = file;
-
-                // Try to convert to WebP, but fallback to original if it fails
                 try {
-                    // Check browser support for WebP
                     if (this.isWebPSupported()) {
-                        const webpBlob = await this.convertToWebP(file, {
+                        const blob = await this.convertToWebP(file, {
                             quality: 0.85,
                             maxWidth: 1920,
                         });
-
-                        const webpFileName = file.name.replace(
+                        const name = file.name.replace(
                             /\.(png|jpe?g|gif|bmp)$/i,
                             ".webp",
                         );
-                        uploadFile = new File([webpBlob], webpFileName, {
+                        uploadFile = new File([blob], name, {
                             type: "image/webp",
                         });
-
-                        console.log(
-                            "Original:",
-                            file.name,
-                            (file.size / 1024).toFixed(2),
-                            "KB",
-                        );
-                        console.log(
-                            "WebP:",
-                            webpFileName,
-                            (uploadFile.size / 1024).toFixed(2),
-                            "KB",
-                        );
-                        console.log(
-                            "Savings:",
-                            (
-                                ((file.size - uploadFile.size) / file.size) *
-                                100
-                            ).toFixed(1),
-                            "%",
-                        );
-                    } else {
-                        console.warn(
-                            "WebP not supported, uploading original format",
-                        );
                     }
-                } catch (conversionError) {
-                    console.warn(
-                        "WebP conversion failed, uploading original format:",
-                        conversionError,
-                    );
-                    // uploadFile remains as original file
+                } catch {
+                    /* fallback to original */
                 }
-
-                const formData = new FormData();
-                formData.append("asin_image", uploadFile);
-                formData.append("asin", this.selectedAsin.ASIN);
-
-                const response = await axios.post(
+                const fd = new FormData();
+                fd.append("asin_image", uploadFile);
+                fd.append("asin", this.selectedAsin.ASIN);
+                const res = await axios.post(
                     `${API_BASE_URL}/api/asinlist/upload-asin-image`,
-                    formData,
+                    fd,
                     {
-                        headers: {
-                            "Content-Type": "multipart/form-data",
-                        },
+                        headers: { "Content-Type": "multipart/form-data" },
                         withCredentials: true,
                     },
                 );
-
-                if (response.data.success) {
-                    const format =
-                        uploadFile.type === "image/webp"
-                            ? " (WebP format)"
-                            : "";
-                    alert(`ASIN image uploaded successfully${format}`);
-
-                    // Store the uploaded file URL for this ASIN
+                if (res.data.success) {
                     this.asinImageUrls[this.selectedAsin.ASIN] =
-                        response.data.file_url;
-
-                    // Update the selected ASIN data
-                    this.selectedAsin.asinimg = response.data.filename;
-                    this.selectedAsin.asin_image_url = response.data.file_url;
-
-                    // Update the main data array
-                    const asinIndex = this.asinData.findIndex(
-                        (item) => item.ASIN === this.selectedAsin.ASIN,
+                        res.data.file_url;
+                    this.selectedAsin.asinimg = res.data.filename;
+                    this.selectedAsin.asin_image_url = res.data.file_url;
+                    const idx = this.asinData.findIndex(
+                        (i) => i.ASIN === this.selectedAsin.ASIN,
                     );
-                    if (asinIndex !== -1) {
-                        this.asinData[asinIndex].asinimg =
-                            this.selectedAsin.asinimg;
-                        this.asinData[asinIndex].asin_image_url =
-                            this.selectedAsin.asin_image_url;
+                    if (idx !== -1) {
+                        this.asinData[idx].asinimg = res.data.filename;
+                        this.asinData[idx].asin_image_url = res.data.file_url;
                     }
-
-                    // Force immediate image refresh
                     this.forceImageRefresh(this.selectedAsin.ASIN, "main");
-
-                    // Add visual feedback
-                    this.$nextTick(() => {
-                        const images = document.querySelectorAll(
-                            `img[alt*="ASIN image"], img[alt*="${this.selectedAsin.ASIN}"]`,
-                        );
-                        images.forEach((img) => {
-                            img.classList.add("image-uploaded");
-                            setTimeout(
-                                () => img.classList.remove("image-uploaded"),
-                                600,
-                            );
-                        });
-                    });
+                    alert("ASIN image uploaded successfully");
                 } else {
                     throw new Error(
-                        response.data.message || "Failed to upload ASIN image",
+                        res.data.message || "Failed to upload ASIN image",
                     );
                 }
-            } catch (error) {
-                console.error("Error uploading ASIN image:", error);
+            } catch (e) {
                 alert(
                     "Failed to upload ASIN image: " +
-                        (error.response?.data?.message || error.message),
+                        (e.response?.data?.message || e.message),
                 );
             } finally {
                 this.asinImageUploading = false;
@@ -1148,94 +884,54 @@ export default {
             }
         },
 
-        // UPDATED: Vector Image Upload - with dynamic refresh
+        // ── Vector Image Upload ──────────────────────────────────
         async handleVectorImageUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-
-            if (!file.type.startsWith("image/")) {
-                alert("Please select an image file (PNG or JPG)");
-                return;
-            }
-
-            const allowedTypes = ["image/png", "image/jpg", "image/jpeg"];
-            if (!allowedTypes.includes(file.type)) {
+            if (!["image/png", "image/jpg", "image/jpeg"].includes(file.type)) {
                 alert("Please select a PNG or JPG image file");
                 return;
             }
-
             if (file.size > 5 * 1024 * 1024) {
                 alert("File size must be less than 5MB");
                 return;
             }
-
             this.vectorImageUploading = true;
-
             try {
-                const formData = new FormData();
-                formData.append("vector_image", file);
-                formData.append("asin", this.selectedAsin.ASIN);
-
-                const response = await axios.post(
+                const fd = new FormData();
+                fd.append("vector_image", file);
+                fd.append("asin", this.selectedAsin.ASIN);
+                const res = await axios.post(
                     `${API_BASE_URL}/api/asinlist/upload-vector-image`,
-                    formData,
+                    fd,
                     {
-                        headers: {
-                            "Content-Type": "multipart/form-data",
-                        },
+                        headers: { "Content-Type": "multipart/form-data" },
                         withCredentials: true,
                     },
                 );
-
-                if (response.data.success) {
-                    alert("Vector image uploaded successfully");
-
-                    // Store the uploaded file URL for this ASIN
+                if (res.data.success) {
                     this.vectorImageUrls[this.selectedAsin.ASIN] =
-                        response.data.file_url;
-
-                    // Update the selected ASIN data
-                    this.selectedAsin.vectorimage = response.data.filename;
-                    this.selectedAsin.vector_image_url = response.data.file_url;
-
-                    // Update the main data array
-                    const asinIndex = this.asinData.findIndex(
-                        (item) => item.ASIN === this.selectedAsin.ASIN,
+                        res.data.file_url;
+                    this.selectedAsin.vectorimage = res.data.filename;
+                    this.selectedAsin.vector_image_url = res.data.file_url;
+                    const idx = this.asinData.findIndex(
+                        (i) => i.ASIN === this.selectedAsin.ASIN,
                     );
-                    if (asinIndex !== -1) {
-                        this.asinData[asinIndex].vectorimage =
-                            this.selectedAsin.vectorimage;
-                        this.asinData[asinIndex].vector_image_url =
-                            this.selectedAsin.vector_image_url;
+                    if (idx !== -1) {
+                        this.asinData[idx].vectorimage = res.data.filename;
+                        this.asinData[idx].vector_image_url = res.data.file_url;
                     }
-
-                    // CRITICAL: Force immediate image refresh
                     this.forceImageRefresh(this.selectedAsin.ASIN, "vector");
-
-                    // Add visual feedback
-                    this.$nextTick(() => {
-                        const images = document.querySelectorAll(
-                            `img[alt*="vector"], img[alt*="Vector"]`,
-                        );
-                        images.forEach((img) => {
-                            img.classList.add("image-uploaded");
-                            setTimeout(
-                                () => img.classList.remove("image-uploaded"),
-                                600,
-                            );
-                        });
-                    });
+                    alert("Vector image uploaded successfully");
                 } else {
                     throw new Error(
-                        response.data.message ||
-                            "Failed to upload vector image",
+                        res.data.message || "Failed to upload vector image",
                     );
                 }
-            } catch (error) {
-                console.error("Error uploading vector image:", error);
+            } catch (e) {
                 alert(
                     "Failed to upload vector image: " +
-                        (error.response?.data?.message || error.message),
+                        (e.response?.data?.message || e.message),
                 );
             } finally {
                 this.vectorImageUploading = false;
@@ -1243,67 +939,38 @@ export default {
             }
         },
 
-        // Utility methods
-        getUniqueStores(fnskus) {
-            if (!fnskus || fnskus.length === 0) return [];
-            const stores = fnskus
-                .map((fnsku) => fnsku.storename)
-                .filter((store) => store);
-            return [...new Set(stores)];
-        },
-
-        handleResize() {
-            this.$forceUpdate();
-        },
-
-        // Helper method to construct URLs
-        url(path) {
-            if (!path) return this.defaultImagePath;
-            if (path.startsWith("http")) return path;
-            return `${window.location.origin}/${path}`;
-        },
-
-        // NEW: File preview and utility methods for bulk upload
+        // ── Bulk Instruction Card Upload ─────────────────────────
         getFilePreviewUrl(file) {
-            if (!file) return null;
-            return URL.createObjectURL(file);
+            return file ? URL.createObjectURL(file) : null;
         },
 
         removeBulkFile(cardSlot) {
             this.bulkUploadData.files[cardSlot] = null;
-            // Clear the file input
-            const inputRef =
-                this.$refs[`bulkFileUploadCard${cardSlot.slice(-1)}`];
-            if (inputRef) {
-                inputRef.value = "";
-            }
+            const ref = this.$refs[`bulkFileUploadCard${cardSlot.slice(-1)}`];
+            if (ref) ref.value = "";
         },
 
         formatFileSize(bytes) {
             if (bytes === 0) return "0 Bytes";
-            const k = 1024;
-            const sizes = ["Bytes", "KB", "MB", "GB"];
+            const k = 1024,
+                sizes = ["Bytes", "KB", "MB", "GB"];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return (
                 parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
             );
         },
 
-        // Bulk Instruction Card Upload Methods
         handleBulkFileSelect(event, cardSlot) {
             const file = event.target.files[0];
             if (!file) return;
-
             if (!file.type.startsWith("image/")) {
                 alert("Please select an image file");
                 return;
             }
-
             if (file.size > 5 * 1024 * 1024) {
                 alert("File size must be less than 5MB");
                 return;
             }
-
             this.bulkUploadData.files[cardSlot] = file;
         },
 
@@ -1312,162 +979,107 @@ export default {
                 alert("Please enter at least one ASIN");
                 return false;
             }
-
-            const hasAtLeastOneFile =
-                this.bulkUploadData.files.card1 ||
-                this.bulkUploadData.files.card2 ||
-                this.bulkUploadData.files.card3;
-
-            if (!hasAtLeastOneFile) {
+            if (
+                !this.bulkUploadData.files.card1 &&
+                !this.bulkUploadData.files.card2 &&
+                !this.bulkUploadData.files.card3
+            ) {
                 alert("Please select at least one instruction card image");
                 return false;
             }
-
             return true;
         },
 
         getSelectedCardCount() {
-            let count = 0;
-            if (this.bulkUploadData.files.card1) count++;
-            if (this.bulkUploadData.files.card2) count++;
-            if (this.bulkUploadData.files.card3) count++;
-            return count;
+            return [
+                this.bulkUploadData.files.card1,
+                this.bulkUploadData.files.card2,
+                this.bulkUploadData.files.card3,
+            ].filter(Boolean).length;
         },
 
         parseAsinList() {
             return this.bulkUploadData.asinList
                 .split(",")
-                .map((asin) => asin.trim().toUpperCase())
-                .filter((asin) => asin.length > 0)
-                .filter((asin, index, arr) => arr.indexOf(asin) === index); // Remove duplicates
+                .map((a) => a.trim().toUpperCase())
+                .filter(Boolean)
+                .filter((a, i, arr) => arr.indexOf(a) === i);
         },
 
         async processBulkInstructionCardUpload() {
             if (!this.validateBulkUpload()) return;
-
             const asinList = this.parseAsinList();
-
-            if (asinList.length === 0) {
+            if (!asinList.length) {
                 alert("No valid ASINs found");
                 return;
             }
-
             if (asinList.length > 50) {
                 alert("Maximum 50 ASINs allowed per bulk upload");
                 return;
             }
-
-            const selectedCards = this.getSelectedCardCount();
-            const confirmMessage = `Upload ${selectedCards} instruction card${selectedCards > 1 ? "s" : ""} to ${asinList.length} ASINs?\n\nASINs: ${asinList.slice(0, 10).join(", ")}${asinList.length > 10 ? "..." : ""}`;
-            if (!confirm(confirmMessage)) return;
-
+            const cnt = this.getSelectedCardCount();
+            if (
+                !confirm(`Upload ${cnt} card(s) to ${asinList.length} ASIN(s)?`)
+            )
+                return;
             this.bulkUploadData.uploading = true;
             this.bulkUploadData.uploadResults = {
                 success: [],
                 failed: [],
                 skipped: [],
             };
-
             try {
-                const formData = new FormData();
-                formData.append("asin_list", asinList.join(","));
-
-                // Add selected files to form data
-                const fileMapping = [];
-                if (this.bulkUploadData.files.card1) {
-                    formData.append(
-                        "instruction_cards[0]",
-                        this.bulkUploadData.files.card1,
-                    );
-                    fileMapping[0] = 1;
+                const fd = new FormData();
+                fd.append("asin_list", asinList.join(","));
+                let fi = 0;
+                for (const slot of ["card1", "card2", "card3"]) {
+                    if (this.bulkUploadData.files[slot]) {
+                        fd.append(
+                            `instruction_cards[${fi++}]`,
+                            this.bulkUploadData.files[slot],
+                        );
+                    }
                 }
-                if (this.bulkUploadData.files.card2) {
-                    const index = fileMapping.length;
-                    formData.append(
-                        `instruction_cards[${index}]`,
-                        this.bulkUploadData.files.card2,
-                    );
-                    fileMapping[index] = 2;
-                }
-                if (this.bulkUploadData.files.card3) {
-                    const index = fileMapping.length;
-                    formData.append(
-                        `instruction_cards[${index}]`,
-                        this.bulkUploadData.files.card3,
-                    );
-                    fileMapping[index] = 3;
-                }
-
-                const response = await axios.post(
+                const res = await axios.post(
                     `${API_BASE_URL}/api/asinlist/bulk-upload-instruction-cards`,
-                    formData,
+                    fd,
                     {
-                        headers: {
-                            "Content-Type": "multipart/form-data",
-                        },
+                        headers: { "Content-Type": "multipart/form-data" },
                         withCredentials: true,
                     },
                 );
-
-                if (response.data.success) {
-                    this.bulkUploadData.uploadResults = response.data.results;
-
-                    // Update local data for successful uploads
-                    response.data.results.success.forEach((result) => {
-                        const asinIndex = this.asinData.findIndex(
-                            (item) => item.ASIN === result.asin,
-                        );
-                        if (asinIndex !== -1) {
-                            // Force refresh of current view data
+                if (res.data.success) {
+                    this.bulkUploadData.uploadResults = res.data.results;
+                    res.data.results.success.forEach((r) => {
+                        if (
+                            this.asinData.findIndex(
+                                (i) => i.ASIN === r.asin,
+                            ) !== -1
+                        )
                             this.fetchAsinData();
+                        for (let s = 1; s <= 3; s++) {
+                            if (this.bulkUploadData.files[`card${s}`])
+                                this.forceImageRefresh(
+                                    r.asin,
+                                    "instruction_card",
+                                    s,
+                                );
                         }
-
-                        // Force image refresh for all uploaded cards
-                        if (this.bulkUploadData.files.card1) {
-                            this.forceImageRefresh(
-                                result.asin,
-                                "instruction_card",
-                                1,
-                            );
-                        }
-                        if (this.bulkUploadData.files.card2) {
-                            this.forceImageRefresh(
-                                result.asin,
-                                "instruction_card",
-                                2,
-                            );
-                        }
-                        if (this.bulkUploadData.files.card3) {
-                            this.forceImageRefresh(
-                                result.asin,
-                                "instruction_card",
-                                3,
-                            );
-                        }
-                        this.forceImageRefresh(
-                            result.asin,
-                            "instruction_card_main",
-                        );
+                        this.forceImageRefresh(r.asin, "instruction_card_main");
                     });
-
                     this.showBulkUploadResults();
                 } else {
-                    throw new Error(
-                        response.data.message || "Bulk upload failed",
-                    );
+                    throw new Error(res.data.message || "Bulk upload failed");
                 }
-            } catch (error) {
-                console.error("Bulk upload error:", error);
+            } catch (e) {
                 alert(
                     "Bulk upload failed: " +
-                        (error.response?.data?.message || error.message),
+                        (e.response?.data?.message || e.message),
                 );
                 this.bulkUploadData.uploadResults.failed = [
                     {
                         asin: "ALL",
-                        errors: [
-                            error.response?.data?.message || error.message,
-                        ],
+                        errors: [e.response?.data?.message || e.message],
                     },
                 ];
             } finally {
@@ -1478,53 +1090,36 @@ export default {
         showBulkUploadResults() {
             const { success, failed, skipped } =
                 this.bulkUploadData.uploadResults;
-
-            let message = `Bulk Upload Complete!\n\n`;
-            message += `✅ Successfully uploaded: ${success.length} ASINs\n`;
-            message += `❌ Failed uploads: ${failed.length} ASINs\n`;
-            message += `⚠️ Skipped (ASIN not found): ${skipped.length} ASINs\n`;
-
-            if (success.length > 0) {
-                message += `\nSuccessful ASINs:\n`;
-                success.forEach((item) => {
-                    message += `• ${item.asin}: ${item.cards}\n`;
-                });
-            }
-
-            if (failed.length > 0) {
-                message += `\nFailed ASINs:\n`;
-                failed.forEach((item) => {
-                    message += `• ${item.asin}: ${item.errors.join(", ")}\n`;
-                });
-            }
-
-            if (skipped.length > 0) {
-                message += `\nSkipped ASINs:\n`;
-                skipped.forEach((item) => {
-                    message += `• ${item}\n`;
-                });
-            }
-
-            alert(message);
+            let msg = `Bulk Upload Complete!\n\n✅ Success: ${success.length}\n❌ Failed: ${failed.length}\n⚠️ Skipped: ${skipped.length}`;
+            if (success.length)
+                msg +=
+                    `\n\nSuccessful:\n` +
+                    success.map((i) => `• ${i.asin}: ${i.cards}`).join("\n");
+            if (failed.length)
+                msg +=
+                    `\n\nFailed:\n` +
+                    failed
+                        .map((i) => `• ${i.asin}: ${i.errors.join(", ")}`)
+                        .join("\n");
+            if (skipped.length)
+                msg +=
+                    `\n\nSkipped:\n` + skipped.map((i) => `• ${i}`).join("\n");
+            alert(msg);
         },
 
-        // Optional: Method to clear all cache busters (useful for debugging)
         clearImageCache() {
             this.imageCacheBuster = {};
             this.$forceUpdate();
         },
 
+        // ── Color / Qty Inside ───────────────────────────────────
         async updateColor(item) {
-            const originalValue = item.color;
-            this.savingColorFor = item.ASIN; // Show loading
-
+            const orig = item.color;
+            this.savingColorFor = item.ASIN;
             try {
-                const response = await axios.post(
+                const res = await axios.post(
                     `${API_BASE_URL}/api/asinlist/update-color`,
-                    {
-                        asin: item.ASIN,
-                        color: item.color || null,
-                    },
+                    { asin: item.ASIN, color: item.color || null },
                     {
                         withCredentials: true,
                         headers: {
@@ -1533,35 +1128,27 @@ export default {
                         },
                     },
                 );
-
-                if (response.data.success) {
-                    console.log(
-                        `✓ Color updated for ${item.ASIN}: ${item.color}`,
-                    );
-                } else {
+                if (!res.data.success)
                     throw new Error(
-                        response.data.message || "Failed to update color",
+                        res.data.message || "Failed to update color",
                     );
-                }
-            } catch (error) {
-                console.error("Error updating Color:", error);
-                item.color = originalValue;
+            } catch (e) {
+                item.color = orig;
                 this.$forceUpdate();
                 alert(
                     "Failed to update Color: " +
-                        (error.response?.data?.message || error.message),
+                        (e.response?.data?.message || e.message),
                 );
             } finally {
-                this.savingColorFor = null; // Hide loading
+                this.savingColorFor = null;
             }
         },
 
         async updateQuantityInside(item) {
-            const originalValue = item.QuantityInside;
-            this.savingQuantityFor = item.ASIN; // Show loading
-
+            const orig = item.QuantityInside;
+            this.savingQuantityFor = item.ASIN;
             try {
-                const response = await axios.post(
+                const res = await axios.post(
                     `${API_BASE_URL}/api/asinlist/update-quantity-inside`,
                     {
                         asin: item.ASIN,
@@ -1575,74 +1162,51 @@ export default {
                         },
                     },
                 );
-
-                if (response.data.success) {
-                    console.log(
-                        `✓ Quantity Inside updated for ${item.ASIN}: ${item.QuantityInside}`,
-                    );
-                } else {
+                if (!res.data.success)
                     throw new Error(
-                        response.data.message || "Failed to update quantity",
+                        res.data.message || "Failed to update quantity",
                     );
-                }
-            } catch (error) {
-                console.error("Error updating Quantity Inside:", error);
-                item.QuantityInside = originalValue;
+            } catch (e) {
+                item.QuantityInside = orig;
                 this.$forceUpdate();
                 alert(
                     "Failed to update Quantity Inside: " +
-                        (error.response?.data?.message || error.message),
+                        (e.response?.data?.message || e.message),
                 );
             } finally {
-                this.savingQuantityFor = null; // Hide loading
+                this.savingQuantityFor = null;
             }
         },
 
-        // Check if browser supports WebP
+        // ── WebP helpers ─────────────────────────────────────────
         isWebPSupported() {
-            const canvas = document.createElement("canvas");
-            if (!canvas.getContext || !canvas.getContext("2d")) {
-                return false;
-            }
-            // Check if toBlob exists and supports webp
+            const c = document.createElement("canvas");
+            if (!c.getContext?.("2d")) return false;
             return (
-                canvas.toBlob &&
-                canvas.toDataURL("image/webp").indexOf("data:image/webp") === 0
+                c.toBlob &&
+                c.toDataURL("image/webp").startsWith("data:image/webp")
             );
         },
 
-        // Improved WebP conversion with better error handling
-        convertToWebP(file, options = {}) {
-            const {
-                quality = 0.85,
-                maxWidth = null,
-                maxHeight = null,
-            } = options;
-
+        convertToWebP(
+            file,
+            { quality = 0.85, maxWidth = null, maxHeight = null } = {},
+        ) {
             return new Promise((resolve, reject) => {
-                // Validate file
-                if (!file || !file.type.startsWith("image/")) {
+                if (!file?.type.startsWith("image/")) {
                     reject(new Error("Invalid image file"));
                     return;
                 }
-
                 const reader = new FileReader();
-
                 reader.onload = (e) => {
                     const img = new Image();
-
                     img.onload = () => {
                         try {
-                            let width = img.width;
-                            let height = img.height;
-
-                            // Validate dimensions
-                            if (width === 0 || height === 0) {
+                            let { width, height } = img;
+                            if (!width || !height) {
                                 reject(new Error("Invalid image dimensions"));
                                 return;
                             }
-
-                            // Resize if needed
                             if (maxWidth && width > maxWidth) {
                                 height = Math.round(
                                     (height * maxWidth) / width,
@@ -1655,11 +1219,9 @@ export default {
                                 );
                                 height = maxHeight;
                             }
-
                             const canvas = document.createElement("canvas");
                             canvas.width = width;
                             canvas.height = height;
-
                             const ctx = canvas.getContext("2d");
                             if (!ctx) {
                                 reject(
@@ -1667,148 +1229,112 @@ export default {
                                 );
                                 return;
                             }
-
-                            // Enable image smoothing for better quality
                             ctx.imageSmoothingEnabled = true;
                             ctx.imageSmoothingQuality = "high";
-
                             ctx.drawImage(img, 0, 0, width, height);
-
-                            // Try to convert to blob
                             canvas.toBlob(
-                                (blob) => {
-                                    if (blob && blob.size > 0) {
-                                        resolve(blob);
-                                    } else {
-                                        reject(
-                                            new Error(
-                                                "Canvas toBlob returned null or empty blob",
-                                            ),
-                                        );
-                                    }
-                                },
+                                (blob) =>
+                                    blob?.size
+                                        ? resolve(blob)
+                                        : reject(
+                                              new Error(
+                                                  "toBlob returned empty",
+                                              ),
+                                          ),
                                 "image/webp",
                                 quality,
                             );
-                        } catch (error) {
-                            reject(
-                                new Error(
-                                    `Canvas processing error: ${error.message}`,
-                                ),
-                            );
+                        } catch (err) {
+                            reject(new Error(`Canvas error: ${err.message}`));
                         }
                     };
-
-                    img.onerror = (error) => {
-                        reject(
-                            new Error("Failed to load image for conversion"),
-                        );
-                    };
-
+                    img.onerror = () =>
+                        reject(new Error("Failed to load image"));
                     img.src = e.target.result;
                 };
-
-                reader.onerror = () => {
-                    reject(new Error("Failed to read file"));
-                };
-
+                reader.onerror = () => reject(new Error("Failed to read file"));
                 try {
                     reader.readAsDataURL(file);
-                } catch (error) {
-                    reject(new Error(`FileReader error: ${error.message}`));
+                } catch (err) {
+                    reject(new Error(`FileReader error: ${err.message}`));
                 }
             });
         },
 
+        // ── Per-ASIN Config ──────────────────────────────────────
+
+        /**
+         * UPDATED — loads global config first so the inherited banner
+         * and preview are ready when the dialog opens.
+         */
         openASINConfig(data) {
             this.labelingCollapsed = true;
             this.testingCollapsed = true;
             this.repairCollapsed = true;
             this.cleaningCollapsed = true;
             this.packagingCollapsed = true;
+            this.showInheritedPreview = false;
 
             this.selectedConfig = data;
             this.showASINConfig = true;
+
+            // Load global defaults first (populates hasGlobalConfig / globalInheritedCount)
+            this.loadGlobalConfig();
+
+            // Then load ASIN-specific overrides
             this.loadAllFields(data.ASIN);
         },
 
+        /**
+         * UPDATED — loads only ASIN-specific fields.
+         * Global fields are handled separately via loadGlobalConfig().
+         */
         loadAllFields(asin) {
-            try {
-                const labeling = localStorage.getItem(
-                    `asin_config_labeling:${asin}`,
-                );
-                this.labelingFields = labeling ? JSON.parse(labeling) : [];
-            } catch {
-                this.labelingFields = [];
-            }
-
-            try {
-                const testing = localStorage.getItem(
-                    `asin_config_testing:${asin}`,
-                );
-                this.testingFields = testing ? JSON.parse(testing) : [];
-            } catch {
-                this.testingFields = [];
-            }
-
-            try {
-                const repair = localStorage.getItem(
-                    `asin_config_repair:${asin}`,
-                );
-                this.repairFields = repair ? JSON.parse(repair) : [];
-            } catch {
-                this.repairFields = [];
-            }
-
-            try {
-                const cleaning = localStorage.getItem(
-                    `asin_config_cleaning:${asin}`,
-                );
-                this.cleaningFields = cleaning ? JSON.parse(cleaning) : [];
-            } catch {
-                this.cleaningFields = [];
-            }
-
-            try {
-                const packaging = localStorage.getItem(
-                    `asin_config_packaging:${asin}`,
-                );
-                const parsed = packaging ? JSON.parse(packaging) : {};
-                this.packagingImage = parsed.image || null;
-                this.packagingComponents = parsed.components || [];
-                this.boxSpecs = parsed.boxSpecs || {
-                    size: "",
-                    type: "",
-                    weight: "",
-                    materials: "",
-                };
-            } catch {
-                this.packagingImage = null;
-                this.packagingComponents = [];
-            }
+            const parse = (key, fallback) => {
+                try {
+                    const r = localStorage.getItem(key);
+                    return r ? JSON.parse(r) : fallback;
+                } catch {
+                    return fallback;
+                }
+            };
+            this.labelingFields = parse(`asin_config_labeling:${asin}`, []);
+            this.testingFields = parse(`asin_config_testing:${asin}`, []);
+            this.repairFields = parse(`asin_config_repair:${asin}`, []);
+            this.cleaningFields = parse(`asin_config_cleaning:${asin}`, []);
+            const pkg = parse(`asin_config_packaging:${asin}`, {});
+            this.packagingImage = pkg.image || null;
+            this.packagingComponents = pkg.components || [];
+            this.boxSpecs = pkg.boxSpecs || {
+                size: "",
+                type: "",
+                weight: "",
+                materials: "",
+            };
         },
 
         saveAllFields(publish = false) {
             publish ? (this.publishing = true) : (this.savingAll = true);
             try {
+                const asin = this.selectedConfig.ASIN;
                 localStorage.setItem(
-                    `asin_config_labeling:${this.selectedConfig.ASIN}`,
+                    `asin_config_labeling:${asin}`,
                     JSON.stringify(this.labelingFields),
                 );
                 localStorage.setItem(
-                    `asin_config_testing:${this.selectedConfig.ASIN}`,
+                    `asin_config_testing:${asin}`,
                     JSON.stringify(this.testingFields),
                 );
                 localStorage.setItem(
-                    `asin_config_repair:${this.selectedConfig.ASIN}`,
+                    `asin_config_repair:${asin}`,
                     JSON.stringify(this.repairFields),
                 );
                 localStorage.setItem(
-                    `asin_config_cleaning:${this.selectedConfig.ASIN}`,
+                    `asin_config_cleaning:${asin}`,
                     JSON.stringify(this.cleaningFields),
                 );
                 localStorage.setItem(
-                    `asin_config_packaging:${this.selectedConfig.ASIN}`,
+                    `asin_config_packaging:${asin}`,
                     JSON.stringify({
                         image: this.packagingImage,
                         components: this.packagingComponents,
@@ -1816,11 +1342,10 @@ export default {
                     }),
                 );
                 if (publish) {
-                    // TODO: add your publish logic here
                     Swal.fire({
                         icon: "success",
                         title: "Saved & Published!",
-                        text: `Configuration for ${this.selectedConfig.ASIN} has been saved and published.`,
+                        text: `Configuration for ${asin} has been saved and published.`,
                         confirmButtonText: "OK",
                     });
                     this.showASINConfig = false;
@@ -1828,11 +1353,11 @@ export default {
                     Swal.fire({
                         icon: "success",
                         title: "Configuration Saved!",
-                        text: `Configuration for ${this.selectedConfig.ASIN} has been saved successfully.`,
+                        text: `Configuration for ${asin} has been saved successfully.`,
                         confirmButtonText: "OK",
                     });
                 }
-            } catch (e) {
+            } catch {
                 Swal.fire({
                     icon: "error",
                     title: "Save Failed",
@@ -1844,6 +1369,7 @@ export default {
             }
         },
 
+        // Field builders
         addLabelingField() {
             this.labelingFields.push({
                 label: "",
@@ -1881,20 +1407,13 @@ export default {
                 editingNote: false,
             });
         },
-        addRepairAction(category) {
-            category.actions.push({
-                title: "",
-                description: "",
-                editing: false,
-            });
+        addRepairAction(cat) {
+            cat.actions.push({ title: "", description: "", editing: false });
         },
-        addCleaningAction(category) {
-            category.actions.push({
-                title: "",
-                description: "",
-                editing: false,
-            });
+        addCleaningAction(cat) {
+            cat.actions.push({ title: "", description: "", editing: false });
         },
+
         onPackagingImageUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1916,6 +1435,7 @@ export default {
         removeOption(field, oIndex) {
             field.options.splice(oIndex, 1);
         },
+
         toggleHasNote(field, oIndex) {
             field.options[oIndex].hasNote = !field.options[oIndex].hasNote;
             if (!field.options[oIndex].hasNote) {
@@ -1923,8 +1443,151 @@ export default {
                 field.options[oIndex].editingNote = false;
             }
         },
+
         onFieldTypeChange(field) {
             if (field.type === "Dropdown/Select") field.hasOptions = true;
+        },
+
+        // ── Global Config ────────────────────────────────────────
+
+        openGlobalConfig() {
+            this.loadGlobalConfig();
+            this.showGlobalConfig = true;
+        },
+
+        loadGlobalConfig() {
+            const parse = (key, fallback) => {
+                try {
+                    const r = localStorage.getItem(key);
+                    return r ? JSON.parse(r) : fallback;
+                } catch {
+                    return fallback;
+                }
+            };
+            this.globalLabelingFields = parse(
+                "asin_global_config_labeling",
+                [],
+            );
+            this.globalTestingFields = parse("asin_global_config_testing", []);
+            this.globalRepairFields = parse("asin_global_config_repair", []);
+            this.globalCleaningFields = parse(
+                "asin_global_config_cleaning",
+                [],
+            );
+            const pkg = parse("asin_global_config_packaging", {});
+            this.globalPackagingComponents = pkg.components || [];
+            this.globalBoxSpecs = pkg.boxSpecs || {
+                size: "",
+                type: "",
+                weight: "",
+                materials: "",
+            };
+        },
+
+        saveGlobalConfig() {
+            this.savingGlobalConfig = true;
+            try {
+                localStorage.setItem(
+                    "asin_global_config_labeling",
+                    JSON.stringify(this.globalLabelingFields),
+                );
+                localStorage.setItem(
+                    "asin_global_config_testing",
+                    JSON.stringify(this.globalTestingFields),
+                );
+                localStorage.setItem(
+                    "asin_global_config_repair",
+                    JSON.stringify(this.globalRepairFields),
+                );
+                localStorage.setItem(
+                    "asin_global_config_cleaning",
+                    JSON.stringify(this.globalCleaningFields),
+                );
+                localStorage.setItem(
+                    "asin_global_config_packaging",
+                    JSON.stringify({
+                        components: this.globalPackagingComponents,
+                        boxSpecs: this.globalBoxSpecs,
+                    }),
+                );
+                Swal.fire({
+                    icon: "success",
+                    title: "Global Config Saved!",
+                    text: "All ASINs without overrides will now use these defaults.",
+                    confirmButtonText: "OK",
+                });
+                this.showGlobalConfig = false;
+            } catch {
+                Swal.fire({
+                    icon: "error",
+                    title: "Save Failed",
+                    text: "Something went wrong saving the global config.",
+                });
+            } finally {
+                this.savingGlobalConfig = false;
+            }
+        },
+
+        /**
+         * Returns the merged effective fields for a given section.
+         * Global fields come first (flagged _inherited: true),
+         * then ASIN-specific fields (_inherited: false).
+         * Use this wherever you need the final resolved list (e.g. printing/publishing).
+         */
+        getEffectiveFields(section) {
+            const globalMap = {
+                labeling: this.globalLabelingFields,
+                testing: this.globalTestingFields,
+                repair: this.globalRepairFields,
+                cleaning: this.globalCleaningFields,
+            };
+            const asinMap = {
+                labeling: this.labelingFields,
+                testing: this.testingFields,
+                repair: this.repairFields,
+                cleaning: this.cleaningFields,
+            };
+            return [
+                ...(globalMap[section] || []).map((f) => ({
+                    ...f,
+                    _inherited: true,
+                })),
+                ...(asinMap[section] || []).map((f) => ({
+                    ...f,
+                    _inherited: false,
+                })),
+            ];
+        },
+
+        /** Returns merged effective packaging (ASIN-level specs override global where non-empty). */
+        getEffectivePackaging() {
+            return {
+                image: this.packagingImage,
+                boxSpecs: {
+                    size: this.boxSpecs.size || this.globalBoxSpecs.size,
+                    type: this.boxSpecs.type || this.globalBoxSpecs.type,
+                    weight: this.boxSpecs.weight || this.globalBoxSpecs.weight,
+                    materials:
+                        this.boxSpecs.materials ||
+                        this.globalBoxSpecs.materials,
+                },
+                components: [
+                    ...(this.globalPackagingComponents || []).map((c) => ({
+                        ...c,
+                        _inherited: true,
+                    })),
+                    ...(this.packagingComponents || []).map((c) => ({
+                        ...c,
+                        _inherited: false,
+                    })),
+                ],
+            };
+        },
+
+        // ── Misc ─────────────────────────────────────────────────
+        getUniqueStores(fnskus) {
+            if (!fnskus?.length) return [];
+            return [...new Set(fnskus.map((f) => f.storename).filter(Boolean))];
         },
     },
     watch: {
@@ -1935,34 +1598,24 @@ export default {
         },
     },
     mounted() {
-        // Set axios defaults
         axios.defaults.baseURL = window.location.origin;
         axios.defaults.withCredentials = true;
-
-        // Set CSRF token
         const token = document.querySelector('meta[name="csrf-token"]');
-        if (token) {
+        if (token)
             axios.defaults.headers.common["X-CSRF-TOKEN"] =
                 token.getAttribute("content");
-        }
 
-        // Load Font Awesome if not already loaded
         if (!document.querySelector('link[href*="font-awesome"]')) {
-            const fontAwesome = document.createElement("link");
-            fontAwesome.rel = "stylesheet";
-            fontAwesome.href =
+            const fa = document.createElement("link");
+            fa.rel = "stylesheet";
+            fa.href =
                 "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css";
-            document.head.appendChild(fontAwesome);
+            document.head.appendChild(fa);
         }
 
-        // Set default image
         this.defaultImagePath = this.createDefaultImageSVG();
-
-        // Initialize data
         this.fetchStores();
         this.fetchAsinData();
-
-        // Add resize listener
         window.addEventListener("resize", this.handleResize);
     },
     beforeUnmount() {

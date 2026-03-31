@@ -8,6 +8,14 @@
             <TitlePage title="ASIN List Manager" />
             <div class="d-flex align-item-end gap-2">
                 <Button
+                    severity="secondary"
+                    size="small"
+                    label="Global ASIN Configuration"
+                    icon="pi pi-globe"
+                    icon-pos="left"
+                    @click="openGlobalConfig"
+                />
+                <Button
                     severity="success"
                     size="small"
                     @click="openBulkInstructionCardModal"
@@ -2820,1240 +2828,1847 @@
         <Dialog
             v-model:visible="showASINConfig"
             modal
-            :header="`Configure Logs for ASIN: ${selectedConfig.ASIN} - ${selectedConfig.AStitle}`"
-            :style="{ width: '1260px' }"
+            :header="`Configure ASIN: ${selectedConfig.ASIN} — ${selectedConfig.system_title || selectedConfig.AStitle}`"
+            :style="{ width: '1260px', maxWidth: '98vw' }"
         >
-            <!-- CONFIGURATION GUIDE -->
-            <div
-                class="mb-3 px-2 py-2 rounded d-flex flex-column"
-                style="
-                    background: #fffdf0;
-                    border-left: 4px solid #e6c97a;
-                    cursor: pointer;
-                "
-                @click="guideCollapsed = !guideCollapsed"
-            >
+            <div class="d-flex flex-column gap-3">
+                <!-- ── LABELING MODULE ───────────────────────────────────────── -->
                 <div
-                    class="d-flex align-items-center align-items-center justify-content-between"
+                    class="mb-0 px-2 py-2 rounded d-flex align-items-center justify-content-between"
+                    style="
+                        background: #f3effe;
+                        border-left: 4px solid #6f42c1;
+                        cursor: pointer;
+                    "
+                    @click="labelingCollapsed = !labelingCollapsed"
                 >
                     <div class="d-flex align-items-center gap-2">
-                        <i class="pi pi-file-edit" style="color: #a07800"></i>
-                        <strong style="color: #a07800"
-                            >Configuration Guide</strong
-                        >
+                        <i class="pi pi-tag" style="color: #6f42c1"></i>
+                        <strong style="color: #6f42c1">Labeling Module</strong>
+                        <span class="text-muted" style="font-size: 12px">
+                            ({{
+                                globalLabelingFields.length +
+                                labelingFields.length
+                            }}
+                            field{{
+                                globalLabelingFields.length +
+                                    labelingFields.length !==
+                                1
+                                    ? "s"
+                                    : ""
+                            }}
+                            <template v-if="globalLabelingFields.length">
+                                —
+                                {{ globalLabelingFields.length }}
+                                inherited </template
+                            >)
+                        </span>
                     </div>
                     <i
                         :class="
-                            guideCollapsed
+                            labelingCollapsed
                                 ? 'pi pi-chevron-down'
                                 : 'pi pi-chevron-up'
                         "
-                        style="color: #a07800"
-                    />
+                        style="color: #6f42c1"
+                    ></i>
                 </div>
 
-                <div
-                    v-if="!guideCollapsed"
-                    class="mt-2 mb-2 p-3 rounded"
-                    style="border: 1.5px solid #e6c97a; background: #fffdf0"
-                >
-                    <p
-                        style="
-                            font-weight: 700;
-                            font-size: 13px;
-                            color: #7c5a00;
-                        "
-                    >
-                        How ASIN Configuration Works:
-                    </p>
-                    <ul
-                        style="
-                            font-size: 13px;
-                            color: #5a4000;
-                            line-height: 1.9;
-                            padding-left: 18px;
-                        "
-                    >
-                        <li>
-                            <strong>Received Module:</strong> Uses
-                            general/default configuration (no ASIN yet - only
-                            serial number)
-                        </li>
-                        <li>
-                            <strong>After Labelling:</strong> Once ASIN is
-                            assigned, ASIN-specific configurations take effect
-                        </li>
-                        <li>
-                            <strong>Per Module Customization:</strong> Each ASIN
-                            can have different logs, tests, repairs, cleaning
-                            actions, and packaging requirements
-                        </li>
-                        <li>
-                            <strong>Dynamic Fields:</strong> Use + button to add
-                            custom logs specific to product type
-                        </li>
-                        <li>
-                            <strong>Pre-typed Notes:</strong> Configure
-                            automatic notes that appear when specific options
-                            are selected
-                        </li>
-                        <li>
-                            <strong>Images:</strong> Upload product images and
-                            component images for visual guidance
-                        </li>
-                        <li>
-                            <strong>Required Fields:</strong> Toggle fields as
-                            required to ensure data quality
-                        </li>
-                        <li>
-                            <strong>Seed Tracking:</strong> Each
-                            component/accessory has a seed number for inventory
-                            management
-                        </li>
-                    </ul>
-                    <div
-                        class="px-3 py-2 rounded"
-                        style="
-                            background: #fef9e0;
-                            border: 1px solid #e6c97a;
-                            font-size: 13px;
-                            color: #7c5a00;
-                        "
-                    >
-                        💡 <strong>Pro Tip:</strong> Configure similar products
-                        (e.g., all Bluetooth speakers) once, then duplicate and
-                        modify for faster setup!
-                    </div>
-                </div>
-            </div>
-
-            <!-- LABELING MODULE -->
-            <div
-                class="mb-3 px-2 py-2 rounded d-flex align-items-center justify-content-between"
-                style="
-                    background: #f3effe;
-                    border-left: 4px solid #6f42c1;
-                    cursor: pointer;
-                "
-                @click="labelingCollapsed = !labelingCollapsed"
-            >
-                <div class="d-flex align-items-center gap-2">
-                    <i class="pi pi-tag" style="color: #6f42c1"></i>
-                    <strong style="color: #6f42c1">Labeling Module</strong>
-                    <span class="text-muted" style="font-size: 12px">
-                        ({{ labelingFields.length }} field{{
-                            labelingFields.length !== 1 ? "s" : ""
-                        }})
-                    </span>
-                </div>
-                <i
-                    :class="
-                        labelingCollapsed
-                            ? 'pi pi-chevron-down'
-                            : 'pi pi-chevron-up'
-                    "
-                    style="color: #6f42c1"
-                />
-            </div>
-
-            <div v-if="!labelingCollapsed" class="d-flex flex-column gap-3">
-                <div
-                    v-for="(field, index) in labelingFields"
-                    :key="'labeling-' + index"
-                    class="p-3 border rounded"
-                >
-                    <!-- Field Header -->
-                    <div
-                        class="d-flex justify-content-between align-items-center mb-3"
-                    >
-                        <div class="d-flex align-items-center gap-2">
-                            <i
-                                class="pi pi-bars"
-                                style="cursor: grab; color: #aaa"
-                            />
-                            <InputText
-                                v-model="field.label"
-                                placeholder="New Log Field"
-                                style="
-                                    font-weight: 600;
-                                    border: none;
-                                    border-bottom: 1px solid #ccc;
-                                    background: transparent;
-                                    padding: 2px 4px;
-                                "
-                            />
-                        </div>
-                        <div class="d-flex gap-2">
-                            <i
-                                class="pi pi-cog"
-                                style="cursor: pointer; color: #aaa"
-                            />
-                            <i
-                                class="pi pi-trash"
-                                style="cursor: pointer; color: #dc3545"
-                                @click="labelingFields.splice(index, 1)"
-                            />
-                        </div>
-                    </div>
-
-                    <!-- Field Type + Default Value -->
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <label
-                                class="form-label text-muted"
-                                style="font-size: 12px"
-                                >Field Type</label
-                            >
-                            <select
-                                v-model="field.type"
-                                class="form-select"
-                                @change="onFieldTypeChange(field)"
-                            >
-                                <option value="">Select type</option>
-                                <option value="Text">Text</option>
-                                <option value="Dropdown/Select">
-                                    Dropdown/Select
-                                </option>
-                                <option value="Number">Number</option>
-                                <option value="Date">Date</option>
-                                <option value="Checkbox">Checkbox</option>
-                            </select>
-                        </div>
-                        <div class="col-6">
-                            <label
-                                class="form-label text-muted"
-                                style="font-size: 12px"
-                                >Default Value</label
-                            >
-                            <InputText
-                                v-model="field.defaultValue"
-                                placeholder="Leave empty if none"
-                                class="w-100"
-                            />
-                        </div>
-                    </div>
-
-                    <!-- Checkboxes -->
-                    <div class="d-flex gap-4 mb-3">
-                        <div class="d-flex align-items-center gap-2">
-                            <input
-                                type="checkbox"
-                                v-model="field.required"
-                                :id="`labeling-required-${index}`"
-                            />
-                            <label :for="`labeling-required-${index}`"
-                                >Required Field</label
-                            >
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <input
-                                type="checkbox"
-                                v-model="field.hasOptions"
-                                :id="`labeling-hasOptions-${index}`"
-                            />
-                            <label :for="`labeling-hasOptions-${index}`"
-                                >Has Options/Selections</label
-                            >
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <input
-                                type="checkbox"
-                                v-model="field.preTypedNotes"
-                                :id="`labeling-preTypedNotes-${index}`"
-                            />
-                            <label :for="`labeling-preTypedNotes-${index}`"
-                                >Pre-typed Notes</label
-                            >
-                        </div>
-                    </div>
-
-                    <!-- Options/Selections -->
-                    <div
-                        v-if="field.hasOptions"
-                        class="p-3 rounded mb-3"
-                        style="background: #f8f9fa"
-                    >
-                        <label
-                            class="text-muted mb-2 d-block"
-                            style="font-size: 12px"
-                            >Options/Selections:</label
-                        >
-                        <div
-                            v-for="(option, oIndex) in field.options"
-                            :key="oIndex"
-                            class="d-flex align-items-center justify-content-between mb-2 px-3 py-2 rounded"
-                            style="background: #e9ecef"
-                        >
-                            <InputText
-                                v-model="field.options[oIndex].value"
-                                class="border-0 bg-transparent w-100"
-                                style="font-family: monospace"
-                            />
-                            <span
-                                v-if="field.preTypedNotes"
-                                @click="toggleHasNote(field, oIndex)"
-                                class="me-2"
-                                style="
-                                    cursor: pointer;
-                                    font-size: 12px;
-                                    white-space: nowrap;
-                                "
-                                :style="{
-                                    color: field.options[oIndex].hasNote
-                                        ? '#28a745'
-                                        : '#aaa',
-                                }"
-                            >
-                                {{
-                                    field.options[oIndex].hasNote
-                                        ? "✓ Has Note"
-                                        : "+ Has Note"
-                                }}
-                            </span>
-                            <i
-                                class="pi pi-trash"
-                                style="cursor: pointer; color: #dc3545"
-                                @click="removeOption(field, oIndex)"
-                            />
-                        </div>
-                        <div
-                            class="mt-2"
-                            style="cursor: pointer; color: #6f42c1"
-                            @click="addOption(field)"
-                        >
-                            + Add Option
-                        </div>
-                    </div>
-
-                    <!-- Pre-typed Notes Configuration -->
-                    <div
-                        v-if="
-                            field.preTypedNotes &&
-                            field.options.some((o) => o.hasNote)
-                        "
-                        class="p-3 rounded"
-                        style="background: #eef4ff; border: 1px solid #cce0ff"
-                    >
-                        <label
-                            class="mb-2 d-block"
-                            style="
-                                font-size: 13px;
-                                color: #1a56db;
-                                font-weight: 600;
-                            "
-                            >Pre-typed Notes Configuration:</label
-                        >
-                        <div
-                            v-for="(option, oIndex) in field.options.filter(
-                                (o) => o.hasNote,
-                            )"
-                            :key="oIndex"
-                            class="p-3 mb-2 rounded bg-white border"
-                        >
-                            <strong
-                                style="font-family: monospace; font-size: 13px"
-                                >{{ option.value }}</strong
-                            >
+                <div v-if="!labelingCollapsed" class="border rounded p-3">
+                    <div class="d-flex flex-column gap-3">
+                        <!-- Inherited global labeling fields (read-only) -->
+                        <template v-if="globalLabelingFields.length">
+                            <div class="gc-module-inherited-header">
+                                <i class="pi pi-globe"></i>
+                                <span>Inherited from Global Config</span>
+                            </div>
                             <div
-                                v-if="!option.editingNote"
-                                class="text-muted"
-                                style="font-size: 13px"
+                                v-for="(field, index) in globalLabelingFields"
+                                :key="'glab-' + index"
+                                class="p-3 border rounded gc-inherited-field"
                             >
-                                {{ option.note || "No note yet." }}
-                            </div>
-                            <textarea
-                                v-if="option.editingNote"
-                                v-model="option.note"
-                                class="form-control mt-1"
-                                rows="2"
-                                placeholder="Type a pre-defined note for this option..."
-                                style="font-size: 13px"
-                            />
-                            <span
-                                class="mt-1 d-inline-block"
-                                style="
-                                    cursor: pointer;
-                                    color: #1a56db;
-                                    font-size: 12px;
-                                "
-                                @click="
-                                    option.editingNote = !option.editingNote
-                                "
-                            >
-                                {{ option.editingNote ? "Done" : "Edit Note" }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Add New Log Field + Save (Labeling) -->
-                <div
-                    class="my-3 d-flex justify-content-between align-items-center"
-                >
-                    <Button
-                        label="Add New Log Field"
-                        icon="pi pi-plus"
-                        @click="addLabelingField"
-                        style="background: #6f42c1; border-color: #6f42c1"
-                    />
-                </div>
-            </div>
-
-            <!-- TESTING MODULE -->
-            <div
-                class="mb-3 px-2 py-2 rounded d-flex align-items-center justify-content-between"
-                style="
-                    background: #dcfce7;
-                    border-left: 4px solid #05df72;
-                    cursor: pointer;
-                "
-                @click="testingCollapsed = !testingCollapsed"
-            >
-                <div class="d-flex align-items-center gap-2">
-                    <i class="pi pi-tag" style="color: #0d542b"></i>
-                    <strong style="color: #0d542b">Testing Module</strong>
-                    <span class="text-muted" style="font-size: 12px">
-                        ({{ testingFields.length }} field{{
-                            testingFields.length !== 1 ? "s" : ""
-                        }})
-                    </span>
-                </div>
-                <i
-                    :class="
-                        testingCollapsed
-                            ? 'pi pi-chevron-down'
-                            : 'pi pi-chevron-up'
-                    "
-                    style="color: #0d542b"
-                />
-            </div>
-
-            <div v-if="!testingCollapsed" class="d-flex flex-column gap-3">
-                <div
-                    v-for="(field, index) in testingFields"
-                    :key="'testing-' + index"
-                    class="p-3 border rounded"
-                >
-                    <!-- Field Header -->
-                    <div
-                        class="d-flex justify-content-between align-items-center mb-3"
-                    >
-                        <div class="d-flex align-items-center gap-2">
-                            <i
-                                class="pi pi-bars"
-                                style="cursor: grab; color: #aaa"
-                            />
-                            <InputText
-                                v-model="field.label"
-                                placeholder="New Log Field"
-                                style="
-                                    font-weight: 600;
-                                    border: none;
-                                    border-bottom: 1px solid #ccc;
-                                    background: transparent;
-                                    padding: 2px 4px;
-                                "
-                            />
-                        </div>
-                        <div class="d-flex gap-2">
-                            <i
-                                class="pi pi-cog"
-                                style="cursor: pointer; color: #aaa"
-                            />
-                            <i
-                                class="pi pi-trash"
-                                style="cursor: pointer; color: #dc3545"
-                                @click="testingFields.splice(index, 1)"
-                            />
-                        </div>
-                    </div>
-
-                    <!-- Field Type + Default Value -->
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <label
-                                class="form-label text-muted"
-                                style="font-size: 12px"
-                                >Field Type</label
-                            >
-                            <select
-                                v-model="field.type"
-                                class="form-select"
-                                @change="onFieldTypeChange(field)"
-                            >
-                                <option value="">Select type</option>
-                                <option value="Text">Text</option>
-                                <option value="Dropdown/Select">
-                                    Dropdown/Select
-                                </option>
-                                <option value="Number">Number</option>
-                                <option value="Date">Date</option>
-                                <option value="Checkbox">Checkbox</option>
-                            </select>
-                        </div>
-                        <div class="col-6">
-                            <label
-                                class="form-label text-muted"
-                                style="font-size: 12px"
-                                >Default Value</label
-                            >
-                            <InputText
-                                v-model="field.defaultValue"
-                                placeholder="Leave empty if none"
-                                class="w-100"
-                            />
-                        </div>
-                    </div>
-
-                    <!-- Checkboxes -->
-                    <div class="d-flex gap-4 mb-3">
-                        <div class="d-flex align-items-center gap-2">
-                            <input
-                                type="checkbox"
-                                v-model="field.required"
-                                :id="`testing-required-${index}`"
-                            />
-                            <label :for="`testing-required-${index}`"
-                                >Required Field</label
-                            >
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <input
-                                type="checkbox"
-                                v-model="field.hasOptions"
-                                :id="`testing-hasOptions-${index}`"
-                            />
-                            <label :for="`testing-hasOptions-${index}`"
-                                >Has Options/Selections</label
-                            >
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <input
-                                type="checkbox"
-                                v-model="field.preTypedNotes"
-                                :id="`testing-preTypedNotes-${index}`"
-                            />
-                            <label :for="`testing-preTypedNotes-${index}`"
-                                >Pre-typed Notes</label
-                            >
-                        </div>
-                    </div>
-
-                    <!-- Options/Selections -->
-                    <div
-                        v-if="field.hasOptions"
-                        class="p-3 rounded mb-3"
-                        style="background: #f8f9fa"
-                    >
-                        <label
-                            class="text-muted mb-2 d-block"
-                            style="font-size: 12px"
-                            >Options/Selections:</label
-                        >
-                        <div
-                            v-for="(option, oIndex) in field.options"
-                            :key="oIndex"
-                            class="d-flex align-items-center justify-content-between mb-2 px-3 py-2 rounded"
-                            style="background: #e9ecef"
-                        >
-                            <InputText
-                                v-model="field.options[oIndex].value"
-                                class="border-0 bg-transparent w-100"
-                                style="font-family: monospace"
-                            />
-                            <span
-                                v-if="field.preTypedNotes"
-                                @click="toggleHasNote(field, oIndex)"
-                                class="me-2"
-                                style="
-                                    cursor: pointer;
-                                    font-size: 12px;
-                                    white-space: nowrap;
-                                "
-                                :style="{
-                                    color: field.options[oIndex].hasNote
-                                        ? '#28a745'
-                                        : '#aaa',
-                                }"
-                            >
-                                {{
-                                    field.options[oIndex].hasNote
-                                        ? "✓ Has Note"
-                                        : "+ Has Note"
-                                }}
-                            </span>
-                            <i
-                                class="pi pi-trash"
-                                style="cursor: pointer; color: #dc3545"
-                                @click="removeOption(field, oIndex)"
-                            />
-                        </div>
-                        <div
-                            class="mt-2"
-                            style="cursor: pointer; color: #6f42c1"
-                            @click="addOption(field)"
-                        >
-                            + Add Option
-                        </div>
-                    </div>
-
-                    <!-- Pre-typed Notes Configuration -->
-                    <div
-                        v-if="
-                            field.preTypedNotes &&
-                            field.options.some((o) => o.hasNote)
-                        "
-                        class="p-3 rounded"
-                        style="background: #eef4ff; border: 1px solid #cce0ff"
-                    >
-                        <label
-                            class="mb-2 d-block"
-                            style="
-                                font-size: 13px;
-                                color: #1a56db;
-                                font-weight: 600;
-                            "
-                            >Pre-typed Notes Configuration:</label
-                        >
-                        <div
-                            v-for="(option, oIndex) in field.options.filter(
-                                (o) => o.hasNote,
-                            )"
-                            :key="oIndex"
-                            class="p-3 mb-2 rounded bg-white border"
-                        >
-                            <strong
-                                style="font-family: monospace; font-size: 13px"
-                                >{{ option.value }}</strong
-                            >
-                            <div
-                                v-if="!option.editingNote"
-                                class="text-muted"
-                                style="font-size: 13px"
-                            >
-                                {{ option.note || "No note yet." }}
-                            </div>
-                            <textarea
-                                v-if="option.editingNote"
-                                v-model="option.note"
-                                class="form-control mt-1"
-                                rows="2"
-                                placeholder="Type a pre-defined note for this option..."
-                                style="font-size: 13px"
-                            />
-                            <span
-                                class="mt-1 d-inline-block"
-                                style="
-                                    cursor: pointer;
-                                    color: #1a56db;
-                                    font-size: 12px;
-                                "
-                                @click="
-                                    option.editingNote = !option.editingNote
-                                "
-                            >
-                                {{ option.editingNote ? "Done" : "Edit Note" }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Add New Log Field + Save (Testing) -->
-                <div
-                    class="my-3 d-flex justify-content-between align-items-center"
-                >
-                    <Button
-                        label="Add New Log Field"
-                        icon="pi pi-plus"
-                        @click="addTestingField"
-                        style="
-                            background: #05df72;
-                            border-color: #05df72;
-                            color: #0d542b;
-                        "
-                    />
-                </div>
-            </div>
-
-            <!-- REPAIR MODULE -->
-            <div
-                class="mb-3 px-2 py-2 rounded d-flex align-items-center justify-content-between"
-                style="
-                    background: #fff4e6;
-                    border-left: 4px solid #fd7e14;
-                    cursor: pointer;
-                "
-                @click="repairCollapsed = !repairCollapsed"
-            >
-                <div class="d-flex align-items-center gap-2">
-                    <i class="pi pi-wrench" style="color: #7c3c00"></i>
-                    <strong style="color: #7c3c00">Repair Module</strong>
-                    <span class="text-muted" style="font-size: 12px">
-                        ({{ repairFields.length }} field{{
-                            repairFields.length !== 1 ? "s" : ""
-                        }})
-                    </span>
-                </div>
-                <i
-                    :class="
-                        repairCollapsed
-                            ? 'pi pi-chevron-down'
-                            : 'pi pi-chevron-up'
-                    "
-                    style="color: #7c3c00"
-                />
-            </div>
-
-            <div v-if="!repairCollapsed" class="d-flex flex-column gap-3">
-                <!-- Repair Categories -->
-                <div
-                    v-for="(category, cIndex) in repairFields"
-                    :key="'repair-' + cIndex"
-                    class="p-3 rounded"
-                    style="border: 1.5px solid #fd7e14; background: #fff9f5"
-                >
-                    <!-- Category Header -->
-                    <div
-                        class="d-flex align-items-center justify-content-between mb-3"
-                    >
-                        <div class="d-flex align-items-center gap-2">
-                            <InputText
-                                v-model="category.name"
-                                placeholder="Category Name"
-                                style="
-                                    font-weight: 600;
-                                    border: none;
-                                    border-bottom: 1px solid #ccc;
-                                    background: transparent;
-                                    padding: 2px 4px;
-                                "
-                            />
-                            <span
-                                class="badge"
-                                style="
-                                    background: #fff3e0;
-                                    color: #fd7e14;
-                                    border: 1px solid #fd7e14;
-                                    font-size: 11px;
-                                    padding: 2px 8px;
-                                    border-radius: 12px;
-                                "
-                            >
-                                Custom
-                            </span>
-                        </div>
-                        <i
-                            class="pi pi-trash"
-                            style="cursor: pointer; color: #dc3545"
-                            @click="repairFields.splice(cIndex, 1)"
-                        />
-                    </div>
-
-                    <!-- Repair Actions -->
-                    <div
-                        v-for="(action, aIndex) in category.actions"
-                        :key="aIndex"
-                        class="p-3 mb-2 rounded bg-white"
-                        style="border: 1px solid #e9ecef"
-                    >
-                        <div
-                            class="d-flex justify-content-between align-items-start"
-                        >
-                            <div class="w-100 me-2">
-                                <input
-                                    v-model="action.title"
-                                    placeholder="Repair Action Title"
-                                    class="form-control form-control-sm mb-1"
-                                    style="font-weight: 600"
-                                />
-                                <input
-                                    v-model="action.description"
-                                    placeholder="Description..."
-                                    class="form-control form-control-sm"
-                                    style="font-size: 13px; color: #666"
-                                />
-                            </div>
-                            <div class="d-flex gap-2 align-items-center">
-                                <span
-                                    style="
-                                        cursor: pointer;
-                                        color: #fd7e14;
-                                        font-size: 13px;
-                                        white-space: nowrap;
-                                    "
-                                    @click="action.editing = !action.editing"
+                                <div
+                                    class="d-flex justify-content-between align-items-center mb-2"
                                 >
-                                    {{ action.editing ? "Done" : "Edit" }}
-                                </span>
-                                <i
-                                    class="pi pi-trash"
-                                    style="
-                                        cursor: pointer;
-                                        color: #dc3545;
-                                        font-size: 13px;
+                                    <div
+                                        class="d-flex align-items-center gap-2"
+                                    >
+                                        <i
+                                            class="pi pi-lock"
+                                            style="
+                                                color: #a78bfa;
+                                                font-size: 12px;
+                                            "
+                                        />
+                                        <span
+                                            style="
+                                                font-weight: 600;
+                                                font-size: 14px;
+                                                color: #6d28d9;
+                                            "
+                                            >{{
+                                                field.label || "(no label)"
+                                            }}</span
+                                        >
+                                        <span class="gc-inherited-type-badge">{{
+                                            field.type || "no type"
+                                        }}</span>
+                                        <span
+                                            v-if="field.required"
+                                            class="gc-required-badge"
+                                            >required</span
+                                        >
+                                        <span
+                                            v-if="field.defaultValue"
+                                            class="gc-default-badge"
+                                            >default:
+                                            {{ field.defaultValue }}</span
+                                        >
+                                    </div>
+                                    <span class="gc-inherited-tag">Global</span>
+                                </div>
+                                <!-- Show options if any -->
+                                <div
+                                    v-if="
+                                        field.hasOptions &&
+                                        field.options?.length
                                     "
-                                    @click="category.actions.splice(aIndex, 1)"
+                                    class="ms-3 d-flex flex-wrap gap-1"
+                                >
+                                    <span
+                                        v-for="(opt, oi) in field.options"
+                                        :key="'glo-' + oi"
+                                        class="gc-option-chip"
+                                        >{{ opt.value }}</span
+                                    >
+                                </div>
+                            </div>
+                            <!-- Divider between inherited and ASIN-specific -->
+                            <div
+                                v-if="labelingFields.length"
+                                class="gc-section-divider"
+                            >
+                                <span>ASIN-specific fields</span>
+                            </div>
+                        </template>
+
+                        <!-- ASIN-specific labeling fields (editable) -->
+                        <div
+                            v-for="(field, index) in labelingFields"
+                            :key="'lab-' + index"
+                            class="p-3 border rounded"
+                        >
+                            <div
+                                class="d-flex justify-content-between align-items-center mb-2"
+                            >
+                                <div class="d-flex align-items-center gap-2">
+                                    <i
+                                        class="pi pi-bars"
+                                        style="cursor: grab; color: #aaa"
+                                    />
+                                    <InputText
+                                        v-model="field.label"
+                                        placeholder="Field label"
+                                        size="small"
+                                        style="
+                                            font-weight: 600;
+                                            border: none;
+                                            border-bottom: 1px solid #ccc;
+                                            background: transparent;
+                                            padding: 2px 4px;
+                                        "
+                                    />
+                                </div>
+                                <Button
+                                    icon="pi pi-trash"
+                                    severity="danger"
+                                    text
+                                    size="small"
+                                    @click="labelingFields.splice(index, 1)"
+                                />
+                            </div>
+                            <div
+                                class="d-flex align-items-center gap-3 flex-wrap mb-2"
+                            >
+                                <Select
+                                    v-model="field.type"
+                                    :options="fieldTypeOptions"
+                                    placeholder="Field type"
+                                    size="small"
+                                    style="min-width: 160px"
+                                    @change="onFieldTypeChange(field)"
+                                />
+                                <InputText
+                                    v-model="field.defaultValue"
+                                    placeholder="Default value"
+                                    size="small"
+                                    style="min-width: 140px"
+                                />
+                                <label
+                                    class="d-flex align-items-center gap-1"
+                                    style="font-size: 13px; cursor: pointer"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        v-model="field.required"
+                                    />
+                                    Required
+                                </label>
+                                <label
+                                    class="d-flex align-items-center gap-1"
+                                    style="font-size: 13px; cursor: pointer"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        v-model="field.preTypedNotes"
+                                    />
+                                    Pre-typed Notes
+                                </label>
+                                <label
+                                    v-if="field.type === 'Dropdown/Select'"
+                                    class="d-flex align-items-center gap-1"
+                                    style="font-size: 13px; cursor: pointer"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        v-model="field.hasOptions"
+                                    />
+                                    Has Options
+                                </label>
+                            </div>
+                            <div
+                                v-if="
+                                    field.hasOptions &&
+                                    field.type === 'Dropdown/Select'
+                                "
+                                class="ms-3 mt-2"
+                            >
+                                <div
+                                    v-for="(opt, oi) in field.options"
+                                    :key="'lopt-' + oi"
+                                    class="d-flex align-items-center gap-2 mb-1"
+                                >
+                                    <InputText
+                                        v-model="opt.value"
+                                        placeholder="Option value"
+                                        size="small"
+                                        style="flex: 1"
+                                    />
+                                    <label
+                                        v-if="field.preTypedNotes"
+                                        class="d-flex align-items-center gap-1"
+                                        style="font-size: 12px; cursor: pointer"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="opt.hasNote"
+                                            @change="toggleHasNote(field, oi)"
+                                        />
+                                        Has Note
+                                    </label>
+                                    <Button
+                                        icon="pi pi-trash"
+                                        severity="danger"
+                                        text
+                                        size="small"
+                                        @click="removeOption(field, oi)"
+                                    />
+                                </div>
+                                <Button
+                                    label="Add Option"
+                                    icon="pi pi-plus"
+                                    size="small"
+                                    text
+                                    @click="addOption(field)"
+                                />
+                            </div>
+                            <div
+                                v-if="
+                                    field.preTypedNotes &&
+                                    field.options.some((o) => o.hasNote)
+                                "
+                                class="mt-2 p-2 rounded"
+                                style="
+                                    background: #f9f9f9;
+                                    border: 1px dashed #ccc;
+                                "
+                            >
+                                <strong style="font-size: 12px; color: #555"
+                                    >Pre-typed Notes Configuration</strong
+                                >
+                                <div
+                                    v-for="(opt, oi) in field.options.filter(
+                                        (o) => o.hasNote,
+                                    )"
+                                    :key="'pnote-' + oi"
+                                    class="d-flex align-items-center gap-2 mt-1"
+                                >
+                                    <span
+                                        style="
+                                            font-size: 12px;
+                                            min-width: 100px;
+                                        "
+                                        >{{ opt.value || "(empty)" }}:</span
+                                    >
+                                    <InputText
+                                        v-model="opt.note"
+                                        placeholder="Pre-typed note text"
+                                        size="small"
+                                        style="flex: 1"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <Button
+                        label="Add Labeling Field"
+                        icon="pi pi-plus"
+                        size="small"
+                        text
+                        class="mt-2"
+                        @click="addLabelingField"
+                    />
+                </div>
+
+                <!-- ── TESTING MODULE ────────────────────────────────────────── -->
+                <div
+                    class="mb-0 px-2 py-2 rounded d-flex align-items-center justify-content-between"
+                    style="
+                        background: #e8f4fd;
+                        border-left: 4px solid #0d6efd;
+                        cursor: pointer;
+                    "
+                    @click="testingCollapsed = !testingCollapsed"
+                >
+                    <div class="d-flex align-items-center gap-2">
+                        <i
+                            class="pi pi-check-circle"
+                            style="color: #0d6efd"
+                        ></i>
+                        <strong style="color: #0d6efd">Testing Module</strong>
+                        <span class="text-muted" style="font-size: 12px">
+                            ({{
+                                globalTestingFields.length +
+                                testingFields.length
+                            }}
+                            field{{
+                                globalTestingFields.length +
+                                    testingFields.length !==
+                                1
+                                    ? "s"
+                                    : ""
+                            }}
+                            <template v-if="globalTestingFields.length">
+                                —
+                                {{ globalTestingFields.length }}
+                                inherited </template
+                            >)
+                        </span>
+                    </div>
+                    <i
+                        :class="
+                            testingCollapsed
+                                ? 'pi pi-chevron-down'
+                                : 'pi pi-chevron-up'
+                        "
+                        style="color: #0d6efd"
+                    ></i>
+                </div>
+
+                <div v-if="!testingCollapsed" class="border rounded p-3">
+                    <div class="d-flex flex-column gap-3">
+                        <!-- Inherited global testing fields (read-only) -->
+                        <template v-if="globalTestingFields.length">
+                            <div class="gc-module-inherited-header">
+                                <i class="pi pi-globe"></i>
+                                <span>Inherited from Global Config</span>
+                            </div>
+                            <div
+                                v-for="(field, index) in globalTestingFields"
+                                :key="'gtest-' + index"
+                                class="p-3 border rounded gc-inherited-field"
+                            >
+                                <div
+                                    class="d-flex justify-content-between align-items-center mb-2"
+                                >
+                                    <div
+                                        class="d-flex align-items-center gap-2"
+                                    >
+                                        <i
+                                            class="pi pi-lock"
+                                            style="
+                                                color: #a78bfa;
+                                                font-size: 12px;
+                                            "
+                                        />
+                                        <span
+                                            style="
+                                                font-weight: 600;
+                                                font-size: 14px;
+                                                color: #6d28d9;
+                                            "
+                                            >{{
+                                                field.label || "(no label)"
+                                            }}</span
+                                        >
+                                        <span class="gc-inherited-type-badge">{{
+                                            field.type || "no type"
+                                        }}</span>
+                                        <span
+                                            v-if="field.required"
+                                            class="gc-required-badge"
+                                            >required</span
+                                        >
+                                        <span
+                                            v-if="field.defaultValue"
+                                            class="gc-default-badge"
+                                            >default:
+                                            {{ field.defaultValue }}</span
+                                        >
+                                    </div>
+                                    <span class="gc-inherited-tag">Global</span>
+                                </div>
+                                <div
+                                    v-if="
+                                        field.hasOptions &&
+                                        field.options?.length
+                                    "
+                                    class="ms-3 d-flex flex-wrap gap-1"
+                                >
+                                    <span
+                                        v-for="(opt, oi) in field.options"
+                                        :key="'gto-' + oi"
+                                        class="gc-option-chip"
+                                        >{{ opt.value }}</span
+                                    >
+                                </div>
+                            </div>
+                            <div
+                                v-if="testingFields.length"
+                                class="gc-section-divider"
+                            >
+                                <span>ASIN-specific fields</span>
+                            </div>
+                        </template>
+
+                        <!-- ASIN-specific testing fields (editable) -->
+                        <div
+                            v-for="(field, index) in testingFields"
+                            :key="'test-' + index"
+                            class="p-3 border rounded"
+                        >
+                            <div
+                                class="d-flex justify-content-between align-items-center mb-2"
+                            >
+                                <div class="d-flex align-items-center gap-2">
+                                    <i
+                                        class="pi pi-bars"
+                                        style="cursor: grab; color: #aaa"
+                                    />
+                                    <InputText
+                                        v-model="field.label"
+                                        placeholder="Field label"
+                                        size="small"
+                                        style="
+                                            font-weight: 600;
+                                            border: none;
+                                            border-bottom: 1px solid #ccc;
+                                            background: transparent;
+                                            padding: 2px 4px;
+                                        "
+                                    />
+                                </div>
+                                <Button
+                                    icon="pi pi-trash"
+                                    severity="danger"
+                                    text
+                                    size="small"
+                                    @click="testingFields.splice(index, 1)"
+                                />
+                            </div>
+                            <div
+                                class="d-flex align-items-center gap-3 flex-wrap mb-2"
+                            >
+                                <Select
+                                    v-model="field.type"
+                                    :options="fieldTypeOptions"
+                                    placeholder="Field type"
+                                    size="small"
+                                    style="min-width: 160px"
+                                    @change="onFieldTypeChange(field)"
+                                />
+                                <InputText
+                                    v-model="field.defaultValue"
+                                    placeholder="Default value"
+                                    size="small"
+                                    style="min-width: 140px"
+                                />
+                                <label
+                                    class="d-flex align-items-center gap-1"
+                                    style="font-size: 13px; cursor: pointer"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        v-model="field.required"
+                                    />
+                                    Required
+                                </label>
+                                <label
+                                    class="d-flex align-items-center gap-1"
+                                    style="font-size: 13px; cursor: pointer"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        v-model="field.preTypedNotes"
+                                    />
+                                    Pre-typed Notes
+                                </label>
+                                <label
+                                    v-if="field.type === 'Dropdown/Select'"
+                                    class="d-flex align-items-center gap-1"
+                                    style="font-size: 13px; cursor: pointer"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        v-model="field.hasOptions"
+                                    />
+                                    Has Options
+                                </label>
+                            </div>
+                            <div
+                                v-if="
+                                    field.hasOptions &&
+                                    field.type === 'Dropdown/Select'
+                                "
+                                class="ms-3 mt-2"
+                            >
+                                <div
+                                    v-for="(opt, oi) in field.options"
+                                    :key="'topt-' + oi"
+                                    class="d-flex align-items-center gap-2 mb-1"
+                                >
+                                    <InputText
+                                        v-model="opt.value"
+                                        placeholder="Option value"
+                                        size="small"
+                                        style="flex: 1"
+                                    />
+                                    <label
+                                        v-if="field.preTypedNotes"
+                                        class="d-flex align-items-center gap-1"
+                                        style="font-size: 12px; cursor: pointer"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            v-model="opt.hasNote"
+                                            @change="toggleHasNote(field, oi)"
+                                        />
+                                        Has Note
+                                    </label>
+                                    <Button
+                                        icon="pi pi-trash"
+                                        severity="danger"
+                                        text
+                                        size="small"
+                                        @click="removeOption(field, oi)"
+                                    />
+                                </div>
+                                <Button
+                                    label="Add Option"
+                                    icon="pi pi-plus"
+                                    size="small"
+                                    text
+                                    @click="addOption(field)"
+                                />
+                            </div>
+                            <div
+                                v-if="
+                                    field.preTypedNotes &&
+                                    field.options.some((o) => o.hasNote)
+                                "
+                                class="mt-2 p-2 rounded"
+                                style="
+                                    background: #f9f9f9;
+                                    border: 1px dashed #ccc;
+                                "
+                            >
+                                <strong style="font-size: 12px; color: #555"
+                                    >Pre-typed Notes Configuration</strong
+                                >
+                                <div
+                                    v-for="(opt, oi) in field.options.filter(
+                                        (o) => o.hasNote,
+                                    )"
+                                    :key="'tpnote-' + oi"
+                                    class="d-flex align-items-center gap-2 mt-1"
+                                >
+                                    <span
+                                        style="
+                                            font-size: 12px;
+                                            min-width: 100px;
+                                        "
+                                        >{{ opt.value || "(empty)" }}:</span
+                                    >
+                                    <InputText
+                                        v-model="opt.note"
+                                        placeholder="Pre-typed note text"
+                                        size="small"
+                                        style="flex: 1"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <Button
+                        label="Add Testing Field"
+                        icon="pi pi-plus"
+                        size="small"
+                        text
+                        class="mt-2"
+                        @click="addTestingField"
+                    />
+                </div>
+
+                <!-- ── REPAIR MODULE ─────────────────────────────────────────── -->
+                <div
+                    class="mb-0 px-2 py-2 rounded d-flex align-items-center justify-content-between"
+                    style="
+                        background: #fff3e0;
+                        border-left: 4px solid #e65100;
+                        cursor: pointer;
+                    "
+                    @click="repairCollapsed = !repairCollapsed"
+                >
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="pi pi-wrench" style="color: #e65100"></i>
+                        <strong style="color: #e65100">Repair Module</strong>
+                        <span class="text-muted" style="font-size: 12px">
+                            ({{
+                                globalRepairFields.length + repairFields.length
+                            }}
+                            categor{{
+                                globalRepairFields.length +
+                                    repairFields.length !==
+                                1
+                                    ? "ies"
+                                    : "y"
+                            }}
+                            <template v-if="globalRepairFields.length">
+                                —
+                                {{ globalRepairFields.length }}
+                                inherited </template
+                            >)
+                        </span>
+                    </div>
+                    <i
+                        :class="
+                            repairCollapsed
+                                ? 'pi pi-chevron-down'
+                                : 'pi pi-chevron-up'
+                        "
+                        style="color: #e65100"
+                    ></i>
+                </div>
+
+                <div v-if="!repairCollapsed" class="border rounded p-3">
+                    <div class="d-flex flex-column gap-3">
+                        <!-- Inherited global repair categories (read-only) -->
+                        <template v-if="globalRepairFields.length">
+                            <div class="gc-module-inherited-header">
+                                <i class="pi pi-globe"></i>
+                                <span>Inherited from Global Config</span>
+                            </div>
+                            <div
+                                v-for="(cat, ci) in globalRepairFields"
+                                :key="'grep-' + ci"
+                                class="p-3 border rounded gc-inherited-field"
+                                style="
+                                    border-left: 3px solid #c4b5fd !important;
+                                "
+                            >
+                                <div
+                                    class="d-flex justify-content-between align-items-center mb-2"
+                                >
+                                    <div
+                                        class="d-flex align-items-center gap-2"
+                                    >
+                                        <i
+                                            class="pi pi-lock"
+                                            style="
+                                                color: #a78bfa;
+                                                font-size: 12px;
+                                            "
+                                        />
+                                        <span
+                                            style="
+                                                font-weight: 600;
+                                                font-size: 14px;
+                                                color: #6d28d9;
+                                            "
+                                            >{{ cat.name || "(no name)" }}</span
+                                        >
+                                        <span class="gc-inherited-type-badge"
+                                            >{{ cat.actions.length }} action{{
+                                                cat.actions.length !== 1
+                                                    ? "s"
+                                                    : ""
+                                            }}</span
+                                        >
+                                    </div>
+                                    <span class="gc-inherited-tag">Global</span>
+                                </div>
+                                <div
+                                    v-if="cat.actions.length"
+                                    class="ms-3 d-flex flex-column gap-1"
+                                >
+                                    <div
+                                        v-for="(action, ai) in cat.actions"
+                                        :key="'grepa-' + ai"
+                                        class="d-flex gap-2"
+                                        style="font-size: 13px"
+                                    >
+                                        <span
+                                            style="
+                                                color: #555;
+                                                min-width: 120px;
+                                            "
+                                            >{{ action.title }}</span
+                                        >
+                                        <span class="text-muted">{{
+                                            action.description
+                                        }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div
+                                v-if="repairFields.length"
+                                class="gc-section-divider"
+                            >
+                                <span>ASIN-specific categories</span>
+                            </div>
+                        </template>
+
+                        <!-- ASIN-specific repair categories (editable) -->
+                        <div
+                            v-for="(category, ci) in repairFields"
+                            :key="'rep-' + ci"
+                            class="p-3 border rounded"
+                            style="border-left: 3px solid #e65100 !important"
+                        >
+                            <div
+                                class="d-flex justify-content-between align-items-center mb-2"
+                            >
+                                <InputText
+                                    v-model="category.name"
+                                    placeholder="Category name (e.g. Screen Damage)"
+                                    size="small"
+                                    style="flex: 1; font-weight: 600"
+                                />
+                                <Button
+                                    icon="pi pi-trash"
+                                    severity="danger"
+                                    text
+                                    size="small"
+                                    @click="repairFields.splice(ci, 1)"
+                                />
+                            </div>
+                            <div class="d-flex flex-column gap-2 ms-2">
+                                <div
+                                    v-for="(action, ai) in category.actions"
+                                    :key="'repa-' + ai"
+                                    class="d-flex align-items-center gap-2"
+                                >
+                                    <InputText
+                                        v-model="action.title"
+                                        placeholder="Action title"
+                                        size="small"
+                                        style="flex: 1"
+                                    />
+                                    <InputText
+                                        v-model="action.description"
+                                        placeholder="Description"
+                                        size="small"
+                                        style="flex: 2"
+                                    />
+                                    <Button
+                                        icon="pi pi-trash"
+                                        severity="danger"
+                                        text
+                                        size="small"
+                                        @click="category.actions.splice(ai, 1)"
+                                    />
+                                </div>
+                                <Button
+                                    label="Add Action"
+                                    icon="pi pi-plus"
+                                    size="small"
+                                    text
+                                    @click="addRepairAction(category)"
                                 />
                             </div>
                         </div>
                     </div>
 
-                    <!-- Add Repair Action -->
-                    <div
-                        class="mt-2"
-                        style="cursor: pointer; color: #fd7e14; font-size: 13px"
-                        @click="addRepairAction(category)"
-                    >
-                        + Add Repair Action
-                    </div>
-                </div>
-
-                <!-- Add Repair Category + Save -->
-                <div
-                    class="my-3 d-flex justify-content-between align-items-center"
-                >
                     <Button
                         label="Add Repair Category"
                         icon="pi pi-plus"
+                        size="small"
+                        text
+                        class="mt-2"
                         @click="addRepairField"
-                        style="
-                            background: #fd7e14;
-                            border-color: #fd7e14;
-                            color: #fff;
-                        "
                     />
                 </div>
-            </div>
 
-            <!-- CLEANING MODULE -->
-            <div
-                class="mb-3 px-2 py-2 rounded d-flex align-items-center justify-content-between"
-                style="
-                    background: #e0f7fa;
-                    border-left: 4px solid #00bcd4;
-                    cursor: pointer;
-                "
-                @click="cleaningCollapsed = !cleaningCollapsed"
-            >
-                <div class="d-flex align-items-center gap-2">
-                    <i class="pi pi-sparkles" style="color: #006064"></i>
-                    <strong style="color: #006064">Cleaning Module</strong>
-                    <span class="text-muted" style="font-size: 12px">
-                        ({{ cleaningFields.length }} field{{
-                            cleaningFields.length !== 1 ? "s" : ""
-                        }})
-                    </span>
-                </div>
-                <i
-                    :class="
-                        cleaningCollapsed
-                            ? 'pi pi-chevron-down'
-                            : 'pi pi-chevron-up'
-                    "
-                    style="color: #006064"
-                />
-            </div>
-
-            <div v-if="!cleaningCollapsed" class="d-flex flex-column gap-3">
-                <!-- Cleaning Categories -->
+                <!-- ── CLEANING MODULE ───────────────────────────────────────── -->
                 <div
-                    v-for="(category, cIndex) in cleaningFields"
-                    :key="'cleaning-' + cIndex"
-                    class="p-3 rounded"
-                    style="border: 1.5px solid #00bcd4; background: #f0fdff"
+                    class="mb-0 px-2 py-2 rounded d-flex align-items-center justify-content-between"
+                    style="
+                        background: #e0f7fa;
+                        border-left: 4px solid #00bcd4;
+                        cursor: pointer;
+                    "
+                    @click="cleaningCollapsed = !cleaningCollapsed"
                 >
-                    <!-- Category Header -->
-                    <div
-                        class="d-flex align-items-center justify-content-between mb-3"
-                    >
-                        <div class="d-flex align-items-center gap-2">
-                            <InputText
-                                v-model="category.name"
-                                placeholder="Category Name"
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="pi pi-sparkles" style="color: #006064"></i>
+                        <strong style="color: #006064">Cleaning Module</strong>
+                        <span class="text-muted" style="font-size: 12px">
+                            ({{
+                                globalCleaningFields.length +
+                                cleaningFields.length
+                            }}
+                            categor{{
+                                globalCleaningFields.length +
+                                    cleaningFields.length !==
+                                1
+                                    ? "ies"
+                                    : "y"
+                            }}
+                            <template v-if="globalCleaningFields.length">
+                                —
+                                {{ globalCleaningFields.length }}
+                                inherited </template
+                            >)
+                        </span>
+                    </div>
+                    <i
+                        :class="
+                            cleaningCollapsed
+                                ? 'pi pi-chevron-down'
+                                : 'pi pi-chevron-up'
+                        "
+                        style="color: #006064"
+                    ></i>
+                </div>
+
+                <div v-if="!cleaningCollapsed" class="border rounded p-3">
+                    <div class="d-flex flex-column gap-3">
+                        <!-- Inherited global cleaning categories (read-only) -->
+                        <template v-if="globalCleaningFields.length">
+                            <div class="gc-module-inherited-header">
+                                <i class="pi pi-globe"></i>
+                                <span>Inherited from Global Config</span>
+                            </div>
+                            <div
+                                v-for="(cat, ci) in globalCleaningFields"
+                                :key="'gcln-' + ci"
+                                class="p-3 border rounded gc-inherited-field"
                                 style="
-                                    font-weight: 600;
-                                    border: none;
-                                    border-bottom: 1px solid #ccc;
-                                    background: transparent;
-                                    padding: 2px 4px;
-                                "
-                            />
-                            <span
-                                class="badge"
-                                style="
-                                    background: #e0f7fa;
-                                    color: #00bcd4;
-                                    border: 1px solid #00bcd4;
-                                    font-size: 11px;
-                                    padding: 2px 8px;
-                                    border-radius: 12px;
+                                    border-left: 3px solid #c4b5fd !important;
                                 "
                             >
-                                Custom
-                            </span>
-                        </div>
-                        <i
-                            class="pi pi-trash"
-                            style="cursor: pointer; color: #dc3545"
-                            @click="cleaningFields.splice(cIndex, 1)"
-                        />
-                    </div>
-
-                    <!-- Cleaning Actions -->
-                    <div
-                        v-for="(action, aIndex) in category.actions"
-                        :key="aIndex"
-                        class="p-3 mb-2 rounded bg-white"
-                        style="border: 1px solid #e9ecef"
-                    >
-                        <div
-                            class="d-flex justify-content-between align-items-start"
-                        >
-                            <div class="w-100 me-2">
-                                <input
-                                    v-model="action.title"
-                                    placeholder="Cleaning Action Title"
-                                    class="form-control form-control-sm mb-1"
-                                    style="font-weight: 600"
-                                />
-                                <input
-                                    v-model="action.description"
-                                    placeholder="Description..."
-                                    class="form-control form-control-sm"
-                                    style="font-size: 13px; color: #666"
-                                />
-                            </div>
-                            <div class="d-flex gap-2 align-items-center">
-                                <span
-                                    style="
-                                        cursor: pointer;
-                                        color: #00bcd4;
-                                        font-size: 13px;
-                                        white-space: nowrap;
-                                    "
-                                    @click="action.editing = !action.editing"
+                                <div
+                                    class="d-flex justify-content-between align-items-center mb-2"
                                 >
-                                    {{ action.editing ? "Done" : "Edit" }}
-                                </span>
-                                <i
-                                    class="pi pi-trash"
-                                    style="
-                                        cursor: pointer;
-                                        color: #dc3545;
-                                        font-size: 13px;
-                                    "
-                                    @click="category.actions.splice(aIndex, 1)"
+                                    <div
+                                        class="d-flex align-items-center gap-2"
+                                    >
+                                        <i
+                                            class="pi pi-lock"
+                                            style="
+                                                color: #a78bfa;
+                                                font-size: 12px;
+                                            "
+                                        />
+                                        <span
+                                            style="
+                                                font-weight: 600;
+                                                font-size: 14px;
+                                                color: #6d28d9;
+                                            "
+                                            >{{ cat.name || "(no name)" }}</span
+                                        >
+                                        <span class="gc-inherited-type-badge"
+                                            >{{ cat.actions.length }} action{{
+                                                cat.actions.length !== 1
+                                                    ? "s"
+                                                    : ""
+                                            }}</span
+                                        >
+                                    </div>
+                                    <span class="gc-inherited-tag">Global</span>
+                                </div>
+                                <div
+                                    v-if="cat.actions.length"
+                                    class="ms-3 d-flex flex-column gap-1"
+                                >
+                                    <div
+                                        v-for="(action, ai) in cat.actions"
+                                        :key="'gclna-' + ai"
+                                        class="d-flex gap-2"
+                                        style="font-size: 13px"
+                                    >
+                                        <span
+                                            style="
+                                                color: #555;
+                                                min-width: 120px;
+                                            "
+                                            >{{ action.title }}</span
+                                        >
+                                        <span class="text-muted">{{
+                                            action.description
+                                        }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div
+                                v-if="cleaningFields.length"
+                                class="gc-section-divider"
+                            >
+                                <span>ASIN-specific categories</span>
+                            </div>
+                        </template>
+
+                        <!-- ASIN-specific cleaning categories (editable) -->
+                        <div
+                            v-for="(category, ci) in cleaningFields"
+                            :key="'cln-' + ci"
+                            class="p-3 border rounded"
+                            style="border-left: 3px solid #00bcd4 !important"
+                        >
+                            <div
+                                class="d-flex justify-content-between align-items-center mb-2"
+                            >
+                                <InputText
+                                    v-model="category.name"
+                                    placeholder="Category name (e.g. Surface Cleaning)"
+                                    size="small"
+                                    style="flex: 1; font-weight: 600"
+                                />
+                                <Button
+                                    icon="pi pi-trash"
+                                    severity="danger"
+                                    text
+                                    size="small"
+                                    @click="cleaningFields.splice(ci, 1)"
+                                />
+                            </div>
+                            <div class="d-flex flex-column gap-2 ms-2">
+                                <div
+                                    v-for="(action, ai) in category.actions"
+                                    :key="'clna-' + ai"
+                                    class="d-flex align-items-center gap-2"
+                                >
+                                    <InputText
+                                        v-model="action.title"
+                                        placeholder="Action title"
+                                        size="small"
+                                        style="flex: 1"
+                                    />
+                                    <InputText
+                                        v-model="action.description"
+                                        placeholder="Description"
+                                        size="small"
+                                        style="flex: 2"
+                                    />
+                                    <Button
+                                        icon="pi pi-trash"
+                                        severity="danger"
+                                        text
+                                        size="small"
+                                        @click="category.actions.splice(ai, 1)"
+                                    />
+                                </div>
+                                <Button
+                                    label="Add Action"
+                                    icon="pi pi-plus"
+                                    size="small"
+                                    text
+                                    @click="addCleaningAction(category)"
                                 />
                             </div>
                         </div>
                     </div>
 
-                    <!-- Add Cleaning Action -->
-                    <div
-                        class="mt-2"
-                        style="cursor: pointer; color: #00bcd4; font-size: 13px"
-                        @click="addCleaningAction(category)"
-                    >
-                        + Add Cleaning Action
-                    </div>
-                </div>
-
-                <!-- Add Cleaning Category + Save -->
-                <div
-                    class="my-3 d-flex justify-content-between align-items-center"
-                >
                     <Button
                         label="Add Cleaning Category"
                         icon="pi pi-plus"
+                        size="small"
+                        text
+                        class="mt-2"
                         @click="addCleaningField"
-                        style="
-                            background: #00bcd4;
-                            border-color: #00bcd4;
-                            color: #fff;
-                        "
                     />
                 </div>
-            </div>
 
-            <!-- PACKAGING MODULE -->
-            <div
-                class="mb-3 px-2 py-2 rounded d-flex align-items-center justify-content-between"
-                style="
-                    background: #ffe4e8;
-                    border-left: 4px solid #f48fb1;
-                    cursor: pointer;
-                "
-                @click="packagingCollapsed = !packagingCollapsed"
-            >
-                <div class="d-flex align-items-center gap-2">
-                    <i class="pi pi-box" style="color: #880e4f"></i>
-                    <strong style="color: #880e4f">Packaging Module</strong>
-                </div>
-                <i
-                    :class="
-                        packagingCollapsed
-                            ? 'pi pi-chevron-down'
-                            : 'pi pi-chevron-up'
+                <!-- ── PACKAGING MODULE ──────────────────────────────────────── -->
+                <div
+                    class="mb-0 px-2 py-2 rounded d-flex align-items-center justify-content-between"
+                    style="
+                        background: #fce7f3;
+                        border-left: 4px solid #fb64b6;
+                        cursor: pointer;
                     "
-                    style="color: #880e4f"
-                />
-            </div>
-
-            <div v-if="!packagingCollapsed">
-                <div
-                    class="p-3 rounded"
-                    style="border: 1.5px solid #f48fb1; background: #fff0f5"
+                    @click="packagingCollapsed = !packagingCollapsed"
                 >
-                    <p
-                        class="mb-2"
-                        style="
-                            font-size: 13px;
-                            font-weight: 600;
-                            color: #880e4f;
-                        "
-                    >
-                        <i class="pi pi-image me-1"></i> Product Image (Visual
-                        Guide)
-                    </p>
-                    <div class="d-flex align-items-center gap-3">
-                        <!-- Image Preview -->
-                        <div
-                            class="d-flex align-items-center justify-content-center rounded"
-                            style="
-                                width: 100px;
-                                height: 100px;
-                                border: 1.5px solid #f48fb1;
-                                background: #fff;
-                                flex-shrink: 0;
-                            "
-                        >
-                            <img
-                                v-if="packagingImage"
-                                :src="packagingImage"
-                                alt="Product Image"
-                                style="
-                                    width: 100%;
-                                    height: 100%;
-                                    object-fit: cover;
-                                    border-radius: 4px;
-                                "
-                            />
-                            <i
-                                v-else
-                                class="pi pi-image"
-                                style="font-size: 2.5rem; color: #aaa"
-                            ></i>
-                        </div>
-                        <!-- Upload -->
-                        <div>
-                            <Button
-                                label="Upload Product Image"
-                                icon="pi pi-camera"
-                                @click="$refs.packagingImageInput.click()"
-                                style="
-                                    background: #e91e8c;
-                                    border-color: #e91e8c;
-                                    color: #fff;
-                                "
-                            />
-                            <input
-                                ref="packagingImageInput"
-                                type="file"
-                                accept="image/*"
-                                style="display: none"
-                                @change="onPackagingImageUpload"
-                            />
-                            <p class="mt-1 text-muted" style="font-size: 12px">
-                                Recommended: 500x500px or higher
-                            </p>
-                        </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="pi pi-box" style="color: #861043"></i>
+                        <strong style="color: #861043">Packaging Module</strong>
+                        <span class="text-muted" style="font-size: 12px">
+                            ({{
+                                globalPackagingComponents.length +
+                                packagingComponents.length
+                            }}
+                            component{{
+                                globalPackagingComponents.length +
+                                    packagingComponents.length !==
+                                1
+                                    ? "s"
+                                    : ""
+                            }}
+                            <template v-if="globalPackagingComponents.length">
+                                —
+                                {{ globalPackagingComponents.length }}
+                                inherited </template
+                            >)
+                        </span>
                     </div>
+                    <i
+                        :class="
+                            packagingCollapsed
+                                ? 'pi pi-chevron-down'
+                                : 'pi pi-chevron-up'
+                        "
+                        style="color: #861043"
+                    ></i>
                 </div>
 
-                <!-- Required Components (Seeds) -->
                 <div
-                    class="p-3 mt-2 rounded"
-                    style="border: 1.5px solid #9c27b0; background: #faf5ff"
+                    v-if="!packagingCollapsed"
+                    class="d-flex flex-column gap-3 border rounded p-3"
                 >
-                    <p
-                        class="mb-3"
-                        style="
-                            font-size: 13px;
-                            font-weight: 600;
-                            color: #6f42c1;
-                        "
-                    >
-                        <i class="pi pi-cog me-1"></i> Required Components
-                        (Seeds)
-                    </p>
-
-                    <div
-                        v-for="(component, cIndex) in packagingComponents"
-                        :key="'comp-' + cIndex"
-                        class="p-2 mb-2 rounded bg-white d-flex align-items-center gap-2"
-                        style="border: 1px solid #e9ecef"
-                    >
-                        <!-- Icon -->
-                        <div
-                            class="d-flex align-items-center justify-content-center rounded"
-                            style="
-                                width: 48px;
-                                height: 48px;
-                                background: #f3effe;
-                                flex-shrink: 0;
-                            "
-                        >
-                            <i
-                                class="pi pi-box"
-                                style="color: #6f42c1; font-size: 1.2rem"
-                            ></i>
+                    <!-- ── Product Image (Visual Guide) card ── -->
+                    <div class="pkg-card">
+                        <div class="pkg-card-header">
+                            <i class="pi pi-image"></i>
+                            <span>Product Image (Visual Guide)</span>
                         </div>
-                        <!-- Fields -->
-                        <div class="flex-grow-1">
-                            <input
-                                v-model="component.name"
-                                placeholder="Component Name"
-                                class="form-control form-control-sm mb-1"
-                                style="font-weight: 600"
-                            />
-                            <div class="d-flex gap-2">
-                                <input
-                                    v-model="component.sku"
-                                    placeholder="SKU"
-                                    class="form-control form-control-sm"
-                                    style="flex: 1"
+                        <div
+                            class="pkg-card-body d-flex align-items-center gap-4"
+                        >
+                            <!-- Thumbnail -->
+                            <div class="pkg-image-thumb">
+                                <img
+                                    v-if="packagingImage"
+                                    :src="packagingImage"
+                                    alt="Packaging"
+                                    style="
+                                        width: 100%;
+                                        height: 100%;
+                                        object-fit: contain;
+                                    "
                                 />
-                                <input
-                                    v-model="component.qty"
-                                    placeholder="Qty"
-                                    type="number"
-                                    min="1"
-                                    class="form-control form-control-sm"
-                                    style="width: 80px"
-                                />
-                                <input
-                                    v-model="component.note"
-                                    placeholder="Note"
-                                    class="form-control form-control-sm"
-                                    style="flex: 2"
+                                <i
+                                    v-else
+                                    class="pi pi-volume-up"
+                                    style="font-size: 2.5rem; color: #bbb"
+                                ></i>
+                            </div>
+                            <!-- Upload controls -->
+                            <div class="d-flex flex-column gap-1">
+                                <label class="pkg-upload-btn">
+                                    <i class="pi pi-camera"></i> Upload Product
+                                    Image
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        style="display: none"
+                                        @change="onPackagingImageUpload"
+                                    />
+                                </label>
+                                <span style="font-size: 12px; color: #e91e8c"
+                                    >Recommended: 500x500px or higher</span
+                                >
+                                <Button
+                                    v-if="packagingImage"
+                                    label="Remove"
+                                    icon="pi pi-trash"
+                                    severity="danger"
+                                    size="small"
+                                    text
+                                    @click="packagingImage = null"
                                 />
                             </div>
                         </div>
-                        <!-- Delete -->
+                    </div>
+
+                    <!-- ── Required Components card ── -->
+                    <div class="pkg-card">
+                        <div class="pkg-card-header">
+                            <i class="pi pi-cog"></i>
+                            <span>Required Components (Seeds)</span>
+                        </div>
+                        <div class="pkg-card-body d-flex flex-column gap-2">
+                            <!-- Inherited global components (read-only) -->
+                            <template v-if="globalPackagingComponents.length">
+                                <div class="gc-module-inherited-header">
+                                    <i class="pi pi-globe"></i>
+                                    <span>Inherited from Global Config</span>
+                                </div>
+                                <div
+                                    v-for="(
+                                        comp, i
+                                    ) in globalPackagingComponents"
+                                    :key="'gcomp-' + i"
+                                    class="pkg-component-row gc-inherited-field"
+                                >
+                                    <div class="pkg-comp-icon">
+                                        <i
+                                            class="pi pi-lock"
+                                            style="
+                                                color: #a78bfa;
+                                                font-size: 13px;
+                                            "
+                                        ></i>
+                                    </div>
+                                    <div class="pkg-comp-details">
+                                        <span
+                                            class="pkg-comp-name"
+                                            style="color: #6d28d9"
+                                            >{{ comp.name }}</span
+                                        >
+                                        <div class="pkg-comp-meta">
+                                            <span>{{ comp.sku }}</span>
+                                            <span>{{ comp.qty }}</span>
+                                            <span v-if="comp.note">{{
+                                                comp.note
+                                            }}</span>
+                                        </div>
+                                    </div>
+                                    <span class="gc-inherited-tag">Global</span>
+                                </div>
+                                <div
+                                    v-if="packagingComponents.length"
+                                    class="gc-section-divider"
+                                >
+                                    <span>ASIN-specific</span>
+                                </div>
+                            </template>
+
+                            <!-- ASIN-specific components (editable) -->
+                            <div
+                                v-for="(comp, i) in packagingComponents"
+                                :key="'comp-' + i"
+                                class="pkg-component-row"
+                            >
+                                <!-- Icon placeholder -->
+                                <div class="pkg-comp-icon">
+                                    <i
+                                        class="pi pi-box"
+                                        style="color: #aaa; font-size: 16px"
+                                    ></i>
+                                </div>
+                                <!-- Fields -->
+                                <div class="pkg-comp-details">
+                                    <InputText
+                                        v-model="comp.name"
+                                        placeholder="Component name"
+                                        size="small"
+                                        class="w-100 mb-1"
+                                        style="font-weight: 600"
+                                    />
+                                    <div class="d-flex gap-2">
+                                        <InputText
+                                            v-model="comp.sku"
+                                            placeholder="SKU"
+                                            size="small"
+                                            style="flex: 2"
+                                        />
+                                        <InputText
+                                            v-model="comp.qty"
+                                            placeholder="Qty"
+                                            size="small"
+                                            style="flex: 1"
+                                            type="number"
+                                            min="1"
+                                        />
+                                        <InputText
+                                            v-model="comp.note"
+                                            placeholder="Note"
+                                            size="small"
+                                            style="flex: 2"
+                                        />
+                                    </div>
+                                </div>
+                                <!-- Delete -->
+                                <Button
+                                    icon="pi pi-trash"
+                                    severity="danger"
+                                    text
+                                    size="small"
+                                    style="flex-shrink: 0"
+                                    @click="packagingComponents.splice(i, 1)"
+                                />
+                            </div>
+
+                            <Button
+                                label="Add Component"
+                                icon="pi pi-plus"
+                                size="small"
+                                text
+                                class="align-self-start mt-1"
+                                @click="addPackagingComponent"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- ── Box Specifications card ── -->
+                    <div class="pkg-card">
+                        <div class="pkg-card-header">
+                            <i class="pi pi-box"></i>
+                            <span>Box Specifications</span>
+                        </div>
+                        <div class="pkg-card-body">
+                            <div class="row g-2">
+                                <div class="col-6 col-md-3">
+                                    <label class="pkg-label">
+                                        Size
+                                        <span
+                                            v-if="
+                                                !boxSpecs.size &&
+                                                globalBoxSpecs.size
+                                            "
+                                            class="gc-default-badge"
+                                            >inherited</span
+                                        >
+                                    </label>
+                                    <InputText
+                                        v-model="boxSpecs.size"
+                                        :placeholder="
+                                            globalBoxSpecs.size ||
+                                            'e.g. 12x8x6 in'
+                                        "
+                                        size="small"
+                                        class="w-100"
+                                    />
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <label class="pkg-label">
+                                        Type
+                                        <span
+                                            v-if="
+                                                !boxSpecs.type &&
+                                                globalBoxSpecs.type
+                                            "
+                                            class="gc-default-badge"
+                                            >inherited</span
+                                        >
+                                    </label>
+                                    <InputText
+                                        v-model="boxSpecs.type"
+                                        :placeholder="
+                                            globalBoxSpecs.type || 'e.g. RSC'
+                                        "
+                                        size="small"
+                                        class="w-100"
+                                    />
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <label class="pkg-label">
+                                        Weight
+                                        <span
+                                            v-if="
+                                                !boxSpecs.weight &&
+                                                globalBoxSpecs.weight
+                                            "
+                                            class="gc-default-badge"
+                                            >inherited</span
+                                        >
+                                    </label>
+                                    <InputText
+                                        v-model="boxSpecs.weight"
+                                        :placeholder="
+                                            globalBoxSpecs.weight ||
+                                            'e.g. 2 lbs'
+                                        "
+                                        size="small"
+                                        class="w-100"
+                                    />
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <label class="pkg-label">
+                                        Materials
+                                        <span
+                                            v-if="
+                                                !boxSpecs.materials &&
+                                                globalBoxSpecs.materials
+                                            "
+                                            class="gc-default-badge"
+                                            >inherited</span
+                                        >
+                                    </label>
+                                    <InputText
+                                        v-model="boxSpecs.materials"
+                                        :placeholder="
+                                            globalBoxSpecs.materials ||
+                                            'e.g. Corrugated'
+                                        "
+                                        size="small"
+                                        class="w-100"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- end d-flex wrapper -->
+
+            <!-- ── DIALOG FOOTER ──────────────────────────────────────────── -->
+            <template #footer>
+                <Button
+                    label="Cancel"
+                    severity="secondary"
+                    text
+                    @click="showASINConfig = false"
+                />
+                <Button
+                    label="Save"
+                    icon="pi pi-save"
+                    severity="secondary"
+                    outlined
+                    :loading="savingAll"
+                    @click="saveAllFields(false)"
+                />
+                <Button
+                    label="Save & Publish"
+                    icon="pi pi-send"
+                    :loading="publishing"
+                    @click="saveAllFields(true)"
+                />
+            </template>
+        </Dialog>
+
+        <Dialog
+            v-model:visible="showGlobalConfig"
+            header="Global ASIN Configuration"
+            :style="{ width: '860px', maxWidth: '98vw' }"
+            :modal="true"
+            :closable="true"
+            :draggable="false"
+        >
+            <div class="global-config-wrapper">
+                <p class="global-config-hint">
+                    <i
+                        class="pi pi-info-circle"
+                        style="color: #6366f1; margin-right: 6px"
+                    ></i>
+                    Fields defined here become the <strong>default</strong> for
+                    every ASIN. Each ASIN can still override or extend them
+                    individually.
+                </p>
+
+                <!-- LABELING -->
+                <div class="gc-section">
+                    <div
+                        class="gc-section-header"
+                        @click="
+                            globalLabelingCollapsed = !globalLabelingCollapsed
+                        "
+                    >
+                        <span><i class="pi pi-tag"></i> Labeling Fields</span>
                         <i
-                            class="pi pi-trash"
-                            style="
-                                cursor: pointer;
-                                color: #dc3545;
-                                flex-shrink: 0;
+                            :class="
+                                globalLabelingCollapsed
+                                    ? 'pi pi-chevron-down'
+                                    : 'pi pi-chevron-up'
                             "
-                            @click="packagingComponents.splice(cIndex, 1)"
+                        ></i>
+                    </div>
+                    <div
+                        v-if="!globalLabelingCollapsed"
+                        class="gc-section-body"
+                    >
+                        <div
+                            v-for="(field, i) in globalLabelingFields"
+                            :key="i"
+                            class="gc-field-row"
+                        >
+                            <InputText
+                                v-model="field.label"
+                                placeholder="Label"
+                                size="small"
+                                style="flex: 2"
+                            />
+                            <Select
+                                v-model="field.type"
+                                :options="fieldTypeOptions"
+                                placeholder="Type"
+                                size="small"
+                                style="flex: 2"
+                                @change="onFieldTypeChange(field)"
+                            />
+                            <InputText
+                                v-model="field.defaultValue"
+                                placeholder="Default value"
+                                size="small"
+                                style="flex: 2"
+                            />
+                            <div class="gc-field-flags">
+                                <label
+                                    ><input
+                                        type="checkbox"
+                                        v-model="field.required"
+                                    />
+                                    Required</label
+                                >
+                            </div>
+                            <Button
+                                icon="pi pi-trash"
+                                severity="danger"
+                                text
+                                size="small"
+                                @click="globalLabelingFields.splice(i, 1)"
+                            />
+                        </div>
+                        <Button
+                            label="Add Field"
+                            icon="pi pi-plus"
+                            size="small"
+                            text
+                            @click="
+                                globalLabelingFields.push({
+                                    label: '',
+                                    type: '',
+                                    defaultValue: '',
+                                    required: false,
+                                    hasOptions: false,
+                                    preTypedNotes: false,
+                                    options: [],
+                                })
+                            "
                         />
                     </div>
                 </div>
 
-                <div
-                    class="p-3 rounded mt-3"
-                    style="border: 1.5px solid #9fa8da; background: #eef0fb"
-                >
-                    <p
-                        class="mb-3"
-                        style="
-                            font-size: 14px;
-                            font-weight: 700;
-                            color: #3949ab;
+                <!-- TESTING -->
+                <div class="gc-section">
+                    <div
+                        class="gc-section-header"
+                        @click="
+                            globalTestingCollapsed = !globalTestingCollapsed
                         "
                     >
-                        Box Specifications
-                    </p>
-                    <div class="row g-3">
-                        <div class="col-6">
-                            <label
-                                class="form-label text-muted"
-                                style="font-size: 12px"
-                                >Box Size</label
-                            >
-                            <input
-                                v-model="boxSpecs.size"
-                                placeholder="e.g. 25cm x 20cm x 15cm"
-                                class="form-control"
+                        <span
+                            ><i class="pi pi-check-circle"></i> Testing
+                            Fields</span
+                        >
+                        <i
+                            :class="
+                                globalTestingCollapsed
+                                    ? 'pi pi-chevron-down'
+                                    : 'pi pi-chevron-up'
+                            "
+                        ></i>
+                    </div>
+                    <div v-if="!globalTestingCollapsed" class="gc-section-body">
+                        <div
+                            v-for="(field, i) in globalTestingFields"
+                            :key="i"
+                            class="gc-field-row"
+                        >
+                            <InputText
+                                v-model="field.label"
+                                placeholder="Label"
+                                size="small"
+                                style="flex: 2"
+                            />
+                            <Select
+                                v-model="field.type"
+                                :options="fieldTypeOptions"
+                                placeholder="Type"
+                                size="small"
+                                style="flex: 2"
+                                @change="onFieldTypeChange(field)"
+                            />
+                            <InputText
+                                v-model="field.defaultValue"
+                                placeholder="Default value"
+                                size="small"
+                                style="flex: 2"
+                            />
+                            <div class="gc-field-flags">
+                                <label
+                                    ><input
+                                        type="checkbox"
+                                        v-model="field.required"
+                                    />
+                                    Required</label
+                                >
+                            </div>
+                            <Button
+                                icon="pi pi-trash"
+                                severity="danger"
+                                text
+                                size="small"
+                                @click="globalTestingFields.splice(i, 1)"
                             />
                         </div>
-                        <div class="col-6">
-                            <label
-                                class="form-label text-muted"
-                                style="font-size: 12px"
-                                >Box Type</label
-                            >
-                            <input
-                                v-model="boxSpecs.type"
-                                placeholder="e.g. Standard Cardboard - Brown"
-                                class="form-control"
-                            />
+                        <Button
+                            label="Add Field"
+                            icon="pi pi-plus"
+                            size="small"
+                            text
+                            @click="
+                                globalTestingFields.push({
+                                    label: '',
+                                    type: '',
+                                    defaultValue: '',
+                                    required: false,
+                                    hasOptions: false,
+                                    preTypedNotes: false,
+                                    options: [],
+                                })
+                            "
+                        />
+                    </div>
+                </div>
+
+                <!-- REPAIR -->
+                <div class="gc-section">
+                    <div
+                        class="gc-section-header"
+                        @click="globalRepairCollapsed = !globalRepairCollapsed"
+                    >
+                        <span
+                            ><i class="pi pi-wrench"></i> Repair
+                            Categories</span
+                        >
+                        <i
+                            :class="
+                                globalRepairCollapsed
+                                    ? 'pi pi-chevron-down'
+                                    : 'pi pi-chevron-up'
+                            "
+                        ></i>
+                    </div>
+                    <div v-if="!globalRepairCollapsed" class="gc-section-body">
+                        <div
+                            v-for="(cat, i) in globalRepairFields"
+                            :key="i"
+                            class="gc-category-row"
+                        >
+                            <div class="gc-category-header">
+                                <InputText
+                                    v-model="cat.name"
+                                    placeholder="Category name"
+                                    size="small"
+                                    style="flex: 1"
+                                />
+                                <Button
+                                    icon="pi pi-trash"
+                                    severity="danger"
+                                    text
+                                    size="small"
+                                    @click="globalRepairFields.splice(i, 1)"
+                                />
+                            </div>
+                            <div class="gc-actions-list">
+                                <div
+                                    v-for="(action, j) in cat.actions"
+                                    :key="j"
+                                    class="gc-action-row"
+                                >
+                                    <InputText
+                                        v-model="action.title"
+                                        placeholder="Action title"
+                                        size="small"
+                                        style="flex: 1"
+                                    />
+                                    <InputText
+                                        v-model="action.description"
+                                        placeholder="Description"
+                                        size="small"
+                                        style="flex: 2"
+                                    />
+                                    <Button
+                                        icon="pi pi-trash"
+                                        severity="danger"
+                                        text
+                                        size="small"
+                                        @click="cat.actions.splice(j, 1)"
+                                    />
+                                </div>
+                                <Button
+                                    label="Add Action"
+                                    icon="pi pi-plus"
+                                    size="small"
+                                    text
+                                    @click="
+                                        cat.actions.push({
+                                            title: '',
+                                            description: '',
+                                            editing: false,
+                                        })
+                                    "
+                                />
+                            </div>
                         </div>
-                        <div class="col-6">
-                            <label
-                                class="form-label text-muted"
-                                style="font-size: 12px"
-                                >Estimated Weight</label
-                            >
-                            <input
-                                v-model="boxSpecs.weight"
-                                placeholder="e.g. 0.8 kg"
-                                class="form-control"
-                            />
+                        <Button
+                            label="Add Category"
+                            icon="pi pi-plus"
+                            size="small"
+                            text
+                            @click="
+                                globalRepairFields.push({
+                                    name: '',
+                                    actions: [],
+                                })
+                            "
+                        />
+                    </div>
+                </div>
+
+                <!-- CLEANING -->
+                <div class="gc-section">
+                    <div
+                        class="gc-section-header"
+                        @click="
+                            globalCleaningCollapsed = !globalCleaningCollapsed
+                        "
+                    >
+                        <span
+                            ><i class="pi pi-sparkles"></i> Cleaning
+                            Categories</span
+                        >
+                        <i
+                            :class="
+                                globalCleaningCollapsed
+                                    ? 'pi pi-chevron-down'
+                                    : 'pi pi-chevron-up'
+                            "
+                        ></i>
+                    </div>
+                    <div
+                        v-if="!globalCleaningCollapsed"
+                        class="gc-section-body"
+                    >
+                        <div
+                            v-for="(cat, i) in globalCleaningFields"
+                            :key="i"
+                            class="gc-category-row"
+                        >
+                            <div class="gc-category-header">
+                                <InputText
+                                    v-model="cat.name"
+                                    placeholder="Category name"
+                                    size="small"
+                                    style="flex: 1"
+                                />
+                                <Button
+                                    icon="pi pi-trash"
+                                    severity="danger"
+                                    text
+                                    size="small"
+                                    @click="globalCleaningFields.splice(i, 1)"
+                                />
+                            </div>
+                            <div class="gc-actions-list">
+                                <div
+                                    v-for="(action, j) in cat.actions"
+                                    :key="j"
+                                    class="gc-action-row"
+                                >
+                                    <InputText
+                                        v-model="action.title"
+                                        placeholder="Action title"
+                                        size="small"
+                                        style="flex: 1"
+                                    />
+                                    <InputText
+                                        v-model="action.description"
+                                        placeholder="Description"
+                                        size="small"
+                                        style="flex: 2"
+                                    />
+                                    <Button
+                                        icon="pi pi-trash"
+                                        severity="danger"
+                                        text
+                                        size="small"
+                                        @click="cat.actions.splice(j, 1)"
+                                    />
+                                </div>
+                                <Button
+                                    label="Add Action"
+                                    icon="pi pi-plus"
+                                    size="small"
+                                    text
+                                    @click="
+                                        cat.actions.push({
+                                            title: '',
+                                            description: '',
+                                            editing: false,
+                                        })
+                                    "
+                                />
+                            </div>
                         </div>
-                        <div class="col-6">
-                            <label
-                                class="form-label text-muted"
-                                style="font-size: 12px"
-                                >Packaging Materials</label
+                        <Button
+                            label="Add Category"
+                            icon="pi pi-plus"
+                            size="small"
+                            text
+                            @click="
+                                globalCleaningFields.push({
+                                    name: '',
+                                    actions: [],
+                                })
+                            "
+                        />
+                    </div>
+                </div>
+
+                <!-- PACKAGING -->
+                <div class="gc-section">
+                    <div
+                        class="gc-section-header"
+                        @click="
+                            globalPackagingCollapsed = !globalPackagingCollapsed
+                        "
+                    >
+                        <span
+                            ><i class="pi pi-box"></i> Packaging Defaults</span
+                        >
+                        <i
+                            :class="
+                                globalPackagingCollapsed
+                                    ? 'pi pi-chevron-down'
+                                    : 'pi pi-chevron-up'
+                            "
+                        ></i>
+                    </div>
+                    <div
+                        v-if="!globalPackagingCollapsed"
+                        class="gc-section-body"
+                    >
+                        <div class="gc-box-specs">
+                            <div class="gc-spec-row">
+                                <label>Box Size</label>
+                                <InputText
+                                    v-model="globalBoxSpecs.size"
+                                    placeholder="e.g. 12x8x6 in"
+                                    size="small"
+                                />
+                            </div>
+                            <div class="gc-spec-row">
+                                <label>Box Type</label>
+                                <InputText
+                                    v-model="globalBoxSpecs.type"
+                                    placeholder="e.g. RSC"
+                                    size="small"
+                                />
+                            </div>
+                            <div class="gc-spec-row">
+                                <label>Weight</label>
+                                <InputText
+                                    v-model="globalBoxSpecs.weight"
+                                    placeholder="e.g. 2 lbs"
+                                    size="small"
+                                />
+                            </div>
+                            <div class="gc-spec-row">
+                                <label>Materials</label>
+                                <InputText
+                                    v-model="globalBoxSpecs.materials"
+                                    placeholder="e.g. Corrugated cardboard"
+                                    size="small"
+                                />
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <strong style="font-size: 13px"
+                                >Global Packaging Components</strong
                             >
-                            <input
-                                v-model="boxSpecs.materials"
-                                placeholder="e.g. Bubble Wrap, Foam Insert"
-                                class="form-control"
+                            <div
+                                v-for="(comp, i) in globalPackagingComponents"
+                                :key="i"
+                                class="gc-component-row"
+                            >
+                                <InputText
+                                    v-model="comp.name"
+                                    placeholder="Component"
+                                    size="small"
+                                    style="flex: 3"
+                                />
+                                <InputText
+                                    v-model="comp.sku"
+                                    placeholder="SKU"
+                                    size="small"
+                                    style="flex: 2"
+                                />
+                                <InputText
+                                    v-model="comp.qty"
+                                    placeholder="Qty"
+                                    size="small"
+                                    style="flex: 1"
+                                    type="number"
+                                    min="1"
+                                />
+                                <Button
+                                    icon="pi pi-trash"
+                                    severity="danger"
+                                    text
+                                    size="small"
+                                    @click="
+                                        globalPackagingComponents.splice(i, 1)
+                                    "
+                                />
+                            </div>
+                            <Button
+                                label="Add Component"
+                                icon="pi pi-plus"
+                                size="small"
+                                text
+                                @click="
+                                    globalPackagingComponents.push({
+                                        name: '',
+                                        sku: '',
+                                        qty: 1,
+                                        note: '',
+                                    })
+                                "
                             />
                         </div>
                     </div>
                 </div>
-
-                <!-- Add Component -->
-                <div
-                    class="my-3 d-flex justify-content-between align-items-center"
-                >
-                    <Button
-                        label="Add Component/Accessory"
-                        icon="pi pi-plus"
-                        @click="addPackagingComponent"
-                        style="
-                            background: #6f42c1;
-                            border-color: #6f42c1;
-                            color: #fff;
-                        "
-                    />
-                </div>
             </div>
 
+            <!-- Dialog Footer -->
             <template #footer>
-                <div class="d-flex justify-content-end gap-2 pt-2">
-                    <Button
-                        label="Save Configuration"
-                        icon="pi pi-save"
-                        :loading="savingAll"
-                        :disabled="savingAll || publishing"
-                        style="background: #4f46e5; border-color: #4f46e5"
-                        @click="saveAllFields(false)"
-                    />
-                    <Button
-                        label="Save & Publish"
-                        icon="pi pi-check"
-                        :loading="publishing"
-                        :disabled="savingAll || publishing"
-                        severity="success"
-                        @click="saveAllFields(true)"
-                    />
-                </div>
+                <Button
+                    label="Cancel"
+                    severity="secondary"
+                    text
+                    @click="showGlobalConfig = false"
+                />
+                <Button
+                    label="Save Global Config"
+                    icon="pi pi-save"
+                    :loading="savingGlobalConfig"
+                    @click="saveGlobalConfig"
+                />
             </template>
         </Dialog>
 
@@ -4153,6 +4768,7 @@ const FNSKU_COLUMNS = [
         sortable: true,
     },
 ];
+
 export default {
     mixins: [asinlist],
     components: {
@@ -6528,6 +7144,352 @@ export default {
 .p-dropdown-item[data-value="Yellow"] {
     color: #ffc107;
     font-weight: 600;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   GLOBAL CONFIG DIALOG
+   ══════════════════════════════════════════════════════════════ */
+
+.global-config-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.global-config-hint {
+    font-size: 13px;
+    color: #555;
+    background: #f0f0ff;
+    border-left: 3px solid #6366f1;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+}
+
+/* ── Global config section card ─────────────────────────────── */
+.gc-section {
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.gc-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: #f8fafc;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    gap: 8px;
+    user-select: none;
+}
+
+.gc-section-header:hover {
+    background: #f1f5f9;
+}
+
+.gc-section-header i:first-child {
+    margin-right: 6px;
+    color: #6366f1;
+}
+
+.gc-section-body {
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* ── Global config field rows ───────────────────────────────── */
+.gc-field-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.gc-field-flags {
+    display: flex;
+    gap: 10px;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.gc-field-flags label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+/* ── Global config category / action rows ───────────────────── */
+.gc-category-row {
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.gc-category-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gc-actions-list {
+    padding-left: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.gc-action-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ── Global config packaging specs ─────────────────────────── */
+.gc-box-specs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.gc-spec-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+}
+
+.gc-component-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PER-ASIN CONFIG DIALOG — INHERITED FIELDS
+   ══════════════════════════════════════════════════════════════ */
+
+/* Inherited block header inside a module */
+.gc-module-inherited-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6d28d9;
+    background: #f5f3ff;
+    border: 1px solid #ddd6fe;
+    border-radius: 4px;
+    padding: 5px 10px;
+}
+
+.gc-module-inherited-header i {
+    color: #7c3aed;
+    font-size: 12px;
+}
+
+/* Inherited field card */
+.gc-inherited-field {
+    background: #faf8ff;
+    border-color: #ddd6fe !important;
+    opacity: 0.9;
+    pointer-events: none; /* fully read-only */
+}
+
+/* Global tag pill */
+.gc-inherited-tag {
+    font-size: 10px;
+    font-weight: 700;
+    background: #ede9fe;
+    color: #6d28d9;
+    border-radius: 999px;
+    padding: 2px 8px;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+}
+
+/* Type badge on inherited fields */
+.gc-inherited-type-badge {
+    background: #e0e7ff;
+    color: #3730a3;
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-size: 11px;
+}
+
+/* Divider between inherited and ASIN-specific blocks */
+.gc-section-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: #999;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.gc-section-divider::before,
+.gc-section-divider::after {
+    content: "";
+    flex: 1;
+    border-top: 1px dashed #ddd;
+}
+
+/* Option chip (read-only inherited options) */
+.gc-option-chip {
+    background: #ede9fe;
+    color: #5b21b6;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 11px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PACKAGING MODULE CARDS
+   ══════════════════════════════════════════════════════════════ */
+
+.pkg-card {
+    border: 1.5px solid #f9a8d4;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.pkg-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #fce7f3;
+    font-weight: 600;
+    font-size: 14px;
+    color: #9d174d;
+    border-bottom: 1px solid #f9a8d4;
+}
+
+.pkg-card-header i {
+    color: #db2777;
+    font-size: 15px;
+}
+
+.pkg-card-body {
+    padding: 14px 16px;
+}
+
+.pkg-label {
+    display: block;
+    font-size: 12px;
+    color: #555;
+    margin-bottom: 3px;
+}
+
+/* Upload button */
+.pkg-upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: #db2777;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.pkg-upload-btn:hover {
+    background: #be185d;
+}
+
+/* Thumbnail box */
+.pkg-image-thumb {
+    width: 120px;
+    height: 120px;
+    min-width: 120px;
+    border: 2px solid #f9a8d4;
+    border-radius: 8px;
+    background: #fff0f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+/* Component row */
+.pkg-component-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid #fce7f3;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.pkg-comp-icon {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    background: #fce7f3;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+}
+
+.pkg-comp-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pkg-comp-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: #111;
+}
+
+.pkg-comp-meta {
+    display: flex;
+    gap: 8px;
+    font-size: 12px;
+    color: #888;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SHARED BADGES
+   ══════════════════════════════════════════════════════════════ */
+
+.gc-default-badge {
+    background: #e0f2fe;
+    color: #0369a1;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 11px;
+    margin-left: 4px;
+}
+
+.gc-required-badge {
+    background: #fee2e2;
+    color: #b91c1c;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 11px;
+    margin-left: 4px;
 }
 
 /* Mobile responsiveness for new design */
