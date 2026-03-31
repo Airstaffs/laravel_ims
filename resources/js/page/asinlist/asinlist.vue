@@ -2846,20 +2846,17 @@
                         <i class="pi pi-tag" style="color: #6f42c1"></i>
                         <strong style="color: #6f42c1">Labeling Module</strong>
                         <span class="text-muted" style="font-size: 12px">
-                            ({{
-                                globalLabelingFields.length +
-                                labelingFields.length
+                            ({{ labelingFields.length }} field{{
+                                labelingFields.length !== 1 ? "s" : ""
                             }}
-                            field{{
-                                globalLabelingFields.length +
-                                    labelingFields.length !==
-                                1
-                                    ? "s"
-                                    : ""
-                            }}
-                            <template v-if="globalLabelingFields.length">
+                            <template
+                                v-if="labelingFields.some((f) => f._fromGlobal)"
+                            >
                                 —
-                                {{ globalLabelingFields.length }}
+                                {{
+                                    labelingFields.filter((f) => f._fromGlobal)
+                                        .length
+                                }}
                                 inherited </template
                             >)
                         </span>
@@ -2876,87 +2873,25 @@
 
                 <div v-if="!labelingCollapsed" class="border rounded p-3">
                     <div class="d-flex flex-column gap-3">
-                        <!-- Inherited global labeling fields (read-only) -->
+                        <!-- Inherited global labeling fields (editable, marked with globe badge) -->
                         <template v-if="globalLabelingFields.length">
                             <div class="gc-module-inherited-header">
                                 <i class="pi pi-globe"></i>
-                                <span>Inherited from Global Config</span>
-                            </div>
-                            <div
-                                v-for="(field, index) in globalLabelingFields"
-                                :key="'glab-' + index"
-                                class="p-3 border rounded gc-inherited-field"
-                            >
-                                <div
-                                    class="d-flex justify-content-between align-items-center mb-2"
+                                <span
+                                    >Fields from Global Config — editable per
+                                    ASIN</span
                                 >
-                                    <div
-                                        class="d-flex align-items-center gap-2"
-                                    >
-                                        <i
-                                            class="pi pi-lock"
-                                            style="
-                                                color: #a78bfa;
-                                                font-size: 12px;
-                                            "
-                                        />
-                                        <span
-                                            style="
-                                                font-weight: 600;
-                                                font-size: 14px;
-                                                color: #6d28d9;
-                                            "
-                                            >{{
-                                                field.label || "(no label)"
-                                            }}</span
-                                        >
-                                        <span class="gc-inherited-type-badge">{{
-                                            field.type || "no type"
-                                        }}</span>
-                                        <span
-                                            v-if="field.required"
-                                            class="gc-required-badge"
-                                            >required</span
-                                        >
-                                        <span
-                                            v-if="field.defaultValue"
-                                            class="gc-default-badge"
-                                            >default:
-                                            {{ field.defaultValue }}</span
-                                        >
-                                    </div>
-                                    <span class="gc-inherited-tag">Global</span>
-                                </div>
-                                <!-- Show options if any -->
-                                <div
-                                    v-if="
-                                        field.hasOptions &&
-                                        field.options?.length
-                                    "
-                                    class="ms-3 d-flex flex-wrap gap-1"
-                                >
-                                    <span
-                                        v-for="(opt, oi) in field.options"
-                                        :key="'glo-' + oi"
-                                        class="gc-option-chip"
-                                        >{{ opt.value }}</span
-                                    >
-                                </div>
-                            </div>
-                            <!-- Divider between inherited and ASIN-specific -->
-                            <div
-                                v-if="labelingFields.length"
-                                class="gc-section-divider"
-                            >
-                                <span>ASIN-specific fields</span>
                             </div>
                         </template>
 
-                        <!-- ASIN-specific labeling fields (editable) -->
+                        <!-- ALL labeling fields (global-origin ones shown first, flagged) -->
                         <div
                             v-for="(field, index) in labelingFields"
                             :key="'lab-' + index"
                             class="p-3 border rounded"
+                            :class="{
+                                'gc-from-global-field': field._fromGlobal,
+                            }"
                         >
                             <div
                                 class="d-flex justify-content-between align-items-center mb-2"
@@ -2978,6 +2913,16 @@
                                             padding: 2px 4px;
                                         "
                                     />
+                                    <span
+                                        v-if="field._fromGlobal"
+                                        class="gc-from-global-badge"
+                                    >
+                                        <i
+                                            class="pi pi-globe"
+                                            style="font-size: 10px"
+                                        ></i>
+                                        Global
+                                    </span>
                                 </div>
                                 <Button
                                     icon="pi pi-trash"
@@ -3148,20 +3093,17 @@
                         ></i>
                         <strong style="color: #0d6efd">Testing Module</strong>
                         <span class="text-muted" style="font-size: 12px">
-                            ({{
-                                globalTestingFields.length +
-                                testingFields.length
+                            ({{ testingFields.length }} field{{
+                                testingFields.length !== 1 ? "s" : ""
                             }}
-                            field{{
-                                globalTestingFields.length +
-                                    testingFields.length !==
-                                1
-                                    ? "s"
-                                    : ""
-                            }}
-                            <template v-if="globalTestingFields.length">
+                            <template
+                                v-if="testingFields.some((f) => f._fromGlobal)"
+                            >
                                 —
-                                {{ globalTestingFields.length }}
+                                {{
+                                    testingFields.filter((f) => f._fromGlobal)
+                                        .length
+                                }}
                                 inherited </template
                             >)
                         </span>
@@ -3178,85 +3120,25 @@
 
                 <div v-if="!testingCollapsed" class="border rounded p-3">
                     <div class="d-flex flex-column gap-3">
-                        <!-- Inherited global testing fields (read-only) -->
+                        <!-- Inherited global testing fields (editable, marked with globe badge) -->
                         <template v-if="globalTestingFields.length">
                             <div class="gc-module-inherited-header">
                                 <i class="pi pi-globe"></i>
-                                <span>Inherited from Global Config</span>
-                            </div>
-                            <div
-                                v-for="(field, index) in globalTestingFields"
-                                :key="'gtest-' + index"
-                                class="p-3 border rounded gc-inherited-field"
-                            >
-                                <div
-                                    class="d-flex justify-content-between align-items-center mb-2"
+                                <span
+                                    >Fields from Global Config — editable per
+                                    ASIN</span
                                 >
-                                    <div
-                                        class="d-flex align-items-center gap-2"
-                                    >
-                                        <i
-                                            class="pi pi-lock"
-                                            style="
-                                                color: #a78bfa;
-                                                font-size: 12px;
-                                            "
-                                        />
-                                        <span
-                                            style="
-                                                font-weight: 600;
-                                                font-size: 14px;
-                                                color: #6d28d9;
-                                            "
-                                            >{{
-                                                field.label || "(no label)"
-                                            }}</span
-                                        >
-                                        <span class="gc-inherited-type-badge">{{
-                                            field.type || "no type"
-                                        }}</span>
-                                        <span
-                                            v-if="field.required"
-                                            class="gc-required-badge"
-                                            >required</span
-                                        >
-                                        <span
-                                            v-if="field.defaultValue"
-                                            class="gc-default-badge"
-                                            >default:
-                                            {{ field.defaultValue }}</span
-                                        >
-                                    </div>
-                                    <span class="gc-inherited-tag">Global</span>
-                                </div>
-                                <div
-                                    v-if="
-                                        field.hasOptions &&
-                                        field.options?.length
-                                    "
-                                    class="ms-3 d-flex flex-wrap gap-1"
-                                >
-                                    <span
-                                        v-for="(opt, oi) in field.options"
-                                        :key="'gto-' + oi"
-                                        class="gc-option-chip"
-                                        >{{ opt.value }}</span
-                                    >
-                                </div>
-                            </div>
-                            <div
-                                v-if="testingFields.length"
-                                class="gc-section-divider"
-                            >
-                                <span>ASIN-specific fields</span>
                             </div>
                         </template>
 
-                        <!-- ASIN-specific testing fields (editable) -->
+                        <!-- ALL testing fields -->
                         <div
                             v-for="(field, index) in testingFields"
                             :key="'test-' + index"
                             class="p-3 border rounded"
+                            :class="{
+                                'gc-from-global-field': field._fromGlobal,
+                            }"
                         >
                             <div
                                 class="d-flex justify-content-between align-items-center mb-2"
@@ -3278,6 +3160,16 @@
                                             padding: 2px 4px;
                                         "
                                     />
+                                    <span
+                                        v-if="field._fromGlobal"
+                                        class="gc-from-global-badge"
+                                    >
+                                        <i
+                                            class="pi pi-globe"
+                                            style="font-size: 10px"
+                                        ></i>
+                                        Global
+                                    </span>
                                 </div>
                                 <Button
                                     icon="pi pi-trash"
@@ -3445,19 +3337,17 @@
                         <i class="pi pi-wrench" style="color: #e65100"></i>
                         <strong style="color: #e65100">Repair Module</strong>
                         <span class="text-muted" style="font-size: 12px">
-                            ({{
-                                globalRepairFields.length + repairFields.length
+                            ({{ repairFields.length }} categor{{
+                                repairFields.length !== 1 ? "ies" : "y"
                             }}
-                            categor{{
-                                globalRepairFields.length +
-                                    repairFields.length !==
-                                1
-                                    ? "ies"
-                                    : "y"
-                            }}
-                            <template v-if="globalRepairFields.length">
+                            <template
+                                v-if="repairFields.some((f) => f._fromGlobal)"
+                            >
                                 —
-                                {{ globalRepairFields.length }}
+                                {{
+                                    repairFields.filter((f) => f._fromGlobal)
+                                        .length
+                                }}
                                 inherited </template
                             >)
                         </span>
@@ -3474,98 +3364,51 @@
 
                 <div v-if="!repairCollapsed" class="border rounded p-3">
                     <div class="d-flex flex-column gap-3">
-                        <!-- Inherited global repair categories (read-only) -->
+                        <!-- Inherited global repair categories (editable) -->
                         <template v-if="globalRepairFields.length">
                             <div class="gc-module-inherited-header">
                                 <i class="pi pi-globe"></i>
-                                <span>Inherited from Global Config</span>
-                            </div>
-                            <div
-                                v-for="(cat, ci) in globalRepairFields"
-                                :key="'grep-' + ci"
-                                class="p-3 border rounded gc-inherited-field"
-                                style="
-                                    border-left: 3px solid #c4b5fd !important;
-                                "
-                            >
-                                <div
-                                    class="d-flex justify-content-between align-items-center mb-2"
+                                <span
+                                    >Categories from Global Config — editable
+                                    per ASIN</span
                                 >
-                                    <div
-                                        class="d-flex align-items-center gap-2"
-                                    >
-                                        <i
-                                            class="pi pi-lock"
-                                            style="
-                                                color: #a78bfa;
-                                                font-size: 12px;
-                                            "
-                                        />
-                                        <span
-                                            style="
-                                                font-weight: 600;
-                                                font-size: 14px;
-                                                color: #6d28d9;
-                                            "
-                                            >{{ cat.name || "(no name)" }}</span
-                                        >
-                                        <span class="gc-inherited-type-badge"
-                                            >{{ cat.actions.length }} action{{
-                                                cat.actions.length !== 1
-                                                    ? "s"
-                                                    : ""
-                                            }}</span
-                                        >
-                                    </div>
-                                    <span class="gc-inherited-tag">Global</span>
-                                </div>
-                                <div
-                                    v-if="cat.actions.length"
-                                    class="ms-3 d-flex flex-column gap-1"
-                                >
-                                    <div
-                                        v-for="(action, ai) in cat.actions"
-                                        :key="'grepa-' + ai"
-                                        class="d-flex gap-2"
-                                        style="font-size: 13px"
-                                    >
-                                        <span
-                                            style="
-                                                color: #555;
-                                                min-width: 120px;
-                                            "
-                                            >{{ action.title }}</span
-                                        >
-                                        <span class="text-muted">{{
-                                            action.description
-                                        }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div
-                                v-if="repairFields.length"
-                                class="gc-section-divider"
-                            >
-                                <span>ASIN-specific categories</span>
                             </div>
                         </template>
 
-                        <!-- ASIN-specific repair categories (editable) -->
+                        <!-- ALL repair categories -->
                         <div
                             v-for="(category, ci) in repairFields"
                             :key="'rep-' + ci"
                             class="p-3 border rounded"
+                            :class="{
+                                'gc-from-global-field': category._fromGlobal,
+                            }"
                             style="border-left: 3px solid #e65100 !important"
                         >
                             <div
                                 class="d-flex justify-content-between align-items-center mb-2"
                             >
-                                <InputText
-                                    v-model="category.name"
-                                    placeholder="Category name (e.g. Screen Damage)"
-                                    size="small"
-                                    style="flex: 1; font-weight: 600"
-                                />
+                                <div
+                                    class="d-flex align-items-center gap-2"
+                                    style="flex: 1"
+                                >
+                                    <InputText
+                                        v-model="category.name"
+                                        placeholder="Category name (e.g. Screen Damage)"
+                                        size="small"
+                                        style="flex: 1; font-weight: 600"
+                                    />
+                                    <span
+                                        v-if="category._fromGlobal"
+                                        class="gc-from-global-badge"
+                                    >
+                                        <i
+                                            class="pi pi-globe"
+                                            style="font-size: 10px"
+                                        ></i>
+                                        Global
+                                    </span>
+                                </div>
                                 <Button
                                     icon="pi pi-trash"
                                     severity="danger"
@@ -3635,20 +3478,17 @@
                         <i class="pi pi-sparkles" style="color: #006064"></i>
                         <strong style="color: #006064">Cleaning Module</strong>
                         <span class="text-muted" style="font-size: 12px">
-                            ({{
-                                globalCleaningFields.length +
-                                cleaningFields.length
+                            ({{ cleaningFields.length }} categor{{
+                                cleaningFields.length !== 1 ? "ies" : "y"
                             }}
-                            categor{{
-                                globalCleaningFields.length +
-                                    cleaningFields.length !==
-                                1
-                                    ? "ies"
-                                    : "y"
-                            }}
-                            <template v-if="globalCleaningFields.length">
+                            <template
+                                v-if="cleaningFields.some((f) => f._fromGlobal)"
+                            >
                                 —
-                                {{ globalCleaningFields.length }}
+                                {{
+                                    cleaningFields.filter((f) => f._fromGlobal)
+                                        .length
+                                }}
                                 inherited </template
                             >)
                         </span>
@@ -3665,98 +3505,51 @@
 
                 <div v-if="!cleaningCollapsed" class="border rounded p-3">
                     <div class="d-flex flex-column gap-3">
-                        <!-- Inherited global cleaning categories (read-only) -->
+                        <!-- Inherited global cleaning categories (editable) -->
                         <template v-if="globalCleaningFields.length">
                             <div class="gc-module-inherited-header">
                                 <i class="pi pi-globe"></i>
-                                <span>Inherited from Global Config</span>
-                            </div>
-                            <div
-                                v-for="(cat, ci) in globalCleaningFields"
-                                :key="'gcln-' + ci"
-                                class="p-3 border rounded gc-inherited-field"
-                                style="
-                                    border-left: 3px solid #c4b5fd !important;
-                                "
-                            >
-                                <div
-                                    class="d-flex justify-content-between align-items-center mb-2"
+                                <span
+                                    >Categories from Global Config — editable
+                                    per ASIN</span
                                 >
-                                    <div
-                                        class="d-flex align-items-center gap-2"
-                                    >
-                                        <i
-                                            class="pi pi-lock"
-                                            style="
-                                                color: #a78bfa;
-                                                font-size: 12px;
-                                            "
-                                        />
-                                        <span
-                                            style="
-                                                font-weight: 600;
-                                                font-size: 14px;
-                                                color: #6d28d9;
-                                            "
-                                            >{{ cat.name || "(no name)" }}</span
-                                        >
-                                        <span class="gc-inherited-type-badge"
-                                            >{{ cat.actions.length }} action{{
-                                                cat.actions.length !== 1
-                                                    ? "s"
-                                                    : ""
-                                            }}</span
-                                        >
-                                    </div>
-                                    <span class="gc-inherited-tag">Global</span>
-                                </div>
-                                <div
-                                    v-if="cat.actions.length"
-                                    class="ms-3 d-flex flex-column gap-1"
-                                >
-                                    <div
-                                        v-for="(action, ai) in cat.actions"
-                                        :key="'gclna-' + ai"
-                                        class="d-flex gap-2"
-                                        style="font-size: 13px"
-                                    >
-                                        <span
-                                            style="
-                                                color: #555;
-                                                min-width: 120px;
-                                            "
-                                            >{{ action.title }}</span
-                                        >
-                                        <span class="text-muted">{{
-                                            action.description
-                                        }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div
-                                v-if="cleaningFields.length"
-                                class="gc-section-divider"
-                            >
-                                <span>ASIN-specific categories</span>
                             </div>
                         </template>
 
-                        <!-- ASIN-specific cleaning categories (editable) -->
+                        <!-- ALL cleaning categories -->
                         <div
                             v-for="(category, ci) in cleaningFields"
                             :key="'cln-' + ci"
                             class="p-3 border rounded"
+                            :class="{
+                                'gc-from-global-field': category._fromGlobal,
+                            }"
                             style="border-left: 3px solid #00bcd4 !important"
                         >
                             <div
                                 class="d-flex justify-content-between align-items-center mb-2"
                             >
-                                <InputText
-                                    v-model="category.name"
-                                    placeholder="Category name (e.g. Surface Cleaning)"
-                                    size="small"
-                                    style="flex: 1; font-weight: 600"
-                                />
+                                <div
+                                    class="d-flex align-items-center gap-2"
+                                    style="flex: 1"
+                                >
+                                    <InputText
+                                        v-model="category.name"
+                                        placeholder="Category name (e.g. Surface Cleaning)"
+                                        size="small"
+                                        style="flex: 1; font-weight: 600"
+                                    />
+                                    <span
+                                        v-if="category._fromGlobal"
+                                        class="gc-from-global-badge"
+                                    >
+                                        <i
+                                            class="pi pi-globe"
+                                            style="font-size: 10px"
+                                        ></i>
+                                        Global
+                                    </span>
+                                </div>
                                 <Button
                                     icon="pi pi-trash"
                                     severity="danger"
@@ -3816,30 +3609,32 @@
                 <div
                     class="mb-0 px-2 py-2 rounded d-flex align-items-center justify-content-between"
                     style="
-                        background: #fce7f3;
-                        border-left: 4px solid #fb64b6;
+                        background: #e8f5e9;
+                        border-left: 4px solid #2e7d32;
                         cursor: pointer;
                     "
                     @click="packagingCollapsed = !packagingCollapsed"
                 >
                     <div class="d-flex align-items-center gap-2">
-                        <i class="pi pi-box" style="color: #861043"></i>
-                        <strong style="color: #861043">Packaging Module</strong>
+                        <i class="pi pi-box" style="color: #2e7d32"></i>
+                        <strong style="color: #2e7d32">Packaging Module</strong>
                         <span class="text-muted" style="font-size: 12px">
-                            ({{
-                                globalPackagingComponents.length +
-                                packagingComponents.length
+                            ({{ packagingComponents.length }} component{{
+                                packagingComponents.length !== 1 ? "s" : ""
                             }}
-                            component{{
-                                globalPackagingComponents.length +
-                                    packagingComponents.length !==
-                                1
-                                    ? "s"
-                                    : ""
-                            }}
-                            <template v-if="globalPackagingComponents.length">
+                            <template
+                                v-if="
+                                    packagingComponents.some(
+                                        (c) => c._fromGlobal,
+                                    )
+                                "
+                            >
                                 —
-                                {{ globalPackagingComponents.length }}
+                                {{
+                                    packagingComponents.filter(
+                                        (c) => c._fromGlobal,
+                                    ).length
+                                }}
                                 inherited </template
                             >)
                         </span>
@@ -3850,13 +3645,13 @@
                                 ? 'pi pi-chevron-down'
                                 : 'pi pi-chevron-up'
                         "
-                        style="color: #861043"
+                        style="color: #2e7d32"
                     ></i>
                 </div>
 
                 <div
                     v-if="!packagingCollapsed"
-                    class="d-flex flex-column gap-3 border rounded p-3"
+                    class="d-flex flex-column gap-3 pt-1"
                 >
                     <!-- ── Product Image (Visual Guide) card ── -->
                     <div class="pkg-card">
@@ -3910,126 +3705,6 @@
                                     @click="packagingImage = null"
                                 />
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- ── Required Components card ── -->
-                    <div class="pkg-card">
-                        <div class="pkg-card-header">
-                            <i class="pi pi-cog"></i>
-                            <span>Required Components (Seeds)</span>
-                        </div>
-                        <div class="pkg-card-body d-flex flex-column gap-2">
-                            <!-- Inherited global components (read-only) -->
-                            <template v-if="globalPackagingComponents.length">
-                                <div class="gc-module-inherited-header">
-                                    <i class="pi pi-globe"></i>
-                                    <span>Inherited from Global Config</span>
-                                </div>
-                                <div
-                                    v-for="(
-                                        comp, i
-                                    ) in globalPackagingComponents"
-                                    :key="'gcomp-' + i"
-                                    class="pkg-component-row gc-inherited-field"
-                                >
-                                    <div class="pkg-comp-icon">
-                                        <i
-                                            class="pi pi-lock"
-                                            style="
-                                                color: #a78bfa;
-                                                font-size: 13px;
-                                            "
-                                        ></i>
-                                    </div>
-                                    <div class="pkg-comp-details">
-                                        <span
-                                            class="pkg-comp-name"
-                                            style="color: #6d28d9"
-                                            >{{ comp.name }}</span
-                                        >
-                                        <div class="pkg-comp-meta">
-                                            <span>{{ comp.sku }}</span>
-                                            <span>{{ comp.qty }}</span>
-                                            <span v-if="comp.note">{{
-                                                comp.note
-                                            }}</span>
-                                        </div>
-                                    </div>
-                                    <span class="gc-inherited-tag">Global</span>
-                                </div>
-                                <div
-                                    v-if="packagingComponents.length"
-                                    class="gc-section-divider"
-                                >
-                                    <span>ASIN-specific</span>
-                                </div>
-                            </template>
-
-                            <!-- ASIN-specific components (editable) -->
-                            <div
-                                v-for="(comp, i) in packagingComponents"
-                                :key="'comp-' + i"
-                                class="pkg-component-row"
-                            >
-                                <!-- Icon placeholder -->
-                                <div class="pkg-comp-icon">
-                                    <i
-                                        class="pi pi-box"
-                                        style="color: #aaa; font-size: 16px"
-                                    ></i>
-                                </div>
-                                <!-- Fields -->
-                                <div class="pkg-comp-details">
-                                    <InputText
-                                        v-model="comp.name"
-                                        placeholder="Component name"
-                                        size="small"
-                                        class="w-100 mb-1"
-                                        style="font-weight: 600"
-                                    />
-                                    <div class="d-flex gap-2">
-                                        <InputText
-                                            v-model="comp.sku"
-                                            placeholder="SKU"
-                                            size="small"
-                                            style="flex: 2"
-                                        />
-                                        <InputText
-                                            v-model="comp.qty"
-                                            placeholder="Qty"
-                                            size="small"
-                                            style="flex: 1"
-                                            type="number"
-                                            min="1"
-                                        />
-                                        <InputText
-                                            v-model="comp.note"
-                                            placeholder="Note"
-                                            size="small"
-                                            style="flex: 2"
-                                        />
-                                    </div>
-                                </div>
-                                <!-- Delete -->
-                                <Button
-                                    icon="pi pi-trash"
-                                    severity="danger"
-                                    text
-                                    size="small"
-                                    style="flex-shrink: 0"
-                                    @click="packagingComponents.splice(i, 1)"
-                                />
-                            </div>
-
-                            <Button
-                                label="Add Component"
-                                icon="pi pi-plus"
-                                size="small"
-                                text
-                                class="align-self-start mt-1"
-                                @click="addPackagingComponent"
-                            />
                         </div>
                     </div>
 
@@ -4129,6 +3804,106 @@
                                     />
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- ── Required Components card ── -->
+                    <div class="pkg-card">
+                        <div class="pkg-card-header">
+                            <i class="pi pi-cog"></i>
+                            <span>Required Components (Seeds)</span>
+                        </div>
+                        <div class="pkg-card-body d-flex flex-column gap-2">
+                            <!-- Inherited global components (editable) -->
+                            <template v-if="globalPackagingComponents.length">
+                                <div class="gc-module-inherited-header">
+                                    <i class="pi pi-globe"></i>
+                                    <span
+                                        >Components from Global Config —
+                                        editable per ASIN</span
+                                    >
+                                </div>
+                            </template>
+
+                            <!-- ALL components -->
+                            <div
+                                v-for="(comp, i) in packagingComponents"
+                                :key="'comp-' + i"
+                                class="pkg-component-row"
+                                :class="{
+                                    'gc-from-global-field': comp._fromGlobal,
+                                }"
+                            >
+                                <div class="pkg-comp-icon">
+                                    <i
+                                        class="pi pi-box"
+                                        style="color: #aaa; font-size: 16px"
+                                    ></i>
+                                </div>
+                                <div class="pkg-comp-details">
+                                    <div
+                                        class="d-flex align-items-center gap-2 mb-1"
+                                    >
+                                        <InputText
+                                            v-model="comp.name"
+                                            placeholder="Component name"
+                                            size="small"
+                                            class="w-100"
+                                            style="font-weight: 600"
+                                        />
+                                        <span
+                                            v-if="comp._fromGlobal"
+                                            class="gc-from-global-badge"
+                                            style="white-space: nowrap"
+                                        >
+                                            <i
+                                                class="pi pi-globe"
+                                                style="font-size: 10px"
+                                            ></i>
+                                            Global
+                                        </span>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <InputText
+                                            v-model="comp.sku"
+                                            placeholder="SKU"
+                                            size="small"
+                                            style="flex: 2"
+                                        />
+                                        <InputText
+                                            v-model="comp.qty"
+                                            placeholder="Qty"
+                                            size="small"
+                                            style="flex: 1"
+                                            type="number"
+                                            min="1"
+                                        />
+                                        <InputText
+                                            v-model="comp.note"
+                                            placeholder="Note"
+                                            size="small"
+                                            style="flex: 2"
+                                        />
+                                    </div>
+                                </div>
+                                <Button
+                                    icon="pi pi-trash"
+                                    severity="danger"
+                                    text
+                                    size="small"
+                                    style="flex-shrink: 0"
+                                    @click="packagingComponents.splice(i, 1)"
+                                />
+                            </div>
+
+                            <Button
+                                label="Add Component"
+                                icon="pi pi-plus"
+                                size="small"
+                                text
+                                class="align-self-start mt-1"
+                                @click="addPackagingComponent"
+                            />
                         </div>
                     </div>
                 </div>
@@ -7298,33 +7073,182 @@ export default {
     font-size: 12px;
 }
 
-/* Inherited field card */
-.gc-inherited-field {
+/* Fields that originated from global config — subtle left accent, still fully editable */
+.gc-from-global-field {
+    border-left: 3px solid #a78bfa !important;
     background: #faf8ff;
-    border-color: #ddd6fe !important;
-    opacity: 0.9;
-    pointer-events: none; /* fully read-only */
 }
 
-/* Global tag pill */
-.gc-inherited-tag {
+/* "Global" pill badge shown next to the field label */
+.gc-from-global-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
     font-size: 10px;
     font-weight: 700;
     background: #ede9fe;
     color: #6d28d9;
     border-radius: 999px;
-    padding: 2px 8px;
+    padding: 2px 7px;
     white-space: nowrap;
     letter-spacing: 0.3px;
+    flex-shrink: 0;
 }
 
-/* Type badge on inherited fields */
-.gc-inherited-type-badge {
-    background: #e0e7ff;
-    color: #3730a3;
-    border-radius: 3px;
-    padding: 1px 6px;
+/* Divider between inherited and ASIN-specific blocks */
+.gc-section-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     font-size: 11px;
+    color: #999;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.gc-section-divider::before,
+.gc-section-divider::after {
+    content: "";
+    flex: 1;
+    border-top: 1px dashed #ddd;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PACKAGING MODULE CARDS
+   ══════════════════════════════════════════════════════════════ */
+
+.pkg-card {
+    border: 1.5px solid #f9a8d4;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.pkg-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #fce7f3;
+    font-weight: 600;
+    font-size: 14px;
+    color: #9d174d;
+    border-bottom: 1px solid #f9a8d4;
+}
+
+.pkg-card-header i {
+    color: #db2777;
+    font-size: 15px;
+}
+
+.pkg-card-body {
+    padding: 14px 16px;
+}
+
+.pkg-label {
+    display: block;
+    font-size: 12px;
+    color: #555;
+    margin-bottom: 3px;
+}
+
+/* Upload button */
+.pkg-upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: #db2777;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.pkg-upload-btn:hover {
+    background: #be185d;
+}
+
+/* Thumbnail box */
+.pkg-image-thumb {
+    width: 120px;
+    height: 120px;
+    min-width: 120px;
+    border: 2px solid #f9a8d4;
+    border-radius: 8px;
+    background: #fff0f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+/* Component row */
+.pkg-component-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid #fce7f3;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.pkg-comp-icon {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    background: #fce7f3;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+}
+
+.pkg-comp-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pkg-comp-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: #111;
+}
+
+.pkg-comp-meta {
+    display: flex;
+    gap: 8px;
+    font-size: 12px;
+    color: #888;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SHARED BADGES
+   ══════════════════════════════════════════════════════════════ */
+
+.gc-default-badge {
+    background: #e0f2fe;
+    color: #0369a1;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 11px;
+    margin-left: 4px;
+}
+
+.gc-required-badge {
+    background: #fee2e2;
+    color: #b91c1c;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 11px;
+    margin-left: 4px;
 }
 
 /* Divider between inherited and ASIN-specific blocks */

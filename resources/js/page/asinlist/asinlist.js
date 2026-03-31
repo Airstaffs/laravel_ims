@@ -5,7 +5,10 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
     name: "AsinViewerModule",
-    // Data properties
+
+    // ══════════════════════════════════════════════════════════════
+    // DATA
+    // ══════════════════════════════════════════════════════════════
     data() {
         return {
             asinData: [],
@@ -140,6 +143,10 @@ export default {
             showInheritedPreview: false,
         };
     },
+
+    // ══════════════════════════════════════════════════════════════
+    // COMPUTED
+    // ══════════════════════════════════════════════════════════════
     computed: {
         searchQuery() {
             return eventBus.searchQuery;
@@ -194,6 +201,10 @@ export default {
             );
         },
     },
+
+    // ══════════════════════════════════════════════════════════════
+    // METHODS
+    // ══════════════════════════════════════════════════════════════
     methods: {
         // ── Image helpers ────────────────────────────────────────
         forceImageRefresh(asin, imageType, cardSlot = null) {
@@ -1286,8 +1297,10 @@ export default {
         },
 
         /**
-         * UPDATED — loads only ASIN-specific fields.
-         * Global fields are handled separately via loadGlobalConfig().
+         * UPDATED — merges global defaults into ASIN-specific fields on load.
+         * Global fields are deep-cloned and prepended with _fromGlobal: true
+         * so they can be visually distinguished but are fully editable.
+         * Saving only writes to the ASIN-specific localStorage key.
          */
         loadAllFields(asin) {
             const parse = (key, fallback) => {
@@ -1298,18 +1311,85 @@ export default {
                     return fallback;
                 }
             };
-            this.labelingFields = parse(`asin_config_labeling:${asin}`, []);
-            this.testingFields = parse(`asin_config_testing:${asin}`, []);
-            this.repairFields = parse(`asin_config_repair:${asin}`, []);
-            this.cleaningFields = parse(`asin_config_cleaning:${asin}`, []);
+
+            // Load ASIN-specific saved fields
+            const asinLabeling = parse(`asin_config_labeling:${asin}`, []);
+            const asinTesting = parse(`asin_config_testing:${asin}`, []);
+            const asinRepair = parse(`asin_config_repair:${asin}`, []);
+            const asinCleaning = parse(`asin_config_cleaning:${asin}`, []);
             const pkg = parse(`asin_config_packaging:${asin}`, {});
+
+            // Deep-clone an array and tag each item as coming from global
+            const markGlobal = (arr) =>
+                JSON.parse(JSON.stringify(arr)).map((f) => ({
+                    ...f,
+                    _fromGlobal: true,
+                }));
+
+            // Merge: global-origin fields first (tagged), then ASIN-specific.
+            // If the ASIN already has a saved field with the same label as a
+            // global one, skip the global copy — ASIN version takes precedence.
+            const mergeFields = (globals, asinFields) => {
+                const savedLabels = new Set(asinFields.map((f) => f.label));
+                return [
+                    ...markGlobal(globals).filter(
+                        (f) => !savedLabels.has(f.label),
+                    ),
+                    ...asinFields,
+                ];
+            };
+
+            // Same logic for repair/cleaning which use .name instead of .label
+            const mergeCategories = (globals, asinCats) => {
+                const savedNames = new Set(asinCats.map((c) => c.name));
+                return [
+                    ...markGlobal(globals).filter(
+                        (c) => !savedNames.has(c.name),
+                    ),
+                    ...asinCats,
+                ];
+            };
+
+            this.labelingFields = mergeFields(
+                this.globalLabelingFields,
+                asinLabeling,
+            );
+            this.testingFields = mergeFields(
+                this.globalTestingFields,
+                asinTesting,
+            );
+            this.repairFields = mergeCategories(
+                this.globalRepairFields,
+                asinRepair,
+            );
+            this.cleaningFields = mergeCategories(
+                this.globalCleaningFields,
+                asinCleaning,
+            );
+
+            // Packaging
             this.packagingImage = pkg.image || null;
-            this.packagingComponents = pkg.components || [];
-            this.boxSpecs = pkg.boxSpecs || {
-                size: "",
-                type: "",
-                weight: "",
-                materials: "",
+
+            const savedCompNames = new Set(
+                (pkg.components || []).map((c) => c.name),
+            );
+            this.packagingComponents = [
+                ...markGlobal(this.globalPackagingComponents).filter(
+                    (c) => !savedCompNames.has(c.name),
+                ),
+                ...(pkg.components || []),
+            ];
+
+            // Box specs: ASIN-specific values override global where non-empty
+            this.boxSpecs = {
+                size: pkg.boxSpecs?.size || this.globalBoxSpecs.size || "",
+                type: pkg.boxSpecs?.type || this.globalBoxSpecs.type || "",
+                weight:
+                    pkg.boxSpecs?.weight || this.globalBoxSpecs.weight || "",
+                materials:
+                    pkg.boxSpecs?.materials ||
+                    this.globalBoxSpecs.materials ||
+                    "",
             };
         },
 
@@ -1590,6 +1670,10 @@ export default {
             return [...new Set(fnskus.map((f) => f.storename).filter(Boolean))];
         },
     },
+
+    // ══════════════════════════════════════════════════════════════
+    // WATCH
+    // ══════════════════════════════════════════════════════════════
     watch: {
         searchQuery() {
             this.currentPage = 1;
@@ -1597,6 +1681,10 @@ export default {
             this.fetchAsinData();
         },
     },
+
+    // ══════════════════════════════════════════════════════════════
+    // LIFECYCLE
+    // ══════════════════════════════════════════════════════════════
     mounted() {
         axios.defaults.baseURL = window.location.origin;
         axios.defaults.withCredentials = true;
@@ -1618,6 +1706,7 @@ export default {
         this.fetchAsinData();
         window.addEventListener("resize", this.handleResize);
     },
+
     beforeUnmount() {
         window.removeEventListener("resize", this.handleResize);
     },
