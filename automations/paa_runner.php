@@ -1034,6 +1034,30 @@ function count_restore_remaining($mysqli, $runId)
     return (int) ($row['c'] ?? 0);
 }
 
+
+function skip_unadjusted_items_for_expired_run($mysqli, $runId)
+{
+    $stmt = $mysqli->prepare("
+        UPDATE tbl_paa_run_items
+        SET status='skipped',
+            last_error='Skipped because adjust window expired before processing',
+            updated_at=UTC_TIMESTAMP()
+        WHERE run_id=?
+          AND status IN ('pending','processing')
+          AND adjusted_at_utc IS NULL
+    ");
+    $stmt->bind_param('i', $runId);
+    $stmt->execute();
+    $affected = $stmt->affected_rows;
+    $stmt->close();
+
+    if ($affected > 0) {
+        logg("Run #{$runId} skipped expired unadjusted items: {$affected}");
+    }
+
+    return $affected;
+}
+
 function mark_item_failed_or_retry($mysqli, $runItemId, $msg, $maxAttempts)
 {
     $stmt = $mysqli->prepare("
@@ -1080,7 +1104,8 @@ function process_adjust_phase($mysqli, $automation, $run, $currentHHMM, $batchSi
     $windowEnd = (string) $run['window_end'];
 
     if (!is_time_in_window($currentHHMM, $windowStart, $windowEnd)) {
-        logg("Run #{$runId} window {$windowStart}-{$windowEnd} ended. Switching to restore.");
+        logg("Run #{$runId} window {$windowStart}-{$windowEnd} ended. Skipping unprocessed items and switching to restore.");
+        skip_unadjusted_items_for_expired_run($mysqli, $runId);
         move_run_to_restore_phase($mysqli, $runId);
         return;
     }
@@ -1227,6 +1252,7 @@ function process_restore_phase($mysqli, $automation, $run, $batchSize, $maxAttem
         $remaining = count_restore_remaining($mysqli, $runId);
 
         if ($remaining === 0) {
+            skip_unadjusted_items_for_expired_run($mysqli, $runId);
             $done = finalize_run_done($mysqli, $runId);
 
             if ($done) {
