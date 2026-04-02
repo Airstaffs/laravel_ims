@@ -1,156 +1,238 @@
 <template>
     <Dialog
-        v-model:visible="localVisible"
-        modal
         header="FBM Print Log"
-        :style="{ width: '95%' }"
-        :pt="{ root: { class: 'mobile-fullscreen-dialog' } }"
+        :visible="visible"
+        :modal="true"
+        :style="dialogStyle"
+        :contentStyle="dialogContentStyle"
+        @update:visible="onClose"
     >
-        <div>
-            <div class="mb-3 d-flex flex-wrap gap-2 align-items-end">
-                <fieldset class="filter-field">
-                    <label>Search</label>
-                    <InputText
-                        v-model="filters.q"
-                        placeholder="Order ID, user, notes, error"
-                        size="small"
-                        @keyup.enter="fetchLogs"
-                    />
-                </fieldset>
+        <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+            <span class="p-input-icon-left flex-grow-1" style="min-width: 220px">
+                <i class="pi pi-search" />
+                <InputText
+                    v-model="filters.q"
+                    placeholder="Search Order ID / User / Notes / Error"
+                    @keyup.enter="fetchLogs(1)"
+                    class="w-100"
+                />
+            </span>
 
-                <fieldset class="filter-field">
-                    <label>User</label>
-                    <InputText
-                        v-model="filters.user"
-                        placeholder="User"
-                        size="small"
-                        @keyup.enter="fetchLogs"
-                    />
-                </fieldset>
+            <span style="min-width: 160px">
+                <InputText
+                    v-model="filters.user"
+                    placeholder="User"
+                    @keyup.enter="fetchLogs(1)"
+                    class="w-100"
+                />
+            </span>
 
-                <fieldset class="filter-field">
-                    <label>Type</label>
-                    <Select
-                        :options="typeOptions"
-                        optionLabel="label"
-                        optionValue="value"
-                        v-model="filters.type"
-                        placeholder="All"
-                        size="small"
-                    />
-                </fieldset>
+            <span style="min-width: 140px">
+                <Select
+                    :options="typeOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    v-model="filters.type"
+                    placeholder="All Types"
+                    class="w-100"
+                />
+            </span>
 
-                <fieldset class="filter-field">
-                    <label>Action</label>
-                    <Select
-                        :options="actionOptions"
-                        optionLabel="label"
-                        optionValue="value"
-                        v-model="filters.action"
-                        placeholder="All"
-                        size="small"
-                    />
-                </fieldset>
+            <span style="min-width: 180px">
+                <Select
+                    :options="actionOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    v-model="filters.action"
+                    placeholder="All Actions"
+                    class="w-100"
+                />
+            </span>
 
-                <fieldset class="filter-field">
-                    <label>Status</label>
-                    <Select
-                        :options="statusOptions"
-                        optionLabel="label"
-                        optionValue="value"
-                        v-model="filters.status"
-                        placeholder="All"
-                        size="small"
-                    />
-                </fieldset>
+            <span style="min-width: 140px">
+                <Select
+                    :options="statusOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    v-model="filters.status"
+                    placeholder="All Status"
+                    class="w-100"
+                />
+            </span>
 
-                <fieldset class="filter-field">
-                    <label>Date From</label>
-                    <InputText type="date" v-model="filters.date_from" size="small" />
-                </fieldset>
+            <span style="min-width: 150px">
+                <InputText
+                    type="date"
+                    v-model="filters.date_from"
+                    class="w-100"
+                />
+            </span>
 
-                <fieldset class="filter-field">
-                    <label>Date To</label>
-                    <InputText type="date" v-model="filters.date_to" size="small" />
-                </fieldset>
+            <span style="min-width: 150px">
+                <InputText
+                    type="date"
+                    v-model="filters.date_to"
+                    class="w-100"
+                />
+            </span>
 
-                <div class="d-flex gap-2">
-                    <Button label="Search" icon="pi pi-search" size="small" @click="searchLogs" />
-                    <Button label="Reset" icon="pi pi-refresh" size="small" severity="secondary" outlined @click="resetFilters" />
-                </div>
+            <Button
+                severity="secondary"
+                outlined
+                icon="pi pi-search"
+                label="Search"
+                @click="fetchLogs(1)"
+                :disabled="loading"
+            />
+
+            <Button
+                severity="secondary"
+                outlined
+                icon="pi pi-refresh"
+                label="Reset"
+                @click="resetFilters"
+                :disabled="loading"
+            />
+
+            <div class="ms-auto d-flex align-items-center gap-2">
+                <small class="text-muted" v-if="pagination.total">
+                    Total: {{ pagination.total }} • Page {{ pagination.page }} / {{ totalPages }}
+                </small>
             </div>
+        </div>
 
-            <XDataTable
-                :value="logs"
-                :columns="columns"
-                :loading="loading"
-                :paginator="false"
-                scrollable
-                scrollHeight="600px"
-                tableClass="mt-3 desktop-view"
-            >
-                <template #createdAt="{ data }">
-                    <span>{{ formatDateTime(data.created_at) }}</span>
+        <DataTable
+            :value="logs"
+            :loading="loading"
+            dataKey="id"
+            class="p-datatable-sm desktop-view"
+        >
+            <Column field="created_at" header="Date">
+                <template #body="{ data }">
+                    {{ formatDateTime(data.created_at) }}
                 </template>
+            </Column>
 
-                <template #status="{ data }">
+            <Column field="user" header="User">
+                <template #body="{ data }">
+                    {{ data.user || "-" }}
+                </template>
+            </Column>
+
+            <Column field="platform_order_id" header="Order ID">
+                <template #body="{ data }">
+                    <span class="wrap-anywhere">{{ data.platform_order_id || "-" }}</span>
+                </template>
+            </Column>
+
+            <Column field="type" header="Type">
+                <template #body="{ data }">
+                    {{ data.type || "-" }}
+                </template>
+            </Column>
+
+            <Column field="action" header="Action">
+                <template #body="{ data }">
+                    {{ data.action || "-" }}
+                </template>
+            </Column>
+
+            <Column field="status" header="Status">
+                <template #body="{ data }">
                     <Tag
-                        :value="data.status"
+                        :value="data.status || 'N/A'"
                         :severity="data.status === 'success' ? 'success' : 'danger'"
                     />
                 </template>
+            </Column>
 
-                <template #pdfPath="{ data }">
-                    <a v-if="data.pdf_path" :href="normalizePdfPath(data.pdf_path)" target="_blank">
+            <Column v-if="!isMobile" field="printer_ip" header="Printer IP">
+                <template #body="{ data }">
+                    {{ data.printer_ip || "-" }}
+                </template>
+            </Column>
+
+            <Column v-if="!isMobile" field="copies" header="Copies" style="width: 90px">
+                <template #body="{ data }">
+                    {{ data.copies || 1 }}
+                </template>
+            </Column>
+
+            <Column v-if="!isMobile" field="notes" header="Notes">
+                <template #body="{ data }">
+                    <span class="wrap-anywhere">{{ data.notes || "-" }}</span>
+                </template>
+            </Column>
+
+            <Column v-if="!isMobile" field="error_message" header="Error">
+                <template #body="{ data }">
+                    <span class="text-danger wrap-anywhere">{{ data.error_message || "-" }}</span>
+                </template>
+            </Column>
+
+            <Column v-if="!isMobile" field="pdf_path" header="PDF" style="width: 100px">
+                <template #body="{ data }">
+                    <a
+                        v-if="data.pdf_path"
+                        :href="normalizePdfPath(data.pdf_path)"
+                        target="_blank"
+                    >
                         View PDF
                     </a>
-                    <span v-else>N/A</span>
+                    <span v-else>-</span>
                 </template>
+            </Column>
 
-                <template #errorMessage="{ data }">
-                    <span class="text-danger">{{ data.error_message || 'N/A' }}</span>
-                </template>
-            </XDataTable>
-
-            <div class="d-block d-md-none mt-3">
-                <div class="card mb-3" v-for="log in logs" :key="log.id" :style="{ fontSize: '14px' }">
-                    <div class="card-body">
-                        <p><strong>Date:</strong> {{ formatDateTime(log.created_at) }}</p>
-                        <p><strong>User:</strong> {{ log.user || 'N/A' }}</p>
-                        <p><strong>Order ID:</strong> {{ log.platform_order_id || 'N/A' }}</p>
-                        <p><strong>Type:</strong> {{ log.type || 'N/A' }}</p>
-                        <p><strong>Action:</strong> {{ log.action || 'N/A' }}</p>
-                        <p><strong>Status:</strong> {{ log.status || 'N/A' }}</p>
-                        <p><strong>Printer IP:</strong> {{ log.printer_ip || 'N/A' }}</p>
-                        <p><strong>Copies:</strong> {{ log.copies || 1 }}</p>
-                        <p><strong>Notes:</strong> {{ log.notes || 'N/A' }}</p>
-                        <p><strong>Error:</strong> {{ log.error_message || 'N/A' }}</p>
+            <Column v-if="isMobile" header="Details">
+                <template #body="{ data }">
+                    <div class="mobile-details">
+                        <div><strong>Printer IP:</strong> {{ data.printer_ip || "-" }}</div>
+                        <div><strong>Copies:</strong> {{ data.copies || 1 }}</div>
+                        <div><strong>Notes:</strong> {{ data.notes || "-" }}</div>
+                        <div><strong>Error:</strong> {{ data.error_message || "-" }}</div>
+                        <div>
+                            <strong>PDF:</strong>
+                            <a
+                                v-if="data.pdf_path"
+                                :href="normalizePdfPath(data.pdf_path)"
+                                target="_blank"
+                            >
+                                View PDF
+                            </a>
+                            <span v-else>-</span>
+                        </div>
                     </div>
-                </div>
-            </div>
+                </template>
+            </Column>
+        </DataTable>
 
-            <div class="mt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <div>Total: {{ pagination.total }}</div>
+        <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+            <Button
+                severity="secondary"
+                outlined
+                label="Close"
+                icon="pi pi-times"
+                @click="onClose"
+            />
 
-                <div class="d-flex gap-2 align-items-center">
-                    <Button
-                        icon="pi pi-angle-left"
-                        size="small"
-                        outlined
-                        severity="secondary"
-                        :disabled="pagination.page <= 1"
-                        @click="changePage(pagination.page - 1)"
-                    />
-                    <span>Page {{ pagination.page }} / {{ totalPages }}</span>
-                    <Button
-                        icon="pi pi-angle-right"
-                        size="small"
-                        outlined
-                        severity="secondary"
-                        :disabled="pagination.page >= totalPages"
-                        @click="changePage(pagination.page + 1)"
-                    />
-                </div>
+            <div class="d-flex gap-2">
+                <Button
+                    severity="secondary"
+                    outlined
+                    icon="pi pi-angle-left"
+                    label="Prev"
+                    @click="fetchLogs(pagination.page - 1)"
+                    :disabled="loading || pagination.page <= 1"
+                />
+                <Button
+                    severity="secondary"
+                    outlined
+                    label="Next"
+                    icon="pi pi-angle-right"
+                    iconPos="right"
+                    @click="fetchLogs(pagination.page + 1)"
+                    :disabled="loading || pagination.page >= totalPages"
+                />
             </div>
         </div>
     </Dialog>
@@ -158,46 +240,33 @@
 
 <script>
 import axios from "axios";
-import { Button, Dialog, InputText, Select, Tag } from "primevue";
-import XDataTable from "../../components/DataTable/XDataTable.vue";
 
-const TABLE_COLUMNS = [
-    { header: "Date", field: "created_at", slot: "createdAt", style: { minWidth: "12rem" } },
-    { header: "User", field: "user", style: { minWidth: "8rem" } },
-    { header: "Order ID", field: "platform_order_id", style: { minWidth: "12rem" } },
-    { header: "Type", field: "type", style: { minWidth: "6rem" } },
-    { header: "Action", field: "action", style: { minWidth: "10rem" } },
-    { header: "Status", field: "status", slot: "status", style: { minWidth: "7rem" } },
-    { header: "Printer IP", field: "printer_ip", style: { minWidth: "9rem" } },
-    { header: "Copies", field: "copies", style: { minWidth: "5rem" } },
-    { header: "Notes", field: "notes", style: { minWidth: "12rem" } },
-    { header: "Error", field: "error_message", slot: "errorMessage", style: { minWidth: "12rem" } },
-    { header: "PDF", field: "pdf_path", slot: "pdfPath", style: { minWidth: "7rem" } },
-];
+import Dialog from "primevue/dialog";
+import DataTable from "primevue/datatable";
+import Column from "primevue/column";
+import Button from "primevue/button";
+import InputText from "primevue/inputtext";
+import Select from "primevue/select";
+import Tag from "primevue/tag";
 
 export default {
     name: "FbmPrintLogModal",
     components: {
         Dialog,
+        DataTable,
+        Column,
         Button,
         InputText,
         Select,
         Tag,
-        XDataTable,
     },
     props: {
-        visible: {
-            type: Boolean,
-            default: false,
-        },
+        visible: { type: Boolean, default: false },
     },
-    emits: ["close"],
     data() {
         return {
-            localVisible: false,
             loading: false,
             logs: [],
-            columns: TABLE_COLUMNS,
             filters: {
                 q: "",
                 user: "",
@@ -212,20 +281,22 @@ export default {
                 rows: 20,
                 total: 0,
             },
+            isMobile: window.innerWidth < 768,
+
             typeOptions: [
-                { label: "All", value: "" },
+                { label: "All Types", value: "" },
                 { label: "Invoice", value: "invoice" },
                 { label: "Label", value: "label" },
             ],
             actionOptions: [
-                { label: "All", value: "" },
+                { label: "All Actions", value: "" },
                 { label: "PrintInvoice", value: "PrintInvoice" },
                 { label: "ViewInvoice", value: "ViewInvoice" },
                 { label: "PrintShipmentLabel", value: "PrintShipmentLabel" },
                 { label: "ViewShipmentLabel", value: "ViewShipmentLabel" },
             ],
             statusOptions: [
-                { label: "All", value: "" },
+                { label: "All Status", value: "" },
                 { label: "Success", value: "success" },
                 { label: "Failed", value: "failed" },
             ],
@@ -233,34 +304,53 @@ export default {
     },
     computed: {
         totalPages() {
-            return Math.max(1, Math.ceil((this.pagination.total || 0) / this.pagination.rows));
+            return Math.max(
+                1,
+                Math.ceil((this.pagination.total || 0) / (this.pagination.rows || 20))
+            );
+        },
+        dialogStyle() {
+            return this.isMobile
+                ? { width: "100vw", maxWidth: "100vw", height: "100vh" }
+                : { width: "95vw", maxWidth: "95%" };
+        },
+        dialogContentStyle() {
+            return this.isMobile
+                ? { height: "calc(100vh - 120px)", overflow: "auto" }
+                : {};
         },
     },
     watch: {
-        visible: {
-            immediate: true,
-            handler(val) {
-                this.localVisible = val;
-                if (val) {
-                    this.fetchLogs();
-                }
-            },
-        },
-        localVisible(val) {
-            if (!val) {
-                this.$emit("close");
+        visible(isOpen) {
+            if (isOpen) {
+                this.fetchLogs(1);
             }
         },
     },
+    mounted() {
+        this._onResize = () => {
+            this.isMobile = window.innerWidth < 768;
+        };
+        window.addEventListener("resize", this._onResize);
+    },
+    beforeUnmount() {
+        window.removeEventListener("resize", this._onResize);
+    },
     methods: {
-        async fetchLogs() {
+        onClose() {
+            this.$emit("close");
+        },
+
+        async fetchLogs(page = 1) {
+            if (page < 1) return;
+
             this.loading = true;
 
             try {
                 const response = await axios.get("/fbm/print-logs", {
                     params: {
                         ...this.filters,
-                        page: this.pagination.page,
+                        page,
                         rows: this.pagination.rows,
                     },
                 });
@@ -270,17 +360,15 @@ export default {
                     this.pagination.page = response.data.pagination?.page || 1;
                     this.pagination.rows = response.data.pagination?.rows || 20;
                     this.pagination.total = response.data.pagination?.total || 0;
+                } else {
+                    this.logs = [];
                 }
             } catch (error) {
                 console.error("Failed to fetch FBM print logs", error);
+                this.logs = [];
             } finally {
                 this.loading = false;
             }
-        },
-
-        searchLogs() {
-            this.pagination.page = 1;
-            this.fetchLogs();
         },
 
         resetFilters() {
@@ -293,18 +381,12 @@ export default {
                 date_from: "",
                 date_to: "",
             };
-            this.pagination.page = 1;
-            this.fetchLogs();
-        },
-
-        changePage(page) {
-            this.pagination.page = page;
-            this.fetchLogs();
+            this.fetchLogs(1);
         },
 
         formatDateTime(value) {
-            if (!value) return "N/A";
-            return new Date(value).toLocaleString();
+            if (!value) return "-";
+            return String(value).replace("T", " ").replace("Z", "");
         },
 
         normalizePdfPath(path) {
@@ -323,3 +405,42 @@ export default {
     },
 };
 </script>
+
+<style scoped>
+.mobile-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.9rem;
+    line-height: 1.25rem;
+}
+
+.wrap-anywhere {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+:deep(.p-datatable .p-datatable-thead > tr > th),
+:deep(.p-datatable .p-datatable-tbody > tr > td) {
+    padding: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    :deep(.p-datatable-thead) {
+        display: none !important;
+    }
+
+    :deep(.p-datatable-tbody > tr) {
+        display: block;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 0.75rem 0;
+    }
+
+    :deep(.p-datatable-tbody > tr > td) {
+        display: block;
+        width: 100% !important;
+        border: none !important;
+        padding: 0.25rem 0 !important;
+    }
+}
+</style>
