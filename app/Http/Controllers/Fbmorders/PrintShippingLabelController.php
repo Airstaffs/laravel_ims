@@ -31,7 +31,14 @@ class PrintShippingLabelController extends Controller
         $note = $request->input('note', '');
         $results = [];
 
+        $printerIp = '192.168.1.240';
+
         foreach ($platform_order_ids as $platform_order_id) {
+            $pdfPath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$platform_order_id}.pdf");
+            $zplCode = null;
+            $labelHistory = null;
+            $logUser = null;
+
             try {
                 // 1) Find latest Purchased label history
                 $labelHistory = DB::table('tbllabelhistory')
@@ -43,6 +50,20 @@ class PrintShippingLabelController extends Controller
                 if (!$labelHistory) {
                     Log::warning("No Purchased tbllabelhistory found for order: {$platform_order_id}");
 
+                    $this->logPrintEvent([
+                        'user' => null,
+                        'platform_order_id' => $platform_order_id,
+                        'type' => 'label',
+                        'action' => $action,
+                        'status' => 'failed',
+                        'printer_ip' => $action === 'PrintShipmentLabel' ? $printerIp : null,
+                        'copies' => 1,
+                        'pdf_path' => null,
+                        'zpl_length' => null,
+                        'notes' => 'No Purchased tbllabelhistory found',
+                        'error_message' => 'No Purchased label found',
+                    ]);
+
                     $results[] = [
                         'order_id' => $platform_order_id,
                         'success' => false,
@@ -53,21 +74,35 @@ class PrintShippingLabelController extends Controller
                     continue;
                 }
 
+                $logUser = $labelHistory->user ?? null;
+
                 $shipmentId = (string) ($labelHistory->shipmentid ?? '');
-                $trackingId = (string) ($labelHistory->trackingid ?? ''); // if exists in tbllabelhistory
+                $trackingId = (string) ($labelHistory->trackingid ?? '');
                 $isManual = ($shipmentId === 'Manual');
 
-                // Working PDF path (safe to overwrite)
-                $pdfPath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$platform_order_id}.pdf");
                 $this->ensureDirExists(dirname($pdfPath));
 
-                // 2) Manual flow: load pdf from manual_shipping_label
+                // 2) Manual flow
                 if ($isManual) {
                     $manualPdfPath = public_path("images/FBM_docs/manual_shipping_label/amzn_manual_{$platform_order_id}.pdf");
 
                     if (!file_exists($manualPdfPath)) {
                         Log::warning("Manual label PDF missing for order: {$platform_order_id}", [
                             'path' => $manualPdfPath
+                        ]);
+
+                        $this->logPrintEvent([
+                            'user' => $logUser,
+                            'platform_order_id' => $platform_order_id,
+                            'type' => 'label',
+                            'action' => $action,
+                            'status' => 'failed',
+                            'printer_ip' => $action === 'PrintShipmentLabel' ? $printerIp : null,
+                            'copies' => 1,
+                            'pdf_path' => $manualPdfPath,
+                            'zpl_length' => null,
+                            'notes' => 'Manual label PDF missing',
+                            'error_message' => 'Manual label PDF file missing',
                         ]);
 
                         $results[] = [
@@ -81,14 +116,12 @@ class PrintShippingLabelController extends Controller
                     }
 
                     copy($manualPdfPath, $pdfPath);
-                }
-                // 3) Normal flow: fetch tbllabelhistoryitems using shipmentid + AmazonOrderId (+ trackingid if present)
-                else {
+                } else {
+                    // 3) Normal flow
                     $itemsQ = DB::table('tbllabelhistoryitems')
                         ->where('AmazonOrderId', $platform_order_id)
                         ->where('shipmentid', $shipmentId);
 
-                    // If tbllabelhistoryitems has trackingid AND labelHistory has trackingid, lock it in
                     if (!empty($trackingId)) {
                         $itemsQ->where('trackingid', $trackingId);
                     }
@@ -101,6 +134,20 @@ class PrintShippingLabelController extends Controller
                             'trackingid' => $trackingId ?: null,
                         ]);
 
+                        $this->logPrintEvent([
+                            'user' => $logUser,
+                            'platform_order_id' => $platform_order_id,
+                            'type' => 'label',
+                            'action' => $action,
+                            'status' => 'failed',
+                            'printer_ip' => $action === 'PrintShipmentLabel' ? $printerIp : null,
+                            'copies' => 1,
+                            'pdf_path' => $pdfPath,
+                            'zpl_length' => null,
+                            'notes' => 'Missing PDFLabel for Purchased shipment',
+                            'error_message' => 'Missing PDFLabel for Purchased shipment',
+                        ]);
+
                         $results[] = [
                             'order_id' => $platform_order_id,
                             'success' => false,
@@ -111,9 +158,22 @@ class PrintShippingLabelController extends Controller
                         continue;
                     }
 
-                    // Decode base64
                     $decoded = base64_decode($labelRow->PDFLabel, true);
                     if ($decoded === false) {
+                        $this->logPrintEvent([
+                            'user' => $logUser,
+                            'platform_order_id' => $platform_order_id,
+                            'type' => 'label',
+                            'action' => $action,
+                            'status' => 'failed',
+                            'printer_ip' => $action === 'PrintShipmentLabel' ? $printerIp : null,
+                            'copies' => 1,
+                            'pdf_path' => $pdfPath,
+                            'zpl_length' => null,
+                            'notes' => 'Base64 decode failed',
+                            'error_message' => 'Base64 decode failed',
+                        ]);
+
                         $results[] = [
                             'order_id' => $platform_order_id,
                             'success' => false,
@@ -124,12 +184,11 @@ class PrintShippingLabelController extends Controller
                         continue;
                     }
 
-                    // gzdecode if needed
                     $pdfData = gzdecode($decoded);
-                    if ($pdfData === false)
+                    if ($pdfData === false) {
                         $pdfData = $decoded;
+                    }
 
-                    // Write working PDF (PNG->PDF or PDF direct)
                     if (substr($pdfData, 0, 4) === "\x89PNG") {
                         $tmpImagePath = tempnam(sys_get_temp_dir(), 'png');
                         file_put_contents($tmpImagePath, $pdfData);
@@ -147,6 +206,20 @@ class PrintShippingLabelController extends Controller
                     } elseif (substr($pdfData, 0, 4) === '%PDF') {
                         file_put_contents($pdfPath, $pdfData);
                     } else {
+                        $this->logPrintEvent([
+                            'user' => $logUser,
+                            'platform_order_id' => $platform_order_id,
+                            'type' => 'label',
+                            'action' => $action,
+                            'status' => 'failed',
+                            'printer_ip' => $action === 'PrintShipmentLabel' ? $printerIp : null,
+                            'copies' => 1,
+                            'pdf_path' => $pdfPath,
+                            'zpl_length' => null,
+                            'notes' => 'Decoded data is not valid PNG/PDF',
+                            'error_message' => 'Decoded data is not valid PNG/PDF',
+                        ]);
+
                         $results[] = [
                             'order_id' => $platform_order_id,
                             'success' => false,
@@ -166,7 +239,24 @@ class PrintShippingLabelController extends Controller
                     $this->sendToPrinter($zplCode);
                 }
 
-                // 6) Result
+                // 6) Success log
+                $this->logPrintEvent([
+                    'user' => $logUser,
+                    'platform_order_id' => $platform_order_id,
+                    'type' => 'label',
+                    'action' => $action,
+                    'status' => 'success',
+                    'printer_ip' => $action === 'PrintShipmentLabel' ? $printerIp : null,
+                    'copies' => 1,
+                    'pdf_path' => $pdfPath,
+                    'zpl_length' => $zplCode ? strlen($zplCode) : null,
+                    'notes' => $action === 'PrintShipmentLabel'
+                        ? 'Shipment label sent to printer'
+                        : 'Shipment label viewed/generated',
+                    'error_message' => null,
+                ]);
+
+                // 7) Result
                 $results[] = [
                     'order_id' => $platform_order_id,
                     'success' => true,
@@ -178,6 +268,20 @@ class PrintShippingLabelController extends Controller
             } catch (\Throwable $e) {
                 Log::error("printshippinglabel failed for order {$platform_order_id}", [
                     'message' => $e->getMessage(),
+                ]);
+
+                $this->logPrintEvent([
+                    'user' => $logUser,
+                    'platform_order_id' => $platform_order_id,
+                    'type' => 'label',
+                    'action' => $action,
+                    'status' => 'failed',
+                    'printer_ip' => $action === 'PrintShipmentLabel' ? $printerIp : null,
+                    'copies' => 1,
+                    'pdf_path' => file_exists($pdfPath) ? $pdfPath : null,
+                    'zpl_length' => $zplCode ? strlen($zplCode) : null,
+                    'notes' => 'Exception during shipment label processing',
+                    'error_message' => $e->getMessage(),
                 ]);
 
                 $results[] = [
@@ -401,6 +505,31 @@ class PrintShippingLabelController extends Controller
         } catch (\Throwable $e) {
             Log::error('Printer exception', [
                 'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    protected function logPrintEvent(array $data = []): void
+    {
+        try {
+            DB::table('tblfbmprintlogs')->insert([
+                'user' => $data['user'] ?? null,
+                'platform_order_id' => $data['platform_order_id'] ?? null,
+                'type' => $data['type'] ?? 'label',
+                'action' => $data['action'] ?? null,
+                'status' => $data['status'] ?? 'success',
+                'printer_ip' => $data['printer_ip'] ?? null,
+                'copies' => (int) ($data['copies'] ?? 1),
+                'pdf_path' => $data['pdf_path'] ?? null,
+                'zpl_length' => $data['zpl_length'] ?? null,
+                'notes' => $data['notes'] ?? null,
+                'error_message' => $data['error_message'] ?? null,
+                'created_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to insert tblfbmprintlogs from shipping label', [
+                'message' => $e->getMessage(),
+                'data' => $data,
             ]);
         }
     }
