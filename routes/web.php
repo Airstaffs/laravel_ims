@@ -1134,7 +1134,7 @@ Route::get('/debug-session', function () {
 Route::prefix('amazon/paa')->group(function () {
     Route::get('/automations', [PaaAutomationController::class, 'index']);
     Route::get('/automations/{id}', [PaaAutomationController::class, 'show']);
-    Route::post('/automations/save', [PaaAutomationController::class, 'save']);
+    Route::post('/save', [PaaAutomationController::class, 'save']);
     Route::delete('/automations/{id}', [PaaAutomationController::class, 'destroy']);
 
     Route::post('/assign-items', [PaaAutomationController::class, 'assignItems']);
