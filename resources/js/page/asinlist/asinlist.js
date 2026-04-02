@@ -1567,6 +1567,22 @@ export default {
         saveGlobalConfig() {
             this.savingGlobalConfig = true;
             try {
+                // ── Detect removed fields per section before overwriting ──────
+                const prevLabeling = this._getPrevGlobal(
+                    "asin_global_config_labeling",
+                );
+                const prevTesting = this._getPrevGlobal(
+                    "asin_global_config_testing",
+                );
+                const prevRepair = this._getPrevGlobal(
+                    "asin_global_config_repair",
+                );
+                const prevCleaning = this._getPrevGlobal(
+                    "asin_global_config_cleaning",
+                );
+                const prevPkg = this._getPrevGlobalPkg();
+
+                // Save new global config
                 localStorage.setItem(
                     "asin_global_config_labeling",
                     JSON.stringify(this.globalLabelingFields),
@@ -1590,6 +1606,51 @@ export default {
                         boxSpecs: this.globalBoxSpecs,
                     }),
                 );
+
+                // ── Removed labels/names per section ─────────────────────────
+                const removedLabeling = this._getRemovedLabels(
+                    prevLabeling,
+                    this.globalLabelingFields,
+                    "label",
+                );
+                const removedTesting = this._getRemovedLabels(
+                    prevTesting,
+                    this.globalTestingFields,
+                    "label",
+                );
+                const removedRepair = this._getRemovedLabels(
+                    prevRepair,
+                    this.globalRepairFields,
+                    "name",
+                );
+                const removedCleaning = this._getRemovedLabels(
+                    prevCleaning,
+                    this.globalCleaningFields,
+                    "name",
+                );
+                const removedPkgComps = this._getRemovedLabels(
+                    prevPkg,
+                    this.globalPackagingComponents,
+                    "name",
+                );
+
+                // ── Scrub removed fields from every ASIN-specific key ─────────
+                if (
+                    removedLabeling.size ||
+                    removedTesting.size ||
+                    removedRepair.size ||
+                    removedCleaning.size ||
+                    removedPkgComps.size
+                ) {
+                    this._scrubRemovedFromAllAsins({
+                        labeling: removedLabeling,
+                        testing: removedTesting,
+                        repair: removedRepair,
+                        cleaning: removedCleaning,
+                        packaging: removedPkgComps,
+                    });
+                }
+
                 Swal.fire({
                     icon: "success",
                     title: "Global Config Saved!",
@@ -1597,7 +1658,8 @@ export default {
                     confirmButtonText: "OK",
                 });
                 this.showGlobalConfig = false;
-            } catch {
+            } catch (e) {
+                console.error("saveGlobalConfig error:", e);
                 Swal.fire({
                     icon: "error",
                     title: "Save Failed",
@@ -1606,6 +1668,167 @@ export default {
             } finally {
                 this.savingGlobalConfig = false;
             }
+        },
+
+        /** Read the current saved global array for a section (before overwrite). */
+        _getPrevGlobal(key) {
+            try {
+                const r = localStorage.getItem(key);
+                return r ? JSON.parse(r) : [];
+            } catch {
+                return [];
+            }
+        },
+
+        /** Read current saved global packaging components (before overwrite). */
+        _getPrevGlobalPkg() {
+            try {
+                const r = localStorage.getItem("asin_global_config_packaging");
+                return r ? JSON.parse(r).components || [] : [];
+            } catch {
+                return [];
+            }
+        },
+
+        /**
+         * Compare previous vs current array and return a Set of
+         * labels/names that were removed.
+         * @param {Array} prev
+         * @param {Array} curr
+         * @param {string} key  'label' for fields, 'name' for categories/components
+         */
+        _getRemovedLabels(prev, curr, key) {
+            const currSet = new Set(curr.map((f) => f[key]));
+            const removed = new Set();
+            prev.forEach((f) => {
+                if (f[key] && !currSet.has(f[key])) removed.add(f[key]);
+            });
+            return removed;
+        },
+
+        /**
+         * Iterate every localStorage key that looks like an ASIN config key
+         * and strip out any entries whose label/name appears in the removed sets.
+         *
+         * Keys pattern:
+         *   asin_config_labeling:{ASIN}
+         *   asin_config_testing:{ASIN}
+         *   asin_config_repair:{ASIN}
+         *   asin_config_cleaning:{ASIN}
+         *   asin_config_packaging:{ASIN}
+         *   testing_worklog:{rtcounter}   ← also scrub removed testing labels here
+         */
+        _scrubRemovedFromAllAsins({
+            labeling,
+            testing,
+            repair,
+            cleaning,
+            packaging,
+        }) {
+            const allKeys = Object.keys(localStorage);
+
+            allKeys.forEach((key) => {
+                try {
+                    // ── Labeling ──────────────────────────────────────────────
+                    if (
+                        key.startsWith("asin_config_labeling:") &&
+                        labeling.size
+                    ) {
+                        const fields = JSON.parse(
+                            localStorage.getItem(key) || "[]",
+                        );
+                        const cleaned = fields.filter(
+                            (f) => !labeling.has(f.label),
+                        );
+                        if (cleaned.length !== fields.length)
+                            localStorage.setItem(key, JSON.stringify(cleaned));
+                    }
+
+                    // ── Testing ───────────────────────────────────────────────
+                    if (
+                        key.startsWith("asin_config_testing:") &&
+                        testing.size
+                    ) {
+                        const fields = JSON.parse(
+                            localStorage.getItem(key) || "[]",
+                        );
+                        const cleaned = fields.filter(
+                            (f) => !testing.has(f.label),
+                        );
+                        if (cleaned.length !== fields.length)
+                            localStorage.setItem(key, JSON.stringify(cleaned));
+                    }
+
+                    // ── Testing Work Log (saved values keyed by rtcounter) ────
+                    if (key.startsWith("testing_worklog:") && testing.size) {
+                        const saved = JSON.parse(
+                            localStorage.getItem(key) || "{}",
+                        );
+                        let changed = false;
+                        testing.forEach((label) => {
+                            if (
+                                Object.prototype.hasOwnProperty.call(
+                                    saved,
+                                    label,
+                                )
+                            ) {
+                                delete saved[label];
+                                changed = true;
+                            }
+                        });
+                        if (changed)
+                            localStorage.setItem(key, JSON.stringify(saved));
+                    }
+
+                    // ── Repair ────────────────────────────────────────────────
+                    if (key.startsWith("asin_config_repair:") && repair.size) {
+                        const cats = JSON.parse(
+                            localStorage.getItem(key) || "[]",
+                        );
+                        const cleaned = cats.filter((c) => !repair.has(c.name));
+                        if (cleaned.length !== cats.length)
+                            localStorage.setItem(key, JSON.stringify(cleaned));
+                    }
+
+                    // ── Cleaning ──────────────────────────────────────────────
+                    if (
+                        key.startsWith("asin_config_cleaning:") &&
+                        cleaning.size
+                    ) {
+                        const cats = JSON.parse(
+                            localStorage.getItem(key) || "[]",
+                        );
+                        const cleaned = cats.filter(
+                            (c) => !cleaning.has(c.name),
+                        );
+                        if (cleaned.length !== cats.length)
+                            localStorage.setItem(key, JSON.stringify(cleaned));
+                    }
+
+                    // ── Packaging components ──────────────────────────────────
+                    if (
+                        key.startsWith("asin_config_packaging:") &&
+                        packaging.size
+                    ) {
+                        const pkg = JSON.parse(
+                            localStorage.getItem(key) || "{}",
+                        );
+                        const comps = pkg.components || [];
+                        const cleaned = comps.filter(
+                            (c) => !packaging.has(c.name),
+                        );
+                        if (cleaned.length !== comps.length) {
+                            pkg.components = cleaned;
+                            localStorage.setItem(key, JSON.stringify(pkg));
+                        }
+                    }
+                } catch (e) {
+                    console.warn(
+                        `_scrubRemovedFromAllAsins: skipped key "${key}"`,
+                        e,
+                    );
+                }
+            });
         },
 
         /**
