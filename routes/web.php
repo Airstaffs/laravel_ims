@@ -1141,3 +1141,7 @@ Route::prefix('amazon/paa')->group(function () {
     Route::delete('/assigned-items/{id}', [PaaAutomationController::class, 'removeItem']);
     Route::post('/assigned-items/bulk-remove', [PaaAutomationController::class, 'bulkRemoveItems']);
 });
+
+
+
+Route::get('/fbm/print-logs', [FbmOrderController::class, 'getfbmprintinglogs']);

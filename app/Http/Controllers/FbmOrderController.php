@@ -3972,4 +3972,111 @@ class FbmOrderController extends BasetablesController
         }
     }
 
+
+
+    public function getfbmprintinglogs(Request $request)
+    {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string'],
+            'user' => ['nullable', 'string'],
+            'type' => ['nullable', 'string'],
+            'action' => ['nullable', 'string'],
+            'status' => ['nullable', 'string'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'rows' => ['nullable', 'integer', 'min:1', 'max:200'],
+            'sortField' => ['nullable', 'string'],
+            'sortOrder' => ['nullable', 'in:asc,desc'],
+        ]);
+
+        $q = trim($validated['q'] ?? '');
+        $user = trim($validated['user'] ?? '');
+        $type = trim($validated['type'] ?? '');
+        $action = trim($validated['action'] ?? '');
+        $status = trim($validated['status'] ?? '');
+        $dateFrom = $validated['date_from'] ?? null;
+        $dateTo = $validated['date_to'] ?? null;
+
+        $page = (int) ($validated['page'] ?? 1);
+        $rows = (int) ($validated['rows'] ?? 20);
+
+        $allowedSortFields = [
+            'id',
+            'user',
+            'platform_order_id',
+            'type',
+            'action',
+            'status',
+            'printer_ip',
+            'copies',
+            'created_at',
+        ];
+
+        $sortField = $validated['sortField'] ?? 'created_at';
+        $sortOrder = strtolower($validated['sortOrder'] ?? 'desc');
+
+        if (!in_array($sortField, $allowedSortFields, true)) {
+            $sortField = 'created_at';
+        }
+
+        if (!in_array($sortOrder, ['asc', 'desc'], true)) {
+            $sortOrder = 'desc';
+        }
+
+        $query = DB::table('tblfbmprintlogs');
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('platform_order_id', 'like', "%{$q}%")
+                    ->orWhere('user', 'like', "%{$q}%")
+                    ->orWhere('action', 'like', "%{$q}%")
+                    ->orWhere('notes', 'like', "%{$q}%")
+                    ->orWhere('error_message', 'like', "%{$q}%");
+            });
+        }
+
+        if ($user !== '') {
+            $query->where('user', 'like', "%{$user}%");
+        }
+
+        if ($type !== '') {
+            $query->where('type', $type);
+        }
+
+        if ($action !== '') {
+            $query->where('action', $action);
+        }
+
+        if ($status !== '') {
+            $query->where('status', $status);
+        }
+
+        if (!empty($dateFrom)) {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+
+        if (!empty($dateTo)) {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+
+        $total = (clone $query)->count();
+
+        $logs = $query->orderBy($sortField, $sortOrder)
+            ->offset(($page - 1) * $rows)
+            ->limit($rows)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $logs,
+            'pagination' => [
+                'page' => $page,
+                'rows' => $rows,
+                'total' => $total,
+                'last_page' => $rows > 0 ? (int) ceil($total / $rows) : 1,
+            ],
+        ]);
+    }
+
 }

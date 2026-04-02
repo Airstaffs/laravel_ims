@@ -13,6 +13,7 @@ import PrintDocumentsModal from "./modals/PrintCenterModal.vue";
 import ShipmentLabelHistory from "./modals/shipmentlabelhistory.vue";
 import ScannerComponent from "../../components/Scanner.vue";
 import { SoundService } from "../../components/Sound_service";
+import FbmPrintLogModal from "./modals/FbmPrintLogModal.vue";
 
 export default {
     name: "FbmOrderModule",
@@ -27,6 +28,7 @@ export default {
         ShipmentLabelHistory,
         ScannerComponent,
         SoundService,
+        FbmPrintLogModal,
     },
     data() {
         return {
@@ -186,7 +188,10 @@ export default {
             currentPage: 1,
             totalPages: 1,
             perPage: 10,
-            first: 0 //paginator internal state
+            first: 0, //paginator internal state
+
+            // fbm print logs
+            showFbmPrintLogModal: false,
         };
     },
     computed: {
@@ -2206,7 +2211,7 @@ export default {
 
         changeStatusFilter() {
             this.currentPage = 1;
-            this.first = 0
+            this.first = 0;
             this.clearAllSelections();
             this.fetchOrders();
         },
@@ -2214,7 +2219,7 @@ export default {
         // ✅ ADD THIS NEW METHOD
         changeOrderBy() {
             this.currentPage = 1;
-            this.first = 0
+            this.first = 0;
             this.clearAllSelections();
             this.fetchOrders();
         },
@@ -2321,7 +2326,7 @@ export default {
         changeStore() {
             this.currentPage = 1;
             this.clearAllSelections();
-            this.first = 0
+            this.first = 0;
             this.fetchOrders();
         },
 
@@ -2329,7 +2334,7 @@ export default {
         changeStatusFilter() {
             this.currentPage = 1;
             this.clearAllSelections();
-            this.first = 0
+            this.first = 0;
             this.fetchOrders();
         },
 
@@ -2340,12 +2345,12 @@ export default {
 
         // Pagination methods
         onPageChange(event) {
-            this.first = event.first
+            this.first = event.first;
             this.currentPage = event.page + 1; // convert to 1-based
-            this.perPage     = event.rows;
+            this.perPage = event.rows;
             this.fetchOrders();
         },
-    
+
         // Toggle select all orders
         toggleAll() {
             const newValue = this.selectAll;
@@ -4541,11 +4546,18 @@ export default {
         itemNeedsMoreProducts(item) {
             return this.getRemainingQuantityNeeded(item) > 0;
         },
+
+openFbmPrintLogModal() {
+    this.showFbmPrintLogModal = true;
+},
+closeFbmPrintLogModal() {
+    this.showFbmPrintLogModal = false;
+},
     },
     watch: {
         searchQuery() {
             this.currentPage = 1;
-            this.first = 0
+            this.first = 0;
             this.fetchOrders();
         },
     },
