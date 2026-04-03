@@ -156,3 +156,4 @@ Route::post('/received/validate-serial', [ReceivedController::class, 'validateSe
 
 Route::post('/amazon/search-listings', [ListingController::class, 'searchListings']);
 Route::post('/amazon/listings/update-one', [ListingController::class, 'updateOne']);
+Route::post('/amazon/listings/submit-price-feed-sync', [ListingController::class, 'submitPriceFeedSync']);
