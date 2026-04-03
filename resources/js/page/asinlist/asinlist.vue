@@ -185,7 +185,7 @@
                     </div>
                 </template>
 
-                <template #FNSKU="{ data }">
+                <template #fnsku_count="{ data }">
                     <div class="fnsku-count">{{ data.fnsku_count }} FNSKUs</div>
                 </template>
                 <template #actions="{ data }">
@@ -1136,21 +1136,42 @@
                             <template #grading="{ data }">
                                 <p>{{ data.grading || "-" }}</p>
                             </template>
-                            <template #timesused="{ data }">
+                           <template #timesused="{ data }">
                                 <p
                                     :class="
-                                        selectedAsin.asin_limit > 0 &&
-                                        30 - data.Units >=
-                                            selectedAsin.asin_limit
+                                        effectiveLimit(data) > 0 &&
+                                        30 - data.Units >= effectiveLimit(data)
                                             ? 'text-danger'
                                             : 'text-primary'
                                     "
                                 >
-                                    {{
-                                        `${30 - data.Units} / ${selectedAsin.asin_limit || 0}`
-                                    }}
+                                    {{ `${30 - data.Units} / ${effectiveLimit(data) || 0}` }}
                                 </p>
                             </template>
+
+                            <template #fnskuLimit="{ data }">
+                                    <div class="d-flex align-items-center gap-1">
+                                        <input
+                                            v-if="editMode"
+                                            type="number"
+                                            v-model.number="data.fnsku_limit"
+                                            min="0"
+                                            max="100"
+                                            style="width: 60px; font-size: 13px;"
+                                            class="form-control form-control-sm"
+                                            @change="updateFnskuLimit(data)"
+                                        />
+                                        <span v-else class="text-primary fw-bold">
+                                            {{ data.fnsku_limit ?? '-' }}
+                                        </span>
+                                        <i
+                                            v-if="savingFnskuLimitFor === data.FNSKU"
+                                            class="pi pi-spin pi-spinner"
+                                            style="color: #007bff; font-size: 12px"
+                                        ></i>
+                                    </div>
+                                </template>
+
                         </XDataTable>
                     </div>
                 </div>
@@ -4507,8 +4528,8 @@ const TABLE_COLUMNS = [
         bodyStyle: "font-size: 14px",
     },
     {
-        header: "FNSKUs",
-        slot: "FNSKU",
+       header: "FNSKUs",
+        slot: "fnsku_count",       // ✅ renamed — no longer conflicts
         bodyStyle: "font-size: 14px",
     },
 ];
@@ -4541,6 +4562,12 @@ const FNSKU_COLUMNS = [
         field: "Units",
         bodyStyle: "font-size: 14px",
         sortable: true,
+    },
+
+      {
+        header: "FNSKU Limit",
+        slot: "fnskuLimit",
+        bodyStyle: "font-size: 14px",
     },
 ];
 

@@ -656,6 +656,8 @@ Route::prefix('api/asinlist')->group(function () {
     Route::post('update-quantity-inside', [ASINlistController::class, 'updateQuantityInside']);
 
     Route::post('update-color', [ASINlistController::class, 'updateColor']);
+
+    Route::post('update-fnsku-limit', [ASINlistController::class, 'updateFnskuLimit']);
 });
 
 // AFTER - Add rate limiting
@@ -1142,3 +1144,7 @@ Route::prefix('amazon/paa')->group(function () {
     Route::delete('/assigned-items/{id}', [PaaAutomationController::class, 'removeItem']);
     Route::post('/assigned-items/bulk-remove', [PaaAutomationController::class, 'bulkRemoveItems']);
 });
+
+
+
+Route::get('/fbm/print-logs', [FbmOrderController::class, 'getfbmprintinglogs']);

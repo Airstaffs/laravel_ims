@@ -34,14 +34,15 @@ class PrintInvoiceController extends Controller
         $action = $request->input('action', 'ViewInvoice');
 
         $settings = $request->input('settings', []);
-        if (!is_array($settings))
+        if (!is_array($settings)) {
             $settings = [];
+        }
 
         $settings = array_merge([
             'displayPrice' => 'FALSE',
             'signatureRequired' => 'FALSE',
             'testPrint' => false,
-            'width' => 350, // mpdf height
+            'width' => 350,
         ], $settings);
 
         if (!in_array($action, ['PrintInvoice', 'ViewInvoice'], true)) {
@@ -49,85 +50,104 @@ class PrintInvoiceController extends Controller
         }
 
         $results = [];
+        $printerIp = '192.168.1.240';
 
         foreach ($platform_order_ids as $platform_order_id) {
             $mark("{$platform_order_id} start");
 
-            // ---------- Fetch order ----------
-            $order = DB::table('tbloutboundorders')
-                ->where('platform_order_id', $platform_order_id)
-                ->first();
-            $mark("{$platform_order_id} after order");
+            $publicPdf = null;
+            $zplCode = null;
+            $label = null;
+            $logUser = null;
 
-            if (!$order) {
-                $results[] = [
-                    'order_id' => $platform_order_id,
-                    'error' => 'Order not found in tbloutboundorders',
-                ];
-                continue;
-            }
-
-            $items = DB::table('tbloutboundordersitem')
-                ->where('platform_order_id', $platform_order_id)
-                ->get();
-            $mark("{$platform_order_id} after items");
-
-            // latest label header (like old getUser/getinvoicenumberid/getLCode)
-            $label = DB::table('tbllabelhistory')
-                ->where('AmazonOrderId', $platform_order_id)
-                ->orderByDesc('id')
-                ->first();
-            $mark("{$platform_order_id} after label header");
-
-            // item-level label info (delivery experience + est delivery + shipDate)
-            $labelItems = DB::table('tbllabelhistoryitems')
-                ->where('AmazonOrderId', $platform_order_id)
-                ->orderByDesc('id')
-                ->get()
-                ->keyBy('orderitemid'); // key by platform_order_item_id
-            $mark("{$platform_order_id} after label items");
-
-            $orderData = (array) $order;
-            $orderData['items'] = json_decode(json_encode($items), true);
-
-            $orderData['meta'] = [
-                'user' => $label->user ?? '',
-                'invoice' => $label->invoicenumberid ?? '',
-                'LCode' => isset($label->labelprice) ? (string) $label->labelprice : '00.00',
-                'ShipDate' => $label->ShipDate ?? null,
-            ];
-
-            foreach ($orderData['items'] as &$it) {
-                $oid = $it['platform_order_item_id'] ?? null;
-                $li = $oid ? ($labelItems[$oid] ?? null) : null;
-
-                $it['_label'] = [
-                    'shipDate' => $li->shipDate ?? null,
-                    'EarliestEstimatedDeliveryDate' => $li->EarliestEstimatedDeliveryDate ?? null,
-                    'LatestEstimatedDeliveryDate' => $li->LatestEstimatedDeliveryDate ?? null,
-                    'DeliveryExperience' => $li->DeliveryExperience ?? null,
-                ];
-            }
-            unset($it);
-
-            // ✅ NEW: temp file pipeline + cleanup (per order)
+            // temp folder created early so even some failures are still cleaned up safely
             $tmpDir = $this->makeTempDir("invoice_{$platform_order_id}_");
 
             try {
+                // ---------- Fetch order ----------
+                $order = DB::table('tbloutboundorders')
+                    ->where('platform_order_id', $platform_order_id)
+                    ->first();
+                $mark("{$platform_order_id} after order");
+
+                if (!$order) {
+                    $this->logPrintEvent([
+                        'user' => null,
+                        'platform_order_id' => $platform_order_id,
+                        'type' => 'invoice',
+                        'action' => $action,
+                        'status' => 'failed',
+                        'printer_ip' => $action === 'PrintInvoice' ? $printerIp : null,
+                        'copies' => 1,
+                        'pdf_path' => null,
+                        'zpl_length' => null,
+                        'notes' => 'Order not found in tbloutboundorders',
+                        'error_message' => 'Order not found in tbloutboundorders',
+                    ]);
+
+                    $results[] = [
+                        'order_id' => $platform_order_id,
+                        'error' => 'Order not found in tbloutboundorders',
+                    ];
+                    continue;
+                }
+
+                $items = DB::table('tbloutboundordersitem')
+                    ->where('platform_order_id', $platform_order_id)
+                    ->get();
+                $mark("{$platform_order_id} after items");
+
+                // latest label header
+                $label = DB::table('tbllabelhistory')
+                    ->where('AmazonOrderId', $platform_order_id)
+                    ->orderByDesc('id')
+                    ->first();
+                $mark("{$platform_order_id} after label header");
+
+                $logUser = $label->user ?? null;
+
+                // item-level label info
+                $labelItems = DB::table('tbllabelhistoryitems')
+                    ->where('AmazonOrderId', $platform_order_id)
+                    ->orderByDesc('id')
+                    ->get()
+                    ->keyBy('orderitemid');
+                $mark("{$platform_order_id} after label items");
+
+                $orderData = (array) $order;
+                $orderData['items'] = json_decode(json_encode($items), true);
+
+                $orderData['meta'] = [
+                    'user' => $label->user ?? '',
+                    'invoice' => $label->invoicenumberid ?? '',
+                    'LCode' => isset($label->labelprice) ? (string) $label->labelprice : '00.00',
+                    'ShipDate' => $label->ShipDate ?? null,
+                ];
+
+                foreach ($orderData['items'] as &$it) {
+                    $oid = $it['platform_order_item_id'] ?? null;
+                    $li = $oid ? ($labelItems[$oid] ?? null) : null;
+
+                    $it['_label'] = [
+                        'shipDate' => $li->shipDate ?? null,
+                        'EarliestEstimatedDeliveryDate' => $li->EarliestEstimatedDeliveryDate ?? null,
+                        'LatestEstimatedDeliveryDate' => $li->LatestEstimatedDeliveryDate ?? null,
+                        'DeliveryExperience' => $li->DeliveryExperience ?? null,
+                    ];
+                }
+                unset($it);
+
                 $html = $this->generateHtml($settings, $orderData, $action);
                 $mark("{$platform_order_id} after html");
 
-                // temp PDF path
                 $tmpPdf = $tmpDir . DIRECTORY_SEPARATOR . "invoice_{$platform_order_id}.pdf";
 
                 $this->generatePDF($html, $tmpPdf, $settings);
                 $mark("{$platform_order_id} after pdf(temp)");
 
-                // ✅ NEW: multi-page PDF → images → ZPL (from temp PDF, temp images)
                 $zplCode = $this->convertPDFToZPL($tmpPdf, $platform_order_id, $settings, $tmpDir);
                 $mark("{$platform_order_id} after zpl(multipage)");
 
-                // Keep a public PDF for viewing
                 $publicPdf = public_path("images/FBM_docs/invoices/invoice_{$platform_order_id}.pdf");
                 @mkdir(dirname($publicPdf), 0777, true);
                 @copy($tmpPdf, $publicPdf);
@@ -139,13 +159,51 @@ class PrintInvoiceController extends Controller
                     $mark("{$platform_order_id} after print");
                 }
 
+                // ✅ success log
+                $this->logPrintEvent([
+                    'user' => $logUser,
+                    'platform_order_id' => $platform_order_id,
+                    'type' => 'invoice',
+                    'action' => $action,
+                    'status' => 'success',
+                    'printer_ip' => $action === 'PrintInvoice' ? $printerIp : null,
+                    'copies' => 1,
+                    'pdf_path' => $publicPdf,
+                    'zpl_length' => $zplCode ? strlen($zplCode) : null,
+                    'notes' => $action === 'PrintInvoice' ? 'Invoice sent to printer' : 'Invoice viewed/generated',
+                    'error_message' => null,
+                ]);
+
                 $results[] = [
                     'order_id' => $platform_order_id,
                     'zpl_preview' => $action === 'ViewInvoice' ? $zplCode : null,
                     'pdf_url' => $pdfUrl,
                 ];
+            } catch (\Throwable $e) {
+                Log::error("[PrintInvoice] {$platform_order_id} failed", [
+                    'message' => $e->getMessage(),
+                ]);
+
+                // ✅ failed log
+                $this->logPrintEvent([
+                    'user' => $logUser,
+                    'platform_order_id' => $platform_order_id,
+                    'type' => 'invoice',
+                    'action' => $action,
+                    'status' => 'failed',
+                    'printer_ip' => $action === 'PrintInvoice' ? $printerIp : null,
+                    'copies' => 1,
+                    'pdf_path' => $publicPdf,
+                    'zpl_length' => $zplCode ? strlen($zplCode) : null,
+                    'notes' => 'Exception during invoice processing',
+                    'error_message' => $e->getMessage(),
+                ]);
+
+                $results[] = [
+                    'order_id' => $platform_order_id,
+                    'error' => $e->getMessage(),
+                ];
             } finally {
-                // ✅ NEW: cleanup temp folder (pdf + page images)
                 $this->rrmdir($tmpDir);
             }
         }
@@ -1054,6 +1112,31 @@ class PrintInvoiceController extends Controller
             ->map(fn($x) => (int) $x)
             ->values()
             ->all();
+    }
+
+    protected function logPrintEvent(array $data = []): void
+    {
+        try {
+            DB::table('tblfbmprintlogs')->insert([
+                'user' => $data['user'] ?? null,
+                'platform_order_id' => $data['platform_order_id'] ?? null,
+                'type' => $data['type'] ?? 'invoice',
+                'action' => $data['action'] ?? null,
+                'status' => $data['status'] ?? 'success',
+                'printer_ip' => $data['printer_ip'] ?? null,
+                'copies' => (int) ($data['copies'] ?? 1),
+                'pdf_path' => $data['pdf_path'] ?? null,
+                'zpl_length' => $data['zpl_length'] ?? null,
+                'notes' => $data['notes'] ?? null,
+                'error_message' => $data['error_message'] ?? null,
+                'created_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to insert tblfbmprintlogs', [
+                'message' => $e->getMessage(),
+                'data' => $data,
+            ]);
+        }
     }
 }
 

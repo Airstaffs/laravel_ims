@@ -111,6 +111,8 @@
             <TitlePage title="FBM Orders Module"
                 subtitle="Manage all orders fulfilled directly by the merchant. Process shipments, generate labels, and track the status of FBM orders." />
             <div class="d-flex justify-content-center gap-2 me-4 flex-wrap desktop-view">
+                <Button severity="secondary" size="small" outlined @click="openFbmPrintLogModal"
+                    label="FBM Print Log" icon="pi pi-print" />
                 <Button severity="secondary" size="small" outlined @click="openShipmentLabelHistoryModal"
                     label="Shipment Label History" icon="pi pi-history" />
                 <Button severity="secondary" size="small" outlined @click="openWorkHistoryModal" label="Work History"
@@ -1944,6 +1946,8 @@ dispensedProduct, dpIndex
 
     <ShipmentLabelHistory :visible="showShipmentLabelHistory" @close="closeShipmentLabelHistoryModal" />
 
+    <FbmPrintLogModal :visible="showFbmPrintLogModal" @close="closeFbmPrintLogModal" />
+
 
 </template>
 
@@ -2175,6 +2179,11 @@ export default {
         },
         getMoreUpperActionItems() {
             return [
+                {
+    label: "FBM Print Log",
+    icon: "pi pi-print",
+    command: () => this.openFbmPrintLogModal(),
+},
                 {
                     label: "Shipment Label History",
                     icon: "pi pi-history",

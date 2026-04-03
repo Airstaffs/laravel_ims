@@ -145,7 +145,8 @@ class ASINlistController extends BasetablesController
                     'MSKU',
                     'storename',
                     'grading',
-                    'Units'
+                    'Units',
+                    'fnsku_limit'
                 ])
                 ->whereIn('ASIN', $asinList)
                 ->whereIn('amazon_status', ['Active', 'Inactive', 'Notposted'])
@@ -1512,19 +1513,75 @@ class ASINlistController extends BasetablesController
         }
     }
 
-  public function updateAllFnskuLimitStatus($newLimit, $asin) {
+ public function updateAllFnskuLimitStatus($newLimit, $asin)
+{
     $maximumUnits = 10;
-    
+
     DB::table($this->fnskuTable)
         ->where('ASIN', $asin)
-        ->update(['LimitStatus' => DB::raw("
-            CASE 
-                WHEN $newLimit > 0 AND ($maximumUnits - Units) >= $newLimit THEN 'True' 
-                ELSE 'False' 
-            END
-        ")]);
+        ->update([
+            'fnsku_limit' => 0, // clear individual limits when ASIN-level is set
+            'LimitStatus' => DB::raw("
+                CASE 
+                    WHEN $newLimit > 0 AND ($maximumUnits - Units) >= $newLimit THEN 'True' 
+                    ELSE 'False' 
+                END
+            "),
+        ]);
 }
 
+
+ public function updateFnskuLimit(Request $request)
+{
+    try {
+        $validated = $request->validate([
+            'fnsku'       => 'required|string',
+            'fnsku_limit' => 'required|integer|min:0|max:100',
+        ]);
+
+        $fnsku = DB::table($this->fnskuTable)
+            ->where('FNSKU', $validated['fnsku'])
+            ->first();
+
+        if (!$fnsku) {
+            return response()->json([
+                'success' => false,
+                'message' => 'FNSKU not found'
+            ], 404);
+        }
+
+        $maximumUnits = 30;
+        $newLimit     = $validated['fnsku_limit'];
+
+        // If fnsku_limit is 0, fall back to the ASIN-level limit for LimitStatus
+        $effectiveLimit = $newLimit > 0 ? $newLimit : $fnsku->asin_limit ?? 0;
+
+        DB::table($this->fnskuTable)
+            ->where('FNSKU', $validated['fnsku'])
+            ->update([
+                'fnsku_limit' => $newLimit,
+                'LimitStatus' => ($effectiveLimit > 0 && ($maximumUnits - $fnsku->Units) >= $effectiveLimit)
+                                    ? 'True'
+                                    : 'False',
+            ]);
+
+        Log::info("FNSKU limit updated: {$validated['fnsku']}", ['limit' => $newLimit]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'FNSKU limit updated successfully'
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Error updating FNSKU limit: ' . $e->getMessage());
+
+        return response()->json([
+            'success' => false,
+            'message' => 'An error occurred while updating FNSKU limit',
+            'error'   => $e->getMessage()
+        ], 500);
+    }
+}
 
 
 }
