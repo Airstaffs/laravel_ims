@@ -943,40 +943,21 @@ function resolve_adjust_baseline_price($mysqli, $automationId, array $it)
     $sku = $it['sku'] !== null ? trim((string) $it['sku']) : null;
     $fnskuid = isset($it['fnskuid']) && $it['fnskuid'] !== null ? (int) $it['fnskuid'] : null;
 
-    $currentPrice = isset($it['current_price']) && $it['current_price'] !== null ? (float) $it['current_price'] : null;
-    $originalPrice = isset($it['original_price']) && $it['original_price'] !== null ? (float) $it['original_price'] : null;
-
     $baselinePrice = null;
     $baselineSource = null;
-    $cacheRow = null;
 
-    if ($currentPrice !== null && $currentPrice > 0) {
-        $baselinePrice = $currentPrice;
-        $baselineSource = 'run_current_price';
-    } elseif ($originalPrice !== null && $originalPrice > 0) {
-        $baselinePrice = $originalPrice;
-        $baselineSource = 'run_original_price';
-    } else {
-        $cacheRow = get_tblfnsku_cached_price_row($mysqli, $msku, $storename);
-        if ($cacheRow && isset($cacheRow['cached_price']) && (float) $cacheRow['cached_price'] > 0) {
-            $baselinePrice = (float) $cacheRow['cached_price'];
-            $baselineSource = 'tblfnsku_amzn_item_price';
-            $fnskuid = $cacheRow['fnskuid'] ?? $fnskuid;
-            syncRunItemBaselinePrices($mysqli, $runItemId, $fnskuid, $baselinePrice);
-            $currentPrice = $baselinePrice;
-            if ($originalPrice === null || $originalPrice <= 0) {
-                $originalPrice = $baselinePrice;
-            }
-        }
-    }
+    // MANUAL MODE RULE:
+    // ONLY use tblfnsku.amzn_item_price as baseline.
+    // If no usable tblfnsku cached price exists, item must not be touched.
+    $cacheRow = get_tblfnsku_cached_price_row($mysqli, $msku, $storename);
 
-    if ($baselinePrice !== null && $baselinePrice > 0) {
-        if ($currentPrice === null || $currentPrice <= 0) {
-            $currentPrice = $baselinePrice;
-        }
-        if ($originalPrice === null || $originalPrice <= 0) {
-            $originalPrice = $baselinePrice;
-        }
+    if ($cacheRow && isset($cacheRow['cached_price']) && (float) $cacheRow['cached_price'] > 0) {
+        $baselinePrice = (float) $cacheRow['cached_price'];
+        $baselineSource = 'tblfnsku_amzn_item_price';
+        $fnskuid = $cacheRow['fnskuid'] ?? $fnskuid;
+
+        // Freeze the snapshot into the run item so restore uses this exact value later
+        syncRunItemBaselinePrices($mysqli, $runItemId, $fnskuid, $baselinePrice);
     }
 
     return [
@@ -985,8 +966,8 @@ function resolve_adjust_baseline_price($mysqli, $automationId, array $it)
         'sku' => $sku,
         'storename' => $storename,
         'fnskuid' => $fnskuid,
-        'current_price' => $currentPrice,
-        'original_price' => $originalPrice,
+        'current_price' => $baselinePrice,
+        'original_price' => $baselinePrice,
         'baseline_price' => $baselinePrice,
         'baseline_source' => $baselineSource,
     ];
@@ -1088,7 +1069,7 @@ function process_adjust_phase($mysqli, $automation, $run, $currentHHMM, $batchSi
 
                 if ($baselinePrice === null || $baselinePrice <= 0) {
                     $stmt = $mysqli->prepare("\n                        UPDATE tbl_paa_run_items\n                        SET status='skipped',\n                            last_error=?,\n                            updated_at=UTC_TIMESTAMP()\n                        WHERE id=?\n                    ");
-                    $err = 'No usable baseline price found from run snapshot or tblfnsku cache';
+                    $err = 'No usable tblfnsku.amzn_item_price found; item not touched';
                     $stmt->bind_param('si', $err, $runItemId);
                     $stmt->execute();
                     $stmt->close();
