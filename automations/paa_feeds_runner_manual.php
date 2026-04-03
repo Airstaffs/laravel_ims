@@ -8,29 +8,17 @@
  * - Uses the SAME window / restore flow as paa_runner.php.
  * - Source is MANUAL mode only:
  *      snapshots rows from tbl_paa_automation_items where automation_id=? and is_active=1
- * - Each manual item is validated against tblfnsku using:
- *      MSKU = automation item msku
- *      storename = automation item storename
- *      amzn_item_price IS NOT NULL AND amzn_item_price > 0
  * - During adjust:
- *      uses the frozen snapshot current_price/original_price from tbl_paa_run_items
+ *      source items from tbl_paa_run_items
+ *      determine usable baseline price in this order:
+ *          1) tbl_paa_run_items.current_price
+ *          2) tbl_paa_run_items.original_price
+ *          3) tblfnsku.amzn_item_price (matched by MSKU + storename)
+ *      only items with baseline price > 0 are touched
+ *      if fallback came from tblfnsku cache, snapshot it back into tbl_paa_run_items
  *      submits bulk price updates through JSON_LISTINGS_FEED
  * - During restore:
  *      restores the frozen original_price snapshot through JSON_LISTINGS_FEED
- *
- * Required app endpoint
- * --------------------------------------------------
- * POST /api/amazon/listings/submit-price-feed-sync
- *
- * Required tblfnsku field
- * --------------------------------------------------
- * ALTER TABLE tblfnsku
- * ADD COLUMN amzn_item_price DECIMAL(10,2) NULL AFTER amazon_status;
- *
- * Optional
- * --------------------------------------------------
- * ALTER TABLE tblfnsku
- * ADD COLUMN amzn_item_price_updated_at DATETIME NULL AFTER amzn_item_price;
  */
 
 date_default_timezone_set('UTC');
@@ -43,8 +31,6 @@ $MAX_ATTEMPTS = 10;
 $PROCESSING_TIMEOUT_MIN = 15;
 $LOG_PREFIX = '[PAA-FEEDS-MANUAL] ';
 $LARAVEL_ROOT = realpath(__DIR__ . '/..');
-
-// Locked to manual mode for this version
 $ITEM_SOURCE_MODE = 'manual';
 
 // ----------------------------------------------------
@@ -196,7 +182,7 @@ function db()
         return $mysqli;
     }
 
-    $host = envv('localhost');
+    $host = envv('DB_HOST', '127.0.0.1');
     $port = (int) envv('DB_PORT', 3306);
     $user = envv('DB_USERNAME', '');
     $pass = envv('DB_PASSWORD', '');
@@ -504,16 +490,7 @@ function get_tblfnsku_cached_price_row($mysqli, $msku, $storename)
         return null;
     }
 
-    $stmt = $mysqli->prepare("
-        SELECT FNSKUID, MSKU, storename, amzn_item_price
-        FROM tblfnsku
-        WHERE MSKU=?
-          AND storename=?
-          AND amzn_item_price IS NOT NULL
-          AND amzn_item_price > 0
-        ORDER BY FNSKUID DESC
-        LIMIT 1
-    ");
+    $stmt = $mysqli->prepare("\n        SELECT FNSKUID, MSKU, storename, amzn_item_price\n        FROM tblfnsku\n        WHERE MSKU=?\n          AND storename=?\n          AND amzn_item_price IS NOT NULL\n          AND amzn_item_price > 0\n        ORDER BY FNSKUID DESC\n        LIMIT 1\n    ");
     $stmt->bind_param('ss', $msku, $storename);
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();
@@ -539,22 +516,22 @@ function syncResolvedSku($mysqli, $automationId, $runItemId, $msku, $storename, 
     $storename = normalize_store($storename);
 
     if ($automationId > 0) {
-        $stmt = $mysqli->prepare("
-            UPDATE tbl_paa_automation_items
-            SET sku=?, updated_at=UTC_TIMESTAMP()
-            WHERE automation_id=? AND msku=? AND storename=?
-        ");
+        $stmt = $mysqli->prepare("\n            UPDATE tbl_paa_automation_items\n            SET sku=?, updated_at=UTC_TIMESTAMP()\n            WHERE automation_id=? AND msku=? AND storename=?\n        ");
         $stmt->bind_param('siss', $sku, $automationId, $msku, $storename);
         $stmt->execute();
         $stmt->close();
     }
 
-    $stmt = $mysqli->prepare("
-        UPDATE tbl_paa_run_items
-        SET sku=?, updated_at=UTC_TIMESTAMP()
-        WHERE id=?
-    ");
+    $stmt = $mysqli->prepare("\n        UPDATE tbl_paa_run_items\n        SET sku=?, updated_at=UTC_TIMESTAMP()\n        WHERE id=?\n    ");
     $stmt->bind_param('si', $sku, $runItemId);
+    $stmt->execute();
+    $stmt->close();
+}
+
+function syncRunItemBaselinePrices($mysqli, $runItemId, $fnskuid, $baselinePrice)
+{
+    $stmt = $mysqli->prepare("\n        UPDATE tbl_paa_run_items\n        SET fnskuid = COALESCE(?, fnskuid),\n            current_price = ?,\n            original_price = IFNULL(original_price, ?),\n            updated_at = UTC_TIMESTAMP()\n        WHERE id = ?\n    ");
+    $stmt->bind_param('iddi', $fnskuid, $baselinePrice, $baselinePrice, $runItemId);
     $stmt->execute();
     $stmt->close();
 }
@@ -623,14 +600,7 @@ function get_enabled_automations($mysqli)
 
 function find_open_run_for_automation($mysqli, $automationId)
 {
-    $stmt = $mysqli->prepare("
-        SELECT *
-        FROM tbl_paa_runs
-        WHERE automation_id=?
-          AND status IN ('pending','running')
-        ORDER BY id ASC
-        LIMIT 1
-    ");
+    $stmt = $mysqli->prepare("\n        SELECT *\n        FROM tbl_paa_runs\n        WHERE automation_id=?\n          AND status IN ('pending','running')\n        ORDER BY id ASC\n        LIMIT 1\n    ");
     $stmt->bind_param('i', $automationId);
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();
@@ -641,16 +611,7 @@ function find_open_run_for_automation($mysqli, $automationId)
 
 function find_open_run_for_window($mysqli, $automationId, $windowStart, $windowEnd)
 {
-    $stmt = $mysqli->prepare("
-        SELECT *
-        FROM tbl_paa_runs
-        WHERE automation_id=?
-          AND window_start=?
-          AND window_end=?
-          AND status IN ('pending','running')
-        ORDER BY id ASC
-        LIMIT 1
-    ");
+    $stmt = $mysqli->prepare("\n        SELECT *\n        FROM tbl_paa_runs\n        WHERE automation_id=?\n          AND window_start=?\n          AND window_end=?\n          AND status IN ('pending','running')\n        ORDER BY id ASC\n        LIMIT 1\n    ");
     $stmt->bind_param('iss', $automationId, $windowStart, $windowEnd);
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();
@@ -663,12 +624,7 @@ function get_snapshot_items_manual($mysqli, $automationId)
 {
     $items = [];
 
-    $stmt = $mysqli->prepare("
-        SELECT id, msku, sku, storename, NULL AS fnskuid
-        FROM tbl_paa_automation_items
-        WHERE automation_id=? AND is_active=1
-        ORDER BY id ASC
-    ");
+    $stmt = $mysqli->prepare("\n        SELECT id, msku, sku, storename, NULL AS fnskuid\n        FROM tbl_paa_automation_items\n        WHERE automation_id=? AND is_active=1\n        ORDER BY id ASC\n    ");
     $stmt->bind_param('i', $automationId);
     $stmt->execute();
     $res = $stmt->get_result();
@@ -704,12 +660,7 @@ function get_snapshot_items_manual($mysqli, $automationId)
 
 function create_run_for_window($mysqli, $automationId, $windowStart, $windowEnd)
 {
-    $stmt = $mysqli->prepare("
-        INSERT INTO tbl_paa_runs
-            (automation_id, scheduled_for_utc, status, phase, window_start, window_end, started_at_utc, created_at, updated_at)
-        VALUES
-            (?, UTC_TIMESTAMP(), 'running', 'adjust', ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP())
-    ");
+    $stmt = $mysqli->prepare("\n        INSERT INTO tbl_paa_runs\n            (automation_id, scheduled_for_utc, status, phase, window_start, window_end, started_at_utc, created_at, updated_at)\n        VALUES\n            (?, UTC_TIMESTAMP(), 'running', 'adjust', ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP(), UTC_TIMESTAMP())\n    ");
     $stmt->bind_param('iss', $automationId, $windowStart, $windowEnd);
     $ok = $stmt->execute();
 
@@ -726,12 +677,7 @@ function create_run_for_window($mysqli, $automationId, $windowStart, $windowEnd)
     $totalItems = count($items);
 
     if ($totalItems > 0) {
-        $ins = $mysqli->prepare("
-            INSERT INTO tbl_paa_run_items
-                (run_id, automation_item_id, msku, sku, storename, fnskuid, current_price, original_price, status, attempts, created_at, updated_at)
-            VALUES
-                (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())
-        ");
+        $ins = $mysqli->prepare("\n            INSERT INTO tbl_paa_run_items\n                (run_id, automation_item_id, msku, sku, storename, fnskuid, current_price, original_price, status, attempts, created_at, updated_at)\n            VALUES\n                (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, UTC_TIMESTAMP(), UTC_TIMESTAMP())\n        ");
 
         foreach ($items as $it) {
             $automationItemId = $it['automation_item_id'] !== null ? (int) $it['automation_item_id'] : null;
@@ -748,25 +694,13 @@ function create_run_for_window($mysqli, $automationId, $windowStart, $windowEnd)
         $ins->close();
     }
 
-    $stmt = $mysqli->prepare("
-        UPDATE tbl_paa_runs
-        SET total_items=?, updated_at=UTC_TIMESTAMP()
-        WHERE id=?
-    ");
+    $stmt = $mysqli->prepare("\n        UPDATE tbl_paa_runs\n        SET total_items=?, updated_at=UTC_TIMESTAMP()\n        WHERE id=?\n    ");
     $stmt->bind_param('ii', $totalItems, $runId);
     $stmt->execute();
     $stmt->close();
 
     if ($totalItems === 0) {
-        $mysqli->query("
-            UPDATE tbl_paa_runs
-            SET status='done',
-                phase='done',
-                finished_at_utc=UTC_TIMESTAMP(),
-                total_items=0,
-                processed_items=0,
-                updated_at=UTC_TIMESTAMP()
-            WHERE id=" . (int) $runId
+        $mysqli->query("\n            UPDATE tbl_paa_runs\n            SET status='done',\n                phase='done',\n                finished_at_utc=UTC_TIMESTAMP(),\n                total_items=0,\n                processed_items=0,\n                updated_at=UTC_TIMESTAMP()\n            WHERE id=" . (int) $runId
         );
 
         logg("Run #{$runId} created with 0 snapshot items. Marked done immediately. mode=manual");
@@ -779,14 +713,7 @@ function create_run_for_window($mysqli, $automationId, $windowStart, $windowEnd)
 
 function finalize_run_done($mysqli, $runId)
 {
-    $cntRes = $mysqli->query("
-        SELECT
-            SUM(status IN ('pending','processing')) AS open_count,
-            SUM(status='success' AND restored_at_utc IS NOT NULL) AS restored_success_count,
-            SUM(status='failed') AS failed_count,
-            SUM(status='skipped') AS skipped_count
-        FROM tbl_paa_run_items
-        WHERE run_id=" . (int) $runId
+    $cntRes = $mysqli->query("\n        SELECT\n            SUM(status IN ('pending','processing')) AS open_count,\n            SUM(status='success' AND restored_at_utc IS NOT NULL) AS restored_success_count,\n            SUM(status='failed') AS failed_count,\n            SUM(status='skipped') AS skipped_count\n        FROM tbl_paa_run_items\n        WHERE run_id=" . (int) $runId
     );
 
     $cnt = $cntRes ? $cntRes->fetch_assoc() : [];
@@ -801,17 +728,7 @@ function finalize_run_done($mysqli, $runId)
     $skippedCount = (int) ($cnt['skipped_count'] ?? 0);
     $processedCount = $successCount + $failedCount + $skippedCount;
 
-    $mysqli->query("
-        UPDATE tbl_paa_runs
-        SET status='done',
-            phase='done',
-            finished_at_utc=UTC_TIMESTAMP(),
-            success_items={$successCount},
-            failed_items={$failedCount},
-            skipped_items={$skippedCount},
-            processed_items={$processedCount},
-            updated_at=UTC_TIMESTAMP()
-        WHERE id=" . (int) $runId
+    $mysqli->query("\n        UPDATE tbl_paa_runs\n        SET status='done',\n            phase='done',\n            finished_at_utc=UTC_TIMESTAMP(),\n            success_items={$successCount},\n            failed_items={$failedCount},\n            skipped_items={$skippedCount},\n            processed_items={$processedCount},\n            updated_at=UTC_TIMESTAMP()\n        WHERE id=" . (int) $runId
     );
 
     return true;
@@ -819,13 +736,7 @@ function finalize_run_done($mysqli, $runId)
 
 function move_run_to_restore_phase($mysqli, $runId)
 {
-    $stmt = $mysqli->prepare("
-        UPDATE tbl_paa_runs
-        SET phase='restore',
-            status='running',
-            updated_at=UTC_TIMESTAMP()
-        WHERE id=?
-    ");
+    $stmt = $mysqli->prepare("\n        UPDATE tbl_paa_runs\n        SET phase='restore',\n            status='running',\n            updated_at=UTC_TIMESTAMP()\n        WHERE id=?\n    ");
     $stmt->bind_param('i', $runId);
     $stmt->execute();
     $stmt->close();
@@ -941,28 +852,14 @@ function claim_restore_batch($mysqli, $runId, $batchSize, $maxAttempts)
 
 function count_restore_remaining($mysqli, $runId)
 {
-    $res = $mysqli->query("
-        SELECT COUNT(*) AS c
-        FROM tbl_paa_run_items
-        WHERE run_id=" . (int) $runId . "
-          AND adjusted_at_utc IS NOT NULL
-          AND restored_at_utc IS NULL
-    ");
+    $res = $mysqli->query("\n        SELECT COUNT(*) AS c\n        FROM tbl_paa_run_items\n        WHERE run_id=" . (int) $runId . "\n          AND adjusted_at_utc IS NOT NULL\n          AND restored_at_utc IS NULL\n    ");
     $row = $res ? $res->fetch_assoc() : ['c' => 0];
     return (int) ($row['c'] ?? 0);
 }
 
 function skip_unadjusted_items_for_expired_run($mysqli, $runId)
 {
-    $stmt = $mysqli->prepare("
-        UPDATE tbl_paa_run_items
-        SET status='skipped',
-            last_error='Skipped because adjust window expired before processing',
-            updated_at=UTC_TIMESTAMP()
-        WHERE run_id=?
-          AND status IN ('pending','processing')
-          AND adjusted_at_utc IS NULL
-    ");
+    $stmt = $mysqli->prepare("\n        UPDATE tbl_paa_run_items\n        SET status='skipped',\n            last_error='Skipped because adjust window expired before processing',\n            updated_at=UTC_TIMESTAMP()\n        WHERE run_id=?\n          AND status IN ('pending','processing')\n          AND adjusted_at_utc IS NULL\n    ");
     $stmt->bind_param('i', $runId);
     $stmt->execute();
     $affected = $stmt->affected_rows;
@@ -977,12 +874,7 @@ function skip_unadjusted_items_for_expired_run($mysqli, $runId)
 
 function mark_item_failed_or_retry($mysqli, $runItemId, $msg, $maxAttempts)
 {
-    $stmt = $mysqli->prepare("
-        SELECT attempts
-        FROM tbl_paa_run_items
-        WHERE id=?
-        LIMIT 1
-    ");
+    $stmt = $mysqli->prepare("\n        SELECT attempts\n        FROM tbl_paa_run_items\n        WHERE id=?\n        LIMIT 1\n    ");
     $stmt->bind_param('i', $runItemId);
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();
@@ -991,13 +883,26 @@ function mark_item_failed_or_retry($mysqli, $runItemId, $msg, $maxAttempts)
     $attempts = (int) ($row['attempts'] ?? 0);
     $finalStatus = ($attempts >= $maxAttempts) ? 'failed' : 'pending';
 
-    $stmt = $mysqli->prepare("
-        UPDATE tbl_paa_run_items
-        SET status=?,
-            last_error=?,
-            updated_at=UTC_TIMESTAMP()
-        WHERE id=?
-    ");
+    $stmt = $mysqli->prepare("\n        UPDATE tbl_paa_run_items\n        SET status=?,\n            last_error=?,\n            updated_at=UTC_TIMESTAMP()\n        WHERE id=?\n    ");
+    $stmt->bind_param('ssi', $finalStatus, $msg, $runItemId);
+    $stmt->execute();
+    $stmt->close();
+
+    return $finalStatus;
+}
+
+function mark_restore_failed_or_retry($mysqli, $runItemId, $msg, $maxAttempts)
+{
+    $stmt = $mysqli->prepare("\n        SELECT attempts\n        FROM tbl_paa_run_items\n        WHERE id=?\n        LIMIT 1\n    ");
+    $stmt->bind_param('i', $runItemId);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    $attempts = (int) ($row['attempts'] ?? 0);
+    $finalStatus = ($attempts >= $maxAttempts) ? 'failed' : 'success';
+
+    $stmt = $mysqli->prepare("\n        UPDATE tbl_paa_run_items\n        SET status=?,\n            last_error=?,\n            updated_at=UTC_TIMESTAMP()\n        WHERE id=?\n    ");
     $stmt->bind_param('ssi', $finalStatus, $msg, $runItemId);
     $stmt->execute();
     $stmt->close();
@@ -1015,38 +920,76 @@ function mark_items_submitted_success($mysqli, array $preparedRows, $feedId, $ph
         $targetPrice = (float) $row['target_price'];
 
         if ($phase === 'adjust') {
-            $stmt = $mysqli->prepare("
-                UPDATE tbl_paa_run_items
-                SET status='success',
-                    current_price=?,
-                    original_price=IFNULL(original_price, ?),
-                    new_price=?,
-                    processed_at_utc=UTC_TIMESTAMP(),
-                    adjusted_at_utc=IFNULL(adjusted_at_utc, UTC_TIMESTAMP()),
-                    last_error=?,
-                    updated_at=UTC_TIMESTAMP()
-                WHERE id=?
-            ");
+            $stmt = $mysqli->prepare("\n                UPDATE tbl_paa_run_items\n                SET status='success',\n                    current_price=?,\n                    original_price=IFNULL(original_price, ?),\n                    new_price=?,\n                    processed_at_utc=UTC_TIMESTAMP(),\n                    adjusted_at_utc=IFNULL(adjusted_at_utc, UTC_TIMESTAMP()),\n                    last_error=?,\n                    updated_at=UTC_TIMESTAMP()\n                WHERE id=?\n            ");
             $note = 'Feed applied: ' . $feedId . ' SKU=' . $sku;
             $stmt->bind_param('dddsi', $currentPrice, $originalPrice, $targetPrice, $note, $runItemId);
             $stmt->execute();
             $stmt->close();
         } else {
-            $stmt = $mysqli->prepare("
-                UPDATE tbl_paa_run_items
-                SET status='success',
-                    new_price=?,
-                    restored_at_utc=UTC_TIMESTAMP(),
-                    last_error=?,
-                    updated_at=UTC_TIMESTAMP()
-                WHERE id=?
-            ");
+            $stmt = $mysqli->prepare("\n                UPDATE tbl_paa_run_items\n                SET status='success',\n                    new_price=?,\n                    restored_at_utc=UTC_TIMESTAMP(),\n                    last_error=?,\n                    updated_at=UTC_TIMESTAMP()\n                WHERE id=?\n            ");
             $note = 'Restore feed applied: ' . $feedId . ' SKU=' . $sku;
             $stmt->bind_param('dsi', $targetPrice, $note, $runItemId);
             $stmt->execute();
             $stmt->close();
         }
     }
+}
+
+function resolve_adjust_baseline_price($mysqli, $automationId, array $it)
+{
+    $runItemId = (int) $it['id'];
+    $msku = trim((string) ($it['msku'] ?? ''));
+    $storename = normalize_store($it['storename'] ?? '');
+    $sku = $it['sku'] !== null ? trim((string) $it['sku']) : null;
+    $fnskuid = isset($it['fnskuid']) && $it['fnskuid'] !== null ? (int) $it['fnskuid'] : null;
+
+    $currentPrice = isset($it['current_price']) && $it['current_price'] !== null ? (float) $it['current_price'] : null;
+    $originalPrice = isset($it['original_price']) && $it['original_price'] !== null ? (float) $it['original_price'] : null;
+
+    $baselinePrice = null;
+    $baselineSource = null;
+    $cacheRow = null;
+
+    if ($currentPrice !== null && $currentPrice > 0) {
+        $baselinePrice = $currentPrice;
+        $baselineSource = 'run_current_price';
+    } elseif ($originalPrice !== null && $originalPrice > 0) {
+        $baselinePrice = $originalPrice;
+        $baselineSource = 'run_original_price';
+    } else {
+        $cacheRow = get_tblfnsku_cached_price_row($mysqli, $msku, $storename);
+        if ($cacheRow && isset($cacheRow['cached_price']) && (float) $cacheRow['cached_price'] > 0) {
+            $baselinePrice = (float) $cacheRow['cached_price'];
+            $baselineSource = 'tblfnsku_amzn_item_price';
+            $fnskuid = $cacheRow['fnskuid'] ?? $fnskuid;
+            syncRunItemBaselinePrices($mysqli, $runItemId, $fnskuid, $baselinePrice);
+            $currentPrice = $baselinePrice;
+            if ($originalPrice === null || $originalPrice <= 0) {
+                $originalPrice = $baselinePrice;
+            }
+        }
+    }
+
+    if ($baselinePrice !== null && $baselinePrice > 0) {
+        if ($currentPrice === null || $currentPrice <= 0) {
+            $currentPrice = $baselinePrice;
+        }
+        if ($originalPrice === null || $originalPrice <= 0) {
+            $originalPrice = $baselinePrice;
+        }
+    }
+
+    return [
+        'run_item_id' => $runItemId,
+        'msku' => $msku,
+        'sku' => $sku,
+        'storename' => $storename,
+        'fnskuid' => $fnskuid,
+        'current_price' => $currentPrice,
+        'original_price' => $originalPrice,
+        'baseline_price' => $baselinePrice,
+        'baseline_source' => $baselineSource,
+    ];
 }
 
 // ----------------------------------------------------
@@ -1107,13 +1050,7 @@ function process_adjust_phase($mysqli, $automation, $run, $currentHHMM, $batchSi
 
             try {
                 if ($storename === '' || $storename === '__UNKNOWN__') {
-                    $stmt = $mysqli->prepare("
-                        UPDATE tbl_paa_run_items
-                        SET status='skipped',
-                            last_error=?,
-                            updated_at=UTC_TIMESTAMP()
-                        WHERE id=?
-                    ");
+                    $stmt = $mysqli->prepare("\n                        UPDATE tbl_paa_run_items\n                        SET status='skipped',\n                            last_error=?,\n                            updated_at=UTC_TIMESTAMP()\n                        WHERE id=?\n                    ");
                     $err = 'Missing storename for run item';
                     $stmt->bind_param('si', $err, $runItemId);
                     $stmt->execute();
@@ -1128,17 +1065,12 @@ function process_adjust_phase($mysqli, $automation, $run, $currentHHMM, $batchSi
 
                     if ($sku) {
                         syncResolvedSku($mysqli, $automationId, $runItemId, $msku, $storename, $sku);
+                        $it['sku'] = $sku;
                     }
                 }
 
                 if (!$sku) {
-                    $stmt = $mysqli->prepare("
-                        UPDATE tbl_paa_run_items
-                        SET status='skipped',
-                            last_error=?,
-                            updated_at=UTC_TIMESTAMP()
-                        WHERE id=?
-                    ");
+                    $stmt = $mysqli->prepare("\n                        UPDATE tbl_paa_run_items\n                        SET status='skipped',\n                            last_error=?,\n                            updated_at=UTC_TIMESTAMP()\n                        WHERE id=?\n                    ");
                     $err = 'No SKU resolved for MSKU';
                     $stmt->bind_param('si', $err, $runItemId);
                     $stmt->execute();
@@ -1148,18 +1080,15 @@ function process_adjust_phase($mysqli, $automation, $run, $currentHHMM, $batchSi
                     continue;
                 }
 
-                $currentPrice = isset($it['current_price']) ? (float) $it['current_price'] : null;
-                $originalPrice = isset($it['original_price']) ? (float) $it['original_price'] : null;
+                $baseline = resolve_adjust_baseline_price($mysqli, $automationId, $it);
+                $baselinePrice = $baseline['baseline_price'];
+                $currentPrice = $baseline['current_price'];
+                $originalPrice = $baseline['original_price'];
+                $baselineSource = $baseline['baseline_source'];
 
-                if ($currentPrice === null || $currentPrice <= 0) {
-                    $stmt = $mysqli->prepare("
-                        UPDATE tbl_paa_run_items
-                        SET status='skipped',
-                            last_error=?,
-                            updated_at=UTC_TIMESTAMP()
-                        WHERE id=?
-                    ");
-                    $err = 'No snapshot current_price found';
+                if ($baselinePrice === null || $baselinePrice <= 0) {
+                    $stmt = $mysqli->prepare("\n                        UPDATE tbl_paa_run_items\n                        SET status='skipped',\n                            last_error=?,\n                            updated_at=UTC_TIMESTAMP()\n                        WHERE id=?\n                    ");
+                    $err = 'No usable baseline price found from run snapshot or tblfnsku cache';
                     $stmt->bind_param('si', $err, $runItemId);
                     $stmt->execute();
                     $stmt->close();
@@ -1168,12 +1097,8 @@ function process_adjust_phase($mysqli, $automation, $run, $currentHHMM, $batchSi
                     continue;
                 }
 
-                if ($originalPrice === null || $originalPrice <= 0) {
-                    $originalPrice = $currentPrice;
-                }
-
-                $deltaToApply = pick_delta_from_rules($currentPrice, $rulesForWindow, $defaultDelta);
-                $newPrice = (float) $currentPrice + (float) $deltaToApply;
+                $deltaToApply = pick_delta_from_rules($baselinePrice, $rulesForWindow, $defaultDelta);
+                $newPrice = (float) $baselinePrice + (float) $deltaToApply;
 
                 if ($newPrice < 0) {
                     $newPrice = 0;
@@ -1188,6 +1113,7 @@ function process_adjust_phase($mysqli, $automation, $run, $currentHHMM, $batchSi
                     'original_price' => (float) $originalPrice,
                     'target_price' => round((float) $newPrice, 2),
                     'delta' => (float) $deltaToApply,
+                    'baseline_source' => (string) $baselineSource,
                 ];
             } catch (Exception $e) {
                 $msg = substr($e->getMessage(), 0, 2000);
@@ -1222,6 +1148,7 @@ function process_adjust_phase($mysqli, $automation, $run, $currentHHMM, $batchSi
                     ' current=' . $row['current_price'] .
                     ' delta=' . $row['delta'] .
                     ' new=' . $row['target_price'] .
+                    ' source=' . $row['baseline_source'] .
                     ' feedId=' . $feedId
                 );
             }
@@ -1252,12 +1179,7 @@ function process_restore_phase($mysqli, $automation, $run, $batchSize, $maxAttem
             $done = finalize_run_done($mysqli, $runId);
 
             if ($done) {
-                $stmt = $mysqli->prepare("
-                    UPDATE tbl_paa_automations
-                    SET last_run_at_utc=UTC_TIMESTAMP(),
-                        updated_at=UTC_TIMESTAMP()
-                    WHERE id=?
-                ");
+                $stmt = $mysqli->prepare("\n                    UPDATE tbl_paa_automations\n                    SET last_run_at_utc=UTC_TIMESTAMP(),\n                        updated_at=UTC_TIMESTAMP()\n                    WHERE id=?\n                ");
                 $stmt->bind_param('i', $automationId);
                 $stmt->execute();
                 $stmt->close();
@@ -1287,13 +1209,7 @@ function process_restore_phase($mysqli, $automation, $run, $batchSize, $maxAttem
 
             try {
                 if ($storename === '' || $storename === '__UNKNOWN__') {
-                    $stmt = $mysqli->prepare("
-                        UPDATE tbl_paa_run_items
-                        SET status='skipped',
-                            last_error=?,
-                            updated_at=UTC_TIMESTAMP()
-                        WHERE id=?
-                    ");
+                    $stmt = $mysqli->prepare("\n                        UPDATE tbl_paa_run_items\n                        SET status='skipped',\n                            last_error=?,\n                            updated_at=UTC_TIMESTAMP()\n                        WHERE id=?\n                    ");
                     $err = 'Missing storename for run item during restore';
                     $stmt->bind_param('si', $err, $runItemId);
                     $stmt->execute();
@@ -1312,13 +1228,7 @@ function process_restore_phase($mysqli, $automation, $run, $batchSize, $maxAttem
                 }
 
                 if (!$sku) {
-                    $stmt = $mysqli->prepare("
-                        UPDATE tbl_paa_run_items
-                        SET status='skipped',
-                            last_error=?,
-                            updated_at=UTC_TIMESTAMP()
-                        WHERE id=?
-                    ");
+                    $stmt = $mysqli->prepare("\n                        UPDATE tbl_paa_run_items\n                        SET status='skipped',\n                            last_error=?,\n                            updated_at=UTC_TIMESTAMP()\n                        WHERE id=?\n                    ");
                     $err = 'No SKU resolved for MSKU during restore';
                     $stmt->bind_param('si', $err, $runItemId);
                     $stmt->execute();
@@ -1329,13 +1239,7 @@ function process_restore_phase($mysqli, $automation, $run, $batchSize, $maxAttem
                 }
 
                 if ($originalPrice === null || $originalPrice <= 0) {
-                    $stmt = $mysqli->prepare("
-                        UPDATE tbl_paa_run_items
-                        SET status='skipped',
-                            last_error=?,
-                            updated_at=UTC_TIMESTAMP()
-                        WHERE id=?
-                    ");
+                    $stmt = $mysqli->prepare("\n                        UPDATE tbl_paa_run_items\n                        SET status='skipped',\n                            last_error=?,\n                            updated_at=UTC_TIMESTAMP()\n                        WHERE id=?\n                    ");
                     $err = 'No original price available for restore';
                     $stmt->bind_param('si', $err, $runItemId);
                     $stmt->execute();
@@ -1355,32 +1259,7 @@ function process_restore_phase($mysqli, $automation, $run, $batchSize, $maxAttem
                 ];
             } catch (Exception $e) {
                 $msg = substr($e->getMessage(), 0, 2000);
-
-                $stmt = $mysqli->prepare("
-                    SELECT attempts
-                    FROM tbl_paa_run_items
-                    WHERE id=?
-                    LIMIT 1
-                ");
-                $stmt->bind_param('i', $runItemId);
-                $stmt->execute();
-                $row = $stmt->get_result()->fetch_assoc();
-                $stmt->close();
-
-                $attempts = (int) ($row['attempts'] ?? 0);
-                $finalStatus = ($attempts >= $maxAttempts) ? 'failed' : 'success';
-
-                $stmt = $mysqli->prepare("
-                    UPDATE tbl_paa_run_items
-                    SET status=?,
-                        last_error=?,
-                        updated_at=UTC_TIMESTAMP()
-                    WHERE id=?
-                ");
-                $stmt->bind_param('ssi', $finalStatus, $msg, $runItemId);
-                $stmt->execute();
-                $stmt->close();
-
+                $finalStatus = mark_restore_failed_or_retry($mysqli, $runItemId, $msg, $maxAttempts);
                 logg("Run item #{$runItemId} restore {$finalStatus}: store={$storename} msg={$msg}");
             }
         }
@@ -1416,32 +1295,8 @@ function process_restore_phase($mysqli, $automation, $run, $batchSize, $maxAttem
             $msg = substr($e->getMessage(), 0, 2000);
 
             foreach ($preparedRows as $row) {
-                $stmt = $mysqli->prepare("
-                    SELECT attempts
-                    FROM tbl_paa_run_items
-                    WHERE id=?
-                    LIMIT 1
-                ");
                 $runItemId = (int) $row['run_item_id'];
-                $stmt->bind_param('i', $runItemId);
-                $stmt->execute();
-                $attemptRow = $stmt->get_result()->fetch_assoc();
-                $stmt->close();
-
-                $attempts = (int) ($attemptRow['attempts'] ?? 0);
-                $finalStatus = ($attempts >= $maxAttempts) ? 'failed' : 'success';
-
-                $stmt = $mysqli->prepare("
-                    UPDATE tbl_paa_run_items
-                    SET status=?,
-                        last_error=?,
-                        updated_at=UTC_TIMESTAMP()
-                    WHERE id=?
-                ");
-                $stmt->bind_param('ssi', $finalStatus, $msg, $runItemId);
-                $stmt->execute();
-                $stmt->close();
-
+                $finalStatus = mark_restore_failed_or_retry($mysqli, $runItemId, $msg, $maxAttempts);
                 logg('Run item #' . $runItemId . ' restore ' . $finalStatus . ': store=' . $itemStore . ' msg=' . $msg);
             }
         }
