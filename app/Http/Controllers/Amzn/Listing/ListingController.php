@@ -925,4 +925,353 @@ class ListingController extends Controller
         // Return the response if checksum matches
         return $result;
     }
+
+    public function submitPriceFeedSync(Request $request)
+    {
+        $data = $request->validate([
+            'store' => ['required', 'string'],
+            'marketplaceIds' => ['required', 'array', 'min:1'],
+            'marketplaceIds.*' => ['required', 'string'],
+            'currency' => ['nullable', 'string'],
+            'updates' => ['required', 'array', 'min:1', 'max:25000'],
+            'updates.*.sku' => ['required', 'string'],
+            'updates.*.price' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $store = $data['store'];
+        $marketplaceIds = array_values($data['marketplaceIds']);
+        $marketplaceId = $marketplaceIds[0];
+        $currency = $data['currency'] ?? 'USD';
+        $updates = array_values($data['updates']);
+
+        $credentials = AWSCredentials($store);
+        if (!$credentials) {
+            return response()->json([
+                'success' => false,
+                'message' => "No credentials found for store: {$store}",
+            ], 422);
+        }
+
+        $sellerId = $credentials['MerchantID'] ?? null;
+        if (!$sellerId) {
+            return response()->json([
+                'success' => false,
+                'message' => "Missing MerchantID / sellerId for store: {$store}",
+            ], 422);
+        }
+
+        $accessToken = fetchAccessToken($credentials, false);
+        if (!$accessToken) {
+            return response()->json([
+                'success' => false,
+                'message' => "Failed to fetch access token for store: {$store}",
+            ], 422);
+        }
+
+        $feedBody = $this->buildJsonListingsPriceFeedBody(
+            sellerId: $sellerId,
+            marketplaceId: $marketplaceId,
+            currency: $currency,
+            updates: $updates
+        );
+
+        try {
+            $document = $this->spCreateFeedDocument(
+                credentials: $credentials,
+                accessToken: $accessToken,
+                contentType: 'application/json; charset=UTF-8'
+            );
+
+            $feedDocumentId = $document['feedDocumentId'] ?? null;
+            $uploadUrl = $document['url'] ?? null;
+
+            if (!$feedDocumentId || !$uploadUrl) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Amazon did not return feedDocumentId/url.',
+                    'documentResponse' => $document,
+                ], 500);
+            }
+
+            $uploadResult = $this->uploadFeedDocumentToAmazon(
+                uploadUrl: $uploadUrl,
+                jsonBody: json_encode($feedBody, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+            );
+
+            if (!$uploadResult['success']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed uploading feed document to Amazon.',
+                    'upload' => $uploadResult,
+                ], 500);
+            }
+
+            $feedCreate = $this->spCreateFeed(
+                credentials: $credentials,
+                accessToken: $accessToken,
+                feedType: 'JSON_LISTINGS_FEED',
+                marketplaceIds: $marketplaceIds,
+                inputFeedDocumentId: $feedDocumentId
+            );
+
+            $feedId = $feedCreate['feedId'] ?? null;
+            if (!$feedId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Amazon did not return feedId.',
+                    'createFeedResponse' => $feedCreate,
+                ], 500);
+            }
+
+            $poll = $this->spPollFeedUntilTerminal(
+                credentials: $credentials,
+                accessToken: $accessToken,
+                feedId: $feedId,
+                maxAttempts: 60,
+                sleepSeconds: 10
+            );
+
+            $processingStatus = strtoupper((string) ($poll['processingStatus'] ?? 'UNKNOWN'));
+
+            // Optional: update local cached prices only after Amazon reports terminal success
+            if ($processingStatus === 'DONE') {
+                $now = now();
+
+                foreach ($updates as $row) {
+                    DB::table('tblfnsku')
+                        ->where('MSKU', $row['sku'])
+                        ->where('storename', $store)
+                        ->update([
+                            'amzn_item_price' => round((float) $row['price'], 2),
+                            'amzn_item_price_updated_at' => $now,
+                            'updated_at' => $now,
+                        ]);
+                }
+            }
+
+            return response()->json([
+                'success' => $processingStatus === 'DONE',
+                'store' => $store,
+                'feedType' => 'JSON_LISTINGS_FEED',
+                'feedDocumentId' => $feedDocumentId,
+                'feedId' => $feedId,
+                'submittedCount' => count($updates),
+                'processingStatus' => $processingStatus,
+                'poll' => $poll,
+                'requestPreview' => [
+                    'marketplaceIds' => $marketplaceIds,
+                    'currency' => $currency,
+                    'updatesCount' => count($updates),
+                ],
+            ], $processingStatus === 'DONE' ? 200 : 422);
+
+        } catch (\Throwable $e) {
+            Log::error('submitPriceFeedSync exception', [
+                'store' => $store,
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'store' => $store,
+            ], 500);
+        }
+    }
+
+    private function buildJsonListingsPriceFeedBody(string $sellerId, string $marketplaceId, string $currency, array $updates): array
+    {
+        $messages = [];
+        $messageId = 1;
+
+        foreach ($updates as $row) {
+            $sku = (string) $row['sku'];
+            $price = round((float) $row['price'], 2);
+
+            $messages[] = [
+                'messageId' => $messageId++,
+                'sku' => $sku,
+                'operationType' => 'PATCH',
+                'productType' => 'PRODUCT',
+                'patches' => [
+                    [
+                        'op' => 'replace',
+                        'path' => '/attributes/purchasable_offer',
+                        'value' => [
+                            [
+                                'marketplace_id' => $marketplaceId,
+                                'currency' => $currency,
+                                'audience' => 'ALL',
+                                'our_price' => [
+                                    [
+                                        'schedule' => [
+                                            [
+                                                'value_with_tax' => $price,
+                                            ]
+                                        ],
+                                    ]
+                                ],
+                            ]
+                        ],
+                    ],
+                ],
+            ];
+        }
+
+        return [
+            'header' => [
+                'sellerId' => $sellerId,
+                'version' => '2.0',
+                'issueLocale' => 'en_US',
+            ],
+            'messages' => $messages,
+        ];
+    }
+
+    private function spCreateFeedDocument(array $credentials, string $accessToken, string $contentType = 'application/json; charset=UTF-8'): array
+    {
+        $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+        $path = '/feeds/2021-06-30/documents';
+        $body = [
+            'contentType' => $contentType,
+        ];
+
+        $headers = buildHeaders(
+            $credentials,
+            $accessToken,
+            'POST',
+            'execute-api',
+            'us-east-1',
+            $path,
+            null,
+            [],
+            $endpoint,
+            'host:sellingpartnerapi-na.amazon.com'
+        );
+
+        $headers['Content-Type'] = 'application/json';
+        $headers['accept'] = 'application/json';
+
+        $url = $endpoint . $path;
+
+        $response = Http::timeout(60)
+            ->withHeaders($headers)
+            ->post($url, $body);
+
+        if (!$response->successful()) {
+            throw new \Exception('createFeedDocument failed: HTTP ' . $response->status() . ' ' . $response->body());
+        }
+
+        return $response->json() ?? [];
+    }
+
+    private function uploadFeedDocumentToAmazon(string $uploadUrl, string $jsonBody): array
+    {
+        $response = Http::timeout(120)
+            ->withHeaders([
+                'Content-Type' => 'application/json; charset=UTF-8',
+            ])
+            ->withBody($jsonBody, 'application/json; charset=UTF-8')
+            ->put($uploadUrl);
+
+        return [
+            'success' => $response->successful(),
+            'status' => $response->status(),
+            'body' => $response->body(),
+        ];
+    }
+
+    private function spCreateFeed(array $credentials, string $accessToken, string $feedType, array $marketplaceIds, string $inputFeedDocumentId): array
+    {
+        $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+        $path = '/feeds/2021-06-30/feeds';
+
+        $body = [
+            'feedType' => $feedType,
+            'marketplaceIds' => array_values($marketplaceIds),
+            'inputFeedDocumentId' => $inputFeedDocumentId,
+        ];
+
+        $headers = buildHeaders(
+            $credentials,
+            $accessToken,
+            'POST',
+            'execute-api',
+            'us-east-1',
+            $path,
+            null,
+            [],
+            $endpoint,
+            'host:sellingpartnerapi-na.amazon.com'
+        );
+
+        $headers['Content-Type'] = 'application/json';
+        $headers['accept'] = 'application/json';
+
+        $url = $endpoint . $path;
+
+        $response = Http::timeout(60)
+            ->withHeaders($headers)
+            ->post($url, $body);
+
+        if (!$response->successful()) {
+            throw new \Exception('createFeed failed: HTTP ' . $response->status() . ' ' . $response->body());
+        }
+
+        return $response->json() ?? [];
+    }
+
+    private function spGetFeed(array $credentials, string $accessToken, string $feedId): array
+    {
+        $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+        $path = '/feeds/2021-06-30/feeds/' . rawurlencode($feedId);
+
+        $headers = buildHeaders(
+            $credentials,
+            $accessToken,
+            'GET',
+            'execute-api',
+            'us-east-1',
+            $path,
+            null,
+            [],
+            $endpoint,
+            'host:sellingpartnerapi-na.amazon.com'
+        );
+
+        $headers['accept'] = 'application/json';
+
+        $url = $endpoint . $path;
+
+        $response = Http::timeout(60)
+            ->withHeaders($headers)
+            ->get($url);
+
+        if (!$response->successful()) {
+            throw new \Exception('getFeed failed: HTTP ' . $response->status() . ' ' . $response->body());
+        }
+
+        return $response->json() ?? [];
+    }
+
+    private function spPollFeedUntilTerminal(array $credentials, string $accessToken, string $feedId, int $maxAttempts = 60, int $sleepSeconds = 10): array
+    {
+        $terminal = ['DONE', 'FATAL', 'CANCELLED'];
+
+        for ($i = 1; $i <= $maxAttempts; $i++) {
+            $feed = $this->spGetFeed($credentials, $accessToken, $feedId);
+            $status = strtoupper((string) ($feed['processingStatus'] ?? ''));
+
+            if (in_array($status, $terminal, true)) {
+                $feed['_poll_attempts'] = $i;
+                return $feed;
+            }
+
+            sleep($sleepSeconds);
+        }
+
+        $feed = $this->spGetFeed($credentials, $accessToken, $feedId);
+        $feed['_poll_attempts'] = $maxAttempts;
+        return $feed;
+    }
 }
