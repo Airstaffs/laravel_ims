@@ -656,6 +656,8 @@ Route::prefix('api/asinlist')->group(function () {
     Route::post('update-quantity-inside', [ASINlistController::class, 'updateQuantityInside']);
 
     Route::post('update-color', [ASINlistController::class, 'updateColor']);
+
+    Route::post('update-fnsku-limit', [ASINlistController::class, 'updateFnskuLimit']);
 });
 
 // AFTER - Add rate limiting
