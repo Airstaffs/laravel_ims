@@ -1273,4 +1273,154 @@ class ListingController extends Controller
         $feed['_poll_attempts'] = $maxAttempts;
         return $feed;
     }
+
+    public function getFeedStatus(Request $request)
+    {
+        $request->validate([
+            'store' => 'required|string',
+            'feedId' => 'required|string',
+        ]);
+
+        $store = $request->store;
+        $feedId = $request->feedId;
+
+        try {
+            $feed = $this->getAmazonFeed($store, $feedId);
+
+            $processingStatus = $feed['processingStatus'] ?? null;
+            $documentId =
+                $feed['resultFeedDocumentId']
+                ?? $feed['resultDocumentId']
+                ?? null;
+
+            $documentMeta = null;
+            $report = null;
+            $summary = null;
+            $results = [];
+
+            if ($documentId) {
+                $documentMeta = $this->getAmazonFeedDocument($store, $documentId);
+
+                $url = $documentMeta['url'] ?? null;
+                $compression = $documentMeta['compressionAlgorithm'] ?? null;
+
+                if ($url) {
+                    $raw = $this->downloadFeedDocument($url);
+
+                    if (strtoupper((string) $compression) === 'GZIP') {
+                        $decoded = gzdecode($raw);
+                        if ($decoded !== false) {
+                            $raw = $decoded;
+                        }
+                    }
+
+                    $report = json_decode($raw, true);
+
+                    $summary = $report['processingSummary'] ?? null;
+                    $results = $report['results'] ?? [];
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'feedId' => $feedId,
+                'processingStatus' => $processingStatus,
+                'documentId' => $documentId,
+                'summary' => $summary,
+                'results' => $results,
+                'rawFeed' => $feed,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    protected function getAmazonFeed(string $store, string $feedId): array
+    {
+        $path = "/feeds/2021-06-30/feeds/{$feedId}";
+        $headers = $this->buildHeaders($store, $path, 'GET');
+
+        $ch = curl_init("https://sellingpartnerapi-na.amazon.com{$path}");
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_CUSTOMREQUEST => 'GET',
+        ]);
+
+        $raw = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err = curl_error($ch);
+        curl_close($ch);
+
+        if ($err) {
+            throw new \Exception("getFeed curl error: {$err}");
+        }
+
+        $json = json_decode($raw, true);
+
+        if ($code < 200 || $code >= 300) {
+            $msg = $json['message'] ?? $raw;
+            throw new \Exception("getFeed failed HTTP {$code}: {$msg}");
+        }
+
+        return $json;
+    }
+
+    protected function getAmazonFeedDocument(string $store, string $documentId): array
+    {
+        $path = "/feeds/2021-06-30/documents/{$documentId}";
+        $headers = $this->buildHeaders($store, $path, 'GET');
+
+        $ch = curl_init("https://sellingpartnerapi-na.amazon.com{$path}");
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_CUSTOMREQUEST => 'GET',
+        ]);
+
+        $raw = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err = curl_error($ch);
+        curl_close($ch);
+
+        if ($err) {
+            throw new \Exception("getFeedDocument curl error: {$err}");
+        }
+
+        $json = json_decode($raw, true);
+
+        if ($code < 200 || $code >= 300) {
+            $msg = $json['message'] ?? $raw;
+            throw new \Exception("getFeedDocument failed HTTP {$code}: {$msg}");
+        }
+
+        return $json;
+    }
+
+    protected function downloadFeedDocument(string $url): string
+    {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+        ]);
+
+        $raw = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err = curl_error($ch);
+        curl_close($ch);
+
+        if ($err) {
+            throw new \Exception("downloadFeedDocument curl error: {$err}");
+        }
+
+        if ($code < 200 || $code >= 300) {
+            throw new \Exception("downloadFeedDocument failed HTTP {$code}");
+        }
+
+        return $raw;
+    }
 }
