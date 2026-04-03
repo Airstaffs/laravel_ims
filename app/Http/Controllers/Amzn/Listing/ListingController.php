@@ -487,20 +487,17 @@ class ListingController extends Controller
             'productType' => ['nullable', 'string'],
 
             // qty
-            'quantity' => ['nullable'],              // number|null
+            'quantity' => ['nullable'],
             'quantityCleared' => ['nullable', 'boolean'],
 
             // price
-            'price' => ['nullable'],                 // number|null
+            'price' => ['nullable'],
             'priceCleared' => ['nullable', 'boolean'],
             'currency' => ['nullable', 'string'],
         ]);
 
         $store = $data['store'];
         $marketplaceId = $data['marketplaceIds'][0]; // your UI uses single marketplace anyway
-
-
-
         $sku = $data['sku'];
 
         // Credentials + Access token
@@ -521,6 +518,7 @@ class ListingController extends Controller
                 'store' => $store,
             ], 422);
         }
+
         if (!$credentials) {
             return response()->json(['message' => "No credentials found for store: {$store}"], 422);
         }
@@ -539,7 +537,6 @@ class ListingController extends Controller
             $qtyCleared = (bool) $request->input('quantityCleared', false);
 
             if ($qtyCleared) {
-                // only delete if you actually intend to clear
                 $patches[] = ['op' => 'delete', 'path' => '/attributes/fulfillment_availability'];
             } else {
                 $qtyVal = $request->input('quantity', null);
@@ -560,6 +557,8 @@ class ListingController extends Controller
 
         // ---------- PRICE PATCH ----------
         $priceTouched = array_key_exists('price', $data) || array_key_exists('priceCleared', $data);
+        $priceVal = null;
+
         if ($priceTouched) {
             $priceCleared = (bool) ($data['priceCleared'] ?? false);
 
@@ -572,7 +571,6 @@ class ListingController extends Controller
                 $currency = $data['currency'] ?? 'USD';
                 $priceVal = (float) $data['price'];
 
-                // Example format taken from patchListingsItem example that updates purchasable_offer
                 $patches[] = [
                     'op' => 'replace',
                     'path' => '/attributes/purchasable_offer',
@@ -601,7 +599,6 @@ class ListingController extends Controller
         }
 
         // productType required by patchListingsItem
-        // Best: pass it from search results (your includedData already requests productTypes)
         $productType = $data['productType'] ?? 'PRODUCT';
 
         $body = [
@@ -617,8 +614,8 @@ class ListingController extends Controller
         $queryString = '?marketplaceIds=' . rawurlencode($marketplaceId);
 
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
-        $customParams = []; // not used here
-        $nextToken = null;  // not used here
+        $customParams = [];
+        $nextToken = null;
 
         try {
             $headers = buildHeaders(
@@ -634,7 +631,6 @@ class ListingController extends Controller
                 $canonicalHeaders
             );
 
-            // PATCH content type: Amazon may require json-patch media type
             $headers['Content-Type'] = 'application/json-patch+json';
             $headers['accept'] = 'application/json';
 
@@ -648,6 +644,37 @@ class ListingController extends Controller
             $curlInfo = method_exists($response, 'handlerStats') ? $response->handlerStats() : null;
 
             if ($response->successful()) {
+                // update local cached amazon price only if price was part of this request and not cleared
+                if ($priceTouched) {
+                    $priceCleared = (bool) ($data['priceCleared'] ?? false);
+
+                    try {
+                        $updateData = [
+                            'updated_at' => now(),
+                        ];
+
+                        if ($priceCleared) {
+                            $updateData['amzn_item_price'] = null;
+                            $updateData['amzn_item_price_updated_at'] = now();
+                        } elseif ($priceVal !== null && $priceVal > 0) {
+                            $updateData['amzn_item_price'] = $priceVal;
+                            $updateData['amzn_item_price_updated_at'] = now();
+                        }
+
+                        DB::table('tblfnsku')
+                            ->where('MSKU', $sku)
+                            ->where('storename', $store)
+                            ->update($updateData);
+
+                    } catch (\Throwable $dbEx) {
+                        Log::warning('tblfnsku amzn_item_price update failed after successful Amazon patch', [
+                            'sku' => $sku,
+                            'store' => $store,
+                            'message' => $dbEx->getMessage(),
+                        ]);
+                    }
+                }
+
                 return response()->json([
                     'success' => true,
                     'sku' => $sku,
