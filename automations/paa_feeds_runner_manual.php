@@ -196,11 +196,11 @@ function db()
         return $mysqli;
     }
 
-    $host = envv('DB_HOST', 'localhost');
+    $host = envv('localhost');
     $port = (int) envv('DB_PORT', 3306);
-    $user = envv('DB_USERNAME', 'imsv2_dbims_user');
-    $pass = envv('DB_PASSWORD', 'Imsv2_dbims_user');
-    $name = envv('DB_DATABASE', 'imsv2_dbims');
+    $user = envv('DB_USERNAME', '');
+    $pass = envv('DB_PASSWORD', '');
+    $name = envv('DB_DATABASE', '');
 
     $mysqli = new mysqli($host, $user, $pass, $name, $port);
 
