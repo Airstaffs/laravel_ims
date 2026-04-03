@@ -1044,7 +1044,6 @@ class ListingController extends Controller
                         ->update([
                             'amzn_item_price' => round((float) $row['price'], 2),
                             'amzn_item_price_updated_at' => $now,
-                            'updated_at' => $now,
                         ]);
                 }
             }
