@@ -311,115 +311,6 @@ class TestingController extends BasetablesController
     }
 
     /**
-     * Move item from Testing to Cleaning & Prepping module
-     * Updates ProductModuleLoc in tblproduct
-     */
-    public function moveToCleaning(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'item_number' => 'required|string',
-            'product_id' => 'required|string',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        try {
-            $itemNumber = $request->input('item_number');
-            $productId = $request->input('product_id');
-
-            // Verify item exists and is in Testing module
-            $item = DB::table($this->productTable)
-                ->where('itemnumber', $itemNumber)
-                ->where('ProductID', $productId)
-                ->first();
-
-            if (! $item) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Item not found',
-                ], 404);
-            }
-
-            if ($item->ProductModuleLoc !== 'Testing') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Item is not in Testing module',
-                ], 422);
-            }
-
-            // Check if receive condition exists
-            $hasReceiveCondition = ItemCondition::where('item_number', $itemNumber)
-                ->where('product_id', $productId)
-                ->where('condition_type', 'receive')
-                ->exists();
-
-            if (! $hasReceiveCondition) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cannot move item without completing receive condition checklist',
-                ], 422);
-            }
-
-            // Update ProductModuleLoc to Cleaning
-            DB::table($this->productTable)
-                ->where('itemnumber', $itemNumber)
-                ->where('ProductID', $productId)
-                ->update([
-                    'ProductModuleLoc' => 'Cleaning',
-                    'lastDateUpdate' => now(),
-                ]);
-
-            // Log the movement in history if TracksHistory trait is available
-            if (method_exists($this, 'logHistory')) {
-                $this->logHistory(
-                    $itemNumber,
-                    'module_change',
-                    'Testing',
-                    'Cleaning',
-                    'Item moved to Cleaning & Prepping module after testing completion'
-                );
-            }
-
-            Log::info('Item moved to Cleaning', [
-                'item_number' => $itemNumber,
-                'product_id' => $productId,
-                'moved_by' => $this->getCurrentUserName(),
-                'timestamp' => now(),
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Item successfully moved to Cleaning & Prepping module',
-                'item' => [
-                    'item_number' => $itemNumber,
-                    'product_id' => $productId,
-                    'new_location' => 'Cleaning',
-                    'moved_at' => now()->toDateTimeString(),
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Move to Cleaning error', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'request' => $request->all(),
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to move item to Cleaning module',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
      * Get complete condition history for an item
      */
     public function getConditionHistory(Request $request, $itemNumber)
@@ -529,6 +420,132 @@ class TestingController extends BasetablesController
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete condition record',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function moveToCleaning(Request $request)
+    {
+        Log::info('=== MOVE TO CLEANING FROM TESTING ===', $request->all());
+
+        try {
+            $validator = Validator::make($request->all(), [
+                'product_id' => 'required',
+                'rt_counter' => 'required',
+                'current_location' => 'required',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $product = DB::table($this->productTable)
+                ->where('ProductID', $request->product_id)
+                ->first();
+
+            if (! $product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found',
+                ], 404);
+            }
+
+            DB::table($this->productTable)
+                ->where('ProductID', $request->product_id)
+                ->update([
+                    'ProductModuleLoc' => 'Cleaning',
+                    'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
+                ]);
+
+            $this->trackLocationChange(
+                'Testing',
+                "RTC: {$request->rt_counter}",
+                $request->current_location,
+                'Cleaning'
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Product successfully moved to Cleaning',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Exception in Testing moveToCleaning', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to move product to Cleaning',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function moveToRepair(Request $request)
+    {
+        Log::info('=== MOVE TO REPAIR FROM TESTING ===', $request->all());
+
+        try {
+            $validator = Validator::make($request->all(), [
+                'product_id' => 'required',
+                'rt_counter' => 'required',
+                'current_location' => 'required',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $product = DB::table($this->productTable)
+                ->where('ProductID', $request->product_id)
+                ->first();
+
+            if (! $product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found',
+                ], 404);
+            }
+
+            DB::table($this->productTable)
+                ->where('ProductID', $request->product_id)
+                ->update([
+                    'ProductModuleLoc' => 'Repair',
+                    'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
+                ]);
+
+            $this->trackLocationChange(
+                'Testing',
+                "RTC: {$request->rt_counter}",
+                $request->current_location,
+                'Repair'
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Product successfully moved to Repair',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Exception in Testing moveToRepair', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to move product to Repair',
                 'error' => $e->getMessage(),
             ], 500);
         }
