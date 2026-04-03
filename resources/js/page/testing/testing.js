@@ -39,8 +39,24 @@ export default {
             currentPage: 1,
             totalRecords: 1,
             perPage: 10,
+
+            first: 0,
+
+            regularImages: [],
+            capturedImages: [],
+            activeTab: "regular",
+            currentImageSet: [],
+
+            showTestingWorkLog: false,
+            testingWorkLogItem: null,
+            testingWorkLogFields: [],
+            testingWorkLogValues: {},
+            testingWorkLogOpenedAt: null,
+            currentUser: "",
+            testResult: null,
         };
     },
+
     computed: {
         searchQuery() {
             return eventBus.searchQuery;
@@ -201,6 +217,7 @@ export default {
             );
         },
     },
+
     methods: {
         handleImageError(event) {
             event.target.src = this.defaultImage;
@@ -687,6 +704,450 @@ export default {
                 this.error = "Failed to load items.";
             } finally {
                 this.loading = false;
+            }
+        },
+
+        // Select PASS or FAIL — auto-fills field values on PASS
+        selectTestResult(result) {
+            this.testResult = result;
+
+            if (result === "pass") {
+                // Auto-fill all fields with their defaultValue or first option
+                this.testingWorkLogFields.forEach((f) => {
+                    if (
+                        f.type === "Dropdown/Select" &&
+                        f.hasOptions &&
+                        f.options?.length
+                    ) {
+                        // Use first option as the "OK/Good" default
+                        this.testingWorkLogValues[f.label] =
+                            f.options[0]?.value ?? f.defaultValue ?? "";
+                    } else if (f.type === "Checkbox") {
+                        this.testingWorkLogValues[f.label] = true;
+                    } else {
+                        this.testingWorkLogValues[f.label] =
+                            f.defaultValue || "OK";
+                    }
+                });
+            } else {
+                // FAIL — clear all values so worker selects manually
+                this.testingWorkLogFields.forEach((f) => {
+                    this.testingWorkLogValues[f.label] = "";
+                });
+            }
+        },
+
+        // Open the Testing Work Log dialog for a given item
+        openTestingWorkLog(item) {
+            this.testingWorkLogItem = item;
+            this.testingWorkLogFields = this.loadTestingFields(
+                item.ASINviewer || item.ASIN || item.asin,
+            );
+
+            // Snapshot current datetime when dialog opens
+            this.testingWorkLogOpenedAt = new Date();
+
+            // Pre-fill: defaults first, then any previously saved values
+            const saved = this.loadSavedTestingValues(item.rtcounter);
+            const prefilled = {};
+            this.testingWorkLogFields.forEach((f) => {
+                prefilled[f.label] = saved[f.label] ?? f.defaultValue ?? "";
+            });
+            this.testingWorkLogValues = prefilled;
+
+            this.testResult = null; // reset decision
+            this.showTestingWorkLog = true;
+        },
+
+        // Load merged testing fields from localStorage (global + ASIN-specific)
+        loadTestingFields(asin) {
+            if (!asin) return [];
+
+            const parse = (key) => {
+                try {
+                    const r = localStorage.getItem(key);
+                    return r ? JSON.parse(r) : [];
+                } catch {
+                    return [];
+                }
+            };
+
+            const globalFields = parse("asin_global_config_testing");
+            const asinFields = parse(`asin_config_testing:${asin}`);
+
+            // Mark globals, merge — ASIN label overrides global of same name
+            const markedGlobals = globalFields.map((f) => ({
+                ...f,
+                _fromGlobal: true,
+            }));
+            const asinLabels = new Set(asinFields.map((f) => f.label));
+
+            return [
+                ...markedGlobals.filter((f) => !asinLabels.has(f.label)),
+                ...asinFields,
+            ];
+        },
+
+        // Load previously saved values for this rtcounter from localStorage
+        loadSavedTestingValues(rtcounter) {
+            if (!rtcounter) return {};
+            try {
+                const raw = localStorage.getItem(
+                    `testing_worklog:${rtcounter}`,
+                );
+                return raw ? JSON.parse(raw) : {};
+            } catch {
+                return {};
+            }
+        },
+
+        // Save current form values to localStorage
+        async saveTestingWorkLog() {
+            if (!this.testingWorkLogItem?.rtcounter) return;
+
+            // Validate required fields
+            const missing = this.testingWorkLogFields.filter(
+                (f) => f.required && !this.testingWorkLogValues[f.label],
+            );
+            if (missing.length) {
+                Swal.fire({
+                    icon: "warning",
+                    title: "Required Fields Missing",
+                    text: `Please fill in: ${missing.map((f) => f.label).join(", ")}`,
+                });
+                return;
+            }
+
+            // Must select PASS or FAIL
+            if (!this.testResult) {
+                Swal.fire({
+                    icon: "warning",
+                    title: "Select Test Result",
+                    text: "Please select PASS or FAIL before saving.",
+                });
+                return;
+            }
+
+            // Save to localStorage
+            const payload = {
+                ...this.testingWorkLogValues,
+                __testResult: this.testResult,
+                __dateTested: this.testingWorkLogOpenedAt
+                    ? this.testingWorkLogOpenedAt.toLocaleString("en-US", {
+                          year: "numeric",
+                          month: "2-digit",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                      })
+                    : null,
+                __tester:
+                    this.testingWorkLogItem.received_by ||
+                    this.testingWorkLogItem.Username ||
+                    this.currentUser ||
+                    null,
+            };
+
+            localStorage.setItem(
+                `testing_worklog:${this.testingWorkLogItem.rtcounter}`,
+                JSON.stringify(payload),
+            );
+
+            // Capture before resetting
+            const item = { ...this.testingWorkLogItem };
+            const testResult = this.testResult;
+
+            // Reset dialog
+            this.showTestingWorkLog = false;
+            this.testingWorkLogItem = null;
+            this.testingWorkLogFields = [];
+            this.testingWorkLogValues = {};
+            this.testResult = null;
+
+            // ── Move directly without waiting for Swal ─────────────────────
+            if (testResult === "pass") {
+                await Swal.fire({
+                    icon: "success",
+                    title: "All Tests Passed! ✓",
+                    html: `
+                <p>Work log saved successfully.</p>
+                <p>Moving <strong>${this.getDisplayTitle(item)}</strong>
+                to <strong>Cleaning</strong>.</p>
+            `,
+                    confirmButtonText: "OK",
+                });
+                console.log(
+                    "✅ PASS — calling moveToCleaning with item:",
+                    item.ProductID,
+                );
+                await this.moveToCleaning(item);
+            } else {
+                await Swal.fire({
+                    icon: "warning",
+                    title: "Tests Failed ✗",
+                    html: `
+                <p>Work log saved successfully.</p>
+                <p>Moving <strong>${this.getDisplayTitle(item)}</strong>
+                to <strong>Repair</strong>.</p>
+            `,
+                    confirmButtonText: "OK",
+                });
+                console.log(
+                    "✅ FAIL — calling moveToRepair with item:",
+                    item.ProductID,
+                );
+                await this.moveToRepair(item);
+            }
+        },
+
+        // Get the pre-typed note for the currently selected option value
+        getPreTypedNote(field, selectedValue) {
+            if (
+                !field.preTypedNotes ||
+                !field.options?.length ||
+                !selectedValue
+            )
+                return null;
+            const opt = field.options.find((o) => o.value === selectedValue);
+            return opt?.hasNote ? opt.note : null;
+        },
+
+        // Get the pre-typed note for the currently selected option value
+        getPreTypedNote(field, selectedValue) {
+            if (
+                !field.preTypedNotes ||
+                !field.options?.length ||
+                !selectedValue
+            )
+                return null;
+            const opt = field.options.find((o) => o.value === selectedValue);
+            return opt?.hasNote ? opt.note : null;
+        },
+
+        // ── CLEANING ──────────────────────────────────────────────────
+        async confirmMoveToCleaning(item = null) {
+            // Called from saveTestingWorkLog — use the passed item directly
+            if (item && item.ProductID) {
+                await this.moveToCleaning(item);
+                return;
+            }
+
+            // Called from the condition modal flow — use moveItemDetails
+            if (!this.moveItemDetails) return;
+
+            this.movingItem = true;
+            try {
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/testing/move-to-cleaning`,
+                    {
+                        item_number: this.moveItemDetails.itemnumber,
+                        product_id: String(this.moveItemDetails.ProductID),
+                        rt_counter: this.moveItemDetails.rtcounter,
+                        current_location: "Testing",
+                    },
+                );
+
+                if (response.data.success) {
+                    Swal.fire({
+                        icon: "success",
+                        title: "Moved!",
+                        text: "Item moved to Cleaning & Prepping module successfully",
+                        timer: 2000,
+                        showConfirmButton: false,
+                    });
+                    this.showMoveConfirmation = false;
+                    this.moveItemDetails = null;
+                    await this.fetchInventory();
+                }
+            } catch (error) {
+                const errorMessage = error.response?.data?.errors
+                    ? Object.values(error.response.data.errors)
+                          .flat()
+                          .join("\n")
+                    : error.response?.data?.message ||
+                      "Failed to move item to Cleaning module";
+
+                Swal.fire({
+                    icon: "error",
+                    title: "Error Moving Item",
+                    text: errorMessage,
+                    confirmButtonText: "OK",
+                });
+            } finally {
+                this.movingItem = false;
+            }
+        },
+
+        async moveToCleaning(item) {
+            if (!item || !item.ProductID) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Invalid Item",
+                    text: "The selected item does not have a valid Product ID.",
+                });
+                return;
+            }
+
+            try {
+                const csrfToken = document
+                    .querySelector('meta[name="csrf-token"]')
+                    .getAttribute("content");
+
+                Swal.fire({
+                    title: "Moving to Cleaning...",
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    },
+                });
+
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/testing/move-to-cleaning`, // ← testing endpoint
+                    {
+                        product_id: item.ProductID,
+                        rt_counter: item.rtcounter,
+                        current_location: "Testing", // ← correct location
+                        new_location: "Cleaning",
+                    },
+                    { headers: { "X-CSRF-TOKEN": csrfToken } },
+                );
+
+                Swal.close();
+
+                if (response.data.success) {
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Moved to Cleaning!",
+                        text: `Item ${item.rtcounter} successfully moved to Cleaning.`,
+                        confirmButtonText: "OK",
+                    });
+                    if (typeof this.fetchInventory === "function")
+                        this.fetchInventory();
+                } else {
+                    await Swal.fire({
+                        icon: "warning",
+                        title: "Failed",
+                        text:
+                            response.data.message ||
+                            "Failed to move item to Cleaning.",
+                    });
+                }
+            } catch (error) {
+                console.error("Error moving item to Cleaning:", error);
+                Swal.close();
+
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text:
+                        error.response?.data?.message ||
+                        "An error occurred while moving the item to Cleaning. Please try again.",
+                });
+            }
+        },
+
+        // ── REPAIR ────────────────────────────────────────────────────
+        async confirmMoveToRepair(item) {
+            if (!item || !item.ProductID) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Invalid Item",
+                    text: "The selected item does not have a valid Product ID.",
+                });
+                return;
+            }
+
+            const result = await Swal.fire({
+                title: "Confirm Move to Repair",
+                html: `
+            <p>Are you sure you want to move
+            <strong>${this.getDisplayTitle(item)}</strong>
+            to <strong>Repair</strong>?</p>
+            <ul style="text-align:left">
+                <li><strong>RT Counter:</strong> ${item.rtcounter || "N/A"}</li>
+                <li><strong>ASIN:</strong> ${item.ASINviewer || item.ASIN || "—"}</li>
+                <li><strong>FNSKU:</strong> ${item.FNSKUviewer || item.FNSKU || "—"}</li>
+                <li><strong>Serial:</strong> ${item.serialnumber || "—"}</li>
+            </ul>
+        `,
+                icon: "question",
+                showCancelButton: true,
+                confirmButtonText: "Yes, move it",
+                cancelButtonText: "Cancel",
+                reverseButtons: true,
+            });
+
+            if (result.isConfirmed) {
+                await this.moveToRepair(item);
+            }
+        },
+
+        async moveToRepair(item) {
+            if (!item || !item.ProductID) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Invalid Item",
+                    text: "The selected item does not have a valid Product ID.",
+                });
+                return;
+            }
+
+            try {
+                const csrfToken = document
+                    .querySelector('meta[name="csrf-token"]')
+                    .getAttribute("content");
+
+                Swal.fire({
+                    title: "Moving to Repair...",
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    },
+                });
+
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/testing/move-to-repair`, // ← testing endpoint
+                    {
+                        product_id: item.ProductID,
+                        rt_counter: item.rtcounter,
+                        current_location: "Testing", // ← correct location
+                        new_location: "Repair",
+                    },
+                    { headers: { "X-CSRF-TOKEN": csrfToken } },
+                );
+
+                Swal.close();
+
+                if (response.data.success) {
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Moved to Repair!",
+                        text: `Item ${item.rtcounter} successfully moved to Repair.`,
+                        confirmButtonText: "OK",
+                    });
+                    if (typeof this.fetchInventory === "function")
+                        this.fetchInventory();
+                } else {
+                    await Swal.fire({
+                        icon: "warning",
+                        title: "Failed",
+                        text:
+                            response.data.message ||
+                            "Failed to move item to Repair.",
+                    });
+                }
+            } catch (error) {
+                console.error("Error moving item to Repair:", error);
+                Swal.close();
+
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text:
+                        error.response?.data?.message ||
+                        "An error occurred while moving the item to Repair. Please try again.",
+                });
             }
         },
     },

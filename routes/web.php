@@ -656,6 +656,8 @@ Route::prefix('api/asinlist')->group(function () {
     Route::post('update-quantity-inside', [ASINlistController::class, 'updateQuantityInside']);
 
     Route::post('update-color', [ASINlistController::class, 'updateColor']);
+
+    Route::post('update-fnsku-limit', [ASINlistController::class, 'updateFnskuLimit']);
 });
 
 // AFTER - Add rate limiting
@@ -709,7 +711,8 @@ Route::middleware(['auth'])->prefix('api/testing')->group(function () {
     Route::get('testing-overview', [TestingController::class, 'getTestingOverview']);
     Route::delete('condition/{id}', [TestingController::class, 'deleteCondition']);
 
-    Route::post('/move-to-cleaning', [TestingController::class, 'moveToCleaning']);
+    Route::post('move-to-cleaning', [TestingController::class, 'moveToCleaning']);
+    Route::post('move-to-repair', [TestingController::class, 'moveToRepair']);
 });
 
 // Cleaning module routes
