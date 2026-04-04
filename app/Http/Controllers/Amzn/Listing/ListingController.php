@@ -1273,4 +1273,87 @@ class ListingController extends Controller
         $feed['_poll_attempts'] = $maxAttempts;
         return $feed;
     }
+
+
+
+    public function getFeedStatus(Request $request)
+    {
+        $data = $request->validate([
+            'store' => ['required', 'string'],
+            'feedId' => ['required', 'string'],
+        ]);
+
+        $store = $data['store'];
+        $feedId = $data['feedId'];
+
+        try {
+            $credentials = AWSCredentials($store);
+            if (!$credentials) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "No credentials found for store: {$store}",
+                ], 422);
+            }
+
+            $accessToken = fetchAccessToken($credentials, false);
+            if (!$accessToken) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Failed to fetch access token for store: {$store}",
+                ], 422);
+            }
+
+            $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+            $path = '/feeds/2021-06-30/feeds/' . rawurlencode($feedId);
+
+            $headers = buildHeaders(
+                $credentials,
+                $accessToken,
+                'GET',
+                'execute-api',
+                'us-east-1',
+                $path,
+                null,
+                [],
+                $endpoint,
+                'host:sellingpartnerapi-na.amazon.com'
+            );
+
+            $headers['accept'] = 'application/json';
+
+            $url = $endpoint . $path;
+
+            $response = Http::timeout(60)
+                ->withHeaders($headers)
+                ->get($url);
+
+            $curlInfo = method_exists($response, 'handlerStats') ? $response->handlerStats() : null;
+
+            if (!$response->successful()) {
+                return response()->json([
+                    'success' => false,
+                    'status' => $response->status(),
+                    'error' => $response->json(),
+                    'logs' => $curlInfo,
+                ], $response->status());
+            }
+
+            $feed = $response->json() ?? [];
+
+            return response()->json([
+                'success' => true,
+                'store' => $store,
+                'feedId' => $feedId,
+                'processingStatus' => $feed['processingStatus'] ?? null,
+                'resultFeedDocumentId' => $feed['resultFeedDocumentId'] ?? null,
+                'rawFeed' => $feed,
+                'logs' => $curlInfo,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }
