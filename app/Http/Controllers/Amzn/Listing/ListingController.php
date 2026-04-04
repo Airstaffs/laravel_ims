@@ -1356,4 +1356,175 @@ class ListingController extends Controller
             ], 500);
         }
     }
+
+    public function checkFeedResult(Request $request)
+    {
+        $data = $request->validate([
+            'store' => ['required', 'string'],
+            'feedId' => ['required', 'string'],
+        ]);
+
+        $store = $data['store'];
+        $feedId = $data['feedId'];
+
+        try {
+            $credentials = AWSCredentials($store);
+            if (!$credentials) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "No credentials found for store: {$store}",
+                ], 422);
+            }
+
+            $accessToken = fetchAccessToken($credentials, false);
+            if (!$accessToken) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Failed to fetch access token for store: {$store}",
+                ], 422);
+            }
+
+            $feed = $this->spGetFeed($credentials, $accessToken, $feedId);
+            $processingStatus = strtoupper((string) ($feed['processingStatus'] ?? ''));
+
+            if ($processingStatus !== 'DONE') {
+                return response()->json([
+                    'success' => false,
+                    'store' => $store,
+                    'feedId' => $feedId,
+                    'processingStatus' => $processingStatus,
+                    'message' => 'Feed not done yet',
+                    'rawFeed' => $feed,
+                ], 422);
+            }
+
+            $documentId = $feed['resultFeedDocumentId'] ?? null;
+
+            if (!$documentId) {
+                return response()->json([
+                    'success' => false,
+                    'store' => $store,
+                    'feedId' => $feedId,
+                    'processingStatus' => $processingStatus,
+                    'message' => 'No resultFeedDocumentId returned by Amazon',
+                    'rawFeed' => $feed,
+                ], 422);
+            }
+
+            $documentMeta = $this->spGetFeedDocument($credentials, $accessToken, $documentId);
+            $url = $documentMeta['url'] ?? null;
+            $compression = strtoupper((string) ($documentMeta['compressionAlgorithm'] ?? ''));
+
+            if (!$url) {
+                return response()->json([
+                    'success' => false,
+                    'store' => $store,
+                    'feedId' => $feedId,
+                    'documentId' => $documentId,
+                    'message' => 'Amazon did not return a downloadable URL for the feed document',
+                    'documentMeta' => $documentMeta,
+                ], 422);
+            }
+
+            $raw = $this->downloadFeedDocument($url);
+
+            if ($compression === 'GZIP') {
+                $decoded = gzdecode($raw);
+                if ($decoded !== false) {
+                    $raw = $decoded;
+                }
+            }
+
+            $report = json_decode($raw, true);
+
+            if (!is_array($report)) {
+                return response()->json([
+                    'success' => false,
+                    'store' => $store,
+                    'feedId' => $feedId,
+                    'documentId' => $documentId,
+                    'message' => 'Feed report is not valid JSON',
+                    'rawReport' => $raw,
+                ], 500);
+            }
+
+            $summary =
+                $report['processingSummary']
+                ?? $report['result']['summary']
+                ?? [];
+
+            $results =
+                $report['results']
+                ?? $report['result']['messages']
+                ?? [];
+
+            $messagesWithError =
+                (int) ($summary['messagesWithError'] ?? 0);
+
+            return response()->json([
+                'success' => true,
+                'store' => $store,
+                'feedId' => $feedId,
+                'processingStatus' => $processingStatus,
+                'documentId' => $documentId,
+                'all_success' => $messagesWithError === 0,
+                'summary' => $summary,
+                'results' => $results,
+                'rawFeed' => $feed,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    private function spGetFeedDocument(array $credentials, string $accessToken, string $documentId): array
+{
+    $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+    $path = '/feeds/2021-06-30/documents/' . rawurlencode($documentId);
+
+    $headers = buildHeaders(
+        $credentials,
+        $accessToken,
+        'GET',
+        'execute-api',
+        'us-east-1',
+        $path,
+        null,
+        [],
+        $endpoint,
+        'host:sellingpartnerapi-na.amazon.com'
+    );
+
+    $headers['accept'] = 'application/json';
+
+    $url = $endpoint . $path;
+
+    $response = Http::timeout(60)
+        ->withHeaders($headers)
+        ->get($url);
+
+    if (!$response->successful()) {
+        throw new \Exception('getFeedDocument failed: HTTP ' . $response->status() . ' ' . $response->body());
+    }
+
+    return $response->json() ?? [];
+}
+
+private function downloadFeedDocument(string $url): string
+{
+    $response = Http::timeout(120)
+        ->withOptions([
+            'allow_redirects' => true,
+        ])
+        ->get($url);
+
+    if (!$response->successful()) {
+        throw new \Exception('downloadFeedDocument failed: HTTP ' . $response->status() . ' ' . $response->body());
+    }
+
+    return $response->body();
+}
 }

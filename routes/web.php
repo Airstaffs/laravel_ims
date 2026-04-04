@@ -1099,6 +1099,7 @@ Route::post('/amazon/search-listings', [ListingController::class, 'searchListing
 Route::post('/amazon/listings/update-one', [ListingController::class, 'updateOne']);
 Route::post('/amazon/listings/submit-price-feed-sync', [ListingController::class, 'submitPriceFeedSync']);
 Route::get('/amazon/feeds/status', [ListingController::class, 'getFeedStatus']);
+Route::get('/amazon/feeds/result', [ListingController::class, 'checkFeedResult']);
 
 // Announcements
 Route::middleware('auth')->group(function () {
