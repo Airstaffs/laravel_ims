@@ -930,7 +930,149 @@ class FnskuController extends BasetablesController
         }
     }
 
-    private function updateFnskuLimitStatus($asin, $msku, $currentFnsku = null)
+// updated updateFnskuLimitStatus function old code is commented out for reference, new code supports both ASIN-level and FNSKU-level limits with proper priority and logging.
+private function updateFnskuLimitStatus($asin, $msku, $currentFnsku = null)
+{
+    try {
+        // ===============================
+        // 0. DETERMINE IF THIS IS NEW OR UPDATE
+        // ===============================
+        $isNewAssignment = empty($currentFnsku) ||
+            !isset($currentFnsku['MSKU']);
+
+        // ===============================
+        // 1. GET ASIN LIMIT
+        // ===============================
+        $asinLimit = (int) (DB::table($this->asinTable)
+            ->where('ASIN', $asin)
+            ->value('asin_limit') ?? 0);
+
+        // ===============================
+        // 2. PREPARE COMMON DATA
+        // ===============================
+        $maximumUnits = 30;
+
+        $newFnskuWhere = [
+            'ASIN' => $asin,
+            'MSKU' => $msku,
+        ];
+
+        // Only set up previous FNSKU if not a new assignment
+        $fnskuChanged  = false;
+        $prevFnskuWhere = null;
+
+        if (!$isNewAssignment) {
+            $prevFnskuWhere = [
+                'ASIN' => $asin,
+                'MSKU' => $currentFnsku['MSKU'],
+            ];
+
+            $fnskuChanged = ($currentFnsku['MSKU'] !== $msku);
+        }
+
+        // ===============================
+        // 3. USE TRANSACTION FOR ATOMICITY
+        // ===============================
+        DB::transaction(function () use (
+            $newFnskuWhere,
+            $prevFnskuWhere,
+            $asinLimit,
+            $maximumUnits,
+            $fnskuChanged,
+            $isNewAssignment,
+            $msku,
+            $asin
+        ) {
+            // ===============================
+            // 4. UPDATE PREVIOUS FNSKU (if changed)
+            // ===============================
+            if ($fnskuChanged && !$isNewAssignment) {
+                // Fetch ALL fnsku records for the previous MSKU+ASIN
+                $prevRecords = DB::table($this->fnskuTable)
+                    ->where($prevFnskuWhere)
+                    ->get(['FNSKU', 'Units', 'fnsku_limit']);
+
+                foreach ($prevRecords as $record) {
+                    $prevUnits      = (int) ($record->Units ?? 0);
+                    $prevFnskuLimit = (int) ($record->fnsku_limit ?? 0);
+
+                    // Priority: fnsku_limit > 0 → use it, else fall back to asin_limit
+                    $prevEffectiveLimit = $prevFnskuLimit > 0 ? $prevFnskuLimit : $asinLimit;
+
+                    $prevUsedUnits  = max(0, $maximumUnits - $prevUnits);
+                    $prevLimitStatus = ($prevEffectiveLimit > 0 && $prevUsedUnits >= $prevEffectiveLimit)
+                        ? 'True'
+                        : 'False';
+
+                    DB::table($this->fnskuTable)
+                        ->where('FNSKU', $record->FNSKU)
+                        ->where($prevFnskuWhere)
+                        ->update(['LimitStatus' => $prevLimitStatus]);
+
+                    Log::info('updateFnskuLimitStatus — prev FNSKU updated', [
+                        'fnsku'          => $record->FNSKU,
+                        'msku'           => $prevFnskuWhere['MSKU'],
+                        'asin'           => $asin,
+                        'prevUnits'      => $prevUnits,
+                        'prevUsedUnits'  => $prevUsedUnits,
+                        'fnskuLimit'     => $prevFnskuLimit,
+                        'asinLimit'      => $asinLimit,
+                        'effectiveLimit' => $prevEffectiveLimit,
+                        'limitStatus'    => $prevLimitStatus,
+                    ]);
+                }
+            }
+
+            // ===============================
+            // 5. UPDATE CURRENT / NEW FNSKU(s)
+            // ===============================
+            // Fetch ALL fnsku records for the new MSKU+ASIN
+            $newRecords = DB::table($this->fnskuTable)
+                ->where($newFnskuWhere)
+                ->get(['FNSKU', 'Units', 'fnsku_limit']);
+
+            foreach ($newRecords as $record) {
+                $currentUnits  = (int) ($record->Units ?? 0);
+                $fnskuLimit    = (int) ($record->fnsku_limit ?? 0);
+
+                // Priority: fnsku_limit > 0 → use it, else fall back to asin_limit
+                $effectiveLimit = $fnskuLimit > 0 ? $fnskuLimit : $asinLimit;
+
+                $usedUnits      = max(0, $maximumUnits - $currentUnits);
+                $newLimitStatus = ($effectiveLimit > 0 && $usedUnits >= $effectiveLimit)
+                    ? 'True'
+                    : 'False';
+
+                DB::table($this->fnskuTable)
+                    ->where('FNSKU', $record->FNSKU)
+                    ->where($newFnskuWhere)
+                    ->update(['LimitStatus' => $newLimitStatus]);
+
+                Log::info('updateFnskuLimitStatus — new FNSKU updated', [
+                    'fnsku'          => $record->FNSKU,
+                    'msku'           => $msku,
+                    'asin'           => $asin,
+                    'currentUnits'   => $currentUnits,
+                    'usedUnits'      => $usedUnits,
+                    'fnskuLimit'     => $fnskuLimit,
+                    'asinLimit'      => $asinLimit,
+                    'effectiveLimit' => $effectiveLimit,
+                    'limitStatus'    => $newLimitStatus,
+                ]);
+            }
+        });
+
+    } catch (\Exception $e) {
+        Log::error('Failed to update FNSKU limit status', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'asin'  => $asin,
+            'msku'  => $msku,
+        ]);
+    }
+}
+
+  /*  private function updateFnskuLimitStatus($asin, $msku, $currentFnsku = null)
     {
         try {
             // ===============================
@@ -1025,7 +1167,7 @@ class FnskuController extends BasetablesController
                 'msku' => $msku,
             ]);
         }
-    }
+    } */
 
     public function clearBlock(Request $request)
     {
