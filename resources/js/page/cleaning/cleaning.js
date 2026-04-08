@@ -37,7 +37,15 @@ export default {
             currentPage: 1,
             totalRecords: 1,
             perPage: 10, // Default rows per page
-            first: 0 //paginator internal state
+            first: 0, //paginator internal state
+
+            showCleaningWorkLog: false,
+            cleaningWorkLogItem: null,
+            cleaningWorkLogCategories: [],
+            cleaningWorkLogValues: {},
+            cleaningWorkLogOpenedAt: null,
+            savingCleaningWorkLog: false,
+            currentUser: "",
         };
     },
     computed: {
@@ -73,12 +81,12 @@ export default {
 
         serialKeys() {
             return Object.keys(this.item).filter((k) =>
-                /^serialnumber[a-z]?$/.test(k)
+                /^serialnumber[a-z]?$/.test(k),
             );
         },
         trackingKeys() {
             return Object.keys(this.item).filter((k) =>
-                /^trackingnumber\d*$/.test(k)
+                /^trackingnumber\d*$/.test(k),
             );
         },
 
@@ -133,7 +141,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.materialtype)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -143,7 +151,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.sourceType)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -153,7 +161,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.carrier)
-                        .filter((c) => c && c.trim() !== "")
+                        .filter((c) => c && c.trim() !== ""),
                 ),
             ].sort();
         },
@@ -163,7 +171,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.storename)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -173,7 +181,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.priorityrank)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -183,7 +191,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.validation_status)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -195,6 +203,18 @@ export default {
                 this.serialImagePath ||
                 this.defaultSerialImage
             );
+        },
+
+        cleaningDateTime() {
+            if (!this.cleaningWorkLogOpenedAt) return "—";
+            return this.cleaningWorkLogOpenedAt.toLocaleString("en-US", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+            });
         },
     },
     methods: {
@@ -299,9 +319,8 @@ export default {
                 for (let i = 1; i <= 12; i++) {
                     const capturedImg = data.capturedImages[`capturedimg${i}`];
                     if (capturedImg) {
-                        transformedData[
-                            `img${i}`
-                        ] = `/images/product_images/${companyFolder}/${capturedImg}`;
+                        transformedData[`img${i}`] =
+                            `/images/product_images/${companyFolder}/${capturedImg}`;
                     } else {
                         transformedData[`img${i}`] = null;
                     }
@@ -371,7 +390,7 @@ export default {
 
                 console.log(
                     "🔍 Processing captured images:",
-                    capturedImagesObj
+                    capturedImagesObj,
                 );
 
                 // Load capturedimg1 - capturedimg12
@@ -403,7 +422,7 @@ export default {
 
             console.log(
                 "📸 Total captured images loaded:",
-                this.capturedImages.length
+                this.capturedImages.length,
             );
 
             // Fallback if no images exist
@@ -543,7 +562,7 @@ export default {
                             location: "Cleaning",
                             include_images: true,
                         },
-                    }
+                    },
                 );
 
                 console.log("API Response:", response.data); // ADD THIS
@@ -560,7 +579,7 @@ export default {
                     if (this.inventory[0].capturedImages) {
                         console.log(
                             "First item capturedImages:",
-                            this.inventory[0].capturedImages
+                            this.inventory[0].capturedImages,
                         );
                     }
                 }
@@ -573,9 +592,9 @@ export default {
         },
 
         onPageChange(event) {
-            this.first = event.first
+            this.first = event.first;
             this.currentPage = event.page + 1; // convert to 1-based
-            this.perPage     = event.rows;
+            this.perPage = event.rows;
             this.fetchInventory();
         },
 
@@ -609,7 +628,7 @@ export default {
             console.log(item);
 
             const freshItem = this.items.find(
-                (i) => i.itemnumber === item.itemnumber
+                (i) => i.itemnumber === item.itemnumber,
             );
             this.item = { ...(freshItem || item) };
 
@@ -676,6 +695,233 @@ export default {
                 this.error = "Failed to load items.";
             } finally {
                 this.loading = false;
+            }
+        },
+
+        // Open Cleaning Work Log dialog
+        openCleaningWorkLog(item) {
+            this.cleaningWorkLogItem = item;
+            this.cleaningWorkLogOpenedAt = new Date();
+            this.cleaningWorkLogCategories = this.loadCleaningCategories(
+                item.ASINviewer || item.ASIN || item.asin,
+            );
+
+            // Pre-fill with defaults then any previously saved values
+            const saved = this.loadSavedCleaningValues(item.rtcounter);
+            const prefilled = {};
+            this.cleaningWorkLogCategories.forEach((cat) => {
+                prefilled[cat.name + "__status"] =
+                    saved[cat.name + "__status"] ?? "";
+                prefilled[cat.name + "__notes"] =
+                    saved[cat.name + "__notes"] ?? "";
+                (cat.actions || []).forEach((action) => {
+                    const key = cat.name + "__action__" + action.title;
+                    prefilled[key] = saved[key] ?? false;
+                });
+            });
+            this.cleaningWorkLogValues = prefilled;
+            this.showCleaningWorkLog = true;
+        },
+
+        // Load merged cleaning categories from localStorage (global + ASIN-specific)
+        loadCleaningCategories(asin) {
+            if (!asin) return [];
+
+            const parse = (key) => {
+                try {
+                    const r = localStorage.getItem(key);
+                    return r ? JSON.parse(r) : [];
+                } catch {
+                    return [];
+                }
+            };
+
+            const globalCats = parse("asin_global_config_cleaning");
+            const asinCats = parse(`asin_config_cleaning:${asin}`);
+
+            const markedGlobals = globalCats.map((c) => ({
+                ...c,
+                _fromGlobal: true,
+            }));
+            const asinNames = new Set(asinCats.map((c) => c.name));
+
+            return [
+                ...markedGlobals.filter((c) => !asinNames.has(c.name)),
+                ...asinCats,
+            ];
+        },
+
+        // Load previously saved values for this rtcounter
+        loadSavedCleaningValues(rtcounter) {
+            if (!rtcounter) return {};
+            try {
+                const raw = localStorage.getItem(
+                    `cleaning_worklog:${rtcounter}`,
+                );
+                return raw ? JSON.parse(raw) : {};
+            } catch {
+                return {};
+            }
+        },
+
+        // Auto-fill notes placeholder based on selected status + action descriptions
+        getCleaningNotePlaceholder(cat, status) {
+            if (!status || status === "Not Required")
+                return "Notes will auto-fill based on selection...";
+            if (status === "Done") return "All tasks completed successfully.";
+            if (status === "In Progress")
+                return "Describe what is in progress...";
+            if (status === "Needs Attention")
+                return "Describe what needs attention...";
+            return "Notes will auto-fill based on selection...";
+        },
+
+        // Auto-fill notes when status changes
+        onCleaningStatusChange(cat) {
+            const statusKey = cat.name + "__status";
+            const notesKey = cat.name + "__notes";
+            const status = this.cleaningWorkLogValues[statusKey];
+
+            // Only auto-fill if notes are empty
+            if (this.cleaningWorkLogValues[notesKey]) return;
+
+            if (status === "Done") {
+                this.cleaningWorkLogValues[notesKey] =
+                    "All tasks completed successfully.";
+            } else if (status === "Not Required") {
+                this.cleaningWorkLogValues[notesKey] =
+                    "Not required for this item.";
+            }
+        },
+
+        // Save cleaning work log — if markDone=true, move to Packaging
+        async saveCleaningWorkLog(markDone = false) {
+            if (!this.cleaningWorkLogItem?.rtcounter) return;
+
+            this.savingCleaningWorkLog = true;
+            try {
+                const payload = {
+                    ...this.cleaningWorkLogValues,
+                    __dateCleaned: this.cleaningWorkLogOpenedAt
+                        ? this.cleaningWorkLogOpenedAt.toLocaleString("en-US", {
+                              year: "numeric",
+                              month: "2-digit",
+                              day: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true,
+                          })
+                        : null,
+                    __cleanedBy:
+                        this.cleaningWorkLogItem.received_by ||
+                        this.cleaningWorkLogItem.Username ||
+                        this.currentUser ||
+                        null,
+                    __markDone: markDone,
+                };
+
+                localStorage.setItem(
+                    `cleaning_worklog:${this.cleaningWorkLogItem.rtcounter}`,
+                    JSON.stringify(payload),
+                );
+
+                const item = { ...this.cleaningWorkLogItem };
+
+                // Reset dialog
+                this.showCleaningWorkLog = false;
+                this.cleaningWorkLogItem = null;
+                this.cleaningWorkLogCategories = [];
+                this.cleaningWorkLogValues = {};
+
+                if (markDone) {
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Cleaning Complete! ✓",
+                        html: `
+                    <p>Work log saved successfully.</p>
+                    <p>Moving <strong>${this.getDisplayTitle(item)}</strong>
+                    to <strong>Packaging</strong>.</p>
+                `,
+                        confirmButtonText: "OK",
+                    });
+                    await this.moveToPackaging(item);
+                } else {
+                    Swal.fire({
+                        icon: "success",
+                        title: "Progress Saved!",
+                        text: "Cleaning work log saved. You can continue later.",
+                        timer: 1800,
+                        showConfirmButton: false,
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to save cleaning work log:", e);
+                Swal.fire({
+                    icon: "error",
+                    title: "Save Failed",
+                    text: "Failed to save work log. Please try again.",
+                });
+            } finally {
+                this.savingCleaningWorkLog = false;
+            }
+        },
+
+        // Move to Packaging after cleaning done
+        async moveToPackaging(item) {
+            if (!item?.ProductID) return;
+            try {
+                const csrfToken = document
+                    .querySelector('meta[name="csrf-token"]')
+                    .getAttribute("content");
+
+                Swal.fire({
+                    title: "Moving to Packaging...",
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    },
+                });
+
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/cleaning/move-to-packaging`,
+                    {
+                        product_id: item.ProductID,
+                        rt_counter: item.rtcounter,
+                        current_location: "Cleaning",
+                        new_location: "Packaging",
+                    },
+                    { headers: { "X-CSRF-TOKEN": csrfToken } },
+                );
+
+                Swal.close();
+
+                if (response.data.success) {
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Moved to Packaging!",
+                        text: `Item ${item.rtcounter} successfully moved to Packaging.`,
+                        confirmButtonText: "OK",
+                    });
+                    if (typeof this.fetchInventory === "function")
+                        this.fetchInventory();
+                } else {
+                    await Swal.fire({
+                        icon: "warning",
+                        title: "Failed",
+                        text:
+                            response.data.message ||
+                            "Failed to move item to Packaging.",
+                    });
+                }
+            } catch (error) {
+                Swal.close();
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text:
+                        error.response?.data?.message ||
+                        "An error occurred while moving to Packaging.",
+                });
             }
         },
     },

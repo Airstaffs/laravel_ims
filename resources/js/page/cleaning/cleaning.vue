@@ -162,6 +162,15 @@
                             class="text-primary"
                             @click="openEditModal(data)"
                         />
+                        <Button
+                            size="small"
+                            severity="contrast"
+                            variant="text"
+                            label="Cleaning - Work Log"
+                            icon="pi pi-sparkles"
+                            class="text-info"
+                            @click="openCleaningWorkLog(data)"
+                        />
                     </div>
                 </template>
             </XDataTable>
@@ -670,6 +679,268 @@
             </div>
         </Dialog>
 
+        <Dialog
+            v-model:visible="showCleaningWorkLog"
+            modal
+            :header="`Cleaning Work Log — ${cleaningWorkLogItem?.rtcounter || ''}`"
+            :style="{ width: '860px', maxWidth: '98vw' }"
+        >
+            <div v-if="cleaningWorkLogItem" class="cwl-wrapper">
+                <!-- ── AUTO-FETCH: System Pre-filled Fields ─────────────── -->
+                <div class="cwl-autofetch-section">
+                    <div class="cwl-autofetch-header">
+                        <span class="cwl-autofetch-badge">AUTO-FETCH</span>
+                        <span class="cwl-autofetch-title"
+                            >System Pre-filled Fields</span
+                        >
+                    </div>
+                    <div class="cwl-autofetch-grid">
+                        <div class="cwl-autofetch-card">
+                            <span class="cwl-autofetch-label"
+                                >Date Cleaned</span
+                            >
+                            <span class="cwl-autofetch-value">{{
+                                cleaningDateTime
+                            }}</span>
+                        </div>
+                        <div class="cwl-autofetch-card">
+                            <span class="cwl-autofetch-label"
+                                >Serial Number</span
+                            >
+                            <span class="cwl-autofetch-value">{{
+                                cleaningWorkLogItem.serialnumber || "—"
+                            }}</span>
+                        </div>
+                        <div class="cwl-autofetch-card">
+                            <span class="cwl-autofetch-label">Cleaned By</span>
+                            <span class="cwl-autofetch-value">{{
+                                cleaningWorkLogItem.received_by ||
+                                cleaningWorkLogItem.Username ||
+                                currentUser ||
+                                "—"
+                            }}</span>
+                        </div>
+                        <div class="cwl-autofetch-card">
+                            <span class="cwl-autofetch-label">ASIN</span>
+                            <span class="cwl-autofetch-value">{{
+                                cleaningWorkLogItem.ASINviewer ||
+                                cleaningWorkLogItem.ASIN ||
+                                "—"
+                            }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── ASIN-BASED: Cosmetic Work Categories ─────────────── -->
+                <div class="cwl-asin-section">
+                    <div class="cwl-asin-header">
+                        <span class="cwl-asin-badge">ASIN-BASED</span>
+                        <span class="cwl-asin-title"
+                            >Cosmetic Work Categories (Auto-loaded from
+                            ASIN)</span
+                        >
+                    </div>
+
+                    <!-- No categories configured -->
+                    <div
+                        v-if="!cleaningWorkLogCategories.length"
+                        class="cwl-asin-empty"
+                    >
+                        <div class="cwl-dynamic-hint">
+                            <p class="cwl-hint-title">
+                                <strong>Dynamic Checklist:</strong> Based on the
+                                ASIN assigned during Labelling
+                            </p>
+                            <div class="cwl-hint-example">
+                                <p>
+                                    No cleaning categories configured for this
+                                    ASIN.
+                                </p>
+                                <p>
+                                    Set them up in
+                                    <strong
+                                        >ASIN Configuration → Cleaning
+                                        Module</strong
+                                    >.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic checklist hint when categories exist -->
+                    <div v-else class="cwl-dynamic-hint">
+                        <p class="cwl-hint-title">
+                            <strong>Dynamic Checklist:</strong> Based on the
+                            ASIN assigned during Labelling
+                        </p>
+                        <div class="cwl-hint-example">
+                            <p>
+                                Example for ASIN
+                                <strong>{{
+                                    cleaningWorkLogItem.ASINviewer ||
+                                    cleaningWorkLogItem.ASIN
+                                }}</strong
+                                >:
+                            </p>
+                            <ul>
+                                <li
+                                    v-for="(
+                                        cat, i
+                                    ) in cleaningWorkLogCategories"
+                                    :key="'hint-' + i"
+                                >
+                                    {{ cat.name }}
+                                    <span
+                                        v-if="cat._fromGlobal"
+                                        class="cwl-global-badge"
+                                        >Global</span
+                                    >
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Category cards ────────────────────────────────────── -->
+                <div
+                    v-if="cleaningWorkLogCategories.length"
+                    class="cwl-categories"
+                >
+                    <div
+                        v-for="(cat, ci) in cleaningWorkLogCategories"
+                        :key="'cat-' + ci"
+                        class="cwl-category-card"
+                    >
+                        <!-- Category name -->
+                        <div class="cwl-category-header">
+                            <span class="cwl-category-name">{{
+                                cat.name
+                            }}</span>
+                            <span
+                                v-if="cat._fromGlobal"
+                                class="cwl-global-badge"
+                                >Global</span
+                            >
+                        </div>
+
+                        <!-- Status dropdown -->
+                        <select
+                            v-model="
+                                cleaningWorkLogValues[cat.name + '__status']
+                            "
+                            class="cwl-select"
+                            @change="onCleaningStatusChange(cat)"
+                        >
+                            <option value="">Select status</option>
+                            <option value="Not Required">Not Required</option>
+                            <option value="Done">Done</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Needs Attention">
+                                Needs Attention
+                            </option>
+                        </select>
+
+                        <!-- Notes textarea — auto-fills based on action notes -->
+                        <textarea
+                            v-model="
+                                cleaningWorkLogValues[cat.name + '__notes']
+                            "
+                            class="cwl-textarea"
+                            :placeholder="
+                                getCleaningNotePlaceholder(
+                                    cat,
+                                    cleaningWorkLogValues[
+                                        cat.name + '__status'
+                                    ],
+                                )
+                            "
+                            rows="3"
+                        />
+
+                        <!-- Actions checklist if configured -->
+                        <div
+                            v-if="cat.actions?.length"
+                            class="cwl-actions-list"
+                        >
+                            <div
+                                v-for="(action, ai) in cat.actions"
+                                :key="'action-' + ci + '-' + ai"
+                                class="cwl-action-item"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :id="`cwl-action-${ci}-${ai}`"
+                                    v-model="
+                                        cleaningWorkLogValues[
+                                            cat.name +
+                                                '__action__' +
+                                                action.title
+                                        ]
+                                    "
+                                    class="cwl-checkbox"
+                                />
+                                <label
+                                    :for="`cwl-action-${ci}-${ai}`"
+                                    class="cwl-action-label"
+                                >
+                                    <span class="cwl-action-title">{{
+                                        action.title
+                                    }}</span>
+                                    <span
+                                        v-if="action.description"
+                                        class="cwl-action-desc"
+                                        >{{ action.description }}</span
+                                    >
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── COMPLETION: Mark as Done ──────────────────────────── -->
+                <div class="cwl-completion-section">
+                    <div class="cwl-completion-header">
+                        <span class="cwl-completion-badge">COMPLETION</span>
+                        <span class="cwl-completion-title">Mark as Done</span>
+                    </div>
+                    <div class="cwl-completion-card">
+                        <div class="cwl-completion-text">
+                            <p class="cwl-completion-main">
+                                All cleaning tasks completed?
+                            </p>
+                            <p class="cwl-completion-sub">
+                                Item will proceed to Packaging module
+                            </p>
+                        </div>
+                        <Button
+                            label="Done Cleaning"
+                            icon="pi pi-check"
+                            class="cwl-done-btn"
+                            :loading="savingCleaningWorkLog"
+                            @click="saveCleaningWorkLog(true)"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <template #footer>
+                <Button
+                    label="Cancel"
+                    severity="secondary"
+                    text
+                    @click="showCleaningWorkLog = false"
+                />
+                <Button
+                    label="Save Progress"
+                    icon="pi pi-save"
+                    severity="secondary"
+                    outlined
+                    :loading="savingCleaningWorkLog"
+                    @click="saveCleaningWorkLog(false)"
+                />
+            </template>
+        </Dialog>
+
         <ScrollTop />
     </div>
 </template>
@@ -1006,3 +1277,5 @@ export default {
     },
 };
 </script>
+
+<style scoped src="./cleaning.css"></style>

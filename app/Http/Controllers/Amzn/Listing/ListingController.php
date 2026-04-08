@@ -300,7 +300,7 @@ class ListingController extends Controller
         $identifiers = $data['identifiers'] ?? [];
         $variationParentSku = $data['variationParentSku'] ?? null;
 
-        // ✅ Amazon rule enforcement
+        // Amazon rule enforcement
         if ($variationParentSku && (!empty($identifiers) || $identifiersType)) {
             return response()->json([
                 'ok' => false,
@@ -334,7 +334,6 @@ class ListingController extends Controller
         $path = "/listings/2021-08-01/items/{$sellerId}";
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
 
-        // Build query parameters
         $query = [
             'marketplaceIds' => implode(',', $marketplaceIds),
             'includedData' => implode(',', $includedData),
@@ -386,35 +385,39 @@ class ListingController extends Controller
             $payload = $response->json();
             $items = $payload['items'] ?? [];
 
-            // ----------------------------
-            // STRICT IMS MATCHING: MSKU + ASIN (AND)
-            // If no strict match -> ims.count = 0
-            // ----------------------------
-
-            // Build strict pairs from Amazon items (must have BOTH sku and asin)
+            // ----------------------------------------------------
+            // Build strict SKU + ASIN pairs from Amazon response
+            // ----------------------------------------------------
             $pairs = [];
             foreach ($items as $it) {
                 $sku = $it['sku'] ?? ($it['summaries'][0]['sku'] ?? null);
                 $asin = $it['asin'] ?? ($it['summaries'][0]['asin'] ?? null);
 
                 if ($sku && $asin) {
-                    $pairs[] = ['sku' => $sku, 'asin' => $asin];
+                    $pairs[] = [
+                        'sku' => $sku,
+                        'asin' => $asin,
+                    ];
                 }
             }
 
             // De-dupe pairs
             $seen = [];
             $pairs = array_values(array_filter($pairs, function ($p) use (&$seen) {
-                $k = $p['sku'] . '|' . $p['asin'];
-                if (isset($seen[$k]))
+                $key = $p['sku'] . '|' . $p['asin'];
+                if (isset($seen[$key])) {
                     return false;
-                $seen[$k] = true;
+                }
+                $seen[$key] = true;
                 return true;
             }));
 
-            $rows = collect();
+            $productRows = collect();
+            $fnskuRows = collect();
+
             if (!empty($pairs)) {
-                $rows = DB::table('tblproduct')
+                // Existing IMS stockroom count logic
+                $productRows = DB::table('tblproduct')
                     ->where('ProductModuleLoc', 'Stockroom')
                     ->where(function ($q) use ($pairs) {
                         foreach ($pairs as $p) {
@@ -427,16 +430,69 @@ class ListingController extends Controller
                     ->selectRaw('MSKUviewer, ASINviewer, COUNT(*) as imsCount')
                     ->groupBy('MSKUviewer', 'ASINviewer')
                     ->get();
+
+                // New FBA breakdown from tblfnsku
+                $fnskuRows = DB::table('tblfnsku')
+                    ->where('storename', $store)
+                    ->where(function ($q) use ($pairs) {
+                        foreach ($pairs as $p) {
+                            $q->orWhere(function ($qq) use ($p) {
+                                $qq->where('MSKU', $p['sku'])
+                                    ->where('ASIN', $p['asin']);
+                            });
+                        }
+                    })
+                    ->select(
+                        'MSKU',
+                        'ASIN',
+                        'FNSKU',
+                        'storename',
+                        DB::raw('COALESCE(fba_fulfillable_quantity, 0) as fba_fulfillable_quantity'),
+                        DB::raw('COALESCE(fba_inbound_working_quantity, 0) as fba_inbound_working_quantity'),
+                        DB::raw('COALESCE(fba_inbound_shipped_quantity, 0) as fba_inbound_shipped_quantity'),
+                        DB::raw('COALESCE(fba_inbound_receiving_quantity, 0) as fba_inbound_receiving_quantity'),
+                        DB::raw('COALESCE(fba_unsellable_quantity, 0) as fba_unsellable_quantity'),
+                        DB::raw('COALESCE(fba_reserved_quantity, 0) as fba_reserved_quantity'),
+                        DB::raw('COALESCE(fba_total_quantity, 0) as fba_total_quantity'),
+                        'fba_quantity_updated_at'
+                    )
+                    ->get();
             }
 
-            // Build fast map by "sku|asin"
+            // Map for existing ims count
             $byPair = [];
-            foreach ($rows as $r) {
-                $k = ($r->MSKUviewer ?? '') . '|' . ($r->ASINviewer ?? '');
-                $byPair[$k] = (int) $r->imsCount;
+            foreach ($productRows as $r) {
+                $key = ($r->MSKUviewer ?? '') . '|' . ($r->ASINviewer ?? '');
+                $byPair[$key] = (int) $r->imsCount;
             }
 
-            // Attach ims per item (strict match only)
+            // Map for new ims_fba block
+            $fbaByPair = [];
+            foreach ($fnskuRows as $r) {
+                $key = ($r->MSKU ?? '') . '|' . ($r->ASIN ?? '');
+
+                $inboundWorking = (int) $r->fba_inbound_working_quantity;
+                $inboundShipped = (int) $r->fba_inbound_shipped_quantity;
+                $inboundReceiving = (int) $r->fba_inbound_receiving_quantity;
+
+                $fbaByPair[$key] = [
+                    'module' => 'tblfnsku',
+                    'matchedBy' => 'MSKU+ASIN+storename',
+                    'store' => $r->storename,
+                    'fnsku' => $r->FNSKU,
+                    'fulfillable' => (int) $r->fba_fulfillable_quantity,
+                    'inbound_working' => $inboundWorking,
+                    'inbound_shipped' => $inboundShipped,
+                    'inbound_receiving' => $inboundReceiving,
+                    'inbound_total' => $inboundWorking + $inboundShipped + $inboundReceiving,
+                    'unsellable' => (int) $r->fba_unsellable_quantity,
+                    'reserved' => (int) $r->fba_reserved_quantity,
+                    'total' => (int) $r->fba_total_quantity,
+                    'updated_at' => $r->fba_quantity_updated_at,
+                ];
+            }
+
+            // Attach both ims and ims_fba to each item
             foreach ($payload['items'] as $i => $it) {
                 $sku = $it['sku'] ?? ($it['summaries'][0]['sku'] ?? null);
                 $asin = $it['asin'] ?? ($it['summaries'][0]['asin'] ?? null);
@@ -444,19 +500,42 @@ class ListingController extends Controller
                 $count = 0;
                 $matchedBy = null;
 
+                $fbaBreakdown = [
+                    'module' => 'tblfnsku',
+                    'matchedBy' => null,
+                    'store' => $store,
+                    'fnsku' => null,
+                    'fulfillable' => 0,
+                    'inbound_working' => 0,
+                    'inbound_shipped' => 0,
+                    'inbound_receiving' => 0,
+                    'inbound_total' => 0,
+                    'unsellable' => 0,
+                    'reserved' => 0,
+                    'total' => 0,
+                    'updated_at' => null,
+                ];
+
                 if ($sku && $asin) {
-                    $k = $sku . '|' . $asin;
-                    if (isset($byPair[$k])) {
-                        $count = (int) $byPair[$k];
+                    $key = $sku . '|' . $asin;
+
+                    if (isset($byPair[$key])) {
+                        $count = (int) $byPair[$key];
                         $matchedBy = 'MSKUviewer+ASINviewer';
+                    }
+
+                    if (isset($fbaByPair[$key])) {
+                        $fbaBreakdown = $fbaByPair[$key];
                     }
                 }
 
                 $payload['items'][$i]['ims'] = [
                     'module' => 'Stockroom',
-                    'count' => $count,          // ✅ default 0
-                    'matchedBy' => $matchedBy,  // null when not matched
+                    'count' => $count,
+                    'matchedBy' => $matchedBy,
                 ];
+
+                $payload['items'][$i]['ims_fba'] = $fbaBreakdown;
             }
 
             return response()->json([
@@ -487,20 +566,17 @@ class ListingController extends Controller
             'productType' => ['nullable', 'string'],
 
             // qty
-            'quantity' => ['nullable'],              // number|null
+            'quantity' => ['nullable'],
             'quantityCleared' => ['nullable', 'boolean'],
 
             // price
-            'price' => ['nullable'],                 // number|null
+            'price' => ['nullable'],
             'priceCleared' => ['nullable', 'boolean'],
             'currency' => ['nullable', 'string'],
         ]);
 
         $store = $data['store'];
         $marketplaceId = $data['marketplaceIds'][0]; // your UI uses single marketplace anyway
-
-
-
         $sku = $data['sku'];
 
         // Credentials + Access token
@@ -521,6 +597,7 @@ class ListingController extends Controller
                 'store' => $store,
             ], 422);
         }
+
         if (!$credentials) {
             return response()->json(['message' => "No credentials found for store: {$store}"], 422);
         }
@@ -539,7 +616,6 @@ class ListingController extends Controller
             $qtyCleared = (bool) $request->input('quantityCleared', false);
 
             if ($qtyCleared) {
-                // only delete if you actually intend to clear
                 $patches[] = ['op' => 'delete', 'path' => '/attributes/fulfillment_availability'];
             } else {
                 $qtyVal = $request->input('quantity', null);
@@ -560,6 +636,8 @@ class ListingController extends Controller
 
         // ---------- PRICE PATCH ----------
         $priceTouched = array_key_exists('price', $data) || array_key_exists('priceCleared', $data);
+        $priceVal = null;
+
         if ($priceTouched) {
             $priceCleared = (bool) ($data['priceCleared'] ?? false);
 
@@ -572,7 +650,6 @@ class ListingController extends Controller
                 $currency = $data['currency'] ?? 'USD';
                 $priceVal = (float) $data['price'];
 
-                // Example format taken from patchListingsItem example that updates purchasable_offer
                 $patches[] = [
                     'op' => 'replace',
                     'path' => '/attributes/purchasable_offer',
@@ -601,7 +678,6 @@ class ListingController extends Controller
         }
 
         // productType required by patchListingsItem
-        // Best: pass it from search results (your includedData already requests productTypes)
         $productType = $data['productType'] ?? 'PRODUCT';
 
         $body = [
@@ -617,8 +693,8 @@ class ListingController extends Controller
         $queryString = '?marketplaceIds=' . rawurlencode($marketplaceId);
 
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
-        $customParams = []; // not used here
-        $nextToken = null;  // not used here
+        $customParams = [];
+        $nextToken = null;
 
         try {
             $headers = buildHeaders(
@@ -634,7 +710,6 @@ class ListingController extends Controller
                 $canonicalHeaders
             );
 
-            // PATCH content type: Amazon may require json-patch media type
             $headers['Content-Type'] = 'application/json-patch+json';
             $headers['accept'] = 'application/json';
 
@@ -648,6 +723,37 @@ class ListingController extends Controller
             $curlInfo = method_exists($response, 'handlerStats') ? $response->handlerStats() : null;
 
             if ($response->successful()) {
+                // update local cached amazon price only if price was part of this request and not cleared
+                if ($priceTouched) {
+                    $priceCleared = (bool) ($data['priceCleared'] ?? false);
+
+                    try {
+                        $updateData = [
+                            'updated_at' => now(),
+                        ];
+
+                        if ($priceCleared) {
+                            $updateData['amzn_item_price'] = null;
+                            $updateData['amzn_item_price_updated_at'] = now();
+                        } elseif ($priceVal !== null && $priceVal > 0) {
+                            $updateData['amzn_item_price'] = $priceVal;
+                            $updateData['amzn_item_price_updated_at'] = now();
+                        }
+
+                        DB::table('tblfnsku')
+                            ->where('MSKU', $sku)
+                            ->where('storename', $store)
+                            ->update($updateData);
+
+                    } catch (\Throwable $dbEx) {
+                        Log::warning('tblfnsku amzn_item_price update failed after successful Amazon patch', [
+                            'sku' => $sku,
+                            'store' => $store,
+                            'message' => $dbEx->getMessage(),
+                        ]);
+                    }
+                }
+
                 return response()->json([
                     'success' => true,
                     'sku' => $sku,
@@ -897,5 +1003,623 @@ class ListingController extends Controller
 
         // Return the response if checksum matches
         return $result;
+    }
+
+    public function submitPriceFeedSync(Request $request)
+    {
+        $data = $request->validate([
+            'store' => ['required', 'string'],
+            'marketplaceIds' => ['required', 'array', 'min:1'],
+            'marketplaceIds.*' => ['required', 'string'],
+            'currency' => ['nullable', 'string'],
+            'updates' => ['required', 'array', 'min:1', 'max:25000'],
+            'updates.*.sku' => ['required', 'string'],
+            'updates.*.price' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $store = $data['store'];
+        $marketplaceIds = array_values($data['marketplaceIds']);
+        $marketplaceId = $marketplaceIds[0];
+        $currency = $data['currency'] ?? 'USD';
+        $updates = array_values($data['updates']);
+
+        $credentials = AWSCredentials($store);
+        if (!$credentials) {
+            return response()->json([
+                'success' => false,
+                'message' => "No credentials found for store: {$store}",
+            ], 422);
+        }
+
+        $sellerId = $credentials['MerchantID'] ?? null;
+        if (!$sellerId) {
+            return response()->json([
+                'success' => false,
+                'message' => "Missing MerchantID / sellerId for store: {$store}",
+            ], 422);
+        }
+
+        $accessToken = fetchAccessToken($credentials, false);
+        if (!$accessToken) {
+            return response()->json([
+                'success' => false,
+                'message' => "Failed to fetch access token for store: {$store}",
+            ], 422);
+        }
+
+        $feedBody = $this->buildJsonListingsPriceFeedBody(
+            sellerId: $sellerId,
+            marketplaceId: $marketplaceId,
+            currency: $currency,
+            updates: $updates
+        );
+
+        try {
+            $document = $this->spCreateFeedDocument(
+                credentials: $credentials,
+                accessToken: $accessToken,
+                contentType: 'application/json; charset=UTF-8'
+            );
+
+            $feedDocumentId = $document['feedDocumentId'] ?? null;
+            $uploadUrl = $document['url'] ?? null;
+
+            if (!$feedDocumentId || !$uploadUrl) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Amazon did not return feedDocumentId/url.',
+                    'documentResponse' => $document,
+                ], 500);
+            }
+
+            $uploadResult = $this->uploadFeedDocumentToAmazon(
+                uploadUrl: $uploadUrl,
+                jsonBody: json_encode($feedBody, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+            );
+
+            if (!$uploadResult['success']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed uploading feed document to Amazon.',
+                    'upload' => $uploadResult,
+                ], 500);
+            }
+
+            $feedCreate = $this->spCreateFeed(
+                credentials: $credentials,
+                accessToken: $accessToken,
+                feedType: 'JSON_LISTINGS_FEED',
+                marketplaceIds: $marketplaceIds,
+                inputFeedDocumentId: $feedDocumentId
+            );
+
+            $feedId = $feedCreate['feedId'] ?? null;
+            if (!$feedId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Amazon did not return feedId.',
+                    'createFeedResponse' => $feedCreate,
+                ], 500);
+            }
+
+            $poll = $this->spPollFeedUntilTerminal(
+                credentials: $credentials,
+                accessToken: $accessToken,
+                feedId: $feedId,
+                maxAttempts: 60,
+                sleepSeconds: 10
+            );
+
+            $processingStatus = strtoupper((string) ($poll['processingStatus'] ?? 'UNKNOWN'));
+
+            // Optional: update local cached prices only after Amazon reports terminal success
+            if ($processingStatus === 'DONE') {
+                $now = now();
+
+                foreach ($updates as $row) {
+                    DB::table('tblfnsku')
+                        ->where('MSKU', $row['sku'])
+                        ->where('storename', $store)
+                        ->update([
+                            'amzn_item_price' => round((float) $row['price'], 2),
+                            'amzn_item_price_updated_at' => $now,
+                        ]);
+                }
+            }
+
+            return response()->json([
+                'success' => $processingStatus === 'DONE',
+                'store' => $store,
+                'feedType' => 'JSON_LISTINGS_FEED',
+                'feedDocumentId' => $feedDocumentId,
+                'feedId' => $feedId,
+                'submittedCount' => count($updates),
+                'processingStatus' => $processingStatus,
+                'poll' => $poll,
+                'requestPreview' => [
+                    'marketplaceIds' => $marketplaceIds,
+                    'currency' => $currency,
+                    'updatesCount' => count($updates),
+                ],
+            ], $processingStatus === 'DONE' ? 200 : 422);
+
+        } catch (\Throwable $e) {
+            Log::error('submitPriceFeedSync exception', [
+                'store' => $store,
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'store' => $store,
+            ], 500);
+        }
+    }
+
+    private function buildJsonListingsPriceFeedBody(string $sellerId, string $marketplaceId, string $currency, array $updates): array
+    {
+        $messages = [];
+        $messageId = 1;
+
+        foreach ($updates as $row) {
+            $sku = (string) $row['sku'];
+            $price = round((float) $row['price'], 2);
+
+            $messages[] = [
+                'messageId' => $messageId++,
+                'sku' => $sku,
+                'operationType' => 'PATCH',
+                'productType' => 'PRODUCT',
+                'patches' => [
+                    [
+                        'op' => 'replace',
+                        'path' => '/attributes/purchasable_offer',
+                        'value' => [
+                            [
+                                'marketplace_id' => $marketplaceId,
+                                'currency' => $currency,
+                                'audience' => 'ALL',
+                                'our_price' => [
+                                    [
+                                        'schedule' => [
+                                            [
+                                                'value_with_tax' => $price,
+                                            ]
+                                        ],
+                                    ]
+                                ],
+                            ]
+                        ],
+                    ],
+                ],
+            ];
+        }
+
+        return [
+            'header' => [
+                'sellerId' => $sellerId,
+                'version' => '2.0',
+                'issueLocale' => 'en_US',
+            ],
+            'messages' => $messages,
+        ];
+    }
+
+    private function spCreateFeedDocument(array $credentials, string $accessToken, string $contentType = 'application/json; charset=UTF-8'): array
+    {
+        $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+        $path = '/feeds/2021-06-30/documents';
+        $body = [
+            'contentType' => $contentType,
+        ];
+
+        $headers = buildHeaders(
+            $credentials,
+            $accessToken,
+            'POST',
+            'execute-api',
+            'us-east-1',
+            $path,
+            null,
+            [],
+            $endpoint,
+            'host:sellingpartnerapi-na.amazon.com'
+        );
+
+        $headers['Content-Type'] = 'application/json';
+        $headers['accept'] = 'application/json';
+
+        $url = $endpoint . $path;
+
+        $response = Http::timeout(60)
+            ->withHeaders($headers)
+            ->post($url, $body);
+
+        if (!$response->successful()) {
+            throw new \Exception('createFeedDocument failed: HTTP ' . $response->status() . ' ' . $response->body());
+        }
+
+        return $response->json() ?? [];
+    }
+
+    private function uploadFeedDocumentToAmazon(string $uploadUrl, string $jsonBody): array
+    {
+        $response = Http::timeout(120)
+            ->withHeaders([
+                'Content-Type' => 'application/json; charset=UTF-8',
+            ])
+            ->withBody($jsonBody, 'application/json; charset=UTF-8')
+            ->put($uploadUrl);
+
+        return [
+            'success' => $response->successful(),
+            'status' => $response->status(),
+            'body' => $response->body(),
+        ];
+    }
+
+    private function spCreateFeed(array $credentials, string $accessToken, string $feedType, array $marketplaceIds, string $inputFeedDocumentId): array
+    {
+        $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+        $path = '/feeds/2021-06-30/feeds';
+
+        $body = [
+            'feedType' => $feedType,
+            'marketplaceIds' => array_values($marketplaceIds),
+            'inputFeedDocumentId' => $inputFeedDocumentId,
+        ];
+
+        $headers = buildHeaders(
+            $credentials,
+            $accessToken,
+            'POST',
+            'execute-api',
+            'us-east-1',
+            $path,
+            null,
+            [],
+            $endpoint,
+            'host:sellingpartnerapi-na.amazon.com'
+        );
+
+        $headers['Content-Type'] = 'application/json';
+        $headers['accept'] = 'application/json';
+
+        $url = $endpoint . $path;
+
+        $response = Http::timeout(60)
+            ->withHeaders($headers)
+            ->post($url, $body);
+
+        if (!$response->successful()) {
+            throw new \Exception('createFeed failed: HTTP ' . $response->status() . ' ' . $response->body());
+        }
+
+        return $response->json() ?? [];
+    }
+
+    private function spGetFeed(array $credentials, string $accessToken, string $feedId): array
+    {
+        $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+        $path = '/feeds/2021-06-30/feeds/' . rawurlencode($feedId);
+
+        $headers = buildHeaders(
+            $credentials,
+            $accessToken,
+            'GET',
+            'execute-api',
+            'us-east-1',
+            $path,
+            null,
+            [],
+            $endpoint,
+            'host:sellingpartnerapi-na.amazon.com'
+        );
+
+        $headers['accept'] = 'application/json';
+
+        $url = $endpoint . $path;
+
+        $response = Http::timeout(60)
+            ->withHeaders($headers)
+            ->get($url);
+
+        if (!$response->successful()) {
+            throw new \Exception('getFeed failed: HTTP ' . $response->status() . ' ' . $response->body());
+        }
+
+        return $response->json() ?? [];
+    }
+
+    private function spPollFeedUntilTerminal(array $credentials, string $accessToken, string $feedId, int $maxAttempts = 60, int $sleepSeconds = 10): array
+    {
+        $terminal = ['DONE', 'FATAL', 'CANCELLED'];
+
+        for ($i = 1; $i <= $maxAttempts; $i++) {
+            $feed = $this->spGetFeed($credentials, $accessToken, $feedId);
+            $status = strtoupper((string) ($feed['processingStatus'] ?? ''));
+
+            if (in_array($status, $terminal, true)) {
+                $feed['_poll_attempts'] = $i;
+                return $feed;
+            }
+
+            sleep($sleepSeconds);
+        }
+
+        $feed = $this->spGetFeed($credentials, $accessToken, $feedId);
+        $feed['_poll_attempts'] = $maxAttempts;
+        return $feed;
+    }
+
+
+
+    public function getFeedStatus(Request $request)
+    {
+        $data = $request->validate([
+            'store' => ['required', 'string'],
+            'feedId' => ['required', 'string'],
+        ]);
+
+        $store = $data['store'];
+        $feedId = $data['feedId'];
+
+        try {
+            $credentials = AWSCredentials($store);
+            if (!$credentials) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "No credentials found for store: {$store}",
+                ], 422);
+            }
+
+            $accessToken = fetchAccessToken($credentials, false);
+            if (!$accessToken) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Failed to fetch access token for store: {$store}",
+                ], 422);
+            }
+
+            $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+            $path = '/feeds/2021-06-30/feeds/' . rawurlencode($feedId);
+
+            $headers = buildHeaders(
+                $credentials,
+                $accessToken,
+                'GET',
+                'execute-api',
+                'us-east-1',
+                $path,
+                null,
+                [],
+                $endpoint,
+                'host:sellingpartnerapi-na.amazon.com'
+            );
+
+            $headers['accept'] = 'application/json';
+
+            $url = $endpoint . $path;
+
+            $response = Http::timeout(60)
+                ->withHeaders($headers)
+                ->get($url);
+
+            $curlInfo = method_exists($response, 'handlerStats') ? $response->handlerStats() : null;
+
+            if (!$response->successful()) {
+                return response()->json([
+                    'success' => false,
+                    'status' => $response->status(),
+                    'error' => $response->json(),
+                    'logs' => $curlInfo,
+                ], $response->status());
+            }
+
+            $feed = $response->json() ?? [];
+
+            return response()->json([
+                'success' => true,
+                'store' => $store,
+                'feedId' => $feedId,
+                'processingStatus' => $feed['processingStatus'] ?? null,
+                'resultFeedDocumentId' => $feed['resultFeedDocumentId'] ?? null,
+                'rawFeed' => $feed,
+                'logs' => $curlInfo,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function checkFeedResult(Request $request)
+    {
+        $data = $request->validate([
+            'store' => ['required', 'string'],
+            'feedId' => ['required', 'string'],
+        ]);
+
+        $store = $data['store'];
+        $feedId = $data['feedId'];
+
+        try {
+            $credentials = AWSCredentials($store);
+            if (!$credentials) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "No credentials found for store: {$store}",
+                ], 422);
+            }
+
+            $accessToken = fetchAccessToken($credentials, false);
+            if (!$accessToken) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Failed to fetch access token for store: {$store}",
+                ], 422);
+            }
+
+            $feed = $this->spGetFeed($credentials, $accessToken, $feedId);
+            $processingStatus = strtoupper((string) ($feed['processingStatus'] ?? ''));
+
+            if ($processingStatus !== 'DONE') {
+                return response()->json([
+                    'success' => false,
+                    'store' => $store,
+                    'feedId' => $feedId,
+                    'processingStatus' => $processingStatus,
+                    'message' => 'Feed not done yet',
+                    'rawFeed' => $feed,
+                ], 422);
+            }
+
+            $documentId = $feed['resultFeedDocumentId'] ?? null;
+
+            if (!$documentId) {
+                return response()->json([
+                    'success' => false,
+                    'store' => $store,
+                    'feedId' => $feedId,
+                    'processingStatus' => $processingStatus,
+                    'message' => 'No resultFeedDocumentId returned by Amazon',
+                    'rawFeed' => $feed,
+                ], 422);
+            }
+
+            $documentMeta = $this->spGetFeedDocument($credentials, $accessToken, $documentId);
+            $url = $documentMeta['url'] ?? null;
+            $compression = strtoupper((string) ($documentMeta['compressionAlgorithm'] ?? ''));
+
+            if (!$url) {
+                return response()->json([
+                    'success' => false,
+                    'store' => $store,
+                    'feedId' => $feedId,
+                    'documentId' => $documentId,
+                    'message' => 'Amazon did not return a downloadable URL for the feed document',
+                    'documentMeta' => $documentMeta,
+                ], 422);
+            }
+
+            $raw = $this->downloadFeedDocument($url);
+
+            if ($compression === 'GZIP') {
+                $decoded = gzdecode($raw);
+                if ($decoded !== false) {
+                    $raw = $decoded;
+                }
+            }
+
+            $report = json_decode($raw, true);
+
+            if (!is_array($report)) {
+                return response()->json([
+                    'success' => false,
+                    'store' => $store,
+                    'feedId' => $feedId,
+                    'documentId' => $documentId,
+                    'message' => 'Feed report is not valid JSON',
+                    'rawReport' => $raw,
+                ], 500);
+            }
+
+            $summary =
+                $report['processingSummary']
+                ?? $report['summary']
+                ?? $report['result']['summary']
+                ?? [];
+
+            $results =
+                $report['results']
+                ?? $report['messages']
+                ?? $report['result']['messages']
+                ?? [];
+
+            $hasParsedSummary = !empty($summary);
+
+            $messagesWithError = $hasParsedSummary
+                ? (int) (
+                    $summary['messagesWithError']
+                    ?? $summary['errors']
+                    ?? 0
+                )
+                : null;
+
+            return response()->json([
+                'success' => true,
+                'store' => $store,
+                'feedId' => $feedId,
+                'processingStatus' => $processingStatus,
+                'documentId' => $documentId,
+
+                // only trust this if summary was actually parsed
+                'all_success' => $hasParsedSummary ? ($messagesWithError === 0) : null,
+
+                'summary' => $summary,
+                'results' => $results,
+
+                // temporary: expose this so we can see the real Amazon structure
+                'decodedReport' => $report,
+
+                'rawFeed' => $feed,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    private function spGetFeedDocument(array $credentials, string $accessToken, string $documentId): array
+    {
+        $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+        $path = '/feeds/2021-06-30/documents/' . rawurlencode($documentId);
+
+        $headers = buildHeaders(
+            $credentials,
+            $accessToken,
+            'GET',
+            'execute-api',
+            'us-east-1',
+            $path,
+            null,
+            [],
+            $endpoint,
+            'host:sellingpartnerapi-na.amazon.com'
+        );
+
+        $headers['accept'] = 'application/json';
+
+        $url = $endpoint . $path;
+
+        $response = Http::timeout(60)
+            ->withHeaders($headers)
+            ->get($url);
+
+        if (!$response->successful()) {
+            throw new \Exception('getFeedDocument failed: HTTP ' . $response->status() . ' ' . $response->body());
+        }
+
+        return $response->json() ?? [];
+    }
+
+    private function downloadFeedDocument(string $url): string
+    {
+        $response = Http::timeout(120)
+            ->withOptions([
+                'allow_redirects' => true,
+            ])
+            ->get($url);
+
+        if (!$response->successful()) {
+            throw new \Exception('downloadFeedDocument failed: HTTP ' . $response->status() . ' ' . $response->body());
+        }
+
+        return $response->body();
     }
 }

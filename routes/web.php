@@ -711,12 +711,14 @@ Route::middleware(['auth'])->prefix('api/testing')->group(function () {
     Route::get('testing-overview', [TestingController::class, 'getTestingOverview']);
     Route::delete('condition/{id}', [TestingController::class, 'deleteCondition']);
 
-    Route::post('/move-to-cleaning', [TestingController::class, 'moveToCleaning']);
+    Route::post('move-to-cleaning', [TestingController::class, 'moveToCleaning']);
+    Route::post('move-to-repair', [TestingController::class, 'moveToRepair']);
 });
 
 // Cleaning module routes
 Route::middleware(['auth'])->prefix('api/cleaning')->group(function () {
     Route::get('products', [CleaningController::class, 'index']);
+    Route::post('move-to-packaging', [CleaningController::class, 'moveToPackaging']);
 });
 
 // Routes for Shipment Module
@@ -1096,6 +1098,9 @@ Route::prefix('api/reconciliation')->middleware(['auth'])->group(function () {
 
 Route::post('/amazon/search-listings', [ListingController::class, 'searchListings']);
 Route::post('/amazon/listings/update-one', [ListingController::class, 'updateOne']);
+Route::post('/amazon/listings/submit-price-feed-sync', [ListingController::class, 'submitPriceFeedSync']);
+Route::get('/amazon/feeds/status', [ListingController::class, 'getFeedStatus']);
+Route::get('/amazon/feeds/result', [ListingController::class, 'checkFeedResult']);
 
 // Announcements
 Route::middleware('auth')->group(function () {
@@ -1143,7 +1148,5 @@ Route::prefix('amazon/paa')->group(function () {
     Route::delete('/assigned-items/{id}', [PaaAutomationController::class, 'removeItem']);
     Route::post('/assigned-items/bulk-remove', [PaaAutomationController::class, 'bulkRemoveItems']);
 });
-
-
 
 Route::get('/fbm/print-logs', [FbmOrderController::class, 'getfbmprintinglogs']);

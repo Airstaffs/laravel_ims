@@ -115,6 +115,7 @@ foreach ($stores as $store) {
                 $currentDateTime = $date->format('Y-m-d H:i:s');
 
                 // Retrieve data safely
+                $amznItemPrice = extractPurchasableOfferPrice($results);
                 $FNSKU = trim($summary['fnSku'] ?? '');
                 $MSKU = cleanMsku($results['sku'] ?? null);
                 $skucondition = trim($summary['conditionType'] ?? '');
@@ -226,9 +227,9 @@ foreach ($stores as $store) {
                     if ($resultCheck->num_rows == 0) {
                         $insertQuery = "
                             INSERT INTO $tblname
-                                (FNSKU, MSKU, grading, ASIN, insert_date, fnsku_status, storename, addedby, amazon_status, Units)
+                                (FNSKU, MSKU, grading, ASIN, insert_date, fnsku_status, storename, addedby, amazon_status, Units, amzn_item_price)
                             VALUES
-                                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ";
                         $stmt = $Connect->prepare($insertQuery);
 
@@ -236,7 +237,7 @@ foreach ($stores as $store) {
                         $hehe = "available";
 
                         $stmt->bind_param(
-                            "sssssssssi",
+                            "sssssssssid",
                             $FNSKU,
                             $MSKU,
                             $skucondition,
@@ -246,7 +247,8 @@ foreach ($stores as $store) {
                             $storename,
                             $user,
                             $amazon_status,
-                            $units
+                            $units,
+                            $amznItemPrice
                         );
 
                         if ($stmt->execute()) {
@@ -345,11 +347,13 @@ foreach ($stores as $store) {
                         // =========================================================
                         if (strcasecmp($incomingStatus, 'Deleted') === 0) {
                             $updateQuery = "UPDATE tblfnsku
-                                            SET amazon_status = 'Deleted', MSKU = ?
+                                            SET amazon_status = 'Deleted', 
+                                                MSKU = ?, 
+                                                amzn_item_price = ?,
                                                 insert_date = ?
                                             WHERE FNSKUID = ?";
                             $stmtUpd = $Connect->prepare($updateQuery);
-                            $stmtUpd->bind_param("ssi", $currentDateTime, $MSKU, $existingRowId);
+                            $stmtUpd->bind_param("ssdi", $currentDateTime, $MSKU, $amznItemPrice, $existingRowId);
                             $stmtUpd->execute();
                             $stmtUpd->close();
 
@@ -366,10 +370,11 @@ foreach ($stores as $store) {
                             } else {
 
                                 $updateQuery = "UPDATE tblfnsku
-                                            SET MSKU = ?
+                                            SET MSKU = ?,
+                                            amzn_item_price = ?
                                             WHERE FNSKUID = ?";
                                 $stmtUpd = $Connect->prepare($updateQuery);
-                                $stmtUpd->bind_param("si", $MSKU, $existingRowId);
+                                $stmtUpd->bind_param("sdi", $MSKU, $amznItemPrice, $existingRowId);
                                 $stmtUpd->execute();
                                 $stmtUpd->close();
 
@@ -455,11 +460,12 @@ foreach ($stores as $store) {
                                 // 4) SAFE ZONE: no conflict -> update status only
                                 // =========================================================
                                 $updateQuery = "UPDATE tblfnsku
-                                                SET amazon_status = ?,
-                                                    insert_date = ?
-                                                WHERE FNSKUID = ?";
+                SET amazon_status = ?,
+                    insert_date = ?,
+                    amzn_item_price = ?
+                WHERE FNSKUID = ?";
                                 $stmtUpd = $Connect->prepare($updateQuery);
-                                $stmtUpd->bind_param("ssi", $incomingStatus, $currentDateTime, $existingRowId);
+                                $stmtUpd->bind_param("ssdi", $incomingStatus, $currentDateTime, $amznItemPrice, $existingRowId);
                                 $stmtUpd->execute();
                                 $stmtUpd->close();
 
@@ -751,7 +757,7 @@ function buildHeaders($credentials, $accessToken, $path)
 
 function query_params($nextToken = null)
 {
-    $query = 'marketplaceIds=ATVPDKIKX0DER&issueLocale=en_US&includedData=summaries';
+    $query = 'marketplaceIds=ATVPDKIKX0DER&issueLocale=en_US&includedData=summaries,attributes';
 
     return $query;
 }
@@ -1480,4 +1486,65 @@ function createNotification(mysqli $db, string $module, string $title, string $s
     }
 
     $stmt2->close();
+}
+
+function extractPurchasableOfferPrice(array $results): ?float
+{
+    if (
+        !isset($results['attributes']) ||
+        !is_array($results['attributes']) ||
+        !isset($results['attributes']['purchasable_offer']) ||
+        !is_array($results['attributes']['purchasable_offer'])
+    ) {
+        return null;
+    }
+
+    foreach ($results['attributes']['purchasable_offer'] as $offer) {
+        if (!is_array($offer)) {
+            continue;
+        }
+
+        // Common path:
+        // attributes -> purchasable_offer[] -> our_price[] -> schedule[] -> value_with_tax
+        if (isset($offer['our_price']) && is_array($offer['our_price'])) {
+            foreach ($offer['our_price'] as $ourPrice) {
+                if (!is_array($ourPrice) || !isset($ourPrice['schedule']) || !is_array($ourPrice['schedule'])) {
+                    continue;
+                }
+
+                foreach ($ourPrice['schedule'] as $schedule) {
+                    if (!is_array($schedule)) {
+                        continue;
+                    }
+
+                    if (isset($schedule['value_with_tax']) && is_numeric($schedule['value_with_tax'])) {
+                        return (float) $schedule['value_with_tax'];
+                    }
+
+                    if (isset($schedule['value']) && is_numeric($schedule['value'])) {
+                        return (float) $schedule['value'];
+                    }
+                }
+            }
+        }
+
+        // Extra fallback in case Amazon structure differs slightly
+        if (isset($offer['schedule']) && is_array($offer['schedule'])) {
+            foreach ($offer['schedule'] as $schedule) {
+                if (!is_array($schedule)) {
+                    continue;
+                }
+
+                if (isset($schedule['value_with_tax']) && is_numeric($schedule['value_with_tax'])) {
+                    return (float) $schedule['value_with_tax'];
+                }
+
+                if (isset($schedule['value']) && is_numeric($schedule['value'])) {
+                    return (float) $schedule['value'];
+                }
+            }
+        }
+    }
+
+    return null;
 }
