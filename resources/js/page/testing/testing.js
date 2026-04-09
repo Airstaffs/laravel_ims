@@ -828,31 +828,60 @@ export default {
                 return;
             }
 
-            // Save to localStorage
-            const payload = {
-                ...this.testingWorkLogValues,
-                __testResult: this.testResult,
-                __dateTested: this.testingWorkLogOpenedAt
-                    ? this.testingWorkLogOpenedAt.toLocaleString("en-US", {
-                          year: "numeric",
-                          month: "2-digit",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                      })
-                    : null,
-                __tester:
-                    this.testingWorkLogItem.received_by ||
-                    this.testingWorkLogItem.Username ||
-                    this.currentUser ||
-                    null,
-            };
+            const asin =
+                this.testingWorkLogItem.ASINviewer ||
+                this.testingWorkLogItem.ASIN ||
+                this.testingWorkLogItem.asin;
 
-            localStorage.setItem(
-                `testing_worklog:${this.testingWorkLogItem.rtcounter}`,
-                JSON.stringify(payload),
-            );
+            const testedBy =
+                this.testingWorkLogItem.received_by ||
+                this.testingWorkLogItem.Username ||
+                this.currentUser ||
+                null;
+
+            const dateTested = this.testingWorkLogOpenedAt
+                ? this.testingWorkLogOpenedAt.toLocaleString("en-US", {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: true,
+                  })
+                : null;
+
+            console.log("📤 Saving testing work log to DB:", {
+                rtcounter: this.testingWorkLogItem.rtcounter,
+                asin,
+                tested_by: testedBy,
+                test_result: this.testResult,
+                date_tested: dateTested,
+                field_values: this.testingWorkLogValues,
+            });
+
+            try {
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/testing/work-log`,
+                    {
+                        rtcounter: String(this.testingWorkLogItem.rtcounter),
+                        asin,
+                        tested_by: testedBy,
+                        test_result: this.testResult,
+                        date_tested: dateTested,
+                        field_values: this.testingWorkLogValues,
+                    },
+                );
+                console.log("✅ DB save response:", response.data);
+            } catch (e) {
+                console.error("❌ Failed to save testing work log:", e);
+                Swal.fire({
+                    icon: "error",
+                    title: "Save Failed",
+                    text:
+                        e.response?.data?.message || "Failed to save work log.",
+                });
+                return;
+            }
 
             // Capture before resetting
             const item = { ...this.testingWorkLogItem };
@@ -865,7 +894,6 @@ export default {
             this.testingWorkLogValues = {};
             this.testResult = null;
 
-            // ── Move directly without waiting for Swal ─────────────────────
             if (testResult === "pass") {
                 await Swal.fire({
                     icon: "success",

@@ -35,16 +35,18 @@
                 <div class="wl-meta-grid">
                     <div class="wl-meta-item">
                         <div class="wl-meta-label">ASIN</div>
-                        <div class="wl-meta-value">{{ log.asin || "—" }}</div>
+                        <div class="wl-meta-value">{{ logAsin || "—" }}</div>
                     </div>
                     <div class="wl-meta-item">
                         <div class="wl-meta-label">FNSKU</div>
-                        <div class="wl-meta-value">{{ log.fnsku || "—" }}</div>
+                        <div class="wl-meta-value">
+                            {{ log.fnsku || log.FNSKU || "—" }}
+                        </div>
                     </div>
                     <div class="wl-meta-item">
                         <div class="wl-meta-label">Product</div>
                         <div class="wl-meta-value">
-                            {{ log.product_name || "—" }}
+                            {{ log.product_name || log.ProductTitle || "—" }}
                         </div>
                     </div>
                 </div>
@@ -60,7 +62,7 @@
                     <div class="wl-meta-item">
                         <div class="wl-meta-label">Date Labelled</div>
                         <div class="wl-meta-value">
-                            {{ log.date_labelled || "—" }}
+                            {{ log.date_labelled || log.lastDateUpdate || "—" }}
                         </div>
                     </div>
                     <div class="wl-meta-item">
@@ -175,19 +177,19 @@
                     <div class="wl-field">
                         <span class="wl-field-label">PCN:</span>
                         <span class="wl-field-value">{{
-                            log.pcn_number || "—"
+                            log.pcn_number || log.PCN || "—"
                         }}</span>
                     </div>
                     <div class="wl-field">
                         <span class="wl-field-label">Basket:</span>
                         <span class="wl-field-value">{{
-                            log.basket_number || "—"
+                            log.basket_number || log.basketnumber || "—"
                         }}</span>
                     </div>
                 </div>
 
                 <!-- 2. Labelling Module -->
-                <template v-if="log.passed_labeling">
+                <template v-if="log.passed_labeling || log.MSKUviewer">
                     <div class="wl-section-header wl-section-header--labelling">
                         <span>🏷️</span><span>2. LABELLING MODULE</span>
                     </div>
@@ -195,61 +197,67 @@
                         <div class="wl-field">
                             <span class="wl-field-label">Date Labelled:</span>
                             <span class="wl-field-value">{{
-                                log.date_labelled || "—"
+                                log.date_labelled || log.lastDateUpdate || "—"
                             }}</span>
                         </div>
                         <div class="wl-field">
                             <span class="wl-field-label">Labelled By:</span>
                             <span class="wl-field-value">{{
-                                log.labelled_by || "—"
+                                log.labelled_by || log.Username || "—"
                             }}</span>
                         </div>
                         <div class="wl-field">
                             <span class="wl-field-label">FNSKU:</span>
                             <span class="wl-field-value">{{
-                                log.fnsku || "—"
+                                log.fnsku || log.FNSKU || "—"
                             }}</span>
                         </div>
                         <div class="wl-field">
                             <span class="wl-field-label">ASIN:</span>
                             <span class="wl-field-value">{{
-                                log.asin || "—"
+                                logAsin || "—"
                             }}</span>
                         </div>
                         <div class="wl-field">
                             <span class="wl-field-label">MSKU:</span>
                             <span class="wl-field-value">{{
-                                log.msku || "—"
+                                log.msku || log.MSKU || "—"
                             }}</span>
                         </div>
                         <div class="wl-field">
                             <span class="wl-field-label">RPN:</span>
                             <span class="wl-field-value">{{
-                                log.rpn || "—"
+                                log.rpn || log.RPN || "—"
                             }}</span>
                         </div>
                         <div class="wl-field">
                             <span class="wl-field-label">PRD:</span>
                             <span class="wl-field-value">{{
-                                log.prd || "—"
+                                log.prd || log.PRD || "—"
                             }}</span>
                         </div>
                         <div class="wl-field">
                             <span class="wl-field-label">Priority Rank:</span>
                             <span class="wl-field-value">{{
-                                log.priority_rank || "—"
+                                log.priority_rank || log.priorityrank || "—"
                             }}</span>
                         </div>
-                        <div class="wl-field" v-if="log.sticker_note">
+                        <div
+                            class="wl-field"
+                            v-if="log.sticker_note || log.stickernote"
+                        >
                             <span class="wl-field-label">Sticker Notes:</span>
                             <span class="wl-field-value">{{
-                                log.sticker_note
+                                log.sticker_note || log.stickernote
                             }}</span>
                         </div>
-                        <div class="wl-field" v-if="log.employee_note">
+                        <div
+                            class="wl-field"
+                            v-if="log.employee_note || log.EmployeeNote"
+                        >
                             <span class="wl-field-label">Employee Notes:</span>
                             <span class="wl-field-value">{{
-                                log.employee_note
+                                log.employee_note || log.EmployeeNote
                             }}</span>
                         </div>
                         <div class="wl-field">
@@ -257,7 +265,9 @@
                                 >Current Location:</span
                             >
                             <span class="wl-field-value">{{
-                                log.current_location || "—"
+                                log.current_location ||
+                                log.ProductModuleLoc ||
+                                "—"
                             }}</span>
                         </div>
                         <template v-if="log.last_edited_at">
@@ -341,7 +351,7 @@
                 </template>
 
                 <!-- 3. Testing Module -->
-                <template v-if="log.passed_testing">
+                <template v-if="showTestingModule">
                     <div class="wl-section-header wl-section-header--testing">
                         <span>🔬</span><span>3. TESTING MODULE</span>
                     </div>
@@ -357,86 +367,136 @@
                                 >Current Location:</span
                             >
                             <span class="wl-field-value">{{
-                                log.current_location || "—"
+                                log.current_location ||
+                                log.ProductModuleLoc ||
+                                "—"
                             }}</span>
                         </div>
-
-                        <!-- Saved Testing Work Log values -->
-                        <template v-if="testingWorkLogEntries.length">
-                            <!-- Test Result Decision -->
-                            <div
-                                v-if="testingWorkLogMeta.testResult"
-                                class="wl-field"
+                        <div
+                            v-if="testingWorkLogMeta.testResult"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Test Result:</span>
+                            <span
+                                class="wl-field-value"
+                                :class="
+                                    testingWorkLogMeta.testResult === 'pass'
+                                        ? 'text-success'
+                                        : 'text-danger'
+                                "
                             >
-                                <span class="wl-field-label">Test Result:</span>
+                                {{
+                                    testingWorkLogMeta.testResult === "pass"
+                                        ? "PASS ✓"
+                                        : "FAIL ✗"
+                                }}
+                            </span>
+                        </div>
+                        <div
+                            v-if="testingWorkLogMeta.dateTested"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Date Tested:</span>
+                            <span class="wl-field-value">{{
+                                testingWorkLogMeta.dateTested
+                            }}</span>
+                        </div>
+                        <div v-if="testingWorkLogMeta.tester" class="wl-field">
+                            <span class="wl-field-label">Tester:</span>
+                            <span class="wl-field-value">{{
+                                testingWorkLogMeta.tester
+                            }}</span>
+                        </div>
+                        <div
+                            v-for="(entry, i) in testingWorkLogEntries"
+                            :key="'twl-' + i"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">
+                                {{ entry.label }}:
                                 <span
-                                    class="wl-field-value"
-                                    :class="
-                                        testingWorkLogMeta.testResult === 'pass'
-                                            ? 'text-success'
-                                            : 'text-danger'
+                                    v-if="entry._fromGlobal"
+                                    class="wl-global-badge"
+                                    >Global</span
+                                >
+                            </span>
+                            <span
+                                class="wl-field-value"
+                                :class="{
+                                    'text-success': isPassValue(entry.value),
+                                    'text-danger': isFailValue(entry.value),
+                                }"
+                            >
+                                {{ entry.value || "—" }}
+                            </span>
+                        </div>
+                        <div
+                            v-if="
+                                !testingWorkLogEntries.length &&
+                                !testingWorkLogMeta.testResult
+                            "
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Work Log:</span>
+                            <span
+                                class="wl-field-value"
+                                style="color: #aaa; font-style: italic"
+                                >Not recorded yet</span
+                            >
+                        </div>
+                    </div>
+                </template>
+
+                <!-- 4. Cleaning Module -->
+                <template v-if="showCleaningModule">
+                    <div class="wl-section-header wl-section-header--cleaning">
+                        <span>🧹</span><span>4. CLEANING MODULE</span>
+                    </div>
+                    <div class="wl-section-body">
+                        <div
+                            v-if="cleaningWorkLogMeta.dateCleaned"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Date Cleaned:</span>
+                            <span class="wl-field-value">{{
+                                cleaningWorkLogMeta.dateCleaned
+                            }}</span>
+                        </div>
+                        <div
+                            v-if="cleaningWorkLogMeta.cleanedBy"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Cleaned By:</span>
+                            <span class="wl-field-value">{{
+                                cleaningWorkLogMeta.cleanedBy
+                            }}</span>
+                        </div>
+                        <div
+                            v-for="(entry, i) in cleaningCategoryEntries"
+                            :key="'cwl-' + i"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label"
+                                >{{ entry.name }}:</span
+                            >
+                            <span class="wl-field-value">
+                                {{ entry.status || "—" }}
+                                <span
+                                    v-if="entry.notes"
+                                    style="
+                                        color: #64748b;
+                                        font-size: 12px;
+                                        margin-left: 6px;
                                     "
                                 >
-                                    {{
-                                        testingWorkLogMeta.testResult === "pass"
-                                            ? "PASS ✓"
-                                            : "FAIL ✗"
-                                    }}
+                                    — {{ entry.notes }}
                                 </span>
-                            </div>
-
-                            <!-- Date Tested -->
-                            <div
-                                v-if="testingWorkLogMeta.dateTested"
-                                class="wl-field"
-                            >
-                                <span class="wl-field-label">Date Tested:</span>
-                                <span class="wl-field-value">{{
-                                    testingWorkLogMeta.dateTested
-                                }}</span>
-                            </div>
-
-                            <!-- Tester -->
-                            <div
-                                v-if="testingWorkLogMeta.tester"
-                                class="wl-field"
-                            >
-                                <span class="wl-field-label">Tester:</span>
-                                <span class="wl-field-value">{{
-                                    testingWorkLogMeta.tester
-                                }}</span>
-                            </div>
-
-                            <!-- Dynamic config fields with saved values -->
-                            <div
-                                v-for="(entry, i) in testingWorkLogEntries"
-                                :key="'twl-' + i"
-                                class="wl-field"
-                            >
-                                <span class="wl-field-label">
-                                    {{ entry.label }}:
-                                    <span
-                                        v-if="entry._fromGlobal"
-                                        class="wl-global-badge"
-                                        >Global</span
-                                    >
-                                </span>
-                                <span
-                                    class="wl-field-value"
-                                    :class="{
-                                        'text-success': isPassValue(
-                                            entry.value,
-                                        ),
-                                        'text-danger': isFailValue(entry.value),
-                                    }"
-                                >
-                                    {{ entry.value || "—" }}
-                                </span>
-                            </div>
-                        </template>
-
-                        <!-- No work log saved yet -->
-                        <div v-else class="wl-field">
+                            </span>
+                        </div>
+                        <div
+                            v-if="!cleaningCategoryEntries.length"
+                            class="wl-field"
+                        >
                             <span class="wl-field-label">Work Log:</span>
                             <span
                                 class="wl-field-value"
@@ -503,9 +563,16 @@ export default {
             ].filter(Boolean);
         },
 
-        /** Labeling config fields from localStorage */
+        // Works for both checklistLogs (asin) and HouseageController (ASIN / ASINviewer)
+        logAsin() {
+            return (
+                this.log?.asin || this.log?.ASIN || this.log?.ASINviewer || null
+            );
+        },
+
+        // ── Labeling config fields ─────────────────────────────────────────
         asinConfigFields() {
-            if (!this.log?.asin) return [];
+            if (!this.logAsin) return [];
             const parse = (key) => {
                 try {
                     const r = localStorage.getItem(key);
@@ -515,7 +582,7 @@ export default {
                 }
             };
             const globalFields = parse("asin_global_config_labeling");
-            const asinFields = parse(`asin_config_labeling:${this.log.asin}`);
+            const asinFields = parse(`asin_config_labeling:${this.logAsin}`);
             const markedGlobals = globalFields.map((f) => ({
                 ...f,
                 _fromGlobal: true,
@@ -527,43 +594,36 @@ export default {
             ];
         },
 
-        /**
-         * Load saved Testing Work Log values from localStorage.
-         * Key: testing_worklog:{rtcounter}
-         * Returns the saved { [label]: value } map.
-         */
+        // ── Testing Module ─────────────────────────────────────────────────
+        showTestingModule() {
+            return (
+                !!this.log?.passed_testing ||
+                !!this.log?.twl_test_result ||
+                !!this.log?.twl_date_tested
+            );
+        },
+
         savedTestingWorkLog() {
-            if (!this.log?.rtcounter) return null;
+            if (!this.log?.testing_field_values) return null;
             try {
-                const raw = localStorage.getItem(
-                    `testing_worklog:${this.log.rtcounter}`,
-                );
-                return raw ? JSON.parse(raw) : null;
+                return typeof this.log.testing_field_values === "string"
+                    ? JSON.parse(this.log.testing_field_values)
+                    : this.log.testing_field_values;
             } catch {
                 return null;
             }
         },
 
-        /**
-         * Meta fields saved alongside the work log:
-         * testResult, dateTested, tester
-         */
         testingWorkLogMeta() {
-            if (!this.savedTestingWorkLog) return {};
             return {
-                testResult: this.savedTestingWorkLog.__testResult || null,
-                dateTested: this.savedTestingWorkLog.__dateTested || null,
-                tester: this.savedTestingWorkLog.__tester || null,
+                testResult: this.log?.twl_test_result || null,
+                dateTested: this.log?.twl_date_tested || null,
+                tester: this.log?.twl_tested_by || null,
             };
         },
 
-        /**
-         * Merge testing field definitions (localStorage) with saved values.
-         * Returns array of { label, value, _fromGlobal }
-         */
         testingWorkLogEntries() {
-            if (!this.savedTestingWorkLog || !this.log?.asin) return [];
-
+            if (!this.savedTestingWorkLog || !this.logAsin) return [];
             const parse = (key) => {
                 try {
                     const r = localStorage.getItem(key);
@@ -572,32 +632,77 @@ export default {
                     return [];
                 }
             };
-
             const globalFields = parse("asin_global_config_testing");
-            const asinFields = parse(`asin_config_testing:${this.log.asin}`);
+            const asinFields = parse(`asin_config_testing:${this.logAsin}`);
             const markedGlobals = globalFields.map((f) => ({
                 ...f,
                 _fromGlobal: true,
             }));
-            const asinLabels = new Set(asinFields.map((f) => f.label));
+            const savedLabels = new Set(asinFields.map((f) => f.label));
             const definitions = [
-                ...markedGlobals.filter((f) => !asinLabels.has(f.label)),
+                ...markedGlobals.filter((f) => !savedLabels.has(f.label)),
                 ...asinFields,
             ];
-
-            // Map definitions to saved values
             return definitions
                 .map((def) => ({
                     label: def.label,
                     value: this.savedTestingWorkLog[def.label] ?? null,
                     _fromGlobal: def._fromGlobal ?? false,
                 }))
-                .filter((e) => e.value !== null); // only show fields that were filled
+                .filter((e) => e.value !== null);
+        },
+
+        // ── Cleaning Module ────────────────────────────────────────────────
+        showCleaningModule() {
+            return (
+                !!this.log?.date_cleaned || !!this.log?.cleaning_category_values
+            );
+        },
+
+        savedCleaningWorkLog() {
+            if (!this.log?.cleaning_category_values) return null;
+            try {
+                return typeof this.log.cleaning_category_values === "string"
+                    ? JSON.parse(this.log.cleaning_category_values)
+                    : this.log.cleaning_category_values;
+            } catch {
+                return null;
+            }
+        },
+
+        cleaningWorkLogMeta() {
+            return {
+                dateCleaned: this.log?.date_cleaned || null,
+                cleanedBy: this.log?.cleaned_by || null,
+                markDone: this.log?.cleaning_done ?? undefined,
+            };
+        },
+
+        cleaningCategoryEntries() {
+            if (!this.savedCleaningWorkLog) return [];
+            const data = this.savedCleaningWorkLog;
+            const entries = [];
+            const seen = new Set();
+            Object.keys(data).forEach((key) => {
+                if (key.startsWith("__")) return;
+                if (key.includes("__action__")) return;
+                if (key.endsWith("__status")) {
+                    const name = key.replace("__status", "");
+                    if (!seen.has(name)) {
+                        seen.add(name);
+                        entries.push({
+                            name,
+                            status: data[key] || null,
+                            notes: data[name + "__notes"] || null,
+                        });
+                    }
+                }
+            });
+            return entries;
         },
     },
 
     methods: {
-        /** Green text for pass-like values */
         isPassValue(val) {
             if (!val) return false;
             const v = String(val).toLowerCase();
@@ -608,7 +713,6 @@ export default {
                 v === "true"
             );
         },
-        /** Red text for fail-like values */
         isFailValue(val) {
             if (!val) return false;
             const v = String(val).toLowerCase();
@@ -618,6 +722,15 @@ export default {
                 v.includes("broken") ||
                 v.includes("issue")
             );
+        },
+    },
+
+    watch: {
+        modelValue(val) {
+            if (val) {
+                console.log("twl_test_result:", this.log?.twl_test_result);
+                console.log("full log:", this.log);
+            }
         },
     },
 };

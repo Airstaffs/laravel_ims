@@ -799,71 +799,95 @@ export default {
             if (!this.cleaningWorkLogItem?.rtcounter) return;
 
             this.savingCleaningWorkLog = true;
+
+            const asin =
+                this.cleaningWorkLogItem.ASINviewer ||
+                this.cleaningWorkLogItem.ASIN ||
+                this.cleaningWorkLogItem.asin;
+
+            const cleanedBy =
+                this.cleaningWorkLogItem.received_by ||
+                this.cleaningWorkLogItem.Username ||
+                this.currentUser ||
+                null;
+
+            const dateCleaned = this.cleaningWorkLogOpenedAt
+                ? this.cleaningWorkLogOpenedAt.toLocaleString("en-US", {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: true,
+                  })
+                : null;
+
+            console.log("📤 Saving cleaning work log to DB:", {
+                rtcounter: String(this.cleaningWorkLogItem.rtcounter),
+                asin,
+                cleaned_by: cleanedBy,
+                date_cleaned: dateCleaned,
+                mark_done: markDone,
+                category_values: this.cleaningWorkLogValues,
+            });
+
             try {
-                const payload = {
-                    ...this.cleaningWorkLogValues,
-                    __dateCleaned: this.cleaningWorkLogOpenedAt
-                        ? this.cleaningWorkLogOpenedAt.toLocaleString("en-US", {
-                              year: "numeric",
-                              month: "2-digit",
-                              day: "2-digit",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              hour12: true,
-                          })
-                        : null,
-                    __cleanedBy:
-                        this.cleaningWorkLogItem.received_by ||
-                        this.cleaningWorkLogItem.Username ||
-                        this.currentUser ||
-                        null,
-                    __markDone: markDone,
-                };
-
-                localStorage.setItem(
-                    `cleaning_worklog:${this.cleaningWorkLogItem.rtcounter}`,
-                    JSON.stringify(payload),
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/cleaning/work-log`,
+                    {
+                        rtcounter: String(this.cleaningWorkLogItem.rtcounter),
+                        asin,
+                        cleaned_by: cleanedBy,
+                        date_cleaned: dateCleaned,
+                        mark_done: markDone,
+                        category_values: this.cleaningWorkLogValues,
+                    },
                 );
-
-                const item = { ...this.cleaningWorkLogItem };
-
-                // Reset dialog
-                this.showCleaningWorkLog = false;
-                this.cleaningWorkLogItem = null;
-                this.cleaningWorkLogCategories = [];
-                this.cleaningWorkLogValues = {};
-
-                if (markDone) {
-                    await Swal.fire({
-                        icon: "success",
-                        title: "Cleaning Complete! ✓",
-                        html: `
-                    <p>Work log saved successfully.</p>
-                    <p>Moving <strong>${this.getDisplayTitle(item)}</strong>
-                    to <strong>Packaging</strong>.</p>
-                `,
-                        confirmButtonText: "OK",
-                    });
-                    await this.moveToPackaging(item);
-                } else {
-                    Swal.fire({
-                        icon: "success",
-                        title: "Progress Saved!",
-                        text: "Cleaning work log saved. You can continue later.",
-                        timer: 1800,
-                        showConfirmButton: false,
-                    });
-                }
+                console.log("✅ DB save response:", response.data);
             } catch (e) {
-                console.error("Failed to save cleaning work log:", e);
+                console.error("❌ Failed to save cleaning work log:", e);
                 Swal.fire({
                     icon: "error",
                     title: "Save Failed",
-                    text: "Failed to save work log. Please try again.",
+                    text:
+                        e.response?.data?.message ||
+                        "Failed to save work log. Please try again.",
                 });
-            } finally {
                 this.savingCleaningWorkLog = false;
+                return;
             }
+
+            const item = { ...this.cleaningWorkLogItem };
+
+            // Reset dialog
+            this.showCleaningWorkLog = false;
+            this.cleaningWorkLogItem = null;
+            this.cleaningWorkLogCategories = [];
+            this.cleaningWorkLogValues = {};
+
+            if (markDone) {
+                await Swal.fire({
+                    icon: "success",
+                    title: "Cleaning Complete! ✓",
+                    html: `
+                <p>Work log saved successfully.</p>
+                <p>Moving <strong>${this.getDisplayTitle(item)}</strong>
+                to <strong>Packaging</strong>.</p>
+            `,
+                    confirmButtonText: "OK",
+                });
+                await this.moveToPackaging(item);
+            } else {
+                Swal.fire({
+                    icon: "success",
+                    title: "Progress Saved!",
+                    text: "Cleaning work log saved. You can continue later.",
+                    timer: 1800,
+                    showConfirmButton: false,
+                });
+            }
+
+            this.savingCleaningWorkLog = false;
         },
 
         // Move to Packaging after cleaning done

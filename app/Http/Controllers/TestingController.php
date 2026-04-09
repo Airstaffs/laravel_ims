@@ -550,4 +550,48 @@ class TestingController extends BasetablesController
             ], 500);
         }
     }
+
+    public function saveWorkLog(Request $request)
+    {
+        $request->validate([
+            'rtcounter' => 'required|string',
+            'asin' => 'nullable|string',
+            'tested_by' => 'nullable|string',
+            'test_result' => 'nullable|string',
+            'field_values' => 'nullable|array',
+            'date_tested' => 'nullable|string',
+        ]);
+
+        DB::table('tbltestingworklogs')->updateOrInsert(
+            ['rtcounter' => $request->rtcounter],
+            [
+                'asin' => $request->asin,
+                'tested_by' => $request->tested_by,
+                'test_result' => $request->test_result,
+                'field_values' => json_encode($request->field_values ?? []),
+                'date_tested' => $request->date_tested
+                                    ? \Carbon\Carbon::parse($request->date_tested)->format('Y-m-d H:i:s')
+                                    : now()->format('Y-m-d H:i:s'),
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
+
+        return response()->json(['success' => true]);
+    }
+
+    public function getWorkLog(Request $request, $rtcounter)
+    {
+        $log = DB::table('tbltestingworklogs')
+            ->where('rtcounter', $rtcounter)
+            ->first();
+
+        if (! $log) {
+            return response()->json(['success' => false, 'data' => null]);
+        }
+
+        $log->field_values = json_decode($log->field_values, true);
+
+        return response()->json(['success' => true, 'data' => $log]);
+    }
 }

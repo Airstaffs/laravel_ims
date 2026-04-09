@@ -207,18 +207,17 @@ export default {
     // METHODS
     // ══════════════════════════════════════════════════════════════
     methods: {
-
         /**
          * Returns the effective limit for a single FNSKU row.
          * Priority: fnsku_limit (if > 0) → asin_limit → 0
          */
         effectiveLimit(fnsku) {
             const fnskuLimit = fnsku.fnsku_limit ?? 0;
-            const asinLimit  = this.selectedAsin?.asin_limit ?? 0;
+            const asinLimit = this.selectedAsin?.asin_limit ?? 0;
             return fnskuLimit > 0 ? fnskuLimit : asinLimit;
         },
- 
-    //Specific method to update FNSKU limit with error handling
+
+        //Specific method to update FNSKU limit with error handling
         async updateFnskuLimit(fnsku) {
             const originalValue = fnsku.fnsku_limit;
             this.savingFnskuLimitFor = fnsku.FNSKU;
@@ -227,7 +226,7 @@ export default {
                 const response = await axios.post(
                     `${API_BASE_URL}/api/asinlist/update-fnsku-limit`,
                     {
-                        fnsku:       fnsku.FNSKU,
+                        fnsku: fnsku.FNSKU,
                         fnsku_limit: fnsku.fnsku_limit ?? 0,
                     },
                     {
@@ -236,24 +235,30 @@ export default {
                             "Content-Type": "application/json",
                             Accept: "application/json",
                         },
-                    }
+                    },
                 );
 
                 if (!response.data.success) {
-                    throw new Error(response.data.message || "Failed to update FNSKU limit");
+                    throw new Error(
+                        response.data.message || "Failed to update FNSKU limit",
+                    );
                 }
 
-                console.log(`✓ FNSKU limit updated for ${fnsku.FNSKU}: ${fnsku.fnsku_limit}`);
+                console.log(
+                    `✓ FNSKU limit updated for ${fnsku.FNSKU}: ${fnsku.fnsku_limit}`,
+                );
             } catch (error) {
                 console.error("Error updating FNSKU limit:", error);
                 fnsku.fnsku_limit = originalValue;
                 this.$forceUpdate();
-                alert("Failed to update FNSKU limit: " + (error.response?.data?.message || error.message));
+                alert(
+                    "Failed to update FNSKU limit: " +
+                        (error.response?.data?.message || error.message),
+                );
             } finally {
                 this.savingFnskuLimitFor = null;
             }
         },
-
 
         // ── Image helpers ────────────────────────────────────────
         forceImageRefresh(asin, imageType, cardSlot = null) {
@@ -607,47 +612,64 @@ export default {
                         },
                     },
                 );
-               if (res.data.success) {
-    Object.assign(this.selectedAsin, {
-        EAN: this.editedAsin.EAN,
-        UPC: this.editedAsin.UPC,
-        instructionlink: this.editedAsin.instructionlink,
-        metakeyword: this.editedAsin.metakeyword,
-        TRANSPARENCY_QR_STATUS: this.editedAsin.TRANSPARENCY_QR_STATUS,
-        QuantityInside: this.editedAsin.QuantityInside,
-        system_title: this.editedAsin.system_title,
-        asin_limit: this.editedAsin.asin_limit,
-        display_title: this.editedAsin.system_title || this.selectedAsin.AStitle,
-    });
+                if (res.data.success) {
+                    Object.assign(this.selectedAsin, {
+                        EAN: this.editedAsin.EAN,
+                        UPC: this.editedAsin.UPC,
+                        instructionlink: this.editedAsin.instructionlink,
+                        metakeyword: this.editedAsin.metakeyword,
+                        TRANSPARENCY_QR_STATUS:
+                            this.editedAsin.TRANSPARENCY_QR_STATUS,
+                        QuantityInside: this.editedAsin.QuantityInside,
+                        system_title: this.editedAsin.system_title,
+                        asin_limit: this.editedAsin.asin_limit,
+                        display_title:
+                            this.editedAsin.system_title ||
+                            this.selectedAsin.AStitle,
+                    });
 
-    // ✅ ADD THIS — reset all fnsku_limit to 0 locally so effectiveLimit()
-    // immediately falls back to the new asin_limit without needing a reload
-    if (this.selectedAsin.fnskus && this.selectedAsin.fnskus.length) {
-        this.selectedAsin.fnskus = this.selectedAsin.fnskus.map(fnsku => ({
-            ...fnsku,
-            fnsku_limit: 0,
-        }));
-    }
+                    // ✅ ADD THIS — reset all fnsku_limit to 0 locally so effectiveLimit()
+                    // immediately falls back to the new asin_limit without needing a reload
+                    if (
+                        this.selectedAsin.fnskus &&
+                        this.selectedAsin.fnskus.length
+                    ) {
+                        this.selectedAsin.fnskus = this.selectedAsin.fnskus.map(
+                            (fnsku) => ({
+                                ...fnsku,
+                                fnsku_limit: 0,
+                            }),
+                        );
+                    }
 
-    // Update the main data array
-    const idx = this.asinData.findIndex(i => i.ASIN === this.editedAsin.ASIN);
-    if (idx !== -1) {
-        Object.assign(this.asinData[idx], {
-            ...this.editedAsin,
-            display_title: this.editedAsin.system_title || this.asinData[idx].AStitle,
-        });
+                    // Update the main data array
+                    const idx = this.asinData.findIndex(
+                        (i) => i.ASIN === this.editedAsin.ASIN,
+                    );
+                    if (idx !== -1) {
+                        Object.assign(this.asinData[idx], {
+                            ...this.editedAsin,
+                            display_title:
+                                this.editedAsin.system_title ||
+                                this.asinData[idx].AStitle,
+                        });
 
-        // ✅ Also reset fnskus in the main data array
-        if (this.asinData[idx].fnskus && this.asinData[idx].fnskus.length) {
-            this.asinData[idx].fnskus = this.asinData[idx].fnskus.map(fnsku => ({
-                ...fnsku,
-                fnsku_limit: 0,
-            }));
-        }
-    }
+                        // ✅ Also reset fnskus in the main data array
+                        if (
+                            this.asinData[idx].fnskus &&
+                            this.asinData[idx].fnskus.length
+                        ) {
+                            this.asinData[idx].fnskus = this.asinData[
+                                idx
+                            ].fnskus.map((fnsku) => ({
+                                ...fnsku,
+                                fnsku_limit: 0,
+                            }));
+                        }
+                    }
 
-    alert("ASIN details updated successfully");
-}else {
+                    alert("ASIN details updated successfully");
+                } else {
                     throw new Error(
                         res.data.message || "Failed to update ASIN details",
                     );
@@ -1580,7 +1602,6 @@ export default {
         },
 
         toggleHasNote(field, oIndex) {
-            field.options[oIndex].hasNote = !field.options[oIndex].hasNote;
             if (!field.options[oIndex].hasNote) {
                 field.options[oIndex].note = "";
                 field.options[oIndex].editingNote = false;

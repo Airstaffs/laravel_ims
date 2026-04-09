@@ -34,215 +34,250 @@ class HouseageController extends BasetablesController
         return $fnsku; // Return as-is if not prefixed
     }
 
+    public function index(Request $request)
+    {
+        try {
+            $perPage = $request->input('per_page', 10);
+            $search = $request->input('search', '');
+            $includeImages = $request->boolean('include_images', false);
 
-public function index(Request $request)
-{
-    try {
-        $perPage       = $request->input('per_page', 10);
-        $search        = $request->input('search', '');
-        $includeImages = $request->boolean('include_images', false);
+            // eBay image columns — reused in both branches
+            $ebayImgColumns = [
+                'ebayimgs.img1',  'ebayimgs.img2',  'ebayimgs.img3',
+                'ebayimgs.img4',  'ebayimgs.img5',  'ebayimgs.img6',
+                'ebayimgs.img7',  'ebayimgs.img8',  'ebayimgs.img9',
+                'ebayimgs.img10', 'ebayimgs.img11', 'ebayimgs.img12',
+                'ebayimgs.img13', 'ebayimgs.img14', 'ebayimgs.img15',
+            ];
 
-        // eBay image columns — reused in both branches
-        $ebayImgColumns = [
-            'ebayimgs.img1',  'ebayimgs.img2',  'ebayimgs.img3',
-            'ebayimgs.img4',  'ebayimgs.img5',  'ebayimgs.img6',
-            'ebayimgs.img7',  'ebayimgs.img8',  'ebayimgs.img9',
-            'ebayimgs.img10', 'ebayimgs.img11', 'ebayimgs.img12',
-            'ebayimgs.img13', 'ebayimgs.img14', 'ebayimgs.img15',
-        ];
+            // Work log columns — reused in both branches
+            $workLogColumns = [
 
-        // ✅ Only do joins when searching (MAJOR PERFORMANCE BOOST)
-        if (empty($search)) {
-            // Fast query — still join eBay images for thumbnail fallback
-            $products = DB::table('tblproduct as prod')
-                ->leftJoin('tblEbayOrderImages as ebayimgs', 'prod.ProductID', '=', 'ebayimgs.ProductID')
-                ->select(array_merge(['prod.*'], $ebayImgColumns))
-                ->orderBy('prod.ProductID', 'desc')
-                ->paginate($perPage);
+                DB::raw('twl.field_values as testing_field_values'),
+                DB::raw('twl.test_result as twl_test_result'),
+                DB::raw('twl.tested_by as twl_tested_by'),
+                DB::raw('twl.date_tested as twl_date_tested'),
+                'cwl.cleaned_by',
+                'cwl.date_cleaned',
+                'cwl.mark_done as cleaning_done',
+                DB::raw('cwl.category_values as cleaning_category_values'),
+            ];
 
-            $products->getCollection()->transform(function ($product) {
-                $product->company      = $this->company;
-                $product->ASIN         = null;
-                $product->MSKU         = $product->MSKUviewer;
-                $product->FNSKU        = $product->FNSKUviewer;
-                $product->grading      = null;
-                $product->storename    = null;
-                $product->AStitle      = $product->ProductTitle;
-                $product->internal     = null;
-                $product->system_title = null;
-                $product->metakeyword  = null;
-                $product->img1_source  = !empty($product->img1) ? 'ebay' : null;
-                return $product;
-            });
+            if (empty($search)) {
+                $products = DB::table('tblproduct as prod')
+                    ->leftJoin('tblEbayOrderImages as ebayimgs', 'prod.ProductID', '=', 'ebayimgs.ProductID')
+                    ->leftJoin('tbltestingworklogs as twl',
+                        DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
+                        '=',
+                        DB::raw('CONVERT(twl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+                    )
+                    ->leftJoin('tblcleaningWorkLogs as cwl',
+                        DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
+                        '=',
+                        DB::raw('CONVERT(cwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+                    )
+                    ->select(array_merge($workLogColumns, ['prod.*'], $ebayImgColumns))
+                    ->orderBy('prod.ProductID', 'desc')
+                    ->paginate($perPage);
 
-        } else {
-            // Query with joins only when searching
-            $products = DB::table('tblproduct as prod')
-                ->leftJoin('tblfnsku as fnsku',            'prod.MSKUviewer', '=', 'fnsku.MSKU')
-                ->leftJoin('tblasin as asin',              'fnsku.ASIN',      '=', 'asin.ASIN')
-                // ✅ Always join — needed for thumbnail fallback
-                ->leftJoin('tblEbayOrderImages as ebayimgs', 'prod.ProductID', '=', 'ebayimgs.ProductID')
-                ->select(array_merge([
-                    'prod.*',
-                    'fnsku.ASIN',
-                    'fnsku.MSKU',
-                    'fnsku.FNSKU',
-                    'fnsku.grading',
-                    'fnsku.storename',
-                    DB::raw("COALESCE(
+                $products->getCollection()->transform(function ($product) {
+                    $product->company = $this->company;
+                    $product->ASIN = null;
+                    $product->MSKU = $product->MSKUviewer;
+                    $product->FNSKU = $product->FNSKUviewer;
+                    $product->grading = null;
+                    $product->storename = null;
+                    $product->AStitle = $product->ProductTitle;
+                    $product->internal = null;
+                    $product->system_title = null;
+                    $product->metakeyword = null;
+                    $product->img1_source = ! empty($product->img1) ? 'ebay' : null;
+
+                    return $product;
+                });
+
+            } else {
+                $products = DB::table('tblproduct as prod')
+                    ->leftJoin('tblfnsku as fnsku', 'prod.MSKUviewer', '=', 'fnsku.MSKU')
+                    ->leftJoin('tblasin as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                    ->leftJoin('tblEbayOrderImages as ebayimgs', 'prod.ProductID', '=', 'ebayimgs.ProductID')
+                    ->leftJoin('tbltestingworklogs as twl',
+                        DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
+                        '=',
+                        DB::raw('CONVERT(twl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+                    )
+                    ->leftJoin('tblcleaningWorkLogs as cwl',
+                        DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
+                        '=',
+                        DB::raw('CONVERT(cwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+                    )
+                    ->select(array_merge($workLogColumns, [
+                        'prod.*',
+                        'fnsku.ASIN',
+                        'fnsku.MSKU',
+                        'fnsku.FNSKU',
+                        'fnsku.grading',
+                        'fnsku.storename',
+                        DB::raw("COALESCE(
                         NULLIF(TRIM(asin.system_title), ''),
                         NULLIF(TRIM(asin.internal), ''),
                         NULLIF(TRIM(prod.ProductTitle), '')
                     ) as AStitle"),
-                    'asin.internal',
-                    'asin.system_title',
-                    'asin.metakeyword',
-                ], $ebayImgColumns))
-                ->where(function ($q) use ($search) {
-                    $q->where('prod.serialnumber',    'like', "%{$search}%")
-                      ->orWhere('prod.ProductTitle',  'like', "%{$search}%")
-                      ->orWhere('prod.rtid',          'like', "%{$search}%")
-                      ->orWhere('prod.itemnumber',    'like', "%{$search}%")
-                      ->orWhere('prod.trackingnumber','like', '%'.substr($search, -12).'%')
-                      ->orWhere('prod.PCN',           'like', "%{$search}%")
-                      ->orWhere('prod.RPN',           'like', "%{$search}%")
-                      ->orWhere('prod.PRD',           'like', "%{$search}%")
-                      ->orWhere('prod.FNSKUviewer',   'like', "%{$search}%")
-                      ->orWhere('prod.MSKUviewer',    'like', "%{$search}%")
-                      ->orWhere('prod.rtcounter',     'like', "%{$search}%")
-                      ->orWhere('fnsku.ASIN',         'like', "%{$search}%")
-                      ->orWhere('fnsku.MSKU',         'like', "%{$search}%")
-                      ->orWhere('fnsku.FNSKU',        'like', "%{$search}%")
-                      ->orWhere('asin.internal',      'like', "%{$search}%")
-                      ->orWhere('asin.system_title',  'like', "%{$search}%")
-                      ->orWhere('asin.metakeyword',   'like', "%{$search}%");
-                })
-                ->orderBy('prod.ProductID', 'desc')
-                ->paginate($perPage);
+                        'asin.internal',
+                        'asin.system_title',
+                        'asin.metakeyword',
+                    ], $ebayImgColumns, $workLogColumns))
+                    ->where(function ($q) use ($search) {
+                        $q->where('prod.serialnumber', 'like', "%{$search}%")
+                            ->orWhere('prod.ProductTitle', 'like', "%{$search}%")
+                            ->orWhere('prod.rtid', 'like', "%{$search}%")
+                            ->orWhere('prod.itemnumber', 'like', "%{$search}%")
+                            ->orWhere('prod.trackingnumber', 'like', '%'.substr($search, -12).'%')
+                            ->orWhere('prod.PCN', 'like', "%{$search}%")
+                            ->orWhere('prod.RPN', 'like', "%{$search}%")
+                            ->orWhere('prod.PRD', 'like', "%{$search}%")
+                            ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
+                            ->orWhere('prod.MSKUviewer', 'like', "%{$search}%")
+                            ->orWhere('prod.rtcounter', 'like', "%{$search}%")
+                            ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
+                            ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
+                            ->orWhere('fnsku.FNSKU', 'like', "%{$search}%")
+                            ->orWhere('asin.internal', 'like', "%{$search}%")
+                            ->orWhere('asin.system_title', 'like', "%{$search}%")
+                            ->orWhere('asin.metakeyword', 'like', "%{$search}%");
+                    })
+                    ->orderBy('prod.ProductID', 'desc')
+                    ->paginate($perPage);
 
-            $products->getCollection()->transform(function ($product) {
-                $product->company = $this->company;
-                if (empty($product->FNSKU) && !empty($product->FNSKUviewer)) {
-                    $product->FNSKU = $product->FNSKUviewer;
-                }
-                if (empty($product->MSKU) && !empty($product->MSKUviewer)) {
-                    $product->MSKU = $product->MSKUviewer;
-                }
-                $product->img1_source = !empty($product->img1) ? 'ebay' : null;
-                return $product;
-            });
-        }
-
-        Log::info('Products fetched', [
-            'count'      => $products->count(),
-            'total'      => $products->total(),
-            'has_search' => !empty($search),
-        ]);
-
-        // ✅ Handle images
-        if ($includeImages) {
-            $this->attachImages($products);
-        } else {
-            $products->getCollection()->transform(function ($product) {
-                $product->capturedImages = (object) [];
-                return $product;
-            });
-        }
-
-        return response()->json($products);
-
-    } catch (\Exception $e) {
-        Log::error('Error in HouseageController index', [
-            'message' => $e->getMessage(),
-            'trace'   => $e->getTraceAsString(),
-        ]);
-
-        return response()->json([
-            'error'   => true,
-            'message' => 'An error occurred while fetching products',
-            'details' => config('app.debug') ? $e->getMessage() : null,
-        ], 500);
-    }
-}
-
-/**
- * Attach images to products collection (extracted for cleaner code)
- */
-private function attachImages($products)
-{
-    try {
-        $productIds = $products->pluck('ProductID')->toArray();
-        
-        if (empty($productIds)) {
-            $products->getCollection()->transform(function ($product) {
-                $product->capturedImages = (object) [];
-                return $product;
-            });
-            return;
-        }
-
-        Log::info('Fetching images', ['count' => count($productIds)]);
-
-        if (!Schema::hasTable('tblcapturedimages')) {
-            $products->getCollection()->transform(function ($product) {
-                $product->capturedImages = (object) [];
-                return $product;
-            });
-            return;
-        }
-
-        // ✅ Use keyBy() for O(1) lookup instead of foreach loop
-        $capturedImages = DB::table('tblcapturedimages')
-            ->whereIn('ProductID', $productIds)
-            ->get()
-            ->keyBy('ProductID');
-
-        $products->getCollection()->transform(function ($product) use ($capturedImages) {
-            $capturedImg = $capturedImages->get($product->ProductID);
-
-            if ($capturedImg) {
-                $capturedImagesObj = [];
-
-                // Captured images 1-12
-                for ($i = 1; $i <= 12; $i++) {
-                    $field = "capturedimg{$i}";
-                    if (!empty($capturedImg->$field) && $capturedImg->$field !== 'NULL') {
-                        $capturedImagesObj[$field] = $capturedImg->$field;
+                $products->getCollection()->transform(function ($product) {
+                    $product->company = $this->company;
+                    if (empty($product->FNSKU) && ! empty($product->FNSKUviewer)) {
+                        $product->FNSKU = $product->FNSKUviewer;
                     }
-                }
-
-                // Serial images 1-5
-                for ($i = 1; $i <= 5; $i++) {
-                    $field = "serialimg{$i}";
-                    if (!empty($capturedImg->$field) && $capturedImg->$field !== 'NULL') {
-                        $capturedImagesObj[$field] = $capturedImg->$field;
+                    if (empty($product->MSKU) && ! empty($product->MSKUviewer)) {
+                        $product->MSKU = $product->MSKUviewer;
                     }
-                }
+                    $product->img1_source = ! empty($product->img1) ? 'ebay' : null;
 
-                // Tracking images 1-2
-                for ($i = 1; $i <= 2; $i++) {
-                    $field = "trackingimg{$i}";
-                    if (!empty($capturedImg->$field) && $capturedImg->$field !== 'NULL') {
-                        $capturedImagesObj[$field] = $capturedImg->$field;
-                    }
-                }
-
-                $product->capturedImages = (object) $capturedImagesObj;
-            } else {
-                $product->capturedImages = (object) [];
+                    return $product;
+                });
             }
 
-            return $product;
-        });
+            Log::info('Products fetched', [
+                'count' => $products->count(),
+                'total' => $products->total(),
+                'has_search' => ! empty($search),
+            ]);
 
-    } catch (\Exception $e) {
-        Log::error('Error fetching images', ['message' => $e->getMessage()]);
-        $products->getCollection()->transform(function ($product) {
-            $product->capturedImages = (object) [];
-            return $product;
-        });
+            if ($includeImages) {
+                $this->attachImages($products);
+            } else {
+                $products->getCollection()->transform(function ($product) {
+                    $product->capturedImages = (object) [];
+
+                    return $product;
+                });
+            }
+
+            return response()->json($products);
+
+        } catch (\Exception $e) {
+            Log::error('Error in HouseageController index', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'error' => true,
+                'message' => 'An error occurred while fetching products',
+                'details' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
-}
+
+    /**
+     * Attach images to products collection (extracted for cleaner code)
+     */
+    private function attachImages($products)
+    {
+        try {
+            $productIds = $products->pluck('ProductID')->toArray();
+
+            if (empty($productIds)) {
+                $products->getCollection()->transform(function ($product) {
+                    $product->capturedImages = (object) [];
+
+                    return $product;
+                });
+
+                return;
+            }
+
+            Log::info('Fetching images', ['count' => count($productIds)]);
+
+            if (! Schema::hasTable('tblcapturedimages')) {
+                $products->getCollection()->transform(function ($product) {
+                    $product->capturedImages = (object) [];
+
+                    return $product;
+                });
+
+                return;
+            }
+
+            // ✅ Use keyBy() for O(1) lookup instead of foreach loop
+            $capturedImages = DB::table('tblcapturedimages')
+                ->whereIn('ProductID', $productIds)
+                ->get()
+                ->keyBy('ProductID');
+
+            $products->getCollection()->transform(function ($product) use ($capturedImages) {
+                $capturedImg = $capturedImages->get($product->ProductID);
+
+                if ($capturedImg) {
+                    $capturedImagesObj = [];
+
+                    // Captured images 1-12
+                    for ($i = 1; $i <= 12; $i++) {
+                        $field = "capturedimg{$i}";
+                        if (! empty($capturedImg->$field) && $capturedImg->$field !== 'NULL') {
+                            $capturedImagesObj[$field] = $capturedImg->$field;
+                        }
+                    }
+
+                    // Serial images 1-5
+                    for ($i = 1; $i <= 5; $i++) {
+                        $field = "serialimg{$i}";
+                        if (! empty($capturedImg->$field) && $capturedImg->$field !== 'NULL') {
+                            $capturedImagesObj[$field] = $capturedImg->$field;
+                        }
+                    }
+
+                    // Tracking images 1-2
+                    for ($i = 1; $i <= 2; $i++) {
+                        $field = "trackingimg{$i}";
+                        if (! empty($capturedImg->$field) && $capturedImg->$field !== 'NULL') {
+                            $capturedImagesObj[$field] = $capturedImg->$field;
+                        }
+                    }
+
+                    $product->capturedImages = (object) $capturedImagesObj;
+                } else {
+                    $product->capturedImages = (object) [];
+                }
+
+                return $product;
+            });
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching images', ['message' => $e->getMessage()]);
+            $products->getCollection()->transform(function ($product) {
+                $product->capturedImages = (object) [];
+
+                return $product;
+            });
+        }
+    }
 
     public function store(Request $request)
     {
@@ -404,13 +439,13 @@ private function attachImages($products)
                 if (! empty($createdProduct->serialimg2)) {
                     $capturedImages['serialimg2'] = $createdProduct->serialimg2;
                 }
-                 if (! empty($createdProduct->serialimg3)) {
+                if (! empty($createdProduct->serialimg3)) {
                     $capturedImages['serialimg3'] = $createdProduct->serialimg3;
                 }
-                 if (! empty($createdProduct->serialimg4)) {
+                if (! empty($createdProduct->serialimg4)) {
                     $capturedImages['serialimg4'] = $createdProduct->serialimg4;
                 }
-                 if (! empty($createdProduct->serialimg5)) {
+                if (! empty($createdProduct->serialimg5)) {
                     $capturedImages['serialimg5'] = $createdProduct->serialimg5;
                 }
 
@@ -917,14 +952,11 @@ private function attachImages($products)
                 // If serialimg1 exists but serialimg2 is empty, use serial2
                 elseif (empty($capturedImage->serialimg2)) {
                     $serialNumber = 2;
-                }
-                   elseif (empty($capturedImage->serialimg3)) {
+                } elseif (empty($capturedImage->serialimg3)) {
                     $serialNumber = 3;
-                }
-                   elseif (empty($capturedImage->serialimg4)) {
+                } elseif (empty($capturedImage->serialimg4)) {
                     $serialNumber = 4;
-                }
-                   elseif (empty($capturedImage->serialimg5)) {
+                } elseif (empty($capturedImage->serialimg5)) {
                     $serialNumber = 5;
                 }
                 // If both exist, replace serial1
@@ -1119,7 +1151,7 @@ private function attachImages($products)
         return response()->json(['exists' => false]);
     }
 
- public function uploadMultipleImages(Request $request)
+    public function uploadMultipleImages(Request $request)
     {
         try {
             // Validate request
@@ -1166,7 +1198,7 @@ private function attachImages($products)
 
             // Create directory if it doesn't exist
             $uploadPath = public_path('images/product_images/Airstaffs');
-            if (!File::exists($uploadPath)) {
+            if (! File::exists($uploadPath)) {
                 File::makeDirectory($uploadPath, 0775, true);
             }
 
@@ -1182,7 +1214,7 @@ private function attachImages($products)
             try {
                 foreach ($images as $index => $image) {
                     $imageNumber = $imageNumbers[$index];
-                    
+
                     try {
                         // Process single image
                         $result = $this->processSingleImage(
@@ -1209,7 +1241,7 @@ private function attachImages($products)
                             ];
                         }
                     } catch (\Exception $e) {
-                        Log::error("Individual image upload error", [
+                        Log::error('Individual image upload error', [
                             'productId' => $productId,
                             'imageNumber' => $imageNumber,
                             'error' => $e->getMessage(),
@@ -1224,9 +1256,9 @@ private function attachImages($products)
                 }
 
                 // Batch update database if any images were successful
-                if (!empty($dbUpdates)) {
+                if (! empty($dbUpdates)) {
                     $dbUpdates['UpdatedAt'] = now();
-                    
+
                     DB::table('tblcapturedimages')->updateOrInsert(
                         ['ProductID' => $productId],
                         $dbUpdates
@@ -1249,8 +1281,8 @@ private function attachImages($products)
 
                 return response()->json([
                     'success' => true,
-                    'message' => "{$successCount} image(s) uploaded successfully" . 
-                                ($failCount > 0 ? ", {$failCount} failed" : ""),
+                    'message' => "{$successCount} image(s) uploaded successfully".
+                                ($failCount > 0 ? ", {$failCount} failed" : ''),
                     'results' => $results,
                     'summary' => [
                         'total' => count($results),
@@ -1265,7 +1297,7 @@ private function attachImages($products)
             }
 
         } catch (\Throwable $th) {
-            Log::error('Multiple image upload error: ' . $th->getMessage(), [
+            Log::error('Multiple image upload error: '.$th->getMessage(), [
                 'productId' => $request->input('productId'),
                 'imageType' => $request->input('imageType'),
                 'trace' => $th->getTraceAsString(),
@@ -1304,7 +1336,7 @@ private function attachImages($products)
         // Move file to destination
         $moved = $image->move($uploadPath, $filename);
 
-        if (!$moved) {
+        if (! $moved) {
             return [
                 'success' => false,
                 'message' => 'Failed to move uploaded file',
@@ -1367,7 +1399,7 @@ private function attachImages($products)
 
             // Build search pattern
             $uploadPath = public_path('images/product_images/Airstaffs');
-            
+
             if ($imageType === 'captured') {
                 $searchPattern = "{$uploadPath}/{$safeProductId}_img{$imageNumber}.*";
                 $columnName = "capturedimg{$imageNumber}";
@@ -1416,7 +1448,7 @@ private function attachImages($products)
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Throwable $th) {
-            Log::error('Image deletion error: ' . $th->getMessage(), [
+            Log::error('Image deletion error: '.$th->getMessage(), [
                 'productId' => $request->input('productId'),
                 'imageType' => $request->input('imageType'),
                 'trace' => $th->getTraceAsString(),
@@ -1477,7 +1509,7 @@ private function attachImages($products)
                     // Delete files
                     $oldFiles = glob($searchPattern);
                     $filesDeleted = false;
-                    
+
                     if ($oldFiles !== false) {
                         foreach ($oldFiles as $oldFile) {
                             if (file_exists($oldFile) && is_file($oldFile)) {
@@ -1497,9 +1529,9 @@ private function attachImages($products)
                 }
 
                 // Batch update database
-                if (!empty($dbUpdates)) {
+                if (! empty($dbUpdates)) {
                     $dbUpdates['UpdatedAt'] = now();
-                    
+
                     DB::table('tblcapturedimages')
                         ->where('ProductID', $productId)
                         ->update($dbUpdates);
@@ -1515,7 +1547,7 @@ private function attachImages($products)
 
                 return response()->json([
                     'success' => true,
-                    'message' => count($imageNumbers) . ' image(s) deleted successfully',
+                    'message' => count($imageNumbers).' image(s) deleted successfully',
                     'results' => $results,
                 ]);
 
@@ -1525,7 +1557,7 @@ private function attachImages($products)
             }
 
         } catch (\Throwable $th) {
-            Log::error('Multiple image deletion error: ' . $th->getMessage(), [
+            Log::error('Multiple image deletion error: '.$th->getMessage(), [
                 'productId' => $request->input('productId'),
                 'trace' => $th->getTraceAsString(),
             ]);
@@ -1538,27 +1570,26 @@ private function attachImages($products)
         }
     }
 
-    
     public function deleteCapturedImagesBulk(Request $request)
     {
         try {
             $validated = $request->validate([
-                'productId'    => 'required|string|max:255',
+                'productId' => 'required|string|max:255',
                 'imageNumbers' => 'required|array|min:1',
                 'imageNumbers.*' => 'required|integer|min:1|max:12',
-                'imageType'    => 'required|string|in:tracking,captured,serial',
+                'imageType' => 'required|string|in:tracking,captured,serial',
             ]);
 
-            $productId    = $validated['productId'];
+            $productId = $validated['productId'];
             $imageNumbers = array_unique($validated['imageNumbers']);
-            $imageType    = $validated['imageType'];
+            $imageType = $validated['imageType'];
 
             // Validate count per type
             foreach ($imageNumbers as $num) {
                 if (in_array($imageType, ['tracking', 'serial']) && $num > 2) {
                     return response()->json([
                         'success' => false,
-                        'message' => ucfirst($imageType) . ' images only support img1 and img2',
+                        'message' => ucfirst($imageType).' images only support img1 and img2',
                     ], 422);
                 }
             }
@@ -1572,20 +1603,21 @@ private function attachImages($products)
             }
 
             $successCount = 0;
-            $failCount    = 0;
-            $updates      = ['UpdatedAt' => now()];
+            $failCount = 0;
+            $updates = ['UpdatedAt' => now()];
 
             foreach ($imageNumbers as $num) {
-                $columnName = $imageType . 'img' . $num;
-                $filename   = $record->{$columnName} ?? null;
+                $columnName = $imageType.'img'.$num;
+                $filename = $record->{$columnName} ?? null;
 
                 if (! $filename) {
                     $failCount++;
+
                     continue;
                 }
 
                 // Delete file from filesystem
-                $filePath = public_path('images/product_images/Airstaffs/' . $filename);
+                $filePath = public_path('images/product_images/Airstaffs/'.$filename);
                 if (file_exists($filePath) && is_file($filePath)) {
                     if (! @unlink($filePath)) {
                         Log::warning("Bulk delete: failed to delete file: {$filePath}");
@@ -1604,38 +1636,38 @@ private function attachImages($products)
             }
 
             Log::info('Bulk product image delete', [
-                'ProductID'    => $productId,
-                'imageType'    => $imageType,
+                'ProductID' => $productId,
+                'imageType' => $imageType,
                 'imageNumbers' => $imageNumbers,
                 'successCount' => $successCount,
-                'failCount'    => $failCount,
+                'failCount' => $failCount,
             ]);
 
             return response()->json([
-                'success'      => true,
-                'message'      => "{$successCount} image(s) deleted successfully",
+                'success' => true,
+                'message' => "{$successCount} image(s) deleted successfully",
                 'successCount' => $successCount,
-                'failCount'    => $failCount,
+                'failCount' => $failCount,
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation error',
-                'errors'  => $e->errors(),
+                'errors' => $e->errors(),
             ], 422);
         } catch (\Throwable $th) {
-            Log::error('Bulk image delete error: ' . $th->getMessage(), [
-                'productId'    => $request->input('productId'),
-                'imageType'    => $request->input('imageType'),
+            Log::error('Bulk image delete error: '.$th->getMessage(), [
+                'productId' => $request->input('productId'),
+                'imageType' => $request->input('imageType'),
                 'imageNumbers' => $request->input('imageNumbers'),
-                'trace'        => $th->getTraceAsString(),
+                'trace' => $th->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete images',
-                'error'   => config('app.debug') ? $th->getMessage() : 'Server error',
+                'error' => config('app.debug') ? $th->getMessage() : 'Server error',
             ], 500);
         }
     }

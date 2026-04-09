@@ -899,6 +899,32 @@ class LabelingController extends BasetablesController
 
             Log::info('Product found, current location: '.$existingProduct->ProductModuleLoc);
 
+            // ── Checklist gate ─────────────────────────────────────────────
+            $hasChecklist = DB::table('tblreceivedchecklist')
+                ->where('rtcounter', $request->rt_counter)
+                ->exists();
+
+            if (! $hasChecklist) {
+                Log::warning('Cannot move to Testing - no checklist record found', [
+                    'product_id' => $request->product_id,
+                    'rt_counter' => $request->rt_counter,
+                ]);
+
+                $this->trackHistory(
+                    'Labeling',
+                    'Move to Testing Failed',
+                    "RTC: {$request->rt_counter}",
+                    'No checklist record found'
+                );
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot move to Testing. This item has no receiving checklist record. Please complete the receiving checklist first.',
+                    'requires_checklist' => true,
+                ], 422);
+            }
+            // ──────────────────────────────────────────────────────────────
+
             // Check if quantity > 1
             $quantity = (int) ($existingProduct->quantity ?? 0);
             if ($quantity > 1) {
@@ -957,7 +983,6 @@ class LabelingController extends BasetablesController
                 $missingFields[] = 'ASIN';
             }
 
-            // If any required fields are missing, return error
             if (! empty($missingFields)) {
                 $missingFieldsText = implode(', ', $missingFields);
                 Log::warning('Cannot move to Testing - missing required fields', [
@@ -981,10 +1006,9 @@ class LabelingController extends BasetablesController
                 ], 422);
             }
 
-            // All required fields are present, proceed with the move
-            Log::info('All required fields present, proceeding with move to Testing');
+            // All checks passed, proceed with the move
+            Log::info('All checks passed, proceeding with move to Testing');
 
-            // Update the product location in the database
             $updateResult = DB::table($this->productTable)
                 ->where('ProductID', $request->product_id)
                 ->update([

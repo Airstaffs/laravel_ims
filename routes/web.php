@@ -487,6 +487,8 @@ Route::prefix('api/received')->group(function () {
     Route::get('products', [ReceivedController::class, 'index']);
     Route::get('verify-tracking', [ReceivedController::class, 'verifyTracking']);
     Route::post('validate-pcn', [ReceivedController::class, 'validatePcn']);
+    Route::post('process-scan', [ReceivedController::class, 'processScan']);
+    Route::post('record-checklist', [LogController::class, 'recordChecklist']);
 });
 
 // Routes for Checklist Logs
@@ -713,12 +715,18 @@ Route::middleware(['auth'])->prefix('api/testing')->group(function () {
 
     Route::post('move-to-cleaning', [TestingController::class, 'moveToCleaning']);
     Route::post('move-to-repair', [TestingController::class, 'moveToRepair']);
+
+    Route::post('work-log', [TestingController::class, 'saveWorkLog']);
+    Route::get('work-log/{rtcounter}', [TestingController::class, 'getWorkLog']);
 });
 
 // Cleaning module routes
 Route::middleware(['auth'])->prefix('api/cleaning')->group(function () {
     Route::get('products', [CleaningController::class, 'index']);
     Route::post('move-to-packaging', [CleaningController::class, 'moveToPackaging']);
+
+    Route::post('work-log', [CleaningController::class, 'saveWorkLog']);
+    Route::get('work-log/{rtcounter}', [CleaningController::class, 'getWorkLog']);
 });
 
 // Routes for Shipment Module

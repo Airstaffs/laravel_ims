@@ -335,6 +335,20 @@
     background: #fff;
 }
 
+/* Cleaning section header */
+.wl-section-header--cleaning {
+    background: #f0fdfa;
+    border-left: 4px solid #14b8a6;
+    color: #134e4a;
+}
+
+/* Category sub-header row */
+.wl-cleaning-cat-header {
+    background: #f0fdfa;
+    border-radius: 4px;
+    margin-top: 6px;
+}
+
 .wl-global-badge {
     display: inline-block;
     background: #ede9fe;

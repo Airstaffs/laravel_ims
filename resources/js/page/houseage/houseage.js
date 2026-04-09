@@ -85,7 +85,7 @@ export default {
             selectedRows: [], //for invoice generation
             showInvoiceModal: false,
 
-            isUSAccount: false
+            isUSAccount: false,
         };
     },
 
@@ -428,23 +428,27 @@ export default {
 
     methods: {
         onSelectionChange(product, isSelected) {
-            if(isSelected){
+            if (isSelected) {
                 this.selectedRows.push(product.ProductID);
-            }else{
+            } else {
                 //only get the ProductID
-                this.selectedRows = this.selectedRows.filter((item) => item !== product.ProductID);
+                this.selectedRows = this.selectedRows.filter(
+                    (item) => item !== product.ProductID,
+                );
             }
         },
         onAllSelectionChange(product, isSelected) {
-            if(isSelected){
-                this.selectedRows = this.inventory.map((item) => item.ProductID);
-            }else{
+            if (isSelected) {
+                this.selectedRows = this.inventory.map(
+                    (item) => item.ProductID,
+                );
+            } else {
                 this.selectedRows = [];
             }
-            console.log(product, isSelected, "isSelected")
+            console.log(product, isSelected, "isSelected");
         },
         goToSuppliersList() {
-            window.loadContent('suppliersList');
+            window.loadContent("suppliersList");
         },
         addCacheBuster(url, timestamp = null) {
             if (!url) return url;
@@ -883,7 +887,7 @@ export default {
                 ) {
                     // Paginated response
                     this.inventory = response.data.data;
-                    this.totalRecords = response.data.total
+                    this.totalRecords = response.data.total;
                     this.currentPage = response.data.current_page;
                 } else {
                     throw new Error("Invalid response structure");
@@ -926,9 +930,9 @@ export default {
         },
 
         onPageChange(event) {
-            this.first = event.first
+            this.first = event.first;
             this.currentPage = event.page + 1; // convert to 1-based
-            this.perPage     = event.rows;
+            this.perPage = event.rows;
             this.fetchInventory();
         },
 
@@ -1871,7 +1875,7 @@ export default {
     watch: {
         searchQuery() {
             this.currentPage = 1;
-            this.first = 0
+            this.first = 0;
             this.fetchInventory();
         },
 
