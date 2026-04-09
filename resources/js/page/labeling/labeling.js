@@ -2219,6 +2219,64 @@ export default {
             }
         },
 
+        async moveToTestingForce(item) {
+            try {
+                const csrfToken = document
+                    .querySelector('meta[name="csrf-token"]')
+                    .getAttribute("content");
+
+                Swal.fire({
+                    title: "Moving to Testing...",
+                    allowOutsideClick: false,
+                    didOpen: () => Swal.showLoading(),
+                });
+
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/labeling/move-to-testing`,
+                    {
+                        product_id: item.ProductID,
+                        rt_counter: item.rtcounter,
+                        current_location: "Labeling",
+                        new_location: "Testing",
+                        force: true,
+                    },
+                    { headers: { "X-CSRF-TOKEN": csrfToken } },
+                );
+
+                Swal.close();
+
+                if (response.data.success) {
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Success",
+                        text: `Item ${item.rtcounter} successfully moved to Testing.`,
+                        confirmButtonText: "OK",
+                    });
+                    if (typeof this.fetchInventory === "function") {
+                        this.fetchInventory();
+                    }
+                } else {
+                    await Swal.fire({
+                        icon: "warning",
+                        title: "Failed",
+                        text:
+                            response.data.message ||
+                            "Failed to move item to Testing.",
+                    });
+                }
+            } catch (error) {
+                Swal.close();
+                console.error("Error force moving item to Testing:", error);
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text:
+                        error?.response?.data?.message ||
+                        "An unexpected error occurred.",
+                });
+            }
+        },
+
         async moveToTesting(item) {
             if (!item || !item.ProductID) {
                 await Swal.fire({
@@ -2308,6 +2366,28 @@ export default {
             } catch (error) {
                 Swal.close();
                 console.error("Error moving item to Testing:", error);
+
+                // ── Checklist gate (warn but allow) ───────────────────────
+                if (error.response?.data?.requires_checklist) {
+                    const proceed = await Swal.fire({
+                        icon: "warning",
+                        title: "No Checklist Record",
+                        html: `
+                            <p><strong>${item.ProductTitle || "—"}</strong> has no receiving checklist record.</p>
+                            <p>Do you still want to proceed moving to <strong>Testing</strong>?</p>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: "Yes, proceed",
+                        cancelButtonText: "Cancel",
+                        reverseButtons: true,
+                    });
+                    if (proceed.isConfirmed) {
+                        await this.moveToTestingForce(item);
+                    }
+                    return;
+                }
+                // ──────────────────────────────────────────────────────────
+
                 const msg =
                     error?.response?.data?.message ||
                     error?.response?.data?.error ||

@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Validator;
+use Illuminate\Support\Facades\Validator;
 
 class CleaningController extends BasetablesController
 {
@@ -249,5 +249,49 @@ class CleaningController extends BasetablesController
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function saveWorkLog(Request $request)
+    {
+        $request->validate([
+            'rtcounter' => 'required|string',
+            'asin' => 'nullable|string',
+            'category_values' => 'required|array',
+            'mark_done' => 'boolean',
+            'date_cleaned' => 'nullable|string',
+            'cleaned_by' => 'nullable|string',
+        ]);
+
+        DB::table('tblcleaningWorkLogs')->updateOrInsert(
+            ['rtcounter' => $request->rtcounter],
+            [
+                'asin' => $request->asin,
+                'cleaned_by' => $request->cleaned_by,
+                'category_values' => json_encode($request->category_values),
+                'mark_done' => $request->mark_done ?? false,
+                'date_cleaned' => $request->date_cleaned
+                                        ? \Carbon\Carbon::parse($request->date_cleaned)->format('Y-m-d H:i:s')
+                                        : now()->format('Y-m-d H:i:s'),
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
+
+        return response()->json(['success' => true]);
+    }
+
+    public function getWorkLog(Request $request, $rtcounter)
+    {
+        $log = DB::table('tblcleaningWorkLogs')
+            ->where('rtcounter', $rtcounter)
+            ->first();
+
+        if (! $log) {
+            return response()->json(['success' => false, 'data' => null]);
+        }
+
+        $log->category_values = json_decode($log->category_values, true);
+
+        return response()->json(['success' => true, 'data' => $log]);
     }
 }

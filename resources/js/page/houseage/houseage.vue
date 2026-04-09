@@ -1631,7 +1631,7 @@ export default {
                     ? 1
                     : 0,
 
-                // Edit history (from product row if available)
+                // Edit history
                 last_edited_at: data.last_edited_at ?? null,
                 last_edited_by: data.last_edited_by ?? null,
                 edit_before: data.edit_before ?? null,
@@ -1640,6 +1640,18 @@ export default {
                 moved_to_validation_by: data.moved_to_validation_by ?? null,
                 moved_to_stockroom_at: data.moved_to_stockroom_at ?? null,
                 moved_to_stockroom_by: data.moved_to_stockroom_by ?? null,
+
+                // ── Testing work log ──────────────────────────────────────────
+                twl_test_result: data.twl_test_result ?? null,
+                twl_tested_by: data.twl_tested_by ?? null,
+                twl_date_tested: data.twl_date_tested ?? null,
+                testing_field_values: data.testing_field_values ?? null,
+
+                // ── Cleaning work log ─────────────────────────────────────────
+                cleaned_by: data.cleaned_by ?? null,
+                date_cleaned: data.date_cleaned ?? null,
+                cleaning_done: data.cleaning_done ?? null,
+                cleaning_category_values: data.cleaning_category_values ?? null,
             };
             this.showItemLogs = true;
         },
