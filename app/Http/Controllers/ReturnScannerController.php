@@ -2084,7 +2084,57 @@ private function findFbmReturnByIdOrTracking(string $input): ?object
 
     return null;
 }
-    public function updateFnskuLimitStatus($asin, $msku)
+
+// updated updateFnskuLimitStatus function old code is commented out for reference, new code supports both ASIN-level and FNSKU-level limits with proper priority and logging.
+public function updateFnskuLimitStatus($asin, $msku)
+{
+    $maximumUnits = 30;
+
+    // Get ASIN-level limit (fallback)
+    $asinLimit = (int) (DB::table($this->asinTable)
+        ->where('ASIN', $asin)
+        ->value('asin_limit') ?? 0);
+
+    // Get ALL FNSKUs for this ASIN + MSKU combination
+    $fnskuRecords = DB::table($this->fnskuTable)
+        ->where('MSKU', $msku)
+        ->where('ASIN', $asin)
+        ->get(['FNSKU', 'Units', 'fnsku_limit']);
+
+    foreach ($fnskuRecords as $record) {
+        $currentUnits = (int) ($record->Units ?? 0);
+        $fnskuLimit   = (int) ($record->fnsku_limit ?? 0);
+
+        // Priority: fnsku_limit > 0 → use it, otherwise fall back to asin_limit
+        $effectiveLimit = $fnskuLimit > 0 ? $fnskuLimit : $asinLimit;
+
+        $usedUnits = max(0, $maximumUnits - $currentUnits);
+
+        $newLimitStatus = ($effectiveLimit > 0 && $usedUnits >= $effectiveLimit)
+            ? 'True'
+            : 'False';
+
+        DB::table($this->fnskuTable)
+            ->where('FNSKU', $record->FNSKU)
+            ->where('MSKU', $msku)
+            ->where('ASIN', $asin)
+            ->update(['LimitStatus' => $newLimitStatus]);
+
+        Log::info("updateFnskuLimitStatus", [
+            'fnsku'          => $record->FNSKU,
+            'msku'           => $msku,
+            'asin'           => $asin,
+            'currentUnits'   => $currentUnits,
+            'usedUnits'      => $usedUnits,
+            'fnskuLimit'     => $fnskuLimit,
+            'asinLimit'      => $asinLimit,
+            'effectiveLimit' => $effectiveLimit,
+            'newLimitStatus' => $newLimitStatus,
+        ]);
+    }
+}
+
+ /*   public function updateFnskuLimitStatus($asin, $msku)
     {
 
         //get asin limit
@@ -2098,7 +2148,7 @@ private function findFbmReturnByIdOrTracking(string $input): ?object
             ->where('ASIN', $asin)
             ->value('Units');
 
-        $maximumUnits = 10;
+        $maximumUnits = 30;
         $usedUnits = max(0, $maximumUnits - $currentUnits);
 
         DB::table($this->fnskuTable)
@@ -2106,7 +2156,12 @@ private function findFbmReturnByIdOrTracking(string $input): ?object
             ->where('ASIN', $asin)
             ->update(['LimitStatus' => ($asinLimit > 0 && $usedUnits >= $asinLimit) ? 'True' : 'False']);
 
-    }
+    }*/
+
+
+
+
+    
 
     public function list(Request $request)
     {

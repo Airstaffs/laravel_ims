@@ -137,9 +137,46 @@
                 </Column>
 
                 <!-- NEW: FBA Qty column -->
-                <Column header="FBA Qty" style="width: 140px;">
+                <Column header="FBA Qty" style="width: 220px;">
                     <template #body="{ data }">
-                        <span class="text-sm font-medium">{{ data.fbaQtyDisplay }}</span>
+                        <div v-if="data.hasFBABreakdown" class="fba-breakdown">
+                            <div class="fba-row">
+                                <span class="fba-label"><b>Available (FBA)</b></span>
+                                <span class="fba-value">{{ data.fbaFulfillableDisplay }}</span>
+                            </div>
+
+                            <div class="fba-row">
+                                <span class="fba-label"><b>Inbound</b></span>
+                                <span class="fba-value">{{ data.fbaInboundTotalDisplay }}</span>
+                            </div>
+
+                            <div v-if="Number(data.fbaInboundTotal || 0) > 0" class="fba-subrows">
+                                <div class="fba-subrow">
+                                    <span class="fba-sub-label">Working</span>
+                                    <span class="fba-sub-value">{{ data.fbaInboundWorkingDisplay }}</span>
+                                </div>
+                                <div class="fba-subrow">
+                                    <span class="fba-sub-label">Shipped</span>
+                                    <span class="fba-sub-value">{{ data.fbaInboundShippedDisplay }}</span>
+                                </div>
+                                <div class="fba-subrow">
+                                    <span class="fba-sub-label">Receiving</span>
+                                    <span class="fba-sub-value">{{ data.fbaInboundReceivingDisplay }}</span>
+                                </div>
+                            </div>
+
+                            <div class="fba-row">
+                                <span class="fba-label"><b>Unsellable</b></span>
+                                <span class="fba-value">{{ data.fbaUnsellableDisplay }}</span>
+                            </div>
+
+                            <div class="fba-row">
+                                <span class="fba-label"><b>Reserved</b></span>
+                                <span class="fba-value">{{ data.fbaReservedDisplay }}</span>
+                            </div>
+                        </div>
+
+                        <div v-else class="text-sm font-medium">—</div>
                     </template>
                 </Column>
 
@@ -887,11 +924,16 @@ export default {
                 const fbmEntry = faArr.find(x => x?.fulfillmentChannelCode === "DEFAULT");
                 const currentQty = fbmEntry?.quantity ?? null;
 
-                const fbaEntries = faArr.filter(x => x?.fulfillmentChannelCode && x?.fulfillmentChannelCode !== "DEFAULT");
-                const fbaQty = fbaEntries.reduce((sum, x) => sum + (Number(x?.quantity) || 0), 0);
+                const fbaEntries = faArr.filter(
+                    x => x?.fulfillmentChannelCode && x?.fulfillmentChannelCode !== "DEFAULT"
+                );
+
+                const fallbackFbaQty = fbaEntries.reduce(
+                    (sum, x) => sum + (Number(x?.quantity) || 0),
+                    0
+                );
 
                 const hasFBM = !!fbmEntry;
-                const hasFBA = fbaEntries.length > 0;
 
                 const offers = it?.offers || [];
                 const currentPrice =
@@ -909,9 +951,33 @@ export default {
                 const imsQty = it?.ims?.count ?? null;
                 const imsMatchedBy = it?.ims?.matchedBy ?? null;
 
+                const imsFba = it?.ims_fba || {};
+
+                const fbaFulfillable = Number(imsFba?.fulfillable ?? 0);
+                const fbaInboundWorking = Number(imsFba?.inbound_working ?? 0);
+                const fbaInboundShipped = Number(imsFba?.inbound_shipped ?? 0);
+                const fbaInboundReceiving = Number(imsFba?.inbound_receiving ?? 0);
+                const fbaUnsellable = Number(imsFba?.unsellable ?? 0);
+                const fbaReserved = Number(imsFba?.reserved ?? 0);
+
+                const fbaInboundTotal =
+                    fbaInboundWorking + fbaInboundShipped + fbaInboundReceiving;
+
+                const fbaQty =
+                    fbaFulfillable +
+                    fbaInboundTotal +
+                    fbaUnsellable +
+                    fbaReserved;
+
+                const hasFBA =
+                    fbaQty > 0 ||
+                    fallbackFbaQty > 0 ||
+                    fbaEntries.length > 0;
+
                 const fnsku =
+                    imsFba?.fnsku ||
                     it?.summaries?.[0]?.fnSku ||
-                    it?.attributes?.fulfillment_availability?.[0]?.fnsku || // fallback if ever present
+                    it?.attributes?.fulfillment_availability?.[0]?.fnsku ||
                     null;
 
                 return {
@@ -924,18 +990,49 @@ export default {
                     status,
                     lastUpdatedDate,
                     conditionType,
+
                     imsQty,
                     imsQtyDisplay: (imsQty === null || imsQty === undefined) ? "—" : imsQty,
                     imsMatchedBy,
+
                     currentQty,
+
                     fbaQty,
                     fbaQtyDisplay: hasFBA ? fbaQty : "—",
+
+                    fbaFulfillable,
+                    fbaFulfillableDisplay: String(fbaFulfillable),
+
+                    fbaInboundWorking,
+                    fbaInboundWorkingDisplay: String(fbaInboundWorking),
+
+                    fbaInboundShipped,
+                    fbaInboundShippedDisplay: String(fbaInboundShipped),
+
+                    fbaInboundReceiving,
+                    fbaInboundReceivingDisplay: String(fbaInboundReceiving),
+
+                    fbaInboundTotal,
+                    fbaInboundTotalDisplay: String(fbaInboundTotal),
+
+                    fbaUnsellable,
+                    fbaUnsellableDisplay: String(fbaUnsellable),
+
+                    fbaReserved,
+                    fbaReservedDisplay: String(fbaReserved),
+
+                    hasFBABreakdown: hasFBA,
+                    fbaMatchedBy: imsFba?.matchedBy || null,
+                    fbaUpdatedAt: imsFba?.updated_at || null,
                     fbaChannels: fbaEntries.map(x => x.fulfillmentChannelCode).slice(0, 2),
+
                     hasFBM,
                     hasFBA,
+
                     currentPrice,
                     currency,
                     issues,
+
                     newQty: "",
                     newPrice: "",
                     _touchedQty: false,
@@ -2068,6 +2165,49 @@ export default {
     padding: 1rem 1.25rem;
     border-top: 1px solid #e5e7eb;
     background: #fff;
+}
+
+.fba-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    line-height: 1.25;
+}
+
+.fba-row,
+.fba-subrow {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.fba-label,
+.fba-sub-label {
+    color: var(--text-color);
+}
+
+.fba-value,
+.fba-sub-value {
+    min-width: 24px;
+    text-align: right;
+    font-weight: 600;
+}
+
+.fba-subrows {
+    margin-left: 10px;
+    padding-left: 10px;
+    border-left: 2px solid var(--surface-border);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.fba-sub-label,
+.fba-sub-value {
+    font-size: 12px;
+    color: var(--text-color-secondary);
 }
 
 @media (max-width: 960px) {
