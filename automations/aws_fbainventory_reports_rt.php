@@ -39,7 +39,7 @@ $end_sheesh = date('Y-m-d H:i:s', strtotime("-$random days", strtotime($currentD
 $endDate = date('Y-m-d\TH:i:s\Z', strtotime($end_sheesh));
 
 $json = [
-    "reportType" => "GET_FBA_MYI_ALL_INVENTORY_DATA",
+    "reportType" => "GET_FBA_MYI_UNSUPPRESSED_INVENTORY_DATA",
     "marketplaceIds" => [
         "ATVPDKIKX0DER"
     ]
