@@ -1,5 +1,5 @@
 <?php
-ini_set('max_execution_time', 600);
+ini_set('max_execution_time', 3000);
 ini_set('memory_limit', '512M');
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
@@ -124,6 +124,11 @@ if (($status['processingStatus'] ?? '') == 'DONE') {
 
     $rows = processRetrievedData($Connect, $retrievedData, false);
     $mskuTotals = aggregatePerMsku($rows, false);
+
+    // reconnect before heavy DB writes
+    $Connect = ensureDbConnection($Connect, $servertype);
+    $conn = $Connect;
+
     updateMskuTotals($Connect, $mskuTotals, $fnskuStoreName);
 
 } else if (($status['processingStatus'] ?? '') == 'CANCELLED') {
@@ -878,6 +883,30 @@ function getAWSCredentials($db, $store)
     }
 
     return $row;
+}
+
+function ensureDbConnection($Connect, $servertype)
+{
+    if (!$Connect) {
+        return connectDatabase($servertype);
+    }
+
+    try {
+        if (!$Connect->ping()) {
+            $Connect->close();
+            return connectDatabase($servertype);
+        }
+    } catch (Throwable $e) {
+        try {
+            $Connect->close();
+        } catch (Throwable $e2) {
+            // ignore
+        }
+
+        return connectDatabase($servertype);
+    }
+
+    return $Connect;
 }
 
 function fetchAccessToken($credentials, $returnRaw = false)
