@@ -576,11 +576,30 @@ function findRowValueInsensitive($row, $targetKey)
         $normalizedKey = strtolower(trim($key));
         $normalizedKey = ltrim($normalizedKey, "\xEF\xBB\xBF");
         if ($normalizedKey === strtolower($targetKey)) {
-            return trim((string)$value);
+            return trim((string) $value);
         }
     }
 
     return '';
+}
+
+function parseDecimalValue($value)
+{
+    $value = trim((string) $value);
+
+    if ($value === '') {
+        return 0.00;
+    }
+
+    // Remove commas and any stray spaces
+    $value = str_replace(',', '', $value);
+
+    // Keep only valid numeric format
+    if (!is_numeric($value)) {
+        return 0.00;
+    }
+
+    return round((float) $value, 2);
 }
 
 function aggregatePerMsku($rows, $debug = false)
@@ -598,43 +617,58 @@ function aggregatePerMsku($rows, $debug = false)
     }
 
     foreach ($rows as $idx => $row) {
-        $msku = trim($row['seller-sku'] ?? '');
+        // Amazon FBA inventory report uses 'sku'
+        $msku = trim($row['sku'] ?? '');
         if ($msku === '') {
-            $msku = findRowValueInsensitive($row, 'seller-sku');
+            $msku = findRowValueInsensitive($row, 'sku');
         }
 
         if ($msku === '') {
-            if ($debug && $idx < 10) {
-                echo "<p>Row {$idx} has no seller-sku, skipping.</p>";
+            if ($debug && $idx < 20) {
+                echo "<p>Row {$idx} has no sku, skipping.</p>";
+                echo "<pre>";
+                print_r($row);
+                echo "</pre>";
             }
             continue;
         }
 
-        $fulfillable = (int)(findRowValueInsensitive($row, 'afn-fulfillable-quantity') ?: 0);
-        $inboundWorking = (int)(findRowValueInsensitive($row, 'afn-inbound-working-quantity') ?: 0);
-        $inboundShipped = (int)(findRowValueInsensitive($row, 'afn-inbound-shipped-quantity') ?: 0);
-        $inboundReceiving = (int)(findRowValueInsensitive($row, 'afn-inbound-receiving-quantity') ?: 0);
-        $reserved = (int)(findRowValueInsensitive($row, 'afn-reserved-quantity') ?: 0);
+        $fulfillable = (int) (findRowValueInsensitive($row, 'afn-fulfillable-quantity') ?: 0);
+        $unsellable = (int) (findRowValueInsensitive($row, 'afn-unsellable-quantity') ?: 0);
+        $inboundWorking = (int) (findRowValueInsensitive($row, 'afn-inbound-working-quantity') ?: 0);
+        $inboundShipped = (int) (findRowValueInsensitive($row, 'afn-inbound-shipped-quantity') ?: 0);
+        $inboundReceiving = (int) (findRowValueInsensitive($row, 'afn-inbound-receiving-quantity') ?: 0);
+        $reserved = (int) (findRowValueInsensitive($row, 'afn-reserved-quantity') ?: 0);
+        $totalQuantity = (int) (findRowValueInsensitive($row, 'afn-total-quantity') ?: 0);
+        $yourPrice = parseDecimalValue(findRowValueInsensitive($row, 'your-price'));
 
         if (!isset($mskuTotals[$msku])) {
             $mskuTotals[$msku] = [
                 'fba_fulfillable_quantity' => 0,
+                'fba_unsellable_quantity' => 0,
                 'fba_inbound_working_quantity' => 0,
                 'fba_inbound_shipped_quantity' => 0,
                 'fba_inbound_receiving_quantity' => 0,
                 'fba_reserved_quantity' => 0,
                 'fba_total_quantity' => 0,
+                'amzn_item_price' => 0.00,
             ];
         }
 
         $mskuTotals[$msku]['fba_fulfillable_quantity'] += $fulfillable;
+        $mskuTotals[$msku]['fba_unsellable_quantity'] += $unsellable;
         $mskuTotals[$msku]['fba_inbound_working_quantity'] += $inboundWorking;
         $mskuTotals[$msku]['fba_inbound_shipped_quantity'] += $inboundShipped;
         $mskuTotals[$msku]['fba_inbound_receiving_quantity'] += $inboundReceiving;
         $mskuTotals[$msku]['fba_reserved_quantity'] += $reserved;
-        $mskuTotals[$msku]['fba_total_quantity'] += ($fulfillable + $inboundWorking + $inboundShipped + $inboundReceiving + $reserved);
+        $mskuTotals[$msku]['fba_total_quantity'] += $totalQuantity;
 
-        if ($debug && $idx < 10) {
+        // Usually same per MSKU in report; keep latest non-zero/non-empty value encountered
+        if ($yourPrice > 0) {
+            $mskuTotals[$msku]['amzn_item_price'] = $yourPrice;
+        }
+
+        if ($debug && $idx < 20) {
             echo "<p>Row {$idx} MSKU {$msku} aggregated.</p>";
         }
     }
@@ -656,65 +690,116 @@ function updateMskuTotals($Connect, $mskuTotals, $storeName)
         return;
     }
 
-    $sql = "UPDATE tblfnsku
-            SET
-                fba_fulfillable_quantity = ?,
-                fba_inbound_working_quantity = ?,
-                fba_inbound_shipped_quantity = ?,
-                fba_inbound_receiving_quantity = ?,
-                fba_reserved_quantity = ?,
-                fba_total_quantity = ?,
-                fba_quantity_updated_at = NOW()
-            WHERE MSKU = ?
-              AND storename = ?";
+    $checkSql = "SELECT 1 
+                 FROM tblfnsku 
+                 WHERE MSKU = ? AND storename = ? 
+                 LIMIT 1";
+    $checkStmt = $Connect->prepare($checkSql);
 
-    $stmt = $Connect->prepare($sql);
+    if (!$checkStmt) {
+        die("Check prepare failed: " . $Connect->error);
+    }
 
-    if (!$stmt) {
-        die("Prepare failed: " . $Connect->error);
+    $updateSql = "UPDATE tblfnsku
+                  SET
+                      fba_fulfillable_quantity = ?,
+                      fba_unsellable_quantity = ?,
+                      fba_inbound_working_quantity = ?,
+                      fba_inbound_shipped_quantity = ?,
+                      fba_inbound_receiving_quantity = ?,
+                      fba_reserved_quantity = ?,
+                      fba_total_quantity = ?,
+                      amzn_item_price = ?,
+                      fba_quantity_updated_at = NOW()
+                  WHERE MSKU = ?
+                    AND storename = ?";
+    $updateStmt = $Connect->prepare($updateSql);
+
+    if (!$updateStmt) {
+        $checkStmt->close();
+        die("Update prepare failed: " . $Connect->error);
     }
 
     $Connect->begin_transaction();
 
-    $processed = 0;
+    $matched = 0;
+    $updated = 0;
+    $unchanged = 0;
     $notMatched = [];
+    $errors = [];
 
     foreach ($mskuTotals as $msku => $qty) {
-        $fulfillable = (int)$qty['fba_fulfillable_quantity'];
-        $inboundWorking = (int)$qty['fba_inbound_working_quantity'];
-        $inboundShipped = (int)$qty['fba_inbound_shipped_quantity'];
-        $inboundReceiving = (int)$qty['fba_inbound_receiving_quantity'];
-        $reserved = (int)$qty['fba_reserved_quantity'];
-        $total = (int)$qty['fba_total_quantity'];
+        $fulfillable = (int) $qty['fba_fulfillable_quantity'];
+        $unsellable = (int) $qty['fba_unsellable_quantity'];
+        $inboundWorking = (int) $qty['fba_inbound_working_quantity'];
+        $inboundShipped = (int) $qty['fba_inbound_shipped_quantity'];
+        $inboundReceiving = (int) $qty['fba_inbound_receiving_quantity'];
+        $reserved = (int) $qty['fba_reserved_quantity'];
+        $total = (int) $qty['fba_total_quantity'];
+        $price = (float) $qty['amzn_item_price'];
 
-        $stmt->bind_param(
-            'iiiiiiss',
+        // Check existence first so "0 affected rows" won't be treated as "not matched"
+        $checkStmt->bind_param('ss', $msku, $storeName);
+        if (!$checkStmt->execute()) {
+            $errors[] = "Error checking MSKU {$msku}: " . $checkStmt->error;
+            continue;
+        }
+
+        $checkResult = $checkStmt->get_result();
+        if (!$checkResult || $checkResult->num_rows === 0) {
+            $notMatched[] = $msku;
+            continue;
+        }
+
+        $matched++;
+
+        $updateStmt->bind_param(
+            'iiiiiiidss',
             $fulfillable,
+            $unsellable,
             $inboundWorking,
             $inboundShipped,
             $inboundReceiving,
             $reserved,
             $total,
+            $price,
             $msku,
             $storeName
         );
 
-        if (!$stmt->execute()) {
-            echo "<p>Error updating MSKU {$msku}: " . htmlspecialchars($stmt->error) . "</p>";
+        if (!$updateStmt->execute()) {
+            $errors[] = "Error updating MSKU {$msku}: " . $updateStmt->error;
             continue;
         }
 
-        if ($stmt->affected_rows > 0) {
-            $processed++;
+        if ($updateStmt->affected_rows > 0) {
+            $updated++;
         } else {
-            $notMatched[] = $msku;
+            $unchanged++;
         }
     }
 
-    $Connect->commit();
-    $stmt->close();
+    if (!empty($errors)) {
+        $Connect->rollback();
+        $checkStmt->close();
+        $updateStmt->close();
 
-    echo "<p>Updated {$processed} tblfnsku rows for store {$storeName}.</p>";
+        echo "<p>Transaction rolled back due to errors.</p>";
+        echo "<pre>";
+        print_r($errors);
+        echo "</pre>";
+        return;
+    }
+
+    $Connect->commit();
+
+    $checkStmt->close();
+    $updateStmt->close();
+
+    echo "<p>Store: " . htmlspecialchars($storeName) . "</p>";
+    echo "<p>Matched rows: {$matched}</p>";
+    echo "<p>Updated rows: {$updated}</p>";
+    echo "<p>Matched but unchanged rows: {$unchanged}</p>";
 
     if (!empty($notMatched)) {
         echo "<p>MSKUs not matched in tblfnsku (" . count($notMatched) . "):</p>";
