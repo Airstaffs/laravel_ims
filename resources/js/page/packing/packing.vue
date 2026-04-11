@@ -143,15 +143,25 @@
                 </template>
 
                 <template #actions="{ data }">
-                    <Button
-                        size="small"
-                        severity="contrast"
-                        variant="text"
-                        icon="pi pi-info-circle"
-                        label="Details"
-                        class="text-primary"
-                        @click="openEditModal(data)"
-                    />
+                    <div class="d-flex flex-column align-items-start">
+                        <Button
+                            size="small"
+                            severity="contrast"
+                            variant="text"
+                            icon="pi pi-info-circle"
+                            label="Details"
+                            class="text-primary"
+                            @click="openEditModal(data)"
+                        />
+                        <Button
+                            size="small"
+                            severity="success"
+                            variant="text"
+                            icon="pi pi-box"
+                            label="Packaging - Work Log"
+                            @click="openPackagingWorkLog(data)"
+                        />
+                    </div>
                 </template>
             </XDataTable>
         </AnimateDiv>
@@ -639,6 +649,256 @@
                 </div>
             </div>
         </Dialog>
+
+        <!-- ─────────────────────────────────────────────────────────────
+            PACKAGING WORK LOG DIALOG
+            Drop this alongside your Cleaning Work Log dialog
+        ───────────────────────────────────────────────────────────── -->
+        <Dialog
+            v-model:visible="showPackagingWorkLog"
+            modal
+            :header="`Packaging Work Log — ${packagingWorkLogItem?.rtcounter || ''}`"
+            :style="{ width: '860px', maxWidth: '98vw' }"
+        >
+            <div v-if="packagingWorkLogItem" class="cwl-wrapper">
+                <!-- ── AUTO-FETCH ──────────────────────────────────────────── -->
+                <div class="cwl-autofetch-section">
+                    <div class="cwl-autofetch-header">
+                        <span class="cwl-autofetch-badge">AUTO-FETCH</span>
+                        <span class="cwl-autofetch-title"
+                            >System Pre-filled Fields</span
+                        >
+                    </div>
+                    <div class="cwl-autofetch-grid">
+                        <div class="cwl-autofetch-card">
+                            <span class="cwl-autofetch-label"
+                                >Date Packaged</span
+                            >
+                            <span class="cwl-autofetch-value">{{
+                                packagingDateTime
+                            }}</span>
+                        </div>
+                        <div class="cwl-autofetch-card">
+                            <span class="cwl-autofetch-label"
+                                >Serial Number</span
+                            >
+                            <span class="cwl-autofetch-value">{{
+                                packagingWorkLogItem.serialnumber || "—"
+                            }}</span>
+                        </div>
+                        <div class="cwl-autofetch-card">
+                            <span class="cwl-autofetch-label">Packaged By</span>
+                            <span class="cwl-autofetch-value">{{
+                                packagingWorkLogItem.Username ||
+                                currentUser ||
+                                "—"
+                            }}</span>
+                        </div>
+                        <div class="cwl-autofetch-card">
+                            <span class="cwl-autofetch-label">ASIN</span>
+                            <span class="cwl-autofetch-value">{{
+                                packagingWorkLogItem.ASINviewer ||
+                                packagingWorkLogItem.ASIN ||
+                                "—"
+                            }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── ASIN-BASED: Packaging Requirements ─────────────────── -->
+                <div class="cwl-asin-section">
+                    <div class="cwl-asin-header">
+                        <span class="cwl-asin-badge">ASIN-BASED</span>
+                        <span class="cwl-asin-title"
+                            >Packaging Requirements (Auto-loaded from
+                            ASIN)</span
+                        >
+                    </div>
+
+                    <div
+                        v-if="!packagingComponents.length"
+                        class="cwl-asin-empty"
+                    >
+                        <div class="cwl-dynamic-hint">
+                            <p class="cwl-hint-title">
+                                <strong>Dynamic Checklist:</strong> Based on the
+                                ASIN assigned during Labelling
+                            </p>
+                            <div class="cwl-hint-example">
+                                <p>
+                                    No packaging components configured for this
+                                    ASIN.
+                                </p>
+                                <p>
+                                    Set them up in
+                                    <strong
+                                        >ASIN Configuration → Packaging
+                                        Module</strong
+                                    >.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-else class="cwl-dynamic-hint">
+                        <p class="cwl-hint-title">
+                            <strong>Dynamic Checklist:</strong> Based on the
+                            ASIN configuration
+                        </p>
+                        <div class="cwl-hint-example">
+                            <p>
+                                Example for ASIN
+                                <strong>{{
+                                    packagingWorkLogItem.ASINviewer ||
+                                    packagingWorkLogItem.ASIN
+                                }}</strong
+                                >:
+                            </p>
+                            <ul>
+                                <li
+                                    v-for="(comp, i) in packagingComponents"
+                                    :key="'hint-' + i"
+                                >
+                                    {{ comp.name }}
+                                    <span
+                                        v-if="comp._fromGlobal"
+                                        class="cwl-global-badge"
+                                        >Global</span
+                                    >
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Component checkbox rows ────────────────────────────── -->
+                <div v-if="packagingComponents.length" class="cwl-categories">
+                    <div
+                        v-for="(comp, ci) in packagingComponents"
+                        :key="'pkgcomp-' + ci"
+                        class="pkg-wl-row"
+                        :class="{
+                            'pkg-wl-row--checked':
+                                packagingWorkLogValues[comp.name],
+                        }"
+                    >
+                        <label class="pkg-wl-label" :for="`pkg-comp-${ci}`">
+                            <span class="pkg-wl-name">{{ comp.name }}</span>
+                            <span v-if="comp.sku" class="pkg-wl-meta"
+                                >SKU: {{ comp.sku }}</span
+                            >
+                            <span v-if="comp.qty" class="pkg-wl-meta"
+                                >Qty: {{ comp.qty }}</span
+                            >
+                            <span
+                                v-if="comp._fromGlobal"
+                                class="cwl-global-badge"
+                                >Global</span
+                            >
+                        </label>
+                        <input
+                            type="checkbox"
+                            :id="`pkg-comp-${ci}`"
+                            v-model="packagingWorkLogValues[comp.name]"
+                            class="pkg-wl-checkbox"
+                        />
+                    </div>
+                </div>
+
+                <!-- ── NOTES ───────────────────────────────────────────────── -->
+                <div class="cwl-asin-section mt-3">
+                    <div class="cwl-asin-header">
+                        <span class="cwl-asin-badge" style="background: #6c757d"
+                            >NOTES</span
+                        >
+                        <span class="cwl-asin-title"
+                            >Additional Packaging Notes</span
+                        >
+                    </div>
+                    <textarea
+                        v-model="packagingWorkLogValues['__notes']"
+                        class="cwl-textarea w-100 mt-2"
+                        placeholder="Enter any additional packaging notes..."
+                        rows="4"
+                        style="width: 100%"
+                    />
+                </div>
+
+                <!-- ── REFERENCE: Packaging Visual Guide ──────────────────── -->
+                <div
+                    v-if="packagingVisualImages.length"
+                    class="cwl-asin-section mt-3"
+                >
+                    <div class="cwl-asin-header">
+                        <span class="cwl-asin-badge" style="background: #e91e8c"
+                            >REFERENCE</span
+                        >
+                        <span class="cwl-asin-title"
+                            >Packaging Visual Guide</span
+                        >
+                    </div>
+                    <div class="pkg-wl-gallery mt-2">
+                        <div
+                            v-for="(img, i) in packagingVisualImages"
+                            :key="'pkgimg-' + i"
+                            class="pkg-wl-gallery-item"
+                        >
+                            <img
+                                :src="img.src"
+                                :alt="img.label"
+                                class="pkg-wl-img"
+                            />
+                            <span class="pkg-wl-img-label">{{
+                                img.label
+                            }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── COMPLETION ──────────────────────────────────────────── -->
+                <div class="cwl-completion-section">
+                    <div class="cwl-completion-header">
+                        <span class="cwl-completion-badge">COMPLETION</span>
+                        <span class="cwl-completion-title">Mark as Done</span>
+                    </div>
+                    <div class="cwl-completion-card">
+                        <div class="cwl-completion-text">
+                            <p class="cwl-completion-main">
+                                All packaging tasks completed?
+                            </p>
+                            <p class="cwl-completion-sub">
+                                Item will proceed to Stockroom
+                            </p>
+                        </div>
+                        <Button
+                            label="Done Packaging"
+                            icon="pi pi-check"
+                            class="cwl-done-btn"
+                            :loading="savingPackagingWorkLog"
+                            @click="savePackagingWorkLog(true)"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <template #footer>
+                <Button
+                    label="Cancel"
+                    severity="secondary"
+                    text
+                    @click="showPackagingWorkLog = false"
+                />
+                <Button
+                    label="Save Progress"
+                    icon="pi pi-save"
+                    severity="secondary"
+                    outlined
+                    :loading="savingPackagingWorkLog"
+                    @click="savePackagingWorkLog(false)"
+                />
+            </template>
+        </Dialog>
+
         <ScrollTop />
     </div>
 </template>
@@ -950,3 +1210,5 @@ export default {
     },
 };
 </script>
+
+<style scoped src="./packing.css"></style>

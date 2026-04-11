@@ -41,7 +41,6 @@ class HouseageController extends BasetablesController
             $search = $request->input('search', '');
             $includeImages = $request->boolean('include_images', false);
 
-            // eBay image columns — reused in both branches
             $ebayImgColumns = [
                 'ebayimgs.img1',  'ebayimgs.img2',  'ebayimgs.img3',
                 'ebayimgs.img4',  'ebayimgs.img5',  'ebayimgs.img6',
@@ -50,9 +49,7 @@ class HouseageController extends BasetablesController
                 'ebayimgs.img13', 'ebayimgs.img14', 'ebayimgs.img15',
             ];
 
-            // Work log columns — reused in both branches
             $workLogColumns = [
-
                 DB::raw('twl.field_values as testing_field_values'),
                 DB::raw('twl.test_result as twl_test_result'),
                 DB::raw('twl.tested_by as twl_tested_by'),
@@ -61,6 +58,11 @@ class HouseageController extends BasetablesController
                 'cwl.date_cleaned',
                 'cwl.mark_done as cleaning_done',
                 DB::raw('cwl.category_values as cleaning_category_values'),
+                // ── Packaging work log ──────────────────────────────────────────
+                'pwl.packed_by',
+                'pwl.date_packed',
+                'pwl.mark_done as packaging_done',
+                DB::raw('pwl.category_values as packaging_category_values'),
             ];
 
             if (empty($search)) {
@@ -75,6 +77,11 @@ class HouseageController extends BasetablesController
                         DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
                         '=',
                         DB::raw('CONVERT(cwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+                    )
+                    ->leftJoin('tblpackagingworklogs as pwl',
+                        DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
+                        '=',
+                        DB::raw('CONVERT(pwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
                     )
                     ->select(array_merge($workLogColumns, ['prod.*'], $ebayImgColumns))
                     ->orderBy('prod.ProductID', 'desc')
@@ -111,6 +118,11 @@ class HouseageController extends BasetablesController
                         '=',
                         DB::raw('CONVERT(cwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
                     )
+                    ->leftJoin('tblpackagingworklogs as pwl',
+                        DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
+                        '=',
+                        DB::raw('CONVERT(pwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+                    )
                     ->select(array_merge($workLogColumns, [
                         'prod.*',
                         'fnsku.ASIN',
@@ -126,7 +138,7 @@ class HouseageController extends BasetablesController
                         'asin.internal',
                         'asin.system_title',
                         'asin.metakeyword',
-                    ], $ebayImgColumns, $workLogColumns))
+                    ], $ebayImgColumns))
                     ->where(function ($q) use ($search) {
                         $q->where('prod.serialnumber', 'like', "%{$search}%")
                             ->orWhere('prod.ProductTitle', 'like', "%{$search}%")

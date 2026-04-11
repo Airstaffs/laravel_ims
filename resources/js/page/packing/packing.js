@@ -37,7 +37,13 @@ export default {
             currentPage: 1,
             totalRecords: 1,
             perPage: 10, // Default rows per page
-            first: 0 //paginator internal state
+            first: 0, //paginator internal state
+
+            showPackagingWorkLog: false,
+            packagingWorkLogItem: null,
+            packagingWorkLogValues: {},
+            savingPackagingWorkLog: false,
+            packagingDateTime: "",
         };
     },
     computed: {
@@ -73,12 +79,12 @@ export default {
 
         serialKeys() {
             return Object.keys(this.item).filter((k) =>
-                /^serialnumber[a-z]?$/.test(k)
+                /^serialnumber[a-z]?$/.test(k),
             );
         },
         trackingKeys() {
             return Object.keys(this.item).filter((k) =>
-                /^trackingnumber\d*$/.test(k)
+                /^trackingnumber\d*$/.test(k),
             );
         },
 
@@ -133,7 +139,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.materialtype)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -143,7 +149,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.sourceType)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -153,7 +159,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.carrier)
-                        .filter((c) => c && c.trim() !== "")
+                        .filter((c) => c && c.trim() !== ""),
                 ),
             ].sort();
         },
@@ -163,7 +169,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.storename)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -173,7 +179,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.priorityrank)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -183,7 +189,7 @@ export default {
                 ...new Set(
                     this.items
                         .map((i) => i.validation_status)
-                        .filter((t) => t && t.trim() !== "")
+                        .filter((t) => t && t.trim() !== ""),
                 ),
             ].sort();
         },
@@ -195,6 +201,98 @@ export default {
                 this.serialImagePath ||
                 this.defaultSerialImage
             );
+        },
+
+        packagingComponents() {
+            if (!this.packagingWorkLogItem) return [];
+            const asin =
+                this.packagingWorkLogItem.ASINviewer ||
+                this.packagingWorkLogItem.ASIN ||
+                null;
+            if (!asin) return [];
+
+            const parse = (key) => {
+                try {
+                    const r = localStorage.getItem(key);
+                    return r ? JSON.parse(r) : null;
+                } catch {
+                    return null;
+                }
+            };
+
+            const asinPkg = parse(`asin_config_packaging:${asin}`);
+            const globalPkg = parse("asin_global_config_packaging");
+
+            const asinComps = asinPkg?.components || [];
+            const globalComps = globalPkg?.components || [];
+
+            const savedNames = new Set(asinComps.map((c) => c.name));
+            const markedGlobals = globalComps
+                .filter((c) => !savedNames.has(c.name))
+                .map((c) => ({ ...c, _fromGlobal: true }));
+
+            return [...markedGlobals, ...asinComps];
+        },
+
+        packagingVisualImages() {
+            if (!this.packagingWorkLogItem) return [];
+            const asin =
+                this.packagingWorkLogItem.ASINviewer ||
+                this.packagingWorkLogItem.ASIN ||
+                null;
+            if (!asin) return [];
+
+            const parse = (key) => {
+                try {
+                    const r = localStorage.getItem(key);
+                    return r ? JSON.parse(r) : null;
+                } catch {
+                    return null;
+                }
+            };
+
+            const images = [];
+            const asinPkg = parse(`asin_config_packaging:${asin}`);
+
+            if (asinPkg?.image) {
+                images.push({ src: asinPkg.image, label: "Packaging Guide" });
+            }
+
+            (asinPkg?.components || []).forEach((comp) => {
+                if (comp.image)
+                    images.push({ src: comp.image, label: comp.name });
+            });
+
+            return images;
+        },
+
+        packagingBoxSpecs() {
+            if (!this.packagingWorkLogItem) return {};
+            const asin =
+                this.packagingWorkLogItem.ASINviewer ||
+                this.packagingWorkLogItem.ASIN ||
+                null;
+
+            const parse = (key) => {
+                try {
+                    const r = localStorage.getItem(key);
+                    return r ? JSON.parse(r) : null;
+                } catch {
+                    return null;
+                }
+            };
+
+            const asinPkg = parse(`asin_config_packaging:${asin}`);
+            const globalPkg = parse("asin_global_config_packaging");
+            const asinSpecs = asinPkg?.boxSpecs || {};
+            const globalSpecs = globalPkg?.boxSpecs || {};
+
+            return {
+                size: asinSpecs.size || globalSpecs.size || "",
+                type: asinSpecs.type || globalSpecs.type || "",
+                weight: asinSpecs.weight || globalSpecs.weight || "",
+                materials: asinSpecs.materials || globalSpecs.materials || "",
+            };
         },
     },
     methods: {
@@ -299,9 +397,8 @@ export default {
                 for (let i = 1; i <= 12; i++) {
                     const capturedImg = data.capturedImages[`capturedimg${i}`];
                     if (capturedImg) {
-                        transformedData[
-                            `img${i}`
-                        ] = `/images/product_images/${companyFolder}/${capturedImg}`;
+                        transformedData[`img${i}`] =
+                            `/images/product_images/${companyFolder}/${capturedImg}`;
                     } else {
                         transformedData[`img${i}`] = null;
                     }
@@ -371,7 +468,7 @@ export default {
 
                 console.log(
                     "🔍 Processing captured images:",
-                    capturedImagesObj
+                    capturedImagesObj,
                 );
 
                 // Load capturedimg1 - capturedimg12
@@ -403,7 +500,7 @@ export default {
 
             console.log(
                 "📸 Total captured images loaded:",
-                this.capturedImages.length
+                this.capturedImages.length,
             );
 
             // Fallback if no images exist
@@ -543,7 +640,7 @@ export default {
                             location: "Packaging",
                             include_images: true,
                         },
-                    }
+                    },
                 );
 
                 console.log("API Response:", response.data); // ADD THIS
@@ -560,7 +657,7 @@ export default {
                     if (this.inventory[0].capturedImages) {
                         console.log(
                             "First item capturedImages:",
-                            this.inventory[0].capturedImages
+                            this.inventory[0].capturedImages,
                         );
                     }
                 }
@@ -572,13 +669,12 @@ export default {
             }
         },
 
-          onPageChange(event) {
-            this.first = event.first
+        onPageChange(event) {
+            this.first = event.first;
             this.currentPage = event.page + 1; // convert to 1-based
-            this.perPage     = event.rows;
+            this.perPage = event.rows;
             this.fetchInventory();
         },
-
 
         toggleAll() {
             this.inventory.forEach((item) => (item.checked = this.selectAll));
@@ -610,7 +706,7 @@ export default {
             console.log(item);
 
             const freshItem = this.items.find(
-                (i) => i.itemnumber === item.itemnumber
+                (i) => i.itemnumber === item.itemnumber,
             );
             this.item = { ...(freshItem || item) };
 
@@ -661,6 +757,82 @@ export default {
             return String.fromCharCode(65 + index);
         },
 
+        openPackagingWorkLog(item) {
+            this.packagingWorkLogItem = item;
+            this.packagingWorkLogValues = {};
+            this.packagingDateTime = new Date().toLocaleString();
+            this.showPackagingWorkLog = true;
+        },
+
+        async savePackagingWorkLog(markDone = false) {
+            const item = this.packagingWorkLogItem;
+            if (!item) return;
+
+            this.savingPackagingWorkLog = true;
+            try {
+                const csrfToken = document
+                    .querySelector('meta[name="csrf-token"]')
+                    .getAttribute("content");
+
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/packaging/work-log`,
+                    {
+                        rtcounter: item.rtcounter,
+                        asin: item.ASINviewer || item.ASIN,
+                        product_id: item.ProductID,
+                        packed_by: item.Username || this.currentUser,
+                        date_packed: this.packagingDateTime,
+                        mark_done: markDone ? 1 : 0,
+                        category_values: JSON.stringify(
+                            this.packagingWorkLogValues,
+                        ),
+                    },
+                    { headers: { "X-CSRF-TOKEN": csrfToken } },
+                );
+
+                if (response.data.success) {
+                    if (markDone) {
+                        await Swal.fire({
+                            icon: "success",
+                            title: "Packaging Complete!",
+                            text: `Item ${item.rtcounter} moved to Stockroom.`,
+                            timer: 2000,
+                            showConfirmButton: false,
+                        });
+                        this.showPackagingWorkLog = false;
+                        this.packagingWorkLogItem = null;
+                        await this.fetchInventory();
+                    } else {
+                        await Swal.fire({
+                            icon: "success",
+                            title: "Progress Saved",
+                            text: "Packaging work log saved successfully.",
+                            timer: 1500,
+                            showConfirmButton: false,
+                        });
+                    }
+                } else {
+                    await Swal.fire({
+                        icon: "warning",
+                        title: "Save Failed",
+                        text:
+                            response.data.message ||
+                            "Failed to save packaging work log.",
+                    });
+                }
+            } catch (error) {
+                console.error("Error saving packaging work log:", error);
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text:
+                        error?.response?.data?.message || "An error occurred.",
+                });
+            } finally {
+                this.savingPackagingWorkLog = false;
+            }
+        },
+
         async fetchItems() {
             this.loading = true;
             try {
@@ -684,7 +856,7 @@ export default {
     watch: {
         searchQuery() {
             this.currentPage = 1;
-            this.first = 0
+            this.first = 0;
             this.fetchInventory();
         },
     },

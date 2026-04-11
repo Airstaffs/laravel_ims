@@ -506,6 +506,87 @@
                         </div>
                     </div>
                 </template>
+                <!-- 5. Packaging Module -->
+                <template v-if="showPackagingModule">
+                    <div
+                        class="wl-section-header"
+                        style="
+                            background: #fdf2f8;
+                            border-left: 4px solid #e91e8c;
+                        "
+                    >
+                        <span>📦</span><span>5. PACKAGING MODULE</span>
+                    </div>
+                    <div class="wl-section-body">
+                        <div
+                            v-if="packagingWorkLogMeta.datePacked"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Date Packaged:</span>
+                            <span class="wl-field-value">{{
+                                packagingWorkLogMeta.datePacked
+                            }}</span>
+                        </div>
+                        <div
+                            v-if="packagingWorkLogMeta.packedBy"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Packaged By:</span>
+                            <span class="wl-field-value">{{
+                                packagingWorkLogMeta.packedBy
+                            }}</span>
+                        </div>
+                        <div
+                            v-if="packagingIncludedComponents.length"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label"
+                                >Components Included:</span
+                            >
+                            <span class="wl-field-value">{{
+                                packagingIncludedComponents.join(", ")
+                            }}</span>
+                        </div>
+                        <template
+                            v-if="
+                                packagingBoxSpecs.size || packagingBoxSpecs.type
+                            "
+                        >
+                            <div v-if="packagingBoxSpecs.size" class="wl-field">
+                                <span class="wl-field-label">Box Size:</span>
+                                <span class="wl-field-value">{{
+                                    packagingBoxSpecs.size
+                                }}</span>
+                            </div>
+                            <div v-if="packagingBoxSpecs.type" class="wl-field">
+                                <span class="wl-field-label">Box Type:</span>
+                                <span class="wl-field-value">{{
+                                    packagingBoxSpecs.type
+                                }}</span>
+                            </div>
+                        </template>
+                        <div v-if="packagingNotes" class="wl-field">
+                            <span class="wl-field-label">Notes:</span>
+                            <span class="wl-field-value">{{
+                                packagingNotes
+                            }}</span>
+                        </div>
+                        <div
+                            v-if="
+                                !packagingWorkLogMeta.datePacked &&
+                                !packagingIncludedComponents.length
+                            "
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Work Log:</span>
+                            <span
+                                class="wl-field-value"
+                                style="color: #aaa; font-style: italic"
+                                >Not recorded yet</span
+                            >
+                        </div>
+                    </div>
+                </template>
             </div>
             <!-- END scrollable -->
 
@@ -652,6 +733,89 @@ export default {
                 .filter((e) => e.value !== null);
         },
 
+        // ── Packaging Module ───────────────────────────────────────────────
+        showPackagingModule() {
+            return (
+                !!this.log?.pkg_date_packed ||
+                !!this.log?.pkg_category_values ||
+                !!this.log?.pkg_packaging_done
+            );
+        },
+
+        packagingWorkLogMeta() {
+            return {
+                datePacked: this.log?.pkg_date_packed || null,
+                packedBy: this.log?.pkg_packed_by || null,
+                done: this.log?.pkg_packaging_done ?? null,
+            };
+        },
+
+        savedPackagingWorkLog() {
+            if (!this.log?.pkg_category_values) return null;
+            try {
+                return typeof this.log.pkg_category_values === "string"
+                    ? JSON.parse(this.log.pkg_category_values)
+                    : this.log.pkg_category_values;
+            } catch {
+                return null;
+            }
+        },
+
+        packagingIncludedComponents() {
+            if (!this.savedPackagingWorkLog) return [];
+            const data = this.savedPackagingWorkLog;
+            // Components are stored as { "Component Name": true/false }
+            // Keys with __ prefix are internal (notes, etc.)
+            return Object.keys(data)
+                .filter(
+                    (k) =>
+                        !k.startsWith("__") &&
+                        !k.includes("__") &&
+                        data[k] === true,
+                )
+                .map((k) => {
+                    // Append SKU if available from ASIN config
+                    const asin = this.logAsin;
+                    if (!asin) return k;
+                    try {
+                        const cfg = localStorage.getItem(
+                            `asin_config_packaging:${asin}`,
+                        );
+                        const pkg = cfg ? JSON.parse(cfg) : null;
+                        const comp = pkg?.components?.find((c) => c.name === k);
+                        return comp?.sku ? `${k} (${comp.sku})` : k;
+                    } catch {
+                        return k;
+                    }
+                });
+        },
+
+        packagingNotes() {
+            return this.savedPackagingWorkLog?.["__notes"] || null;
+        },
+
+        packagingBoxSpecs() {
+            if (!this.logAsin) return {};
+            const parse = (key) => {
+                try {
+                    const r = localStorage.getItem(key);
+                    return r ? JSON.parse(r) : null;
+                } catch {
+                    return null;
+                }
+            };
+            const asinPkg = parse(`asin_config_packaging:${this.logAsin}`);
+            const globalPkg = parse("asin_global_config_packaging");
+            const a = asinPkg?.boxSpecs || {};
+            const g = globalPkg?.boxSpecs || {};
+            return {
+                size: a.size || g.size || "",
+                type: a.type || g.type || "",
+                weight: a.weight || g.weight || "",
+                materials: a.materials || g.materials || "",
+            };
+        },
+
         // ── Cleaning Module ────────────────────────────────────────────────
         showCleaningModule() {
             return (
@@ -727,10 +891,7 @@ export default {
 
     watch: {
         modelValue(val) {
-            if (val) {
-                console.log("twl_test_result:", this.log?.twl_test_result);
-                console.log("full log:", this.log);
-            }
+            if (val) console.log("FullLog log prop:", this.log);
         },
     },
 };
