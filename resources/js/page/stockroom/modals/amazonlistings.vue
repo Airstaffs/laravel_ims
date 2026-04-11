@@ -104,9 +104,16 @@
                             <img v-if="data.image" :src="data.image" alt="img"
                                 style="width: 52px; height: 52px; object-fit: contain; border: 1px solid var(--surface-border); border-radius: 6px;" />
                             <div class="min-w-0">
-                                <div class="font-medium text-primary truncate">
-                                    {{ data.title || '—' }}
+                                <div class="font-medium truncate">
+                                    <a v-if="data.asin" :href="`https://www.amazon.com/dp/${data.asin}`" target="_blank"
+                                        rel="noopener noreferrer" class="amazon-link">
+                                        {{ data.title || '—' }}
+                                    </a>
+                                    <span v-else class="text-primary">
+                                        {{ data.title || '—' }}
+                                    </span>
                                 </div>
+
                                 <div class="text-500 text-sm mt-1">
                                     <span class="mr-3"><b>ASIN</b> {{ data.asin || '—' }}</span>
                                 </div>
@@ -2208,6 +2215,15 @@ export default {
 .fba-sub-value {
     font-size: 12px;
     color: var(--text-color-secondary);
+}
+
+.amazon-link {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.amazon-link:hover {
+    text-decoration: underline;
 }
 
 @media (max-width: 960px) {
