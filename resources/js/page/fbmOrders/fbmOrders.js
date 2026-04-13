@@ -192,6 +192,9 @@ export default {
 
             // fbm print logs
             showFbmPrintLogModal: false,
+
+            // blacklist highlighting system
+            showAddressBlacklistModal: false,
         };
     },
     computed: {
@@ -4547,12 +4550,21 @@ export default {
             return this.getRemainingQuantityNeeded(item) > 0;
         },
 
-openFbmPrintLogModal() {
-    this.showFbmPrintLogModal = true;
-},
-closeFbmPrintLogModal() {
-    this.showFbmPrintLogModal = false;
-},
+        openFbmPrintLogModal() {
+            this.showFbmPrintLogModal = true;
+        },
+        closeFbmPrintLogModal() {
+            this.showFbmPrintLogModal = false;
+        },
+
+        // blacklist highlighting system
+        openAddressBlacklistModal() {
+            this.showAddressBlacklistModal = true;
+        },
+
+        closeAddressBlacklistModal() {
+            this.showAddressBlacklistModal = false;
+        },
     },
     watch: {
         searchQuery() {
