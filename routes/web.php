@@ -536,6 +536,7 @@ Route::prefix('api/productionArea')->group(function () {
 // Routes Packaging
 Route::prefix('api/packaging')->group(function () {
     Route::get('products', [PackagingController::class, 'index']);
+    Route::post('work-log', [PackagingController::class, 'saveWorkLog']);
 });
 
 // Routes Returns
