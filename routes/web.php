@@ -73,7 +73,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
-use App\Http\Controllers\FbmOrders\AddressBlacklistController;
+use App\Http\Controllers\Fbmorders\AddressBlacklistController;
 
 // ASIN Mappings Routes
 // ✅ Public API routes
