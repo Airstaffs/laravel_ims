@@ -165,32 +165,56 @@
                 tableClass="desktop-view " dataKey="outboundorderid" selectionMode="multiple"
                 :onSelectionChange="onSelectionChange" :disableRowCheckbox="row => !canSelectOrder(row)"
                 :onAllSelectionChange="onAllSelectionChange">
-                <template #orderDetails="{ data }">
-                    <div class="d-flex flex-column gap-2">
-                        <div class="detail-item-container">
-                            <span>Order Id: </span>
-                            <span>{{ data.platform_order_id }}</span>
-                        </div>
-                        <div class="detail-item-container">
-                            <span>Customer Name: </span>
-                            <span>{{ data.buyer_name || "N/A" }}</span>
-                        </div>
-                        <div class="detail-item-container">
-                            <span>Address: </span>
-                            <span>{{ formatAddress(data.address) }}</span>
-                        </div>
-                        <div class="detail-item-container">
-                            <span>Fulfillment Channel: </span>
-                            <span class="text-danger fw-bolder">{{
-                                data.FulfillmentChannel
-                                }}</span>
-                        </div>
-                        <div class="detail-item-container">
-                            <span>Amazon Order: </span>
-                            <span>{{ formatDate(data.purchase_date) }}</span>
-                        </div>
-                    </div>
-                </template>
+<template #orderDetails="{ data }">
+    <div class="order-details-blacklist-wrap">
+        <div
+            class="order-blacklist-indicator"
+            :style="{
+                backgroundColor: data.address_blacklist_detected
+                    ? (data.address_blacklist_color || '#ff0000')
+                    : 'transparent'
+            }"
+            :title="data.address_blacklist_detected
+                ? `Blacklist match: ${data.address_blacklist_word}`
+                : ''"
+        ></div>
+
+        <div class="d-flex flex-column gap-2 flex-grow-1">
+            <div class="detail-item-container">
+                <span>Order Id: </span>
+                <span>{{ data.platform_order_id }}</span>
+            </div>
+            <div class="detail-item-container">
+                <span>Customer Name: </span>
+                <span>{{ data.buyer_name || "N/A" }}</span>
+            </div>
+            <div class="detail-item-container">
+                <span>Address: </span>
+                <span>{{ formatAddress(data.address) }}</span>
+            </div>
+
+            <div
+                v-if="data.address_blacklist_detected"
+                class="detail-item-container fw-bold"
+                :style="{ color: data.address_blacklist_color || '#ff0000' }"
+            >
+                <span>Blacklist Match: </span>
+                <span>{{ data.address_blacklist_word }}</span>
+            </div>
+
+            <div class="detail-item-container">
+                <span>Fulfillment Channel: </span>
+                <span class="text-danger fw-bolder">
+                    {{ data.FulfillmentChannel }}
+                </span>
+            </div>
+            <div class="detail-item-container">
+                <span>Amazon Order: </span>
+                <span>{{ formatDate(data.purchase_date) }}</span>
+            </div>
+        </div>
+    </div>
+</template>
                 <template #productDetails="{ data }">
                     <div>
                         <div v-for="(subdata, index) in data.items" :key="index"
@@ -1950,13 +1974,13 @@ dispensedProduct, dpIndex
 
     <FbmPrintLogModal :visible="showFbmPrintLogModal" @close="closeFbmPrintLogModal" />
 
-    <AddressBlacklistModal
+<AddressBlacklistModal
     :visible="showAddressBlacklistModal"
     module-name="Amazon Orders"
     subject-name="Address"
     @close="closeAddressBlacklistModal"
+    @saved="fetchOrders"
 />
-
 
 </template>
 
@@ -2723,6 +2747,20 @@ export default {
     margin-top: 1rem;
     color: #ffffff;
     font-weight: bold;
+}
+
+.order-details-blacklist-wrap {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    min-height: 100%;
+}
+
+.order-blacklist-indicator {
+    width: 8px;
+    min-width: 8px;
+    border-radius: 6px;
+    align-self: stretch;
 }
 
 /* Responsive */

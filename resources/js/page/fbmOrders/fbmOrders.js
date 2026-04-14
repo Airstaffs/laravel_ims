@@ -14,6 +14,7 @@ import ShipmentLabelHistory from "./modals/shipmentlabelhistory.vue";
 import ScannerComponent from "../../components/Scanner.vue";
 import { SoundService } from "../../components/Sound_service";
 import FbmPrintLogModal from "./modals/FbmPrintLogModal.vue";
+import AddressBlacklistModal from "./modals/AddressBlacklistModal.vue";
 
 export default {
     name: "FbmOrderModule",
@@ -29,6 +30,7 @@ export default {
         ScannerComponent,
         SoundService,
         FbmPrintLogModal,
+        AddressBlacklistModal,
     },
     data() {
         return {
