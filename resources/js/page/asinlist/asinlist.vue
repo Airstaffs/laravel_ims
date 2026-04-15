@@ -3732,105 +3732,6 @@
                         </div>
                     </div>
 
-                    <!-- ── Box Specifications card ── -->
-                    <div class="pkg-card">
-                        <div class="pkg-card-header">
-                            <i class="pi pi-box"></i>
-                            <span>Box Specifications</span>
-                        </div>
-                        <div class="pkg-card-body">
-                            <div class="row g-2">
-                                <div class="col-6 col-md-3">
-                                    <label class="pkg-label">
-                                        Size
-                                        <span
-                                            v-if="
-                                                !boxSpecs.size &&
-                                                globalBoxSpecs.size
-                                            "
-                                            class="gc-default-badge"
-                                            >inherited</span
-                                        >
-                                    </label>
-                                    <InputText
-                                        v-model="boxSpecs.size"
-                                        :placeholder="
-                                            globalBoxSpecs.size ||
-                                            'e.g. 12x8x6 in'
-                                        "
-                                        size="small"
-                                        class="w-100"
-                                    />
-                                </div>
-                                <div class="col-6 col-md-3">
-                                    <label class="pkg-label">
-                                        Type
-                                        <span
-                                            v-if="
-                                                !boxSpecs.type &&
-                                                globalBoxSpecs.type
-                                            "
-                                            class="gc-default-badge"
-                                            >inherited</span
-                                        >
-                                    </label>
-                                    <InputText
-                                        v-model="boxSpecs.type"
-                                        :placeholder="
-                                            globalBoxSpecs.type || 'e.g. RSC'
-                                        "
-                                        size="small"
-                                        class="w-100"
-                                    />
-                                </div>
-                                <div class="col-6 col-md-3">
-                                    <label class="pkg-label">
-                                        Weight
-                                        <span
-                                            v-if="
-                                                !boxSpecs.weight &&
-                                                globalBoxSpecs.weight
-                                            "
-                                            class="gc-default-badge"
-                                            >inherited</span
-                                        >
-                                    </label>
-                                    <InputText
-                                        v-model="boxSpecs.weight"
-                                        :placeholder="
-                                            globalBoxSpecs.weight ||
-                                            'e.g. 2 lbs'
-                                        "
-                                        size="small"
-                                        class="w-100"
-                                    />
-                                </div>
-                                <div class="col-6 col-md-3">
-                                    <label class="pkg-label">
-                                        Materials
-                                        <span
-                                            v-if="
-                                                !boxSpecs.materials &&
-                                                globalBoxSpecs.materials
-                                            "
-                                            class="gc-default-badge"
-                                            >inherited</span
-                                        >
-                                    </label>
-                                    <InputText
-                                        v-model="boxSpecs.materials"
-                                        :placeholder="
-                                            globalBoxSpecs.materials ||
-                                            'e.g. Corrugated'
-                                        "
-                                        size="small"
-                                        class="w-100"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- ── Required Components card ── -->
                     <div class="pkg-card">
                         <div class="pkg-card-header">
@@ -3928,6 +3829,105 @@
                                 class="align-self-start mt-1"
                                 @click="addPackagingComponent"
                             />
+                        </div>
+                    </div>
+
+                    <!-- ── Box Specifications card ── -->
+                    <div class="pkg-card">
+                        <div class="pkg-card-header">
+                            <i class="pi pi-box"></i>
+                            <span>Box Specifications</span>
+                        </div>
+                        <div class="pkg-card-body">
+                            <div class="row g-2">
+                                <div class="col-6 col-md-3">
+                                    <label class="pkg-label">
+                                        Size
+                                        <span
+                                            v-if="
+                                                !boxSpecs.size &&
+                                                globalBoxSpecs.size
+                                            "
+                                            class="gc-default-badge"
+                                            >inherited</span
+                                        >
+                                    </label>
+                                    <InputText
+                                        v-model="boxSpecs.size"
+                                        :placeholder="
+                                            globalBoxSpecs.size ||
+                                            'e.g. 12x8x6 in'
+                                        "
+                                        size="small"
+                                        class="w-100"
+                                    />
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <label class="pkg-label">
+                                        Type
+                                        <span
+                                            v-if="
+                                                !boxSpecs.type &&
+                                                globalBoxSpecs.type
+                                            "
+                                            class="gc-default-badge"
+                                            >inherited</span
+                                        >
+                                    </label>
+                                    <InputText
+                                        v-model="boxSpecs.type"
+                                        :placeholder="
+                                            globalBoxSpecs.type || 'e.g. RSC'
+                                        "
+                                        size="small"
+                                        class="w-100"
+                                    />
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <label class="pkg-label">
+                                        Weight
+                                        <span
+                                            v-if="
+                                                !boxSpecs.weight &&
+                                                globalBoxSpecs.weight
+                                            "
+                                            class="gc-default-badge"
+                                            >inherited</span
+                                        >
+                                    </label>
+                                    <InputText
+                                        v-model="boxSpecs.weight"
+                                        :placeholder="
+                                            globalBoxSpecs.weight ||
+                                            'e.g. 2 lbs'
+                                        "
+                                        size="small"
+                                        class="w-100"
+                                    />
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <label class="pkg-label">
+                                        Materials
+                                        <span
+                                            v-if="
+                                                !boxSpecs.materials &&
+                                                globalBoxSpecs.materials
+                                            "
+                                            class="gc-default-badge"
+                                            >inherited</span
+                                        >
+                                    </label>
+                                    <InputText
+                                        v-model="boxSpecs.materials"
+                                        :placeholder="
+                                            globalBoxSpecs.materials ||
+                                            'e.g. Corrugated'
+                                        "
+                                        size="small"
+                                        class="w-100"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -1647,6 +1647,12 @@ export default {
                 twl_date_tested: data.twl_date_tested ?? null,
                 testing_field_values: data.testing_field_values ?? null,
 
+                // ── Cleaning work log ──────────────────────────────────────────
+                cleaned_by: data.cleaned_by ?? null,
+                date_cleaned: data.date_cleaned ?? null,
+                cleaning_done: data.cleaning_done ?? null,
+                cleaning_category_values: data.cleaning_category_values ?? null,
+
                 // ── Packaging work log ─────────────────────────────────────────
                 pkg_packed_by: data.packed_by ?? null,
                 pkg_date_packed: data.date_packed ?? null,

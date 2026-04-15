@@ -942,7 +942,7 @@ const TABLE_COLUMNS = [
         bodyStyle: "font-size: 14px;",
     },
     {
-        field: "serialNumber",
+        field: "serialnumber",
         header: "Serial Number",
         sortable: true,
         bodyStyle: "font-size: 14px;",

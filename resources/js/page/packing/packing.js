@@ -774,6 +774,21 @@ export default {
                     .querySelector('meta[name="csrf-token"]')
                     .getAttribute("content");
 
+                // ── Auto-check all unchecked components when marking done ─────
+                if (markDone) {
+                    const filled = { ...this.packagingWorkLogValues };
+                    this.packagingComponents.forEach((comp) => {
+                        if (
+                            filled[comp.name] === undefined ||
+                            filled[comp.name] === false
+                        ) {
+                            filled[comp.name] = true;
+                        }
+                    });
+                    this.packagingWorkLogValues = filled;
+                }
+                // ─────────────────────────────────────────────────────────────
+
                 const response = await axios.post(
                     `${API_BASE_URL}/api/packaging/work-log`,
                     {
@@ -796,8 +811,7 @@ export default {
                             icon: "success",
                             title: "Packaging Complete!",
                             text: `Item ${item.rtcounter} moved to Stockroom.`,
-                            timer: 2000,
-                            showConfirmButton: false,
+                            confirmButtonText: "OK",
                         });
                         this.showPackagingWorkLog = false;
                         this.packagingWorkLogItem = null;
@@ -807,8 +821,7 @@ export default {
                             icon: "success",
                             title: "Progress Saved",
                             text: "Packaging work log saved successfully.",
-                            timer: 1500,
-                            showConfirmButton: false,
+                            confirmButtonText: "OK",
                         });
                     }
                 } else {
