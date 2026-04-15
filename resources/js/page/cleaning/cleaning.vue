@@ -987,7 +987,7 @@ const TABLE_COLUMNS = [
         visibility: showPricingForPH(),
     },
     {
-        field: "serialNumber",
+        field: "serialnumber",
         header: "Serial Number",
         sortable: true,
         bodyStyle: "font-size: 14px;",

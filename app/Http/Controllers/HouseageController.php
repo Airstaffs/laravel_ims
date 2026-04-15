@@ -50,20 +50,40 @@ class HouseageController extends BasetablesController
             ];
 
             $workLogColumns = [
+                // ── Testing ────────────────────────────────────────────────────
                 DB::raw('twl.field_values as testing_field_values'),
                 DB::raw('twl.test_result as twl_test_result'),
                 DB::raw('twl.tested_by as twl_tested_by'),
                 DB::raw('twl.date_tested as twl_date_tested'),
+                // ── Cleaning ───────────────────────────────────────────────────
                 'cwl.cleaned_by',
                 'cwl.date_cleaned',
                 'cwl.mark_done as cleaning_done',
                 DB::raw('cwl.category_values as cleaning_category_values'),
-                // ── Packaging work log ──────────────────────────────────────────
+                // ── Packaging ──────────────────────────────────────────────────
                 'pwl.packed_by',
                 'pwl.date_packed',
-                'pwl.mark_done as packaging_done',
+                DB::raw('pwl.mark_done as packaging_done'),
                 DB::raw('pwl.category_values as packaging_category_values'),
+                // ── Checklist (received) ───────────────────────────────────────
+                'chk.pass_fail_result',
+                'chk.correct_on_order',
+                'chk.condition_on_arrival',
+                'chk.condition_notes',
+                'chk.date_received',
+                'chk.received_by',
+                DB::raw('chk.basket_number as chk_basket_number'),
+                DB::raw('chk.pcn_number as chk_pcn_number'),
             ];
+
+            // ── Shared checklist join closure ──────────────────────────────────
+            $chkJoin = function ($join) {
+                $join->on(
+                    DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
+                    '=',
+                    DB::raw('CONVERT(chk.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+                );
+            };
 
             if (empty($search)) {
                 $products = DB::table('tblproduct as prod')
@@ -83,6 +103,7 @@ class HouseageController extends BasetablesController
                         '=',
                         DB::raw('CONVERT(pwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
                     )
+                    ->leftJoin('tblreceivedchecklist as chk', $chkJoin)
                     ->select(array_merge($workLogColumns, ['prod.*'], $ebayImgColumns))
                     ->orderBy('prod.ProductID', 'desc')
                     ->paginate($perPage);
@@ -123,6 +144,7 @@ class HouseageController extends BasetablesController
                         '=',
                         DB::raw('CONVERT(pwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
                     )
+                    ->leftJoin('tblreceivedchecklist as chk', $chkJoin)
                     ->select(array_merge($workLogColumns, [
                         'prod.*',
                         'fnsku.ASIN',

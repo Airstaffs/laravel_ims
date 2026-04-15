@@ -738,7 +738,10 @@ export default {
             return (
                 !!this.log?.pkg_date_packed ||
                 !!this.log?.pkg_category_values ||
-                !!this.log?.pkg_packaging_done
+                !!this.log?.pkg_packaging_done ||
+                !!this.log?.date_packed ||
+                !!this.log?.packaging_category_values ||
+                !!this.log?.packaging_done
             );
         },
 

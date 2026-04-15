@@ -822,6 +822,31 @@ export default {
                   })
                 : null;
 
+            // ── Auto-fill empty statuses as "Done" when marking complete ──────
+            if (markDone) {
+                const filled = { ...this.cleaningWorkLogValues };
+
+                Object.keys(filled).forEach((key) => {
+                    if (key.endsWith("__status") && !filled[key]) {
+                        filled[key] = "Done";
+                    }
+                });
+
+                this.cleaningWorkLogCategories.forEach((cat) => {
+                    const statusKey = cat.name + "__status";
+                    if (!filled[statusKey]) {
+                        filled[statusKey] = "Done";
+                    }
+                });
+
+                this.cleaningWorkLogValues = filled;
+            }
+            console.log(
+                "After auto-fill:",
+                JSON.stringify(this.cleaningWorkLogValues),
+            );
+            // ──────────────────────────────────────────────────────────────────
+
             console.log("📤 Saving cleaning work log to DB:", {
                 rtcounter: String(this.cleaningWorkLogItem.rtcounter),
                 asin,
