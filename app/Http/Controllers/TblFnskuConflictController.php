@@ -195,10 +195,6 @@ class TblFnskuConflictController extends Controller
         $rows = DB::table('tblproduct')
             ->select('ProductID', 'FNSKUviewer')
             ->where('MSKUviewer', $msku)
-            ->where(function ($q) {
-                $q->whereNull('ProductModuleLoc')
-                  ->orWhere('ProductModuleLoc', '<>', 'SoldList');
-            })
             ->get();
 
         $updated = 0;
