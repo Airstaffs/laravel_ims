@@ -14,6 +14,7 @@ import ShipmentLabelHistory from "./modals/shipmentlabelhistory.vue";
 import ScannerComponent from "../../components/Scanner.vue";
 import { SoundService } from "../../components/Sound_service";
 import FbmPrintLogModal from "./modals/FbmPrintLogModal.vue";
+import AddressBlacklistModal from "./modals/AddressBlacklistModal.vue";
 
 export default {
     name: "FbmOrderModule",
@@ -29,6 +30,7 @@ export default {
         ScannerComponent,
         SoundService,
         FbmPrintLogModal,
+        AddressBlacklistModal,
     },
     data() {
         return {
@@ -192,6 +194,9 @@ export default {
 
             // fbm print logs
             showFbmPrintLogModal: false,
+
+            // blacklist highlighting system
+            showAddressBlacklistModal: false,
         };
     },
     computed: {
@@ -4547,12 +4552,21 @@ export default {
             return this.getRemainingQuantityNeeded(item) > 0;
         },
 
-openFbmPrintLogModal() {
-    this.showFbmPrintLogModal = true;
-},
-closeFbmPrintLogModal() {
-    this.showFbmPrintLogModal = false;
-},
+        openFbmPrintLogModal() {
+            this.showFbmPrintLogModal = true;
+        },
+        closeFbmPrintLogModal() {
+            this.showFbmPrintLogModal = false;
+        },
+
+        // blacklist highlighting system
+        openAddressBlacklistModal() {
+            this.showAddressBlacklistModal = true;
+        },
+
+        closeAddressBlacklistModal() {
+            this.showAddressBlacklistModal = false;
+        },
     },
     watch: {
         searchQuery() {

@@ -111,8 +111,10 @@
             <TitlePage title="FBM Orders Module"
                 subtitle="Manage all orders fulfilled directly by the merchant. Process shipments, generate labels, and track the status of FBM orders." />
             <div class="d-flex justify-content-center gap-2 me-4 flex-wrap desktop-view">
-                <Button severity="secondary" size="small" outlined @click="openFbmPrintLogModal"
-                    label="FBM Print Log" icon="pi pi-print" />
+                <Button severity="secondary" size="small" outlined @click="openAddressBlacklistModal"
+                    label="Address Blacklist" icon="pi pi-map-marker" />
+                <Button severity="secondary" size="small" outlined @click="openFbmPrintLogModal" label="FBM Print Log"
+                    icon="pi pi-print" />
                 <Button severity="secondary" size="small" outlined @click="openShipmentLabelHistoryModal"
                     label="Shipment Label History" icon="pi pi-history" />
                 <Button severity="secondary" size="small" outlined @click="openWorkHistoryModal" label="Work History"
@@ -163,32 +165,56 @@
                 tableClass="desktop-view " dataKey="outboundorderid" selectionMode="multiple"
                 :onSelectionChange="onSelectionChange" :disableRowCheckbox="row => !canSelectOrder(row)"
                 :onAllSelectionChange="onAllSelectionChange">
-                <template #orderDetails="{ data }">
-                    <div class="d-flex flex-column gap-2">
-                        <div class="detail-item-container">
-                            <span>Order Id: </span>
-                            <span>{{ data.platform_order_id }}</span>
-                        </div>
-                        <div class="detail-item-container">
-                            <span>Customer Name: </span>
-                            <span>{{ data.buyer_name || "N/A" }}</span>
-                        </div>
-                        <div class="detail-item-container">
-                            <span>Address: </span>
-                            <span>{{ formatAddress(data.address) }}</span>
-                        </div>
-                        <div class="detail-item-container">
-                            <span>Fulfillment Channel: </span>
-                            <span class="text-danger fw-bolder">{{
-                                data.FulfillmentChannel
-                                }}</span>
-                        </div>
-                        <div class="detail-item-container">
-                            <span>Amazon Order: </span>
-                            <span>{{ formatDate(data.purchase_date) }}</span>
-                        </div>
-                    </div>
-                </template>
+<template #orderDetails="{ data }">
+    <div class="order-details-blacklist-wrap">
+        <div
+            class="order-blacklist-indicator"
+            :style="{
+                backgroundColor: data.address_blacklist_detected
+                    ? (data.address_blacklist_color || '#ff0000')
+                    : 'transparent'
+            }"
+            :title="data.address_blacklist_detected
+                ? `Blacklist match: ${data.address_blacklist_word}`
+                : ''"
+        ></div>
+
+        <div class="d-flex flex-column gap-2 flex-grow-1">
+            <div class="detail-item-container">
+                <span>Order Id: </span>
+                <span>{{ data.platform_order_id }}</span>
+            </div>
+            <div class="detail-item-container">
+                <span>Customer Name: </span>
+                <span>{{ data.buyer_name || "N/A" }}</span>
+            </div>
+            <div class="detail-item-container">
+                <span>Address: </span>
+                <span>{{ formatAddress(data.address) }}</span>
+            </div>
+
+            <div
+                v-if="data.address_blacklist_detected"
+                class="detail-item-container fw-bold"
+                :style="{ color: data.address_blacklist_color || '#ff0000' }"
+            >
+                <span>Blacklist Match: </span>
+                <span>{{ data.address_blacklist_word }}</span>
+            </div>
+
+            <div class="detail-item-container">
+                <span>Fulfillment Channel: </span>
+                <span class="text-danger fw-bolder">
+                    {{ data.FulfillmentChannel }}
+                </span>
+            </div>
+            <div class="detail-item-container">
+                <span>Amazon Order: </span>
+                <span>{{ formatDate(data.purchase_date) }}</span>
+            </div>
+        </div>
+    </div>
+</template>
                 <template #productDetails="{ data }">
                     <div>
                         <div v-for="(subdata, index) in data.items" :key="index"
@@ -1948,6 +1974,13 @@ dispensedProduct, dpIndex
 
     <FbmPrintLogModal :visible="showFbmPrintLogModal" @close="closeFbmPrintLogModal" />
 
+<AddressBlacklistModal
+    :visible="showAddressBlacklistModal"
+    module-name="Amazon Orders"
+    subject-name="Address"
+    @close="closeAddressBlacklistModal"
+    @saved="fetchOrders"
+/>
 
 </template>
 
@@ -2180,10 +2213,10 @@ export default {
         getMoreUpperActionItems() {
             return [
                 {
-    label: "FBM Print Log",
-    icon: "pi pi-print",
-    command: () => this.openFbmPrintLogModal(),
-},
+                    label: "FBM Print Log",
+                    icon: "pi pi-print",
+                    command: () => this.openFbmPrintLogModal(),
+                },
                 {
                     label: "Shipment Label History",
                     icon: "pi pi-history",
@@ -2714,6 +2747,20 @@ export default {
     margin-top: 1rem;
     color: #ffffff;
     font-weight: bold;
+}
+
+.order-details-blacklist-wrap {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    min-height: 100%;
+}
+
+.order-blacklist-indicator {
+    width: 8px;
+    min-width: 8px;
+    border-radius: 6px;
+    align-self: stretch;
 }
 
 /* Responsive */

@@ -73,6 +73,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
+use App\Http\Controllers\Fbmorders\AddressBlacklistController;
 
 // ASIN Mappings Routes
 // ✅ Public API routes
@@ -1159,3 +1160,11 @@ Route::prefix('amazon/paa')->group(function () {
 });
 
 Route::get('/fbm/print-logs', [FbmOrderController::class, 'getfbmprintinglogs']);
+
+Route::prefix('api/fbm-orders/address-blacklist')->group(function () {
+
+    Route::get('/list', [AddressBlacklistController::class, 'list']);
+    Route::post('/save', [AddressBlacklistController::class, 'save']);
+    Route::post('/delete', [AddressBlacklistController::class, 'delete']);
+
+});

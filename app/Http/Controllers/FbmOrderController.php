@@ -374,6 +374,14 @@ class FbmOrderController extends BasetablesController
             $totalCount = $query->count();
             $totalPages = ceil($totalCount / $perPage);
 
+            // Load address blacklist rules (first matching row wins)
+            $addressBlacklistRules = DB::table('tbladdressblacklist')
+                ->select('id', 'module_name', 'subject_name', 'detect_word', 'color')
+                ->where('module_name', 'Amazon Orders')
+                ->where('subject_name', 'Address')
+                ->orderBy('id', 'asc')
+                ->get();
+
             Log::info('Query built, total count after filtering: ' . $totalCount);
 
             // ✅ PurchaseDate DESC
@@ -391,6 +399,30 @@ class FbmOrderController extends BasetablesController
             $formattedOrders = [];
             foreach ($orders as $order) {
                 $orderData = (array) $order;
+
+                // Address blacklist detection - first matching row wins
+                $orderData['address_blacklist_detected'] = false;
+                $orderData['address_blacklist_word'] = null;
+                $orderData['address_blacklist_color'] = null;
+
+                $addressToCheck = strtolower(trim((string) ($orderData['address'] ?? '')));
+
+                if ($addressToCheck !== '' && $addressBlacklistRules->isNotEmpty()) {
+                    foreach ($addressBlacklistRules as $rule) {
+                        $detectWord = strtolower(trim((string) ($rule->detect_word ?? '')));
+
+                        if ($detectWord === '') {
+                            continue;
+                        }
+
+                        if (strpos($addressToCheck, $detectWord) !== false) {
+                            $orderData['address_blacklist_detected'] = true;
+                            $orderData['address_blacklist_word'] = $rule->detect_word;
+                            $orderData['address_blacklist_color'] = $rule->color ?: '#ff0000';
+                            break; // first matching row wins
+                        }
+                    }
+                }
 
                 try {
                     // Get items for this order
@@ -486,12 +518,18 @@ class FbmOrderController extends BasetablesController
                             $orderData['order_status'] = 'Canceled';
                         } elseif (in_array('Pending', $statuses)) {
                             $orderData['order_status'] = 'Pending';
-                        } elseif (count(array_filter($statuses, function ($s) {
-                            return $s == 'Shipped'; })) == count($statuses)) {
+                        } elseif (
+                            count(array_filter($statuses, function ($s) {
+                                return $s == 'Shipped';
+                            })) == count($statuses)
+                        ) {
                             $orderData['order_status'] = 'Shipped';
 
-                        } elseif (count(array_filter($statuses, function ($s) {
-                            return $s == 'Delivered'; })) == count($statuses)) {
+                        } elseif (
+                            count(array_filter($statuses, function ($s) {
+                                return $s == 'Delivered';
+                            })) == count($statuses)
+                        ) {
                             $orderData['order_status'] = 'Delivered';
                         } else {
                             $orderData['order_status'] = 'Unshipped';
@@ -1265,8 +1303,11 @@ class FbmOrderController extends BasetablesController
                     $orderData['order_status'] = 'Canceled';
                 } elseif (in_array('Pending', $statuses)) {
                     $orderData['order_status'] = 'Pending';
-                } elseif (count(array_filter($statuses, function ($s) {
-                    return $s == 'Shipped'; })) == count($statuses)) {
+                } elseif (
+                    count(array_filter($statuses, function ($s) {
+                        return $s == 'Shipped';
+                    })) == count($statuses)
+                ) {
                     $orderData['order_status'] = 'Shipped';
                 } else {
                     $orderData['order_status'] = 'Unshipped';
