@@ -178,6 +178,7 @@ const modules = ref({
     fnsku: "FNSKU List",
     mskucreation: "FNSKU Creation",
     switcheru: "Switcheru List",
+    repair: "Repair List",
 });
 
 // Icons for each module
@@ -210,6 +211,7 @@ const moduleIcons = {
     inventorystatistics: "pi-chart-bar",
     reconciliation: "pi-check",
     switcheru: "pi-exchange",
+    repair: "pi-hammer",
 };
 
 // Get array of ASIN sub-item IDs

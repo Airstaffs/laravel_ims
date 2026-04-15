@@ -15,6 +15,7 @@ use App\Http\Controllers\CleaningController;
 use App\Http\Controllers\Ebay\EbayController;
 use App\Http\Controllers\EmployeeClockController;
 use App\Http\Controllers\FbmOrderController;
+use App\Http\Controllers\Fbmorders\AddressBlacklistController;
 use App\Http\Controllers\Fbmorders\ManualShipmentLabelController;
 use App\Http\Controllers\Fbmorders\PrintInvoiceController;
 use App\Http\Controllers\Fbmorders\PrintShippingLabelController;
@@ -45,6 +46,7 @@ use App\Http\Controllers\ProductInvoiceController;
 use App\Http\Controllers\ProductionAreaController;
 use App\Http\Controllers\ReceivedController;
 use App\Http\Controllers\ReconciliationController;
+use App\Http\Controllers\RepairController;
 use App\Http\Controllers\ReturnScannerController;
 use App\Http\Controllers\RTSController;
 use App\Http\Controllers\ShipmentController;
@@ -73,7 +75,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
-use App\Http\Controllers\Fbmorders\AddressBlacklistController;
 
 // ASIN Mappings Routes
 // ✅ Public API routes
@@ -1167,4 +1168,10 @@ Route::prefix('api/fbm-orders/address-blacklist')->group(function () {
     Route::post('/save', [AddressBlacklistController::class, 'save']);
     Route::post('/delete', [AddressBlacklistController::class, 'delete']);
 
+});
+
+Route::middleware(['auth'])->prefix('api/repair')->group(function () {
+    Route::get('/products', [RepairController::class, 'index']);
+    Route::post('/work-log', [RepairController::class, 'workLog']);
+    Route::post('/move-to-cleaning', [RepairController::class, 'moveToCleaning']);
 });

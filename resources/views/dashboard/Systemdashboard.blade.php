@@ -116,9 +116,8 @@
                     'printer',
                     'auxiliary',
                     'inventorystatistics',
-                    'switcheru'
-
-
+                    'switcheru',
+                    'repair',
                 ];
 
                 foreach ($moduleColumns as $column) {
@@ -166,7 +165,7 @@
                 'inventorystatistics' => 'Inventory Statistics',
                 'reconciliation' => 'Reconciliation',
                 'switcheru' => 'Switcheru List',
-
+                'repair' => 'Repair',
             ];
 
             function hasAccess($module, $mainModule, $subModules): bool

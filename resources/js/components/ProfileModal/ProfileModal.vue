@@ -622,15 +622,6 @@
                                                 icon="pi pi-check"
                                                 :loading="updatingTimezone"
                                             />
-                                            <!-- <Button
-                                                type="button"
-                                                label="Detect Now"
-                                                icon="pi pi-refresh"
-                                                @click="detectCurrentTimezone"
-                                                severity="secondary"
-                                                outlined
-                                                class="ml-2"
-                                            /> -->
                                         </div>
                                     </form>
                                 </template>
@@ -754,7 +745,6 @@
                                         <template #body="slotProps">
                                             <div class="record-date">
                                                 <i class="pi pi-calendar"></i>
-                                                <!-- ✅ Using universal formatter -->
                                                 <strong>{{
                                                     $formatDate(
                                                         slotProps.data.time_in,
@@ -768,7 +758,6 @@
                                         <template #body="slotProps">
                                             <div class="record-time">
                                                 <i class="pi pi-sign-in"></i>
-                                                <!-- ✅ Using universal formatter -->
                                                 {{
                                                     $formatTime(
                                                         slotProps.data.time_in,
@@ -785,7 +774,6 @@
                                                 class="record-time"
                                             >
                                                 <i class="pi pi-sign-out"></i>
-                                                <!-- ✅ Using universal formatter -->
                                                 {{
                                                     $formatTime(
                                                         slotProps.data.time_out,
@@ -807,7 +795,6 @@
                                         <template #body="slotProps">
                                             <div class="computed-hours-badge">
                                                 <i class="pi pi-clock"></i>
-                                                <!-- ✅ Using universal formatter -->
                                                 <strong>{{
                                                     $calculateHours(
                                                         slotProps.data.time_in,
@@ -1441,6 +1428,12 @@ export default {
                     icon: "pi pi-megaphone",
                     enabled: false,
                 },
+                {
+                    key: "repair",
+                    label: "Repair",
+                    icon: "pi pi-hammer",
+                    enabled: false,
+                },
             ],
 
             // My Schedule
@@ -1600,28 +1593,23 @@ export default {
         onTabChange(event) {
             this.currentTabIndex = event.index;
 
-            // Tab index 0 = Attendance Tab
             if (event.index === 0) {
                 console.log("👁️ Attendance tab visited, refreshing data...");
                 this.refreshAttendanceTab();
             }
 
-            // Tab index 1 = Account Tab
             if (event.index === 1 && !this.accountDetailsLoaded) {
                 this.loadAccountDetails();
             }
 
-            // Tab index 2 = Record Tab
             if (event.index === 2) {
                 this.filterAttendanceRecords();
             }
 
-            // Tab index 3 = My Privileges Tab
             if (event.index === 3 && !this.privilegesLoaded) {
                 this.loadUserPrivileges();
             }
 
-            // Tab index 4 = My Schedule Tab
             if (event.index === 4) {
                 this.loadScheduleData();
             }
@@ -1649,10 +1637,8 @@ export default {
 
         async refreshAttendanceTab() {
             try {
-                // Refresh attendance data
                 await this.loadAttendanceData();
 
-                // Restart clock if not running
                 if (!this.timeInterval) {
                     this.startClock();
                 }
@@ -1693,10 +1679,9 @@ export default {
         },
 
         startClock() {
-            // Force update every second to refresh the time display
             this.timeInterval = setInterval(() => {
-                this.timeUpdateKey++; // Trigger reactivity
-                this.$forceUpdate(); // Force Vue to re-render
+                this.timeUpdateKey++;
+                this.$forceUpdate();
             }, 1000);
         },
 
@@ -1721,7 +1706,6 @@ export default {
 
                 console.log("🌍 Detected timezone:", detected);
 
-                // Find friendly name for display
                 const timezone = this.timezones?.find(
                     (tz) => tz.tz === detected,
                 );
@@ -1737,7 +1721,6 @@ export default {
 
         async loadTimezones() {
             try {
-                // Common timezones list
                 this.timezones = [
                     // Americas
                     {
@@ -1839,14 +1822,11 @@ export default {
                     },
                 ];
 
-                // Load current timezone setting from backend
                 const response = await axios.get("/api/timezone/current");
                 this.timezoneForm.usertimezone =
                     response.data.usertimezone || "UTC";
                 this.timezoneForm.auto_sync = response.data.auto_sync ?? false;
 
-                // ✅ Detect current timezone AFTER timezones list is loaded
-                // Use $nextTick to ensure everything is ready
                 this.$nextTick(() => {
                     this.detectCurrentTimezone();
                 });
@@ -1854,7 +1834,6 @@ export default {
                 this.timezonesLoaded = true;
             } catch (error) {
                 console.error("Error loading timezones:", error);
-                // Set fallback even on error
                 this.detectedTimezone = "UTC";
             }
         },
@@ -1862,18 +1841,16 @@ export default {
         async updateTimezone() {
             this.updatingTimezone = true;
             try {
-                // If auto-sync is enabled, detect and use browser timezone
                 let timezoneToSave = this.timezoneForm.usertimezone;
                 if (this.timezoneForm.auto_sync) {
                     const detected = this.detectCurrentTimezone();
                     timezoneToSave = detected;
-                    this.timezoneForm.usertimezone = detected; // Update form to show detected timezone
+                    this.timezoneForm.usertimezone = detected;
                 }
 
-                // Prepare the data to send (matching your backend structure)
                 const timezoneData = {
                     usertimezone: timezoneToSave,
-                    auto_sync: this.timezoneForm.auto_sync ? 1 : 0, // Send as 1/0 for backend
+                    auto_sync: this.timezoneForm.auto_sync ? 1 : 0,
                 };
 
                 console.log("💾 Saving timezone:", timezoneData);
@@ -1884,7 +1861,6 @@ export default {
                 );
 
                 if (response.data.success) {
-                    // Update the timeFormatter's timezone
                     if (
                         this.$timeFormatter &&
                         typeof this.$timeFormatter.setTimezone === "function"
@@ -1896,7 +1872,6 @@ export default {
                         );
                     }
 
-                    // Show success message
                     await Swal.fire({
                         title: "Success!",
                         text:
@@ -1907,12 +1882,10 @@ export default {
                         timer: 2000,
                     });
 
-                    // Refresh the attendance data to reflect new timezone
                     if (this.currentTabIndex === 0) {
                         await this.loadAttendanceData();
                     }
 
-                    // Refresh filtered records if on Record tab
                     if (this.currentTabIndex === 2) {
                         await this.filterAttendanceRecords();
                     }
@@ -2189,39 +2162,6 @@ export default {
             }
         },
 
-        formatTime(datetime) {
-            if (!datetime) return "";
-            const date = new Date(datetime);
-            return date.toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-            });
-        },
-
-        formatDate(datetime) {
-            if (!datetime) return "";
-            const date = new Date(datetime);
-            return date.toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-            });
-        },
-
-        calculateHours(timeIn, timeOut) {
-            if (!timeIn || !timeOut) return "Not calculated";
-
-            const start = new Date(timeIn);
-            const end = new Date(timeOut);
-            const diff = end - start;
-
-            const hours = Math.floor(diff / (1000 * 60 * 60));
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-            return `${hours}h ${minutes}m`;
-        },
-
         openNotesModal(record) {
             this.selectedRecordId = record.id;
             this.currentNotes = record.notes || "";
@@ -2395,7 +2335,6 @@ export default {
                     confirmButtonText: "OK",
                 });
 
-                // Reset form
                 this.passwordForm = {
                     password: "",
                     password_confirmation: "",
@@ -2485,29 +2424,6 @@ export default {
             this.totalHours = `${hours} hrs ${minutes} mins`;
         },
 
-        formatRecordDate(datetime) {
-            if (!datetime) return "";
-            const date = new Date(datetime);
-            return date.toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-            });
-        },
-
-        calculateRecordHours(timeIn, timeOut) {
-            if (!timeIn) return "N/A";
-
-            const start = new Date(timeIn);
-            const end = timeOut ? new Date(timeOut) : new Date();
-            const diff = end - start;
-
-            const hours = Math.floor(diff / (1000 * 60 * 60));
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-            return `${hours}h ${minutes}m`;
-        },
-
         async loadUserPrivileges() {
             this.loadingPrivileges = true;
 
@@ -2517,17 +2433,14 @@ export default {
                 if (response.data.status === "success" && response.data.data) {
                     const userPrivileges = response.data.data;
 
-                    // Update privilegesList with user's actual privileges
                     this.privilegesList.forEach((privilege) => {
                         if (userPrivileges.hasOwnProperty(privilege.key)) {
-                            // Convert to boolean (1 or 0 from database)
                             privilege.enabled =
                                 userPrivileges[privilege.key] === 1 ||
                                 userPrivileges[privilege.key] === "1";
                         }
                     });
 
-                    // Mark as loaded
                     this.privilegesLoaded = true;
                 }
             } catch (error) {

@@ -572,6 +572,7 @@ import InventoryStatistics from "./page/inventoryStatistics/inventoryStatistics.
 import SuppliesComponents from "./page/suppliesComponents/suppliesComponents.vue";
 import FbaInboundShipment from "./components/Stockroom/fba_inbound/fba_inbound_shipment.vue";
 import Switcheru from "./page/switcherus/switcheru.vue";
+import Repair from "./page/repair/repair.vue";
 
 import CelebrateAnnouncement from "./components/AnnouncementModal/CelebrateAnnouncement.vue";
 
@@ -646,6 +647,8 @@ const componentMapping = {
     "Supplies & Components": "suppliescomponents",
     "Suppliers List": "supplierslist",
     "Switcheru List": "switcheru",
+    Repair: "repair",
+    repair: "repair",
 };
 
 // ============================================
@@ -977,10 +980,10 @@ const app = createApp({
         returnlist: Returnedlist,
         auxiliary: AuxiliaryLabel,
         inventorystatistics: InventoryStatistics,
-        reconciliation: Reconciliation,
         suppliescomponents: SuppliesComponents,
         celebrateannouncement: CelebrateAnnouncement,
         switcheru: Switcheru,
+        repair: Repair,
     },
 });
 
