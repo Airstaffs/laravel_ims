@@ -66,6 +66,7 @@ use App\Http\Controllers\UserLogsController;
 use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
+use App\Http\Controllers\UtilsScanners;
 use App\Http\Middleware\PreventBackHistory;
 use App\Http\Models\Store;
 use App\Models\User;
@@ -1167,4 +1168,9 @@ Route::prefix('api/fbm-orders/address-blacklist')->group(function () {
     Route::post('/save', [AddressBlacklistController::class, 'save']);
     Route::post('/delete', [AddressBlacklistController::class, 'delete']);
 
+});
+
+Route::prefix('utils/scanner')->group(function () {
+    Route::post('/check', [UtilsScanners::class, 'checkItemStatus']);
+    Route::post('/update', [UtilsScanners::class, 'updateItemStatus']);
 });

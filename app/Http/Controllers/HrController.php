@@ -1481,6 +1481,7 @@ class HrController extends Controller
         'returnscanner',
         'notfound',
         'asinoption',
+        'util_scanner',
         'houseage',
         'asinlist',
         'printer',

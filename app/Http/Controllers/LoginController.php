@@ -384,6 +384,7 @@ class LoginController extends Controller
             'soldlist',
             'notfound',
             'asinoption',
+            'util_scanner',
             'houseage',
             'asinlist',
             'printer',

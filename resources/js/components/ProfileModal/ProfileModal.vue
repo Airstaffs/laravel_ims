@@ -1423,6 +1423,12 @@ export default {
                     icon: "pi pi-sliders-h",
                     enabled: false,
                 },
+                                {
+                    key: "util_scanner",
+                    label: "Utility Scanner",
+                    icon: "pi pi-sliders-h",
+                    enabled: false,
+                },
                 {
                     key: "houseage",
                     label: "Houseage",

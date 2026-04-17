@@ -610,9 +610,10 @@ if (document.getElementById("login-app")) {
 const asyncComponentMap = {
     printcustominvoice: () =>
         import("./page/stockroom/print_invoice/print_custom_invoice.vue"),
-    mskucreation: () =>
-        import("./page/asinoption/fnskucreation/creation_msku.vue"),
+    mskucreation: () =>import("./page/asinoption/fnskucreation/creation_msku.vue"),
+    itemchecker: () => import("./page/utilScanners/itemChecker.vue"),
     scheduling: () => import("./page/hr/components/scheduling.vue"),
+
     supplierslist: () => import("./page/suppliersList/suppliersList.vue"),
 };
 

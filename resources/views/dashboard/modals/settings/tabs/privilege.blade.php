@@ -102,6 +102,7 @@
                         sub_modules: filteredSubModules,
                         modules: {
                             asinoption: 'ASIN Option',
+                            util_scanner: 'Utility Scanner',
                             humanresource: 'Human Resource',
                             order: 'Order',
                             unreceived: 'Unreceived',
@@ -236,6 +237,7 @@
                     sub_modules: result.sub_modules || [],
                     modules: {
                         'asinoption': 'ASIN Option',
+                        'util_scanner': 'Utility Scanner',
                         'humanresource': 'Human Resource',
                         'order': 'Order',
                         'unreceived': 'Unreceived',
@@ -428,6 +430,10 @@
             db: 'asinoption',
             display: 'ASIN Option'
         },
+                {
+            db: 'util_scanner',
+            display: 'Utility Scanner'
+        },
         {
             db: 'houseage',
             display: 'Houseage'
@@ -509,6 +515,7 @@
 
                 const modules = data.modules || {
                     'asinoption': 'ASIN Option',
+                    'util_scanner': 'Utility Scanner',
                     'humanresource': 'Human Resource',
                     'order': 'Order',
                     'unreceived': 'Unreceived',
@@ -568,6 +575,7 @@
                 // Use modules from response or defaults
                 const modules = data.modules || {
                     'asinoption': 'ASIN Option',
+                    'util_scanner': 'Utility Scanner',
                     'humanresource': 'Human Resource',
                     'order': 'Order',
                     'unreceived': 'Unreceived',
@@ -623,6 +631,7 @@
 
         const defaultModules = {
             'asinoption': 'ASIN Option',
+            'util_scanner': 'Utility Scanner',
             'humanresource': 'Human Resource',
             'order': 'Order',
             'unreceived': 'Unreceived',

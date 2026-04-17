@@ -16,31 +16,21 @@
                     :class="{ active: activeModule === mainModule }"
                     @click.prevent="handleNavClick(mainModule)"
                 >
-                    <i
-                        :class="['pi', moduleIcons[mainModule] || 'pi-folder']"
-                        class="mr-2"
-                    ></i>
+                    <i :class="['pi', moduleIcons[mainModule] || 'pi-folder']" class="mr-2"></i>
                     {{ modules[mainModule] }}
                 </a>
 
                 <!-- Sub-modules -->
                 <template v-for="module in filteredSubModules" :key="module">
-                    <!-- Regular nav link or parent with submenu -->
+                    <!-- ASIN OPTION -->
                     <div v-if="module === 'asinoption'" class="nav-group">
-                        <!-- Parent link with toggle -->
                         <a
                             href="#"
                             class="nav-link"
                             :class="{ active: isAsinOptionActive }"
                             @click.prevent="toggleAsinSubmenu"
                         >
-                            <i
-                                :class="[
-                                    'pi',
-                                    moduleIcons[module] || 'pi-file',
-                                ]"
-                                class="mr-2"
-                            ></i>
+                            <i :class="['pi', moduleIcons[module] || 'pi-file']" class="mr-2"></i>
                             {{ modules[module] }}
                             <i
                                 :class="[
@@ -53,7 +43,6 @@
                             ></i>
                         </a>
 
-                        <!-- Submenu items -->
                         <div v-show="asinSubmenuOpen" class="submenu">
                             <a
                                 v-for="subItem in asinSubItems"
@@ -63,16 +52,49 @@
                                 :class="{ active: activeModule === subItem.id }"
                                 @click.prevent="handleNavClick(subItem.id)"
                             >
-                                <i
-                                    :class="['pi', subItem.icon]"
-                                    class="mr-2"
-                                ></i>
+                                <i :class="['pi', subItem.icon]" class="mr-2"></i>
                                 {{ subItem.label }}
                             </a>
                         </div>
                     </div>
 
-                    <!-- Regular nav links -->
+                    <!-- UTILITY SCANNER -->
+                    <div v-else-if="module === 'util_scanner'" class="nav-group">
+                        <a
+                            href="#"
+                            class="nav-link"
+                            :class="{ active: isUtilScannerActive }"
+                            @click.prevent="toggleUtilScannerSubmenu"
+                        >
+                            <i :class="['pi', moduleIcons[module] || 'pi-file']" class="mr-2"></i>
+                            {{ modules[module] }}
+                            <i
+                                :class="[
+                                    'pi',
+                                    utilScannerSubmenuOpen
+                                        ? 'pi-chevron-down'
+                                        : 'pi-chevron-right',
+                                ]"
+                                class="ml-auto submenu-toggle"
+                            ></i>
+                        </a>
+
+                        <div v-show="utilScannerSubmenuOpen" class="submenu">
+                            <a
+                                v-for="subItem in utilScannerSubItems"
+                                :key="subItem.id"
+                                :href="`/${subItem.id}`"
+                                class="nav-link submenu-link"
+                                :class="{ active: activeModule === subItem.id }"
+                                @click.prevent="handleNavClick(subItem.id)"
+                            >
+                                <i :class="['pi', subItem.icon]" class="mr-2"></i>
+                                {{ subItem.label }}
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- REGULAR NAV LINKS -->
                     <a
                         v-else
                         :href="`/${module}`"
@@ -80,10 +102,7 @@
                         :class="{ active: activeModule === module }"
                         @click.prevent="handleNavClick(module)"
                     >
-                        <i
-                            :class="['pi', moduleIcons[module] || 'pi-file']"
-                            class="mr-2"
-                        ></i>
+                        <i :class="['pi', moduleIcons[module] || 'pi-file']" class="mr-2"></i>
                         {{ modules[module] }}
                     </a>
                 </template>
@@ -91,16 +110,8 @@
 
             <!-- Fixed bottom div -->
             <div class="fixed-bottom-div">
-                <Avatar
-                    v-if="user.profile_picture"
-                    :image="user.profile_picture"
-                    shape="circle"
-                />
-                <Avatar
-                    v-else
-                    :label="user.username.charAt(0).toUpperCase()"
-                    shape="circle"
-                />
+                <Avatar v-if="user.profile_picture" :image="user.profile_picture" shape="circle" />
+                <Avatar v-else :label="user.username.charAt(0).toUpperCase()" shape="circle" />
                 <p class="fw-semibold">{{ user.username }}</p>
             </div>
         </div>
@@ -139,7 +150,9 @@ const user = ref(window.user || {});
 const mainModule = ref("");
 const subModules = ref([]);
 const activeModule = ref("");
+
 const asinSubmenuOpen = ref(false);
+const utilScannerSubmenuOpen = ref(false);
 
 // ASIN submenu items
 const asinSubItems = ref([
@@ -148,11 +161,18 @@ const asinSubItems = ref([
     { id: "mskucreation", label: "FNSKU Creation", icon: "pi-plus-circle" },
 ]);
 
+// Utility Scanner submenu items
+const utilScannerSubItems = ref([
+    { id: "itemchecker", label: "Item Checker", icon: "pi-search" },
+]);
+
 // Module names
 const modules = ref({
     humanresource: "Human Resource",
     order: "Order",
     asinoption: "Asin Option",
+    util_scanner: "Utility Scanner",
+    itemchecker: "Item Checker",
     unreceived: "Unreceived",
     receiving: "Received",
     labeling: "Labeling",
@@ -185,6 +205,8 @@ const moduleIcons = {
     humanresource: "pi-users",
     order: "pi-shopping-cart",
     asinoption: "pi-list",
+    util_scanner: "pi-wrench",
+    itemchecker: "pi-search",
     unreceived: "pi-inbox",
     receiving: "pi-download",
     labeling: "pi-tag",
@@ -217,13 +239,19 @@ const asinSubItemIds = computed(() =>
     asinSubItems.value.map((item) => item.id),
 );
 
-// Computed: exclude main module and ASIN sub-items (they appear in submenu)
+// Get array of Utility Scanner sub-item IDs
+const utilScannerSubItemIds = computed(() =>
+    utilScannerSubItems.value.map((item) => item.id),
+);
+
+// Computed: exclude main module and submenu child items (they appear in submenu)
 const filteredSubModules = computed(() =>
     subModules.value.filter(
         (mod) =>
             mod !== mainModule.value &&
             modules.value[mod] &&
-            !asinSubItemIds.value.includes(mod),
+            !asinSubItemIds.value.includes(mod) &&
+            !utilScannerSubItemIds.value.includes(mod),
     ),
 );
 
@@ -232,9 +260,17 @@ const isAsinOptionActive = computed(() => {
     return asinSubItems.value.some((item) => item.id === activeModule.value);
 });
 
+// Check if any Utility Scanner sub-item is active
+const isUtilScannerActive = computed(() => {
+    return utilScannerSubItems.value.some(
+        (item) => item.id === activeModule.value,
+    );
+});
+
 // LocalStorage keys
 const STORAGE_KEY = "ims_active_module";
 const SUBMENU_KEY = "ims_asin_submenu_open";
+const UTIL_SCANNER_SUBMENU_KEY = "ims_util_scanner_submenu_open";
 
 // Save active module to localStorage
 const saveActiveModule = (module) => {
@@ -255,7 +291,7 @@ const loadActiveModule = () => {
     }
 };
 
-// Save submenu state
+// Save ASIN submenu state
 const saveSubmenuState = (isOpen) => {
     try {
         localStorage.setItem(SUBMENU_KEY, isOpen.toString());
@@ -264,7 +300,7 @@ const saveSubmenuState = (isOpen) => {
     }
 };
 
-// Load submenu state
+// Load ASIN submenu state
 const loadSubmenuState = () => {
     try {
         const state = localStorage.getItem(SUBMENU_KEY);
@@ -275,10 +311,36 @@ const loadSubmenuState = () => {
     }
 };
 
+// Save Utility Scanner submenu state
+const saveUtilScannerSubmenuState = (isOpen) => {
+    try {
+        localStorage.setItem(UTIL_SCANNER_SUBMENU_KEY, isOpen.toString());
+    } catch (error) {
+        console.error("Error saving utility scanner submenu state:", error);
+    }
+};
+
+// Load Utility Scanner submenu state
+const loadUtilScannerSubmenuState = () => {
+    try {
+        const state = localStorage.getItem(UTIL_SCANNER_SUBMENU_KEY);
+        return state === "true";
+    } catch (error) {
+        console.error("Error loading utility scanner submenu state:", error);
+        return false;
+    }
+};
+
 // Toggle ASIN submenu
 const toggleAsinSubmenu = () => {
     asinSubmenuOpen.value = !asinSubmenuOpen.value;
     saveSubmenuState(asinSubmenuOpen.value);
+};
+
+// Toggle Utility Scanner submenu
+const toggleUtilScannerSubmenu = () => {
+    utilScannerSubmenuOpen.value = !utilScannerSubmenuOpen.value;
+    saveUtilScannerSubmenuState(utilScannerSubmenuOpen.value);
 };
 
 const fetchUserData = () => {
@@ -287,31 +349,38 @@ const fetchUserData = () => {
         subModules.value = (window.allowedModules || []).map((mod) =>
             mod.toLowerCase(),
         );
+
         subModules.value = subModules.value.filter(
             (mod) => mod !== mainModule.value,
         );
 
-        // Check if there's a saved module in localStorage
         const savedModule = loadActiveModule();
 
-        // Get current path from router or URL
         const currentPath =
             router?.currentRoute?.value?.path || window.location.pathname;
         const currentModule = currentPath.replace(/^\//, "").split("/")[0];
 
-        // Load submenu state
         asinSubmenuOpen.value = loadSubmenuState();
+        utilScannerSubmenuOpen.value = loadUtilScannerSubmenuState();
 
-        // Modal modules that shouldn't be restored from localStorage
         const modalModules = ["asinoption", "printer"];
 
         // Priority: current URL > saved module > default
         if (currentModule && modules.value[currentModule]) {
             activeModule.value = currentModule;
-            // Auto-open submenu if active module is an ASIN sub-item
+
             if (asinSubItems.value.some((item) => item.id === currentModule)) {
                 asinSubmenuOpen.value = true;
                 saveSubmenuState(true);
+            }
+
+            if (
+                utilScannerSubItems.value.some(
+                    (item) => item.id === currentModule,
+                )
+            ) {
+                utilScannerSubmenuOpen.value = true;
+                saveUtilScannerSubmenuState(true);
             }
         } else if (
             savedModule &&
@@ -319,12 +388,21 @@ const fetchUserData = () => {
             modules.value[savedModule]
         ) {
             activeModule.value = savedModule;
-            // Auto-open submenu if saved module is an ASIN sub-item
+
             if (asinSubItems.value.some((item) => item.id === savedModule)) {
                 asinSubmenuOpen.value = true;
                 saveSubmenuState(true);
             }
-            // Navigate to saved module
+
+            if (
+                utilScannerSubItems.value.some(
+                    (item) => item.id === savedModule,
+                )
+            ) {
+                utilScannerSubmenuOpen.value = true;
+                saveUtilScannerSubmenuState(true);
+            }
+
             if (window.loadContent) {
                 window.loadContent(savedModule);
             } else {
@@ -348,25 +426,37 @@ const handleNavClick = (module) => {
             mainModule.value,
             subModules.value,
         );
-        if (!hasAccess)
+
+        if (!hasAccess) {
             return alert("You do not have permission to access this module");
+        }
     }
 
     activeModule.value = module;
 
-    // Close ASIN submenu if clicking on non-ASIN modules
     const isAsinModule =
         module === "asinoption" ||
         asinSubItems.value.some((item) => item.id === module);
+
+    const isUtilScannerModule =
+        module === "util_scanner" ||
+        utilScannerSubItems.value.some((item) => item.id === module);
+
     if (!isAsinModule) {
         asinSubmenuOpen.value = false;
         saveSubmenuState(false);
     }
 
-    // Don't save modal modules (asinoption, printer) to localStorage, but save regular pages
+    if (!isUtilScannerModule) {
+        utilScannerSubmenuOpen.value = false;
+        saveUtilScannerSubmenuState(false);
+    }
+
     const modalModules = ["asinoption", "printer"];
+
     if (!modalModules.includes(module)) {
         saveActiveModule(module);
+
         if (window.loadContent) {
             window.loadContent(module);
         } else {
@@ -375,7 +465,6 @@ const handleNavClick = (module) => {
                 .catch(() => (window.location.href = `/${module}`));
         }
     } else {
-        // For modal modules, just trigger the modal without saving
         if (window.loadContent) {
             window.loadContent(module);
         }
@@ -388,6 +477,7 @@ const handleNavClick = (module) => {
 // Handle ASIN option selection from modal (if still needed)
 const handleAsinOptionSelected = (selectedModule) => {
     const modalModules = ["asinoption", "printer"];
+
     if (selectedModule && !modalModules.includes(selectedModule)) {
         activeModule.value = selectedModule;
         saveActiveModule(selectedModule);
@@ -415,13 +505,23 @@ watch(
 
             if (module && modules.value[module]) {
                 activeModule.value = module;
+
                 if (!modalModules.includes(module)) {
                     saveActiveModule(module);
                 }
-                // Auto-open submenu if active module is an ASIN sub-item
+
                 if (asinSubItems.value.some((item) => item.id === module)) {
                     asinSubmenuOpen.value = true;
                     saveSubmenuState(true);
+                }
+
+                if (
+                    utilScannerSubItems.value.some(
+                        (item) => item.id === module,
+                    )
+                ) {
+                    utilScannerSubmenuOpen.value = true;
+                    saveUtilScannerSubmenuState(true);
                 }
             }
         }
@@ -432,6 +532,7 @@ watch(
 // Watch activeModule changes
 watch(activeModule, (newModule) => {
     const modalModules = ["asinoption", "printer"];
+
     if (newModule && !modalModules.includes(newModule)) {
         saveActiveModule(newModule);
     }
@@ -489,7 +590,6 @@ onMounted(fetchUserData);
     box-shadow: 0 2px 4px rgba(59, 130, 246, 0.25);
 }
 
-/* Submenu styles */
 .submenu {
     display: flex;
     flex-direction: column;

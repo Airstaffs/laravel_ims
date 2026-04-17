@@ -109,6 +109,7 @@
                     'returnlist',
                     'notfound',
                     'asinoption',
+                    'util_scanner',
                     'houseage',
                     'suppliescomponents',
                     'reconciliation',
@@ -144,6 +145,7 @@
                 'humanresource' => 'Human Resource',
                 'order' => 'Order',
                 'asinoption' => 'Asin Option',
+                'util_scanner' => 'Utility Scanner',
                 'unreceived' => 'Unreceived',
                 'receiving' => 'Received',
                 'labeling' => 'Labeling',
@@ -181,7 +183,7 @@
             window.defaultComponent = "{{ $defaultModule }}";
             window.mainModule = "{{ $mainModule }}";
             window.allowedModules = @json($subModules);
-            window.customModules = ['printcustominvoice', 'fbashipmentinbound', 'mskucreation', 'scheduling'];
+            window.customModules = ['printcustominvoice', 'fbashipmentinbound', 'mskucreation', 'scheduling', 'itemchecker'];
 
             console.log('Session Modules:', {
                 defaultComponent: window.defaultComponent,

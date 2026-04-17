@@ -46,6 +46,7 @@ class UserSessionController extends Controller
             if ($user->fnsku) $subModules[] = 'fnsku';
             if ($user->notfound) $subModules[] = 'notfound';
             if ($user->asinoption) $subModules[] = 'asinoption';
+            if ($user->util_scanner) $subModules[] = 'util_scanner';
             if ($user->houseage) $subModules[] = 'houseage';
             if ($user->asinlist) $subModules[] = 'asinlist';
             if ($user->humanresource) $subModules[] = 'humanresource';
@@ -119,6 +120,7 @@ class UserSessionController extends Controller
                     'soldlist' => 'Sold Items',
                     'notfound' => 'Not Found',
                     'asinoption' => 'ASIN Option',
+                    'util_scanner' => 'util_scanner',
                     'houseage'=> 'Houseage',
                     'asinlist' => 'ASIN List',
                     'printer' => 'Printer',

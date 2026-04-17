@@ -20,6 +20,7 @@
                 ['key' => 'fbmorder', 'label' => 'FBM Order'],
                 ['key' => 'notfound', 'label' => 'Not Found'],
                 ['key' => 'asinoption', 'label' => 'Asin Option'],
+                ['key' => 'util_scanner', 'label' => 'Utility Scanner'],
                 ['key' => 'houseage', 'label' => 'Houseage'],
                 ['key' => 'printer', 'label' => 'Printer'],
             ];

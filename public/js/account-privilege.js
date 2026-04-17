@@ -45,6 +45,7 @@ document.addEventListener("DOMContentLoaded", function () {
             "fbmorder",
             "notfound",
             "asinoption",
+            "util_scanner",
             "houseage",
             "printer",
         ];

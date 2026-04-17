@@ -2230,6 +2230,7 @@ export default {
                 { label: "Sold Items", value: "soldlist" },
                 { label: "Not Found", value: "notfound" },
                 { label: "ASIN Option", value: "asinoption" },
+                { label: "Utility Scanner", value: "util_scanner" },
                 { label: "Houseage", value: "houseage" },
                 { label: "Printer", value: "printer" },
                 { label: "Announcement", value: "announcement" },
