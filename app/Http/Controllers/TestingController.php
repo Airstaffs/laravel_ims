@@ -562,8 +562,21 @@ class TestingController extends BasetablesController
             'date_tested' => 'nullable|string',
         ]);
 
+        // ── Auto-detect test_type ─────────────────────────────────────────────
+        // If a repair work log already exists for this rtcounter,
+        // this save is a re-test. Otherwise it's the initial test.
+        $hasBeenRepaired = DB::table('tblrepairworklogs')
+            ->where('rtcounter', $request->rtcounter)
+            ->exists();
+
+        $testType = $hasBeenRepaired ? 'retest' : 'initial';
+        // ─────────────────────────────────────────────────────────────────────
+
         DB::table('tbltestingworklogs')->updateOrInsert(
-            ['rtcounter' => $request->rtcounter],
+            [
+                'rtcounter' => $request->rtcounter,
+                'test_type' => $testType,               // ← composite key
+            ],
             [
                 'asin' => $request->asin,
                 'tested_by' => $request->tested_by,
@@ -572,18 +585,35 @@ class TestingController extends BasetablesController
                 'date_tested' => $request->date_tested
                                     ? \Carbon\Carbon::parse($request->date_tested)->format('Y-m-d H:i:s')
                                     : now()->format('Y-m-d H:i:s'),
+                'test_type' => $testType,
                 'updated_at' => now(),
                 'created_at' => now(),
             ]
         );
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'test_type' => $testType,
+        ]);
     }
 
     public function getWorkLog(Request $request, $rtcounter)
     {
+        // ── Auto-detect which log to return ──────────────────────────────────
+        // If a repair exists, the relevant log is the retest. Otherwise initial.
+        $hasBeenRepaired = DB::table('tblrepairworklogs')
+            ->where('rtcounter', $rtcounter)
+            ->exists();
+
+        $testType = $hasBeenRepaired ? 'retest' : 'initial';
+
         $log = DB::table('tbltestingworklogs')
             ->where('rtcounter', $rtcounter)
+            ->where(function ($q) use ($testType) {
+                $q->where('test_type', $testType)
+                    ->orWhereNull('test_type');     // backwards compat for old rows
+            })
+            ->orderByDesc('updated_at')           // take the latest if duplicates
             ->first();
 
         if (! $log) {
@@ -592,6 +622,10 @@ class TestingController extends BasetablesController
 
         $log->field_values = json_decode($log->field_values, true);
 
-        return response()->json(['success' => true, 'data' => $log]);
+        return response()->json([
+            'success' => true,
+            'data' => $log,
+            'test_type' => $log->test_type ?? $testType,
+        ]);
     }
 }

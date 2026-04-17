@@ -43,6 +43,7 @@ export default {
             repairWorkLogCategories: [],
             repairWorkLogValues: {},
             repairWorkLogOpenedAt: null,
+            repairWorkLogLoadingFailed: false,
             savingRepairWorkLog: false,
             currentUser: "",
         };
@@ -539,10 +540,17 @@ export default {
         openRepairWorkLog(item) {
             this.repairWorkLogItem = item;
             this.repairWorkLogOpenedAt = new Date();
-            this.repairWorkLogCategories = this.loadRepairCategories(
-                item.ASINviewer || item.ASIN || item.asin,
-            );
+            this.repairWorkLogLoadingFailed = false;
 
+            const asin = item.ASINviewer || item.ASIN || item.asin;
+
+            // ── 1. Load repair categories from Global + per-ASIN config ──────
+            //       This mirrors exactly how the ASIN Configuration dialog
+            //       builds repairFields: global first, then ASIN-specific,
+            //       with ASIN overrides taking precedence over global names.
+            this.repairWorkLogCategories = this.loadRepairCategories(asin);
+
+            // ── 2. Pre-fill form values from previously saved repair work log ──
             const saved = this.loadSavedRepairValues(item.rtcounter);
             const prefilled = {};
             this.repairWorkLogCategories.forEach((cat) => {
@@ -559,8 +567,17 @@ export default {
             this.showRepairWorkLog = true;
         },
 
+        /**
+         * Load repair categories by merging:
+         *   1. asin_global_config_repair        → global categories (shown for every ASIN)
+         *   2. asin_config_repair:{ASIN}         → ASIN-specific overrides / additions
+         *
+         * Mirrors the mergeCategories() logic in the ASIN Configuration dialog:
+         *   - Global categories come first, tagged _fromGlobal: true
+         *   - If an ASIN-specific category has the same name as a global one,
+         *     the ASIN version replaces the global one (no duplicates)
+         */
         loadRepairCategories(asin) {
-            if (!asin) return [];
             const parse = (key) => {
                 try {
                     const r = localStorage.getItem(key);
@@ -569,13 +586,19 @@ export default {
                     return [];
                 }
             };
+
             const globalCats = parse("asin_global_config_repair");
-            const asinCats = parse(`asin_config_repair:${asin}`);
+            const asinCats = asin ? parse(`asin_config_repair:${asin}`) : [];
+
+            // Mark global-origin entries so the template can badge them
             const markedGlobals = globalCats.map((c) => ({
                 ...c,
                 _fromGlobal: true,
             }));
+
+            // ASIN-specific names take precedence — drop global copy if overridden
             const asinNames = new Set(asinCats.map((c) => c.name));
+
             return [
                 ...markedGlobals.filter((c) => !asinNames.has(c.name)),
                 ...asinCats,
@@ -592,28 +615,71 @@ export default {
             }
         },
 
+        /**
+         * Returns the pre-typed note for a given category + selected status.
+         *
+         * Priority:
+         *   1. Action description from ASIN config (cat.actions[].description)
+         *      — this is what the user typed in ASIN Configuration → Repair Module
+         *   2. Fallback generic strings for common statuses
+         *   3. Default placeholder
+         */
         getRepairNotePlaceholder(cat, status) {
-            if (!status || status === "Not Required")
-                return "Notes will auto-fill based on selection...";
-            if (status === "Done") return "All tasks completed successfully.";
-            if (status === "In Progress")
-                return "Describe what is in progress...";
-            if (status === "Needs Attention")
-                return "Describe what needs attention...";
-            return "Notes will auto-fill based on selection...";
+            if (!status)
+                return "Pre-typed notes will auto-fill here based on selection...";
+
+            // ── 1. Look for a matching action in the ASIN config ─────────────
+            // cat.actions = [{ title: "Replace Battery", description: "Swap old battery..." }, ...]
+            if (Array.isArray(cat.actions) && cat.actions.length) {
+                const match = cat.actions.find(
+                    (a) =>
+                        a.title?.trim().toLowerCase() ===
+                        status.trim().toLowerCase(),
+                );
+                if (match?.description?.trim()) {
+                    return match.description.trim();
+                }
+            }
+
+            // ── 2. Generic fallbacks for standard statuses ───────────────────
+            const fallbacks = {
+                replaced: "Component replaced with a new/refurbished part.",
+                repaired: "Issue identified and repaired successfully.",
+                cleaned: "Component cleaned and restored to working condition.",
+                "tested & passed":
+                    "Re-tested after repair — unit passed all checks.",
+                "not repairable":
+                    "Component is beyond repair. Flagged for disposal or return.",
+                "not required": "No repair action was required for this item.",
+                "in progress":
+                    "Repair is currently in progress. Details to follow.",
+                "needs attention":
+                    "Further inspection or parts needed before repair can proceed.",
+                done: "All repair tasks completed successfully.",
+            };
+
+            return (
+                fallbacks[status.trim().toLowerCase()] ??
+                "Pre-typed notes will auto-fill here based on selection..."
+            );
         },
 
         onRepairStatusChange(cat) {
             const statusKey = cat.name + "__status";
             const notesKey = cat.name + "__notes";
             const status = this.repairWorkLogValues[statusKey];
+
+            // Only auto-fill if the notes field is still empty
             if (this.repairWorkLogValues[notesKey]) return;
-            if (status === "Done") {
-                this.repairWorkLogValues[notesKey] =
-                    "All tasks completed successfully.";
-            } else if (status === "Not Required") {
-                this.repairWorkLogValues[notesKey] =
-                    "Not required for this item.";
+
+            const note = this.getRepairNotePlaceholder(cat, status);
+
+            // Don't auto-fill if it's just the generic placeholder text
+            if (
+                note !==
+                "Pre-typed notes will auto-fill here based on selection..."
+            ) {
+                this.repairWorkLogValues[notesKey] = note;
             }
         },
 
@@ -644,19 +710,31 @@ export default {
                   })
                 : null;
 
+            // ── Auto-fill empty statuses as "Repaired" when marking done ──
             if (markDone) {
                 const filled = { ...this.repairWorkLogValues };
                 Object.keys(filled).forEach((key) => {
                     if (key.endsWith("__status") && !filled[key])
-                        filled[key] = "Done";
+                        filled[key] = "Repaired";
                 });
                 this.repairWorkLogCategories.forEach((cat) => {
                     const statusKey = cat.name + "__status";
-                    if (!filled[statusKey]) filled[statusKey] = "Done";
+                    if (!filled[statusKey]) filled[statusKey] = "Repaired";
                 });
                 this.repairWorkLogValues = filled;
             }
 
+            // ── Persist to localStorage as backup ─────────────────────────
+            try {
+                localStorage.setItem(
+                    `repair_worklog:${this.repairWorkLogItem.rtcounter}`,
+                    JSON.stringify(this.repairWorkLogValues),
+                );
+            } catch {
+                /* storage quota — non-fatal */
+            }
+
+            // ── POST to backend ───────────────────────────────────────────
             try {
                 const response = await axios.post(
                     `${API_BASE_URL}/api/repair/work-log`,
@@ -666,6 +744,9 @@ export default {
                         repaired_by: repairedBy,
                         date_repaired: dateRepaired,
                         mark_done: markDone,
+                        failed_items: this.repairWorkLogCategories.map(
+                            (c) => c.name,
+                        ),
                         category_values: this.repairWorkLogValues,
                     },
                 );
@@ -684,6 +765,8 @@ export default {
             }
 
             const item = { ...this.repairWorkLogItem };
+
+            // ── Reset dialog state ────────────────────────────────────────
             this.showRepairWorkLog = false;
             this.repairWorkLogItem = null;
             this.repairWorkLogCategories = [];
@@ -693,11 +776,14 @@ export default {
                 await Swal.fire({
                     icon: "success",
                     title: "Repair Complete! ✓",
-                    html: `<p>Work log saved successfully.</p>
-                           <p>Moving <strong>${this.getDisplayTitle(item)}</strong> to <strong>Cleaning</strong>.</p>`,
+                    html: `
+                        <p>Work log saved successfully.</p>
+                        <p>Moving <strong>${this.getDisplayTitle(item)}</strong>
+                        back to <strong>Testing</strong> for re-test.</p>
+                    `,
                     confirmButtonText: "OK",
                 });
-                await this.moveToCleaning(item);
+                await this.moveToTesting(item);
             } else {
                 Swal.fire({
                     icon: "success",
@@ -711,6 +797,66 @@ export default {
             this.savingRepairWorkLog = false;
         },
 
+        // ── Move back to Testing for re-test after repair is done ─────────
+        async moveToTesting(item) {
+            if (!item?.ProductID) return;
+            try {
+                const csrfToken = document
+                    .querySelector('meta[name="csrf-token"]')
+                    .getAttribute("content");
+
+                Swal.fire({
+                    title: "Sending back to Testing...",
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    },
+                });
+
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/repair/move-to-testing`,
+                    {
+                        product_id: item.ProductID,
+                        rt_counter: item.rtcounter,
+                        current_location: "Repair",
+                        new_location: "Testing",
+                    },
+                    { headers: { "X-CSRF-TOKEN": csrfToken } },
+                );
+
+                Swal.close();
+
+                if (response.data.success) {
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Sent to Testing!",
+                        text: `Item ${item.rtcounter} successfully sent back to Testing for re-test.`,
+                        confirmButtonText: "OK",
+                    });
+                    if (typeof this.fetchInventory === "function")
+                        this.fetchInventory();
+                } else {
+                    await Swal.fire({
+                        icon: "warning",
+                        title: "Failed",
+                        text:
+                            response.data.message ||
+                            "Failed to move item to Testing.",
+                    });
+                }
+            } catch (error) {
+                Swal.close();
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text:
+                        error.response?.data?.message ||
+                        "An error occurred while moving to Testing.",
+                });
+            }
+        },
+
+        // ── Move to Cleaning (kept for manual overrides if needed) ────────
         async moveToCleaning(item) {
             if (!item?.ProductID) return;
             try {

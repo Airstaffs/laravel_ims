@@ -189,16 +189,81 @@ class RepairController extends BasetablesController
                 'repaired_by' => 'nullable|string',
                 'date_repaired' => 'nullable|string',
                 'mark_done' => 'boolean',
+                'failed_items' => 'nullable|array',
                 'category_values' => 'nullable|array',
             ]);
 
             Log::info('Repair work log save request', $validated);
 
-            // Save work log logic here — mirror your cleaning work log DB write
+            DB::table('tblrepairworklogs')->updateOrInsert(
+                ['rtcounter' => $validated['rtcounter']],
+                [
+                    'asin' => $validated['asin'] ?? null,
+                    'repaired_by' => $validated['repaired_by'] ?? null,
+                    'date_repaired' => $validated['date_repaired']
+                                            ? \Carbon\Carbon::parse($validated['date_repaired'])->format('Y-m-d H:i:s')
+                                            : now()->format('Y-m-d H:i:s'),
+                    'mark_done' => $validated['mark_done'] ?? false,
+                    'failed_items' => isset($validated['failed_items'])
+                                            ? json_encode($validated['failed_items'])
+                                            : null,
+                    'category_values' => isset($validated['category_values'])
+                                            ? json_encode($validated['category_values'])
+                                            : null,
+                ]
+            );
 
             return response()->json(['success' => true, 'message' => 'Repair work log saved.']);
         } catch (\Exception $e) {
             Log::error('Repair work log error', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function moveToTesting(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'product_id' => 'required',
+                'rt_counter' => 'required',
+                'current_location' => 'required|string',
+                'new_location' => 'required|string',
+            ]);
+
+            Log::info('Moving product from Repair to Testing', $validated);
+
+            $updated = DB::table($this->productTable)
+                ->where('ProductID', $validated['product_id'])
+                ->update([
+                    'ProductModuleLoc' => $validated['new_location'],
+                ]);
+
+            if ($updated) {
+                $this->trackHistory(
+                    $validated['product_id'],
+                    $validated['rt_counter'],
+                    $validated['current_location'],
+                    $validated['new_location'],
+                    $this->getCurrentUserName(),
+                );
+
+                return response()->json([
+                    'success' => true,
+                    'message' => "Item {$validated['rt_counter']} moved to {$validated['new_location']}.",
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Product not found or already moved.',
+            ], 404);
+
+        } catch (\Exception $e) {
+            Log::error('Repair move-to-testing error', ['error' => $e->getMessage()]);
 
             return response()->json([
                 'success' => false,
@@ -223,7 +288,6 @@ class RepairController extends BasetablesController
                 ->where('ProductID', $validated['product_id'])
                 ->update([
                     'ProductModuleLoc' => $validated['new_location'],
-                    'updated_at' => now(),
                 ]);
 
             if ($updated) {

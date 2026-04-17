@@ -143,6 +143,15 @@
                     <div class="d-flex flex-column align-items-start">
                         <Button
                             size="small"
+                            severity="success"
+                            variant="text"
+                            label="Release Condition"
+                            icon="pi pi-check-circle"
+                            @click="openConditionModal(data)"
+                            class="text-success"
+                        />
+                        <Button
+                            size="small"
                             severity="contrast"
                             variant="text"
                             icon="pi pi-info-circle"
@@ -150,7 +159,7 @@
                             class="text-primary"
                             @click="openEditModal(data)"
                         />
-                        <!-- <Button
+                        <Button
                             size="small"
                             severity="contrast"
                             variant="text"
@@ -158,7 +167,7 @@
                             icon="pi pi-hammer"
                             class="text-info"
                             @click="openRepairWorkLog(data)"
-                        /> -->
+                        />
                     </div>
                 </template>
             </XDataTable>
@@ -656,9 +665,404 @@
             </div>
         </Dialog>
 
+        <!-- Repair Work Log Modal -->
+        <Dialog
+            v-model:visible="showRepairWorkLog"
+            modal
+            header="Repair - Work Log"
+            style="width: 60rem"
+            :pt="{ root: { class: 'mobile-fullscreen-dialog' } }"
+        >
+            <div class="repair-worklog-body">
+                <!-- AUTO-FETCH: System Pre-filled Fields -->
+                <div class="worklog-section-label">
+                    <span class="worklog-badge badge-autofetch"
+                        >AUTO-FETCH</span
+                    >
+                    <span class="worklog-section-title"
+                        >System Pre-filled Fields</span
+                    >
+                </div>
+                <div class="worklog-prefilled-grid">
+                    <div class="worklog-prefilled-field">
+                        <label>Date Repaired</label>
+                        <input
+                            type="text"
+                            class="worklog-readonly-input"
+                            :value="repairDateTime"
+                            readonly
+                        />
+                    </div>
+                    <div class="worklog-prefilled-field">
+                        <label>Serial Number</label>
+                        <input
+                            type="text"
+                            class="worklog-readonly-input"
+                            :value="repairWorkLogItem?.serialnumber || '—'"
+                            readonly
+                        />
+                    </div>
+                    <div class="worklog-prefilled-field">
+                        <label>Repaired By</label>
+                        <input
+                            type="text"
+                            class="worklog-readonly-input"
+                            :value="
+                                repairWorkLogItem?.received_by ||
+                                repairWorkLogItem?.Username ||
+                                currentUser ||
+                                '—'
+                            "
+                            readonly
+                        />
+                    </div>
+                </div>
+
+                <!-- FROM ASIN CONFIG: Repair Categories -->
+                <div class="worklog-section-label mt-4">
+                    <span class="worklog-badge badge-fromtesting"
+                        >ASIN CONFIG</span
+                    >
+                    <span class="worklog-section-title"
+                        >Repair Categories (Auto-loaded)</span
+                    >
+                </div>
+                <div class="worklog-failed-box">
+                    <p class="worklog-failed-header">
+                        Categories configured for this ASIN:
+                    </p>
+                    <div
+                        v-if="repairWorkLogCategories.length === 0"
+                        class="worklog-failed-empty"
+                    >
+                        No repair categories configured for this ASIN. Set them
+                        up in ASIN Configuration → Repair Module.
+                    </div>
+                    <div
+                        v-for="cat in repairWorkLogCategories"
+                        :key="cat.name"
+                        class="worklog-failed-item"
+                    >
+                        <span class="worklog-failed-x">🔧</span>
+                        {{ cat.name }}
+                        <span
+                            v-if="cat._fromGlobal"
+                            style="
+                                margin-left: auto;
+                                font-size: 0.7rem;
+                                color: #6b7280;
+                                background: #e5e7eb;
+                                padding: 1px 6px;
+                                border-radius: 10px;
+                            "
+                        >
+                            Global
+                        </span>
+                    </div>
+                </div>
+
+                <!-- REPAIR ACTIONS: What was done -->
+                <div class="worklog-section-label mt-4">
+                    <span class="worklog-badge badge-repairactions"
+                        >REPAIR ACTIONS</span
+                    >
+                    <span class="worklog-section-title"
+                        >What was done? (with Pre-typed Notes)</span
+                    >
+                </div>
+                <div
+                    v-for="cat in repairWorkLogCategories"
+                    :key="'action-' + cat.name"
+                    class="worklog-action-card"
+                >
+                    <p class="worklog-action-title">{{ cat.name }}</p>
+                    <select
+                        v-model="repairWorkLogValues[cat.name + '__status']"
+                        class="worklog-select"
+                        @change="onRepairStatusChange(cat)"
+                    >
+                        <option value="" disabled>
+                            Select repair action...
+                        </option>
+                        <!-- ── Dynamic options from ASIN config actions ── -->
+                        <option
+                            v-if="cat.actions && cat.actions.length"
+                            v-for="action in cat.actions"
+                            :key="action.title"
+                            :value="action.title"
+                        >
+                            {{ action.title }}
+                        </option>
+                        <!-- ── Fallback standard options when no actions configured ── -->
+                        <template v-else>
+                            <option value="Replaced">Replaced</option>
+                            <option value="Repaired">Repaired</option>
+                            <option value="Cleaned">Cleaned</option>
+                            <option value="Tested & Passed">
+                                Tested & Passed
+                            </option>
+                            <option value="Not Repairable">
+                                Not Repairable
+                            </option>
+                            <option value="Not Required">Not Required</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Needs Attention">
+                                Needs Attention
+                            </option>
+                        </template>
+                    </select>
+                    <textarea
+                        v-model="repairWorkLogValues[cat.name + '__notes']"
+                        class="worklog-textarea"
+                        :placeholder="
+                            getRepairNotePlaceholder(
+                                cat,
+                                repairWorkLogValues[cat.name + '__status'],
+                            )
+                        "
+                        rows="3"
+                    ></textarea>
+                </div>
+
+                <!-- COMPLETION: Mark as Done -->
+                <div class="worklog-section-label mt-4">
+                    <span class="worklog-badge badge-completion"
+                        >COMPLETION</span
+                    >
+                    <span class="worklog-section-title">Mark as Done</span>
+                </div>
+                <div class="worklog-completion-bar">
+                    <div>
+                        <p class="worklog-completion-title">
+                            All repairs completed?
+                        </p>
+                        <p class="worklog-completion-sub">
+                            This will send the item back to Testing for re-test
+                        </p>
+                    </div>
+                    <Button
+                        label="Done Repair"
+                        severity="success"
+                        :loading="savingRepairWorkLog"
+                        @click="saveRepairWorkLog(true)"
+                    />
+                </div>
+            </div>
+
+            <template #footer>
+                <div class="d-flex justify-content-between w-100">
+                    <Button
+                        label="Save Progress"
+                        severity="secondary"
+                        outlined
+                        icon="pi pi-save"
+                        :loading="savingRepairWorkLog"
+                        @click="saveRepairWorkLog(false)"
+                    />
+                    <Button
+                        label="Cancel"
+                        severity="contrast"
+                        text
+                        @click="showRepairWorkLog = false"
+                    />
+                </div>
+            </template>
+        </Dialog>
+
         <ScrollTop />
     </div>
 </template>
+
+<style scoped>
+/* ── Work Log Modal ─────────────────────────────────────────── */
+.repair-worklog-body {
+    padding: 0.5rem 0.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.worklog-section-label {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
+}
+
+.worklog-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 0.2rem 0.55rem;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.badge-autofetch {
+    background: #e2e8f0;
+    color: #475569;
+}
+.badge-fromtesting {
+    background: #dbeafe;
+    color: #1e40af;
+}
+.badge-repairactions {
+    background: #fed7aa;
+    color: #9a3412;
+}
+.badge-completion {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.worklog-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+/* Pre-filled grid */
+.worklog-prefilled-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+    .worklog-prefilled-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.worklog-prefilled-field label {
+    display: block;
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-bottom: 0.25rem;
+}
+
+.worklog-readonly-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #f8fafc;
+    font-size: 0.875rem;
+    color: #334155;
+    outline: none;
+}
+
+/* Failed items box */
+.worklog-failed-box {
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    background: #fff5f5;
+    padding: 1rem;
+}
+
+.worklog-failed-header {
+    font-weight: 600;
+    color: #991b1b;
+    margin-bottom: 0.6rem;
+    font-size: 0.9rem;
+}
+
+.worklog-failed-empty {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.worklog-failed-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #fca5a5;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 0.875rem;
+    color: #374151;
+    margin-bottom: 0.4rem;
+}
+
+.worklog-failed-x {
+    color: #ef4444;
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+
+/* Action cards */
+.worklog-action-card {
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+    background: #fffbf5;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.worklog-action-title {
+    font-weight: 600;
+    color: #92400e;
+    font-size: 0.9rem;
+    margin-bottom: 0.6rem;
+}
+
+.worklog-select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 0.875rem;
+    color: #374151;
+    margin-bottom: 0.5rem;
+    outline: none;
+    appearance: auto;
+}
+
+.worklog-textarea {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 0.85rem;
+    color: #374151;
+    resize: vertical;
+    outline: none;
+}
+
+.worklog-textarea::placeholder {
+    color: #94a3b8;
+    font-style: italic;
+}
+
+/* Completion bar */
+.worklog-completion-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    gap: 1rem;
+}
+
+.worklog-completion-title {
+    font-weight: 600;
+    color: #166534;
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.worklog-completion-sub {
+    color: #16a34a;
+    font-size: 0.8rem;
+    margin: 0.15rem 0 0;
+}
+</style>
 
 <script>
 import { Button, Card, Dialog, ScrollTop, Select, Paginator } from "primevue";
@@ -789,12 +1193,6 @@ export default {
             }
 
             this.fetchInventory();
-        },
-
-        openRepairWorkLog(item) {
-            // Hook into your work log modal — replace with actual modal open logic
-            console.log("Opening repair work log for:", item);
-            // e.g. this.selectedItem = item; this.showRepairWorkLogModal = true;
         },
 
         countAllImages(data) {

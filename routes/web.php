@@ -1174,4 +1174,5 @@ Route::middleware(['auth'])->prefix('api/repair')->group(function () {
     Route::get('/products', [RepairController::class, 'index']);
     Route::post('/work-log', [RepairController::class, 'workLog']);
     Route::post('/move-to-cleaning', [RepairController::class, 'moveToCleaning']);
+    Route::post('/move-to-testing', [RepairController::class, 'moveToTesting']);
 });
