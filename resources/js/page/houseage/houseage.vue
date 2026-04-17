@@ -1623,6 +1623,7 @@ export default {
                 passed_labeling: data.MSKUviewer ? 1 : 0,
                 passed_testing: [
                     "Testing",
+                    "Repair",
                     "Cleaning",
                     "Stockroom",
                     "Validation",
@@ -1641,19 +1642,32 @@ export default {
                 moved_to_stockroom_at: data.moved_to_stockroom_at ?? null,
                 moved_to_stockroom_by: data.moved_to_stockroom_by ?? null,
 
-                // ── Testing work log ──────────────────────────────────────────
+                // ── Testing work log ───────────────────────────────────────────────
                 twl_test_result: data.twl_test_result ?? null,
                 twl_tested_by: data.twl_tested_by ?? null,
                 twl_date_tested: data.twl_date_tested ?? null,
                 testing_field_values: data.testing_field_values ?? null,
 
-                // ── Cleaning work log ──────────────────────────────────────────
+                // ── Repair work log ────────────────────────────────────────────────
+                repaired_by: data.repaired_by ?? null,
+                date_repaired: data.date_repaired ?? null,
+                repair_done: data.repair_done ?? null,
+                repair_category_values: data.repair_category_values ?? null,
+                repair_failed_items: data.repair_failed_items ?? null,
+
+                // ── Re-Testing work log ────────────────────────────────────────────
+                retest_by: data.retest_by ?? null,
+                retest_date: data.retest_date ?? null,
+                retest_result: data.retest_result ?? null,
+                retest_field_values: data.retest_field_values ?? null,
+
+                // ── Cleaning work log ──────────────────────────────────────────────
                 cleaned_by: data.cleaned_by ?? null,
                 date_cleaned: data.date_cleaned ?? null,
                 cleaning_done: data.cleaning_done ?? null,
                 cleaning_category_values: data.cleaning_category_values ?? null,
 
-                // ── Packaging work log ─────────────────────────────────────────
+                // ── Packaging work log ─────────────────────────────────────────────
                 pkg_packed_by: data.packed_by ?? null,
                 pkg_date_packed: data.date_packed ?? null,
                 pkg_packaging_done: data.packaging_done ?? null,

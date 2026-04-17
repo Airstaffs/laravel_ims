@@ -49,23 +49,35 @@ class HouseageController extends BasetablesController
                 'ebayimgs.img13', 'ebayimgs.img14', 'ebayimgs.img15',
             ];
 
+            // ── $workLogColumns ────────────────────────────────────────────────────────
             $workLogColumns = [
-                // ── Testing ────────────────────────────────────────────────────
+                // ── Testing (initial) ──────────────────────────────────────────────────
                 DB::raw('twl.field_values as testing_field_values'),
                 DB::raw('twl.test_result as twl_test_result'),
                 DB::raw('twl.tested_by as twl_tested_by'),
                 DB::raw('twl.date_tested as twl_date_tested'),
-                // ── Cleaning ───────────────────────────────────────────────────
+                // ── Repair ─────────────────────────────────────────────────────────────
+                'rwl.repaired_by',
+                'rwl.date_repaired',
+                'rwl.mark_done as repair_done',
+                DB::raw('rwl.category_values as repair_category_values'),
+                DB::raw('rwl.failed_items as repair_failed_items'),
+                // ── Re-Testing (reuses tbltestingworklogs, aliased as rtwl) ───────────
+                DB::raw('rtwl.field_values as retest_field_values'),
+                DB::raw('rtwl.test_result as retest_result'),
+                DB::raw('rtwl.tested_by as retest_by'),
+                DB::raw('rtwl.date_tested as retest_date'),
+                // ── Cleaning ───────────────────────────────────────────────────────────
                 'cwl.cleaned_by',
                 'cwl.date_cleaned',
                 'cwl.mark_done as cleaning_done',
                 DB::raw('cwl.category_values as cleaning_category_values'),
-                // ── Packaging ──────────────────────────────────────────────────
+                // ── Packaging ──────────────────────────────────────────────────────────
                 'pwl.packed_by',
                 'pwl.date_packed',
                 DB::raw('pwl.mark_done as packaging_done'),
                 DB::raw('pwl.category_values as packaging_category_values'),
-                // ── Checklist (received) ───────────────────────────────────────
+                // ── Checklist (received) ───────────────────────────────────────────────
                 'chk.pass_fail_result',
                 'chk.correct_on_order',
                 'chk.condition_on_arrival',
@@ -88,11 +100,31 @@ class HouseageController extends BasetablesController
             if (empty($search)) {
                 $products = DB::table('tblproduct as prod')
                     ->leftJoin('tblEbayOrderImages as ebayimgs', 'prod.ProductID', '=', 'ebayimgs.ProductID')
-                    ->leftJoin('tbltestingworklogs as twl',
+                    // Initial test
+                    ->leftJoin('tbltestingworklogs as twl', function ($join) {
+                        $join->on(
+                            DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
+                            '=',
+                            DB::raw('CONVERT(twl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+                        )->where(function ($q) {
+                            $q->where('twl.test_type', 'initial')
+                                ->orWhereNull('twl.test_type');
+                        });
+                    })
+                    // Repair
+                    ->leftJoin('tblrepairworklogs as rwl',
                         DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
                         '=',
-                        DB::raw('CONVERT(twl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+                        DB::raw('CONVERT(rwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
                     )
+                    // Re-test (same table, different alias + test_type filter)
+                    ->leftJoin('tbltestingworklogs as rtwl', function ($join) {
+                        $join->on(
+                            DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
+                            '=',
+                            DB::raw('CONVERT(rtwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+                        )->where('rtwl.test_type', 'retest');
+                    })
                     ->leftJoin('tblcleaningWorkLogs as cwl',
                         DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
                         '=',
@@ -129,11 +161,31 @@ class HouseageController extends BasetablesController
                     ->leftJoin('tblfnsku as fnsku', 'prod.MSKUviewer', '=', 'fnsku.MSKU')
                     ->leftJoin('tblasin as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                     ->leftJoin('tblEbayOrderImages as ebayimgs', 'prod.ProductID', '=', 'ebayimgs.ProductID')
-                    ->leftJoin('tbltestingworklogs as twl',
+                    // Initial test
+                    ->leftJoin('tbltestingworklogs as twl', function ($join) {
+                        $join->on(
+                            DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
+                            '=',
+                            DB::raw('CONVERT(twl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+                        )->where(function ($q) {
+                            $q->where('twl.test_type', 'initial')
+                                ->orWhereNull('twl.test_type');
+                        });
+                    })
+                    // Repair
+                    ->leftJoin('tblrepairworklogs as rwl',
                         DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
                         '=',
-                        DB::raw('CONVERT(twl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+                        DB::raw('CONVERT(rwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
                     )
+                    // Re-test (same table, different alias + test_type filter)
+                    ->leftJoin('tbltestingworklogs as rtwl', function ($join) {
+                        $join->on(
+                            DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
+                            '=',
+                            DB::raw('CONVERT(rtwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+                        )->where('rtwl.test_type', 'retest');
+                    })
                     ->leftJoin('tblcleaningWorkLogs as cwl',
                         DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
                         '=',
@@ -153,10 +205,10 @@ class HouseageController extends BasetablesController
                         'fnsku.grading',
                         'fnsku.storename',
                         DB::raw("COALESCE(
-                        NULLIF(TRIM(asin.system_title), ''),
-                        NULLIF(TRIM(asin.internal), ''),
-                        NULLIF(TRIM(prod.ProductTitle), '')
-                    ) as AStitle"),
+                NULLIF(TRIM(asin.system_title), ''),
+                NULLIF(TRIM(asin.internal), ''),
+                NULLIF(TRIM(prod.ProductTitle), '')
+            ) as AStitle"),
                         'asin.internal',
                         'asin.system_title',
                         'asin.metakeyword',

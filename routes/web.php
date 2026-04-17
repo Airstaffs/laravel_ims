@@ -15,6 +15,7 @@ use App\Http\Controllers\CleaningController;
 use App\Http\Controllers\Ebay\EbayController;
 use App\Http\Controllers\EmployeeClockController;
 use App\Http\Controllers\FbmOrderController;
+use App\Http\Controllers\Fbmorders\AddressBlacklistController;
 use App\Http\Controllers\Fbmorders\ManualShipmentLabelController;
 use App\Http\Controllers\Fbmorders\PrintInvoiceController;
 use App\Http\Controllers\Fbmorders\PrintShippingLabelController;
@@ -45,6 +46,7 @@ use App\Http\Controllers\ProductInvoiceController;
 use App\Http\Controllers\ProductionAreaController;
 use App\Http\Controllers\ReceivedController;
 use App\Http\Controllers\ReconciliationController;
+use App\Http\Controllers\RepairController;
 use App\Http\Controllers\ReturnScannerController;
 use App\Http\Controllers\RTSController;
 use App\Http\Controllers\ShipmentController;
@@ -74,7 +76,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
-use App\Http\Controllers\Fbmorders\AddressBlacklistController;
 
 // ASIN Mappings Routes
 // ✅ Public API routes
@@ -100,7 +101,7 @@ Route::get('/dev-login', function () {
     // Find the first SuperAdmin user
     $user = User::where('role', 'SuperAdmin')->first();
 
-    if (! $user) {
+    if (!$user) {
         return '❌ No SuperAdmin found. Please create one in phpMyAdmin first.';
     }
 
@@ -109,7 +110,7 @@ Route::get('/dev-login', function () {
     session()->regenerate();
 
     return redirect()->route('dashboard.system')
-        ->with('login_success', '✅ Dev bypass active — logged in as '.$user->username);
+        ->with('login_success', '✅ Dev bypass active — logged in as ' . $user->username);
 });
 
 Route::get('/dashboard', [LoginController::class, 'showSystemDashboard'])->name('dashboard');
@@ -136,7 +137,7 @@ Route::post('/logout', function (Request $request) {
 
         // Force logout regardless of token issues
         if (Auth::check()) {
-            \Log::info('User logout: '.Auth::user()->username);
+            \Log::info('User logout: ' . Auth::user()->username);
         }
 
         Auth::logout();
@@ -155,7 +156,7 @@ Route::post('/logout', function (Request $request) {
         // FIXED: Use 'logout_success' instead of 'success' to avoid audio confusion
         return redirect('/login')->with('logout_success', 'You have been logged out successfully.');
     } catch (\Exception $e) {
-        \Log::error('Logout error: '.$e->getMessage());
+        \Log::error('Logout error: ' . $e->getMessage());
 
         // Even if there's an error, try to clear session
         try {
@@ -163,7 +164,7 @@ Route::post('/logout', function (Request $request) {
             $request->session()->invalidate();
             $request->session()->regenerateToken();
         } catch (\Exception $sessionError) {
-            \Log::error('Session clearing error: '.$sessionError->getMessage());
+            \Log::error('Session clearing error: ' . $sessionError->getMessage());
         }
 
         if ($request->ajax() || $request->wantsJson()) {
@@ -214,7 +215,7 @@ Route::middleware(['auth', PreventBackHistory::class])->group(function () {
     Route::post('/keep-alive', function () {
         try {
             // Check authentication first
-            if (! auth()->check()) {
+            if (!auth()->check()) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Not authenticated',
@@ -382,7 +383,7 @@ Route::get('/apis/ebay-login', action: function () {
     $redirectUrl = 'https://test.tecniquality.com/apis/ebay-callback';
     $scopes = 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.marketing.readonly https://api.ebay.com/oauth/api_scope/sell.inventory.readonly https://api.ebay.com/oauth/api_scope/sell.account.readonly https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly';
 
-    $authUrl = "https://auth.ebay.com/oauth2/authorize?client_id={$clientId}&redirect_uri={$redirectUrl}&response_type=code&scope=".urlencode($scopes);
+    $authUrl = "https://auth.ebay.com/oauth2/authorize?client_id={$clientId}&redirect_uri={$redirectUrl}&response_type=code&scope=" . urlencode($scopes);
 
     echo "<a href='{$authUrl}'>Authorize with eBay</a>";
 });
@@ -995,7 +996,7 @@ Route::get('/notifications/unread-count/{id}', [NotificationController::class, '
 
 Route::get('/joined-fnsku-data', [LabelingController::class, 'getFnskuData']);
 
-Route::get('/auth/user', fn () => response()->json(auth()->user()));
+Route::get('/auth/user', fn() => response()->json(auth()->user()));
 
 // HR Controller
 Route::prefix('hr')->group(function () {
@@ -1173,4 +1174,10 @@ Route::prefix('api/fbm-orders/address-blacklist')->group(function () {
 Route::prefix('utils/scanner')->group(function () {
     Route::post('/check', [UtilsScanners::class, 'checkItemStatus']);
     Route::post('/update', [UtilsScanners::class, 'updateItemStatus']);
+});
+Route::middleware(['auth'])->prefix('api/repair')->group(function () {
+    Route::get('/products', [RepairController::class, 'index']);
+    Route::post('/work-log', [RepairController::class, 'workLog']);
+    Route::post('/move-to-cleaning', [RepairController::class, 'moveToCleaning']);
+    Route::post('/move-to-testing', [RepairController::class, 'moveToTesting']);
 });

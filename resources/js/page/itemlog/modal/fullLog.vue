@@ -447,10 +447,198 @@
                     </div>
                 </template>
 
-                <!-- 4. Cleaning Module -->
+                <!-- 4. Repair Module -->
+                <template v-if="showRepairModule">
+                    <div
+                        class="wl-section-header"
+                        style="
+                            background: #fff8f0;
+                            border-left: 4px solid #e65100;
+                        "
+                    >
+                        <span>🔧</span><span>4. REPAIR MODULE</span>
+                    </div>
+                    <div class="wl-section-body">
+                        <div
+                            v-if="repairWorkLogMeta.dateRepaired"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Date Repaired:</span>
+                            <span class="wl-field-value">{{
+                                repairWorkLogMeta.dateRepaired
+                            }}</span>
+                        </div>
+                        <div
+                            v-if="repairWorkLogMeta.repairedBy"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Repaired By:</span>
+                            <span class="wl-field-value">{{
+                                repairWorkLogMeta.repairedBy
+                            }}</span>
+                        </div>
+
+                        <!-- Failed items from testing -->
+                        <div v-if="repairFailedItems.length" class="wl-field">
+                            <span class="wl-field-label"
+                                >Failed Items from Testing:</span
+                            >
+                            <span class="wl-field-value">{{
+                                repairFailedItems.join(", ")
+                            }}</span>
+                        </div>
+
+                        <!-- Per-category repair actions + notes -->
+                        <template
+                            v-for="(entry, i) in repairCategoryEntries"
+                            :key="'rwl-' + i"
+                        >
+                            <div class="wl-field">
+                                <span class="wl-field-label">
+                                    Repair Action - {{ entry.name }}:
+                                </span>
+                                <span class="wl-field-value">{{
+                                    entry.status || "—"
+                                }}</span>
+                            </div>
+                            <div v-if="entry.notes" class="wl-field">
+                                <span class="wl-field-label">
+                                    Repair Notes - {{ entry.name }}:
+                                </span>
+                                <span class="wl-field-value">{{
+                                    entry.notes
+                                }}</span>
+                            </div>
+                        </template>
+
+                        <div
+                            v-if="!repairCategoryEntries.length"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Work Log:</span>
+                            <span
+                                class="wl-field-value"
+                                style="color: #aaa; font-style: italic"
+                                >Not recorded yet</span
+                            >
+                        </div>
+
+                        <!-- Repair status / outcome -->
+                        <div v-if="repairWorkLogMeta.markDone" class="wl-field">
+                            <span class="wl-field-label">Repair Status:</span>
+                            <span class="wl-field-value text-success">
+                                Done — Returned to Testing
+                            </span>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- 5. Re-Testing Module -->
+                <template v-if="showReTestingModule">
+                    <div
+                        class="wl-section-header"
+                        style="
+                            background: #f0fff4;
+                            border-left: 4px solid #16a34a;
+                        "
+                    >
+                        <span>🔁</span><span>5. RE-TESTING MODULE</span>
+                    </div>
+                    <div class="wl-section-body">
+                        <div
+                            v-if="reTestingWorkLogMeta.dateRetested"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Date Re-tested:</span>
+                            <span class="wl-field-value">{{
+                                reTestingWorkLogMeta.dateRetested
+                            }}</span>
+                        </div>
+                        <div
+                            v-if="reTestingWorkLogMeta.tester"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Tester:</span>
+                            <span class="wl-field-value">{{
+                                reTestingWorkLogMeta.tester
+                            }}</span>
+                        </div>
+
+                        <!-- Re-test scope — which items were re-tested -->
+                        <div v-if="reTestingScope.length" class="wl-field">
+                            <span class="wl-field-label">Re-test Scope:</span>
+                            <span class="wl-field-value">
+                                {{ reTestingScope.join(", ") }} (repaired items
+                                only)
+                            </span>
+                        </div>
+
+                        <!-- Per-category re-test results -->
+                        <div
+                            v-for="(entry, i) in reTestingEntries"
+                            :key="'rtl-' + i"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label"
+                                >{{ entry.label }}:</span
+                            >
+                            <span
+                                class="wl-field-value"
+                                :class="{
+                                    'text-success': isPassValue(entry.value),
+                                    'text-danger': isFailValue(entry.value),
+                                }"
+                            >
+                                {{ entry.value || "—" }}
+                                <span v-if="isPassValue(entry.value)"> ✓</span>
+                            </span>
+                        </div>
+
+                        <!-- Re-test overall result -->
+                        <div
+                            v-if="reTestingWorkLogMeta.testResult"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Re-test Result:</span>
+                            <span
+                                class="wl-field-value"
+                                :class="
+                                    reTestingWorkLogMeta.testResult === 'pass'
+                                        ? 'text-success'
+                                        : 'text-danger'
+                                "
+                                style="font-weight: 600"
+                            >
+                                {{
+                                    reTestingWorkLogMeta.testResult === "pass"
+                                        ? "PASS — All Repairs Successful"
+                                        : "FAIL — Further Repair Needed"
+                                }}
+                            </span>
+                        </div>
+
+                        <div
+                            v-if="
+                                !reTestingEntries.length &&
+                                !reTestingWorkLogMeta.testResult
+                            "
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Work Log:</span>
+                            <span
+                                class="wl-field-value"
+                                style="color: #aaa; font-style: italic"
+                                >Not recorded yet</span
+                            >
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Cleaning Module (renumbered dynamically) -->
                 <template v-if="showCleaningModule">
                     <div class="wl-section-header wl-section-header--cleaning">
-                        <span>🧹</span><span>4. CLEANING MODULE</span>
+                        <span>🧹</span>
+                        <span>{{ cleaningModuleNumber }}. CLEANING MODULE</span>
                     </div>
                     <div class="wl-section-body">
                         <div
@@ -506,7 +694,8 @@
                         </div>
                     </div>
                 </template>
-                <!-- 5. Packaging Module -->
+
+                <!-- Packaging Module (renumbered dynamically) -->
                 <template v-if="showPackagingModule">
                     <div
                         class="wl-section-header"
@@ -515,7 +704,10 @@
                             border-left: 4px solid #e91e8c;
                         "
                     >
-                        <span>📦</span><span>5. PACKAGING MODULE</span>
+                        <span>📦</span>
+                        <span
+                            >{{ packagingModuleNumber }}. PACKAGING MODULE</span
+                        >
                     </div>
                     <div class="wl-section-body">
                         <div
@@ -644,7 +836,6 @@ export default {
             ].filter(Boolean);
         },
 
-        // Works for both checklistLogs (asin) and HouseageController (ASIN / ASINviewer)
         logAsin() {
             return (
                 this.log?.asin || this.log?.ASIN || this.log?.ASINviewer || null
@@ -733,6 +924,126 @@ export default {
                 .filter((e) => e.value !== null);
         },
 
+        // ── Repair Module ──────────────────────────────────────────────────
+        showRepairModule() {
+            return (
+                !!this.log?.date_repaired ||
+                !!this.log?.repair_category_values ||
+                !!this.log?.repaired_by
+            );
+        },
+
+        savedRepairWorkLog() {
+            if (!this.log?.repair_category_values) return null;
+            try {
+                return typeof this.log.repair_category_values === "string"
+                    ? JSON.parse(this.log.repair_category_values)
+                    : this.log.repair_category_values;
+            } catch {
+                return null;
+            }
+        },
+
+        repairWorkLogMeta() {
+            return {
+                dateRepaired: this.log?.date_repaired || null,
+                repairedBy: this.log?.repaired_by || null,
+                markDone: this.log?.repair_done ?? null,
+            };
+        },
+
+        // Failed items list stored in repair work log payload
+        repairFailedItems() {
+            const raw = this.log?.repair_failed_items;
+            if (!raw) return [];
+            try {
+                const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+                return Array.isArray(parsed) ? parsed : [];
+            } catch {
+                return [];
+            }
+        },
+
+        // Per-category repair action + notes
+        repairCategoryEntries() {
+            if (!this.savedRepairWorkLog) return [];
+            const data = this.savedRepairWorkLog;
+            const entries = [];
+            const seen = new Set();
+            Object.keys(data).forEach((key) => {
+                if (key.startsWith("__")) return;
+                if (key.includes("__action__")) return;
+                if (key.endsWith("__status")) {
+                    const name = key.replace("__status", "");
+                    if (!seen.has(name)) {
+                        seen.add(name);
+                        entries.push({
+                            name,
+                            status: data[key] || null,
+                            notes: data[name + "__notes"] || null,
+                        });
+                    }
+                }
+            });
+            return entries;
+        },
+
+        // ── Re-Testing Module ──────────────────────────────────────────────
+        showReTestingModule() {
+            return (
+                !!this.log?.retest_date ||
+                !!this.log?.retest_result ||
+                !!this.log?.retest_field_values
+            );
+        },
+
+        savedReTestingWorkLog() {
+            if (!this.log?.retest_field_values) return null;
+            try {
+                return typeof this.log.retest_field_values === "string"
+                    ? JSON.parse(this.log.retest_field_values)
+                    : this.log.retest_field_values;
+            } catch {
+                return null;
+            }
+        },
+
+        reTestingWorkLogMeta() {
+            return {
+                dateRetested: this.log?.retest_date || null,
+                tester: this.log?.retest_by || null,
+                testResult: this.log?.retest_result || null,
+            };
+        },
+
+        // The categories that were re-tested (same as repairFailedItems scope)
+        reTestingScope() {
+            return this.repairFailedItems;
+        },
+
+        // Per-category re-test results using same ASIN config testing fields
+        reTestingEntries() {
+            if (!this.savedReTestingWorkLog) return [];
+            const data = this.savedReTestingWorkLog;
+            return Object.keys(data)
+                .filter((k) => !k.startsWith("__") && !k.includes("__"))
+                .map((k) => ({ label: k, value: data[k] }))
+                .filter((e) => e.value !== null && e.value !== "");
+        },
+
+        // ── Dynamic module numbering ───────────────────────────────────────
+        // Cleaning and Packaging shift their number when Repair/Re-Testing exist
+        cleaningModuleNumber() {
+            let num = 4;
+            if (this.showRepairModule) num++;
+            if (this.showReTestingModule) num++;
+            return num;
+        },
+
+        packagingModuleNumber() {
+            return this.cleaningModuleNumber + 1;
+        },
+
         // ── Packaging Module ───────────────────────────────────────────────
         showPackagingModule() {
             return (
@@ -767,8 +1078,6 @@ export default {
         packagingIncludedComponents() {
             if (!this.savedPackagingWorkLog) return [];
             const data = this.savedPackagingWorkLog;
-            // Components are stored as { "Component Name": true/false }
-            // Keys with __ prefix are internal (notes, etc.)
             return Object.keys(data)
                 .filter(
                     (k) =>
@@ -777,7 +1086,6 @@ export default {
                         data[k] === true,
                 )
                 .map((k) => {
-                    // Append SKU if available from ASIN config
                     const asin = this.logAsin;
                     if (!asin) return k;
                     try {

@@ -57,6 +57,7 @@ class UserController extends Controller
                 'reconciliation',
                 'suppliescomponents',
                 'switcheru',
+                'repair',
             )
             ->where('id', $currentUserId)
             ->first();
@@ -227,6 +228,7 @@ class UserController extends Controller
                     'reconciliation' => (bool) $selectedUser->reconciliation,
                     'suppliescomponents' => (bool) $selectedUser->suppliescomponents,
                     'switcheru' => (bool) $selectedUser->switcheru,
+                    'repair' => (bool) $selectedUser->repair,
                 ],
                 'privileges_stores' => $storePrivileges, // Pass the processed store privileges
             ];
@@ -383,6 +385,7 @@ class UserController extends Controller
                 'Reconciliation' => 'reconciliation',
                 'Supplies & Components' => 'suppliescomponents',
                 'Switcheru List' => 'switcheru',
+                'Repair' => 'repair',
             ];
 
             // Convert main module from display name to database column name
@@ -436,6 +439,7 @@ class UserController extends Controller
                 'reconciliation',
                 'suppliescomponents',
                 'switcheru',
+                'repair',
             ];
 
             // First reset all modules to 0
@@ -557,7 +561,6 @@ class UserController extends Controller
                 return response()->json(['success' => false, 'message' => 'User not found']);
             }
 
-            // 🔴 FIXED: Make sure 'printer' is included in the modules array
             $modules = [
                 'humanresource',
                 'order',
@@ -587,6 +590,7 @@ class UserController extends Controller
                 'reconciliation',
                 'suppliescomponents',
                 'switcheru',
+                'repair',
             ];
 
             // Get main module and ensure it's lowercase with no spaces
@@ -619,7 +623,6 @@ class UserController extends Controller
             session(['sub_modules' => $activeModules]);
             session()->save();
 
-            // Debug log - 🔴 ADDED: Better logging to see what's happening
             Log::info('Session refreshed for user', [
                 'user_id' => $freshUser->id,
                 'username' => $freshUser->username,
@@ -637,7 +640,7 @@ class UserController extends Controller
                 'debug' => [
                     'fresh_main_module' => $freshUser->main_module,
                     'processed_main_module' => $mainModule,
-                    'printer_value' => $freshUser->printer,  // 🔴 ADDED: Debug printer value
+                    'printer_value' => $freshUser->printer,
                     'all_enabled_modules' => array_filter($modules, function ($mod) use ($freshUser) {
                         return $freshUser->{$mod} == 1;
                     }),

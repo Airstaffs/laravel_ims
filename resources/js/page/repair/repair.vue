@@ -1,12 +1,12 @@
 <template>
-    <div class="vue-container testing-module">
+    <div class="vue-container repair-module">
         <TitlePage
-            title="Testing Module"
-            subtitle="Manage and log quality assurance and functional testing results for products prior to inventory staging."
+            title="Repair Module"
+            subtitle="Track and manage repair jobs — log issues, assign tasks, and monitor progress until units are cleared for the next stage."
         />
 
         <!-- Desktop Table Container -->
-        <AnimateDiv :delay="200" class="px-4">
+        <AnimateDiv :delay="200" class="p-4">
             <XDataTable
                 :value="sortedInventory"
                 :loading="loading"
@@ -20,7 +20,6 @@
                     <div
                         class="d-flex justify-content-center align-items-center"
                     >
-                        <!-- Use custom image display for captured images -->
                         <div
                             v-if="
                                 data.capturedImages &&
@@ -62,7 +61,6 @@
                             </span>
                         </div>
 
-                        <!-- Use regular product images as fallback -->
                         <div
                             v-else-if="data.img1 && data.img1 !== 'NULL'"
                             class="gallery-thumbnail position-relative"
@@ -99,7 +97,6 @@
                             </span>
                         </div>
 
-                        <!-- Fallback icon if no images -->
                         <div
                             v-else
                             class="d-flex justify-content-center align-items-center"
@@ -129,7 +126,7 @@
                             "
                         >
                             <p style="font-size: 0.8rem">
-                                RT# {{ data.rtcounter }}
+                                ID# {{ data.rtcounter }}
                             </p>
                             <p class="fw-semibold">
                                 {{ getDisplayTitle(data) }}
@@ -148,8 +145,8 @@
                             size="small"
                             severity="success"
                             variant="text"
-                            label="Condition"
-                            icon="pi pi-check-square"
+                            label="Release Condition"
+                            icon="pi pi-check-circle"
                             @click="openConditionModal(data)"
                             class="text-success"
                         />
@@ -157,19 +154,19 @@
                             size="small"
                             severity="contrast"
                             variant="text"
-                            label="View Details"
+                            icon="pi pi-info-circle"
+                            label="Details"
                             class="text-primary"
-                            icon="pi pi-exclamation-circle"
                             @click="openEditModal(data)"
                         />
                         <Button
                             size="small"
                             severity="contrast"
                             variant="text"
-                            label="Testing - Work Log"
-                            icon="pi pi-clipboard"
-                            class="text-warning"
-                            @click="openTestingWorkLog(data)"
+                            label="Repair - Work Log"
+                            icon="pi pi-hammer"
+                            class="text-info"
+                            @click="openRepairWorkLog(data)"
                         />
                     </div>
                 </template>
@@ -178,22 +175,212 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <MobileCard1
-                :sortedInventory="sortedInventory"
-                :expandedRows="expandedRows"
-                :openImageModal="openImageModal"
-                :handleImageError="handleImageError"
-                :countAdditionalImages="countAdditionalImages"
-                :openEditModal="openEditModal"
-                :loading="loading"
-                :showDetails="showDetails"
-                :visibleFields="[
-                    'price',
-                    'serialnumber',
-                    'trackingnumber',
-                    'datedelivered',
-                ]"
-            />
+            <div class="mobile-cards">
+                <div v-if="loading" class="loading-spinner-mobile">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    Loading...
+                </div>
+                <div
+                    v-else-if="sortedInventory.length === 0"
+                    class="no-data-mobile"
+                >
+                    No data found
+                </div>
+                <div
+                    class="mobile-card"
+                    v-else
+                    v-for="(item, index) in sortedInventory"
+                    :key="item.id"
+                >
+                    <div class="mobile-card-header">
+                        <div class="mobile-checkbox">
+                            <input type="checkbox" v-model="item.checked" />
+                        </div>
+                        <div class="mobile-product-image clickable">
+                            <div
+                                v-if="
+                                    item.capturedImages &&
+                                    item.capturedImages.capturedimg1
+                                "
+                                class="gallery-thumbnail position-relative"
+                                @click="openImageModal(item)"
+                                style="cursor: pointer"
+                            >
+                                <img
+                                    :src="`/images/product_images/${
+                                        item.company || 'Airstaffs'
+                                    }/${item.capturedImages.capturedimg1}`"
+                                    :alt="getDisplayTitle(item)"
+                                    class="product-thumbnail clickable-image"
+                                    @error="handleImageError"
+                                />
+                                <div
+                                    class="image-count-badge"
+                                    v-if="countCapturedImages(item) > 1"
+                                >
+                                    +{{ countCapturedImages(item) - 1 }}
+                                </div>
+                            </div>
+
+                            <div
+                                v-else
+                                @click="openImageModal(item)"
+                                style="cursor: pointer"
+                            >
+                                <img
+                                    :src="'/images/thumbnails/' + item.img1"
+                                    :alt="getDisplayTitle(item)"
+                                    class="product-thumbnail clickable-image"
+                                    @error="handleImageError($event)"
+                                />
+                                <div
+                                    class="image-count-badge"
+                                    v-if="countAllImages(item) > 0"
+                                >
+                                    +{{ countAllImages(item) }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mobile-product-info">
+                            <h6 class="mobile-product-name clickable">
+                                <p>RT# : {{ item.rtcounter }}</p>
+                                <span>{{ getDisplayTitle(item) }}</span>
+                            </h6>
+                        </div>
+                    </div>
+
+                    <hr />
+
+                    <div class="mobile-card-details">
+                        <div class="mobile-detail-row mb-2">
+                            <span class="mobile-detail-label">Added date:</span>
+                            <span class="mobile-detal-value">
+                                {{ localDeliveredDate }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row mb-2">
+                            <span class="mobile-detail-label"
+                                >Updated date:</span
+                            >
+                            <span class="mobile-detal-value">
+                                {{ item.lastDateUpdate }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row mb-2">
+                            <span class="mobile-detail-label">FNSKU:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.FNSKUviewer }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row mb-2">
+                            <span class="mobile-detail-label">MSKU:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.MSKUviewer }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row mb-2">
+                            <span class="mobile-detail-label">ASIN:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.ASIN }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row mb-2" v-if="showDetails">
+                            <span class="mobile-detail-label">FBM:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.FBMAvailable }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row mb-2" v-if="showDetails">
+                            <span class="mobile-detail-label">FBA:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.FbaAvailable }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row mb-2" v-if="showDetails">
+                            <span class="mobile-detail-label">Outbound:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.Outbound }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row mb-2" v-if="showDetails">
+                            <span class="mobile-detail-label">Inbound:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.Inbound }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row mb-2" v-if="showDetails">
+                            <span class="mobile-detail-label"
+                                >Unfulfillable:</span
+                            >
+                            <span class="mobile-detal-value">
+                                {{ item.Unfulfillable }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row mb-2" v-if="showDetails">
+                            <span class="mobile-detail-label">Reserved:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.Reserved }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row mb-2">
+                            <span class="mobile-detail-label"
+                                >Fullfilment:</span
+                            >
+                            <span class="mobile-detal-value">
+                                {{ item.Fulfilledby }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row mb-2">
+                            <span class="mobile-detail-label">Status:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.status }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row mb-2">
+                            <span class="mobile-detail-label"
+                                >Serial Number:</span
+                            >
+                            <span class="mobile-detal-value">
+                                {{ item.serialnumber }}</span
+                            >
+                        </div>
+                    </div>
+
+                    <hr />
+
+                    <div class="mobile-card-actions">
+                        <Button
+                            @click="openConditionModal(item)"
+                            icon="pi pi-check-circle"
+                            size="small"
+                            severity="success"
+                            label="Release Condition"
+                            :style="{ width: '100%', marginBottom: '0.5rem' }"
+                        />
+                        <Button
+                            @click="openEditModal(item)"
+                            icon="pi pi-info-circle"
+                            size="small"
+                            severity="info"
+                            label="More Details"
+                            :style="{ width: '100%' }"
+                        />
+                    </div>
+
+                    <hr v-if="expandedRows[index]" />
+
+                    <div
+                        v-if="expandedRows[index]"
+                        class="mobile-expanded-content"
+                    >
+                        <p><strong>Expanded Rows Here</strong></p>
+                        <p>
+                            <strong>Product Name:</strong>
+                            {{ getDisplayTitle(item) }}
+                        </p>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Pagination -->
@@ -208,7 +395,7 @@
             @page="onPageChange"
         />
 
-        <!-- Image Modal with Tabs -->
+        <!-- Image Modal -->
         <ViewImageGalleryModal
             :showImageModal="showImageModal"
             :closeImageModal="closeImageModal"
@@ -218,68 +405,10 @@
             :handleImageError="handleImageError"
         />
 
-        <!-- Condition Checklist Modal -->
-        <ReceivedConditionModal
-            v-model:visible="showConditionModal"
-            :item="selectedItem"
-            @saved="handleConditionSaved"
-        />
-
-        <!-- Move to Cleaning Confirmation Dialog -->
+        <!-- Details Modal -->
         <Dialog
-            v-model:visible="showMoveConfirmation"
-            modal
-            header="Move to Cleaning & Prepping?"
-            style="width: 35rem"
-            :pt="{ root: { class: 'mobile-fullscreen-dialog' } }"
-        >
-            <div class="confirmation-content">
-                <i
-                    class="pi pi-arrow-right-arrow-left"
-                    style="
-                        font-size: 3rem;
-                        color: var(--primary-color);
-                        display: block;
-                        text-align: center;
-                        margin-bottom: 1rem;
-                    "
-                ></i>
-                <p class="text-center mb-3">
-                    <strong>{{ moveItemDetails?.ProductTitle }}</strong>
-                </p>
-                <p class="text-center">
-                    Testing complete! Would you like to move this item to
-                    <strong>Cleaning & Prepping</strong> module?
-                </p>
-                <div class="mt-3 p-3 bg-light rounded">
-                    <small class="text-muted">
-                        <i class="pi pi-info-circle"></i>
-                        This will update the item location from
-                        <strong>Testing</strong> to <strong>Cleaning</strong>
-                    </small>
-                </div>
-            </div>
-            <template #footer>
-                <Button
-                    label="Cancel"
-                    icon="pi pi-times"
-                    @click="cancelMove"
-                    severity="secondary"
-                />
-                <Button
-                    label="Move to Cleaning"
-                    icon="pi pi-arrow-right"
-                    @click="confirmMoveToCleaning"
-                    :loading="movingItem"
-                    severity="success"
-                />
-            </template>
-        </Dialog>
-
-        <!-- View Details Modal -->
-        <Dialog
-            v-model:visible="showEditModal"
             class="view-modal"
+            v-model:visible="showEditModal"
             modal
             :header="`RT # ${item.rtcounter} - ${getDisplayTitle(item)}`"
             style="width: 110rem"
@@ -287,10 +416,9 @@
                 root: { class: 'mobile-fullscreen-dialog' },
             }"
         >
-            <div>
+            <div class="modal-body">
                 <div class="view-info-container">
                     <div class="view-grid-wrapper">
-                        <!-- LEFT: IMAGE -->
                         <div class="form-col-left">
                             <gallery :item="item" />
                             <Card>
@@ -305,7 +433,6 @@
                                             word-break: break-all;
                                             max-height: 450px;
                                             overflow-y: auto;
-                                            font-size: 14px;
                                         "
                                     >
                                         {{ item.description }}
@@ -313,12 +440,10 @@
                                 </template>
                             </Card>
                         </div>
-                        <!-- RIGHT: DETAILS -->
+
                         <div class="form-col-right">
                             <div class="row">
-                                <!-- Left Column -->
-                                <div class="col-md-6">
-                                    <!-- Warehouse & Tracking -->
+                                <div class="col-lg-6">
                                     <section class="info-section">
                                         <h3 class="text-primary fw-bolder">
                                             Warehouse & Tracking
@@ -338,7 +463,9 @@
                                             </div>
                                             <div class="info-item">
                                                 <dt>Serial Number:</dt>
-                                                <dd>{{ item.serialnumber }}</dd>
+                                                <dd>
+                                                    {{ item.serialnumber }}
+                                                </dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>Tracking Number:</dt>
@@ -348,7 +475,7 @@
                                             </div>
                                         </dl>
                                     </section>
-                                    <!-- Product Identifiers -->
+
                                     <section class="info-section">
                                         <h3 class="text-primary fw-bolder">
                                             Product Identifiers
@@ -356,7 +483,9 @@
                                         <dl class="info-list">
                                             <div class="info-item">
                                                 <dt>RT:</dt>
-                                                <dd>{{ item.ProductID }}</dd>
+                                                <dd>
+                                                    {{ item.ProductID }}
+                                                </dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>ASIN:</dt>
@@ -389,7 +518,6 @@
                                         </dl>
                                     </section>
 
-                                    <!-- Order Information -->
                                     <section class="info-section">
                                         <h3 class="text-primary fw-bolder">
                                             Order Information
@@ -401,15 +529,21 @@
                                             </div>
                                             <div class="info-item">
                                                 <dt>Item Number:</dt>
-                                                <dd>{{ item.itemnumber }}</dd>
+                                                <dd>
+                                                    {{ item.itemnumber }}
+                                                </dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>Basket Number:</dt>
-                                                <dd>{{ item.basketnumber }}</dd>
+                                                <dd>
+                                                    {{ item.basketnumber }}
+                                                </dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>Order Date:</dt>
-                                                <dd>{{ localOrderDate }}</dd>
+                                                <dd>
+                                                    {{ localOrderDate }}
+                                                </dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>Delivered Date:</dt>
@@ -424,7 +558,6 @@
                                         </dl>
                                     </section>
 
-                                    <!-- Additional Info -->
                                     <section
                                         class="info-section"
                                         v-if="item.grading || item.notes"
@@ -451,9 +584,8 @@
                                     </section>
                                 </div>
 
-                                <!-- Right Column: Pricing -->
                                 <div
-                                    class="col-md-6"
+                                    class="col-lg-6"
                                     v-show="showPricingSection"
                                 >
                                     <section class="pricing-section">
@@ -484,6 +616,7 @@
                                                     {{ item.price || "0.00" }}
                                                 </dd>
                                             </div>
+
                                             <div
                                                 class="pricing-item"
                                                 v-if="item.Discount"
@@ -503,6 +636,7 @@
                                                     {{ item.priceshipping }}
                                                 </dd>
                                             </div>
+
                                             <div
                                                 class="pricing-item total-line"
                                             >
@@ -511,6 +645,7 @@
                                                     {{ grandTotal }}
                                                 </dd>
                                             </div>
+
                                             <div
                                                 class="pricing-item refund-line"
                                                 v-if="item.refund"
@@ -530,271 +665,207 @@
             </div>
         </Dialog>
 
+        <!-- Repair Work Log Modal -->
         <Dialog
-            v-model:visible="showTestingWorkLog"
+            v-model:visible="showRepairWorkLog"
             modal
-            :header="`Testing Work Log — ${testingWorkLogItem?.rtcounter || ''}`"
-            :style="{ width: '760px', maxWidth: '98vw' }"
+            header="Repair - Work Log"
+            style="width: 60rem"
+            :pt="{ root: { class: 'mobile-fullscreen-dialog' } }"
         >
-            <div v-if="testingWorkLogItem" class="twl-wrapper">
-                <!-- QUICK ACTION: Test Result Decision -->
-                <div class="twl-quick-action-section">
-                    <div class="twl-quick-action-header">
-                        <span class="twl-quick-action-badge">QUICK ACTION</span>
-                        <span class="twl-quick-action-title"
-                            >Test Result Decision</span
-                        >
-                    </div>
-                    <div class="twl-decision-grid">
-                        <!-- PASS card -->
-                        <div
-                            class="twl-decision-card twl-decision-card--pass"
-                            :class="{
-                                'twl-decision-card--selected':
-                                    testResult === 'pass',
-                            }"
-                            @click="selectTestResult('pass')"
-                        >
-                            <div
-                                class="twl-decision-icon twl-decision-icon--pass"
-                            >
-                                ✓
-                            </div>
-                            <div
-                                class="twl-decision-label twl-decision-label--pass"
-                            >
-                                PASS
-                            </div>
-                            <div class="twl-decision-sub">All tests OK</div>
-                            <div class="twl-decision-info">
-                                <p class="twl-decision-info-title">
-                                    Auto-outputs:
-                                </p>
-                                <p>✓ All default logs = "OK/Good"</p>
-                                <p>✓ Status = "Working"</p>
-                                <p>→ Next: <strong>Cleaning Module</strong></p>
-                            </div>
-                        </div>
-
-                        <!-- FAIL card -->
-                        <div
-                            class="twl-decision-card twl-decision-card--fail"
-                            :class="{
-                                'twl-decision-card--selected':
-                                    testResult === 'fail',
-                            }"
-                            @click="selectTestResult('fail')"
-                        >
-                            <div
-                                class="twl-decision-icon twl-decision-icon--fail"
-                            >
-                                ✕
-                            </div>
-                            <div
-                                class="twl-decision-label twl-decision-label--fail"
-                            >
-                                FAIL
-                            </div>
-                            <div class="twl-decision-sub">Issues detected</div>
-                            <div
-                                class="twl-decision-info twl-decision-info--fail"
-                            >
-                                <p
-                                    class="twl-decision-info-title twl-decision-info-title--fail"
-                                >
-                                    Required actions:
-                                </p>
-                                <p>✓ Select failed test items</p>
-                                <p>✓ Pre-typed notes auto-fill</p>
-                                <p>→ Next: <strong>Repair Module</strong></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+            <div class="repair-worklog-body">
                 <!-- AUTO-FETCH: System Pre-filled Fields -->
-                <div class="twl-autofetch-section">
-                    <div class="twl-autofetch-header">
-                        <span class="twl-autofetch-badge">AUTO-FETCH</span>
-                        <span class="twl-autofetch-title"
-                            >System Pre-filled Fields</span
-                        >
-                    </div>
-                    <div class="twl-autofetch-grid">
-                        <div class="twl-autofetch-card">
-                            <span class="twl-autofetch-label">Date Tested</span>
-                            <span class="twl-autofetch-value">{{
-                                currentDateTime
-                            }}</span>
-                        </div>
-                        <div class="twl-autofetch-card">
-                            <span class="twl-autofetch-label"
-                                >Serial Number</span
-                            >
-                            <span class="twl-autofetch-value">{{
-                                testingWorkLogItem.serialnumber || "—"
-                            }}</span>
-                        </div>
-                        <div class="twl-autofetch-card">
-                            <span class="twl-autofetch-label"
-                                >Tester / Received By</span
-                            >
-                            <span class="twl-autofetch-value">{{
-                                testingWorkLogItem.received_by ||
-                                testingWorkLogItem.Username ||
-                                currentUser ||
-                                "—"
-                            }}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- No fields configured -->
-                <div v-if="!testingWorkLogFields.length" class="twl-empty">
-                    <i class="pi pi-info-circle"></i>
-                    <span
-                        >No testing fields configured for this ASIN. Set them up
-                        in <strong>ASIN Configuration</strong>.</span
+                <div class="worklog-section-label">
+                    <span class="worklog-badge badge-autofetch"
+                        >AUTO-FETCH</span
+                    >
+                    <span class="worklog-section-title"
+                        >System Pre-filled Fields</span
                     >
                 </div>
-
-                <!-- Field groups -->
-                <div v-else class="twl-fields">
-                    <div
-                        v-for="(field, i) in testingWorkLogFields"
-                        :key="'twl-' + i"
-                        class="twl-field-card"
-                    >
-                        <!-- Field label + badges -->
-                        <div class="twl-field-label">
-                            <span>{{ field.label }}</span>
-                            <span
-                                v-if="field.required"
-                                class="twl-badge twl-badge--required"
-                                >Required</span
-                            >
-                            <span
-                                v-if="field._fromGlobal"
-                                class="twl-badge twl-badge--global"
-                                >Global</span
-                            >
-                        </div>
-
-                        <!-- Dropdown/Select -->
-                        <select
-                            v-if="
-                                field.type === 'Dropdown/Select' &&
-                                field.hasOptions &&
-                                field.options?.length
-                            "
-                            v-model="testingWorkLogValues[field.label]"
-                            class="twl-select"
-                        >
-                            <option value="" disabled>
-                                Select {{ field.label }}
-                            </option>
-                            <option
-                                v-for="opt in field.options"
-                                :key="opt.value"
-                                :value="opt.value"
-                            >
-                                {{ opt.value }}
-                            </option>
-                        </select>
-
-                        <!-- Checkbox -->
-                        <div
-                            v-else-if="field.type === 'Checkbox'"
-                            class="twl-checkbox-wrap"
-                        >
-                            <input
-                                type="checkbox"
-                                :id="`twl-cb-${i}`"
-                                v-model="testingWorkLogValues[field.label]"
-                                class="twl-checkbox"
-                            />
-                            <label :for="`twl-cb-${i}`">{{
-                                field.label
-                            }}</label>
-                        </div>
-
-                        <!-- Textarea -->
-                        <textarea
-                            v-else-if="field.type === 'Textarea'"
-                            v-model="testingWorkLogValues[field.label]"
-                            :placeholder="
-                                field.defaultValue || `Enter ${field.label}`
-                            "
-                            rows="3"
-                            class="twl-textarea"
-                        />
-
-                        <!-- Number -->
+                <div class="worklog-prefilled-grid">
+                    <div class="worklog-prefilled-field">
+                        <label>Date Repaired</label>
                         <input
-                            v-else-if="field.type === 'Number'"
-                            type="number"
-                            v-model="testingWorkLogValues[field.label]"
-                            :placeholder="field.defaultValue || '0'"
-                            class="twl-input"
-                        />
-
-                        <!-- Date -->
-                        <input
-                            v-else-if="field.type === 'Date'"
-                            type="date"
-                            v-model="testingWorkLogValues[field.label]"
-                            class="twl-input"
-                        />
-
-                        <!-- Text / fallback -->
-                        <input
-                            v-else
                             type="text"
-                            v-model="testingWorkLogValues[field.label]"
-                            :placeholder="
-                                field.defaultValue || `Enter ${field.label}`
-                            "
-                            class="twl-input"
+                            class="worklog-readonly-input"
+                            :value="repairDateTime"
+                            readonly
                         />
-
-                        <!-- Pre-typed note hint -->
-                        <div
-                            v-if="
-                                field.preTypedNotes &&
-                                getPreTypedNote(
-                                    field,
-                                    testingWorkLogValues[field.label],
-                                )
-                            "
-                            class="twl-note-hint"
-                        >
-                            <i
-                                class="pi pi-comment"
-                                style="font-size: 11px"
-                            ></i>
-                            {{
-                                getPreTypedNote(
-                                    field,
-                                    testingWorkLogValues[field.label],
-                                )
-                            }}
-                        </div>
                     </div>
+                    <div class="worklog-prefilled-field">
+                        <label>Serial Number</label>
+                        <input
+                            type="text"
+                            class="worklog-readonly-input"
+                            :value="repairWorkLogItem?.serialnumber || '—'"
+                            readonly
+                        />
+                    </div>
+                    <div class="worklog-prefilled-field">
+                        <label>Repaired By</label>
+                        <input
+                            type="text"
+                            class="worklog-readonly-input"
+                            :value="
+                                repairWorkLogItem?.received_by ||
+                                repairWorkLogItem?.Username ||
+                                currentUser ||
+                                '—'
+                            "
+                            readonly
+                        />
+                    </div>
+                </div>
+
+                <!-- FROM ASIN CONFIG: Repair Categories -->
+                <div class="worklog-section-label mt-4">
+                    <span class="worklog-badge badge-fromtesting"
+                        >ASIN CONFIG</span
+                    >
+                    <span class="worklog-section-title"
+                        >Repair Categories (Auto-loaded)</span
+                    >
+                </div>
+                <div class="worklog-failed-box">
+                    <p class="worklog-failed-header">
+                        Categories configured for this ASIN:
+                    </p>
+                    <div
+                        v-if="repairWorkLogCategories.length === 0"
+                        class="worklog-failed-empty"
+                    >
+                        No repair categories configured for this ASIN. Set them
+                        up in ASIN Configuration → Repair Module.
+                    </div>
+                    <div
+                        v-for="cat in repairWorkLogCategories"
+                        :key="cat.name"
+                        class="worklog-failed-item"
+                    >
+                        <span class="worklog-failed-x">🔧</span>
+                        {{ cat.name }}
+                        <span
+                            v-if="cat._fromGlobal"
+                            style="
+                                margin-left: auto;
+                                font-size: 0.7rem;
+                                color: #6b7280;
+                                background: #e5e7eb;
+                                padding: 1px 6px;
+                                border-radius: 10px;
+                            "
+                        >
+                            Global
+                        </span>
+                    </div>
+                </div>
+
+                <!-- REPAIR ACTIONS: What was done -->
+                <div class="worklog-section-label mt-4">
+                    <span class="worklog-badge badge-repairactions"
+                        >REPAIR ACTIONS</span
+                    >
+                    <span class="worklog-section-title"
+                        >What was done? (with Pre-typed Notes)</span
+                    >
+                </div>
+                <div
+                    v-for="cat in repairWorkLogCategories"
+                    :key="'action-' + cat.name"
+                    class="worklog-action-card"
+                >
+                    <p class="worklog-action-title">{{ cat.name }}</p>
+                    <select
+                        v-model="repairWorkLogValues[cat.name + '__status']"
+                        class="worklog-select"
+                        @change="onRepairStatusChange(cat)"
+                    >
+                        <option value="" disabled>
+                            Select repair action...
+                        </option>
+                        <!-- ── Dynamic options from ASIN config actions ── -->
+                        <option
+                            v-if="cat.actions && cat.actions.length"
+                            v-for="action in cat.actions"
+                            :key="action.title"
+                            :value="action.title"
+                        >
+                            {{ action.title }}
+                        </option>
+                        <!-- ── Fallback standard options when no actions configured ── -->
+                        <template v-else>
+                            <option value="Replaced">Replaced</option>
+                            <option value="Repaired">Repaired</option>
+                            <option value="Cleaned">Cleaned</option>
+                            <option value="Tested & Passed">
+                                Tested & Passed
+                            </option>
+                            <option value="Not Repairable">
+                                Not Repairable
+                            </option>
+                            <option value="Not Required">Not Required</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Needs Attention">
+                                Needs Attention
+                            </option>
+                        </template>
+                    </select>
+                    <textarea
+                        v-model="repairWorkLogValues[cat.name + '__notes']"
+                        class="worklog-textarea"
+                        :placeholder="
+                            getRepairNotePlaceholder(
+                                cat,
+                                repairWorkLogValues[cat.name + '__status'],
+                            )
+                        "
+                        rows="3"
+                    ></textarea>
+                </div>
+
+                <!-- COMPLETION: Mark as Done -->
+                <div class="worklog-section-label mt-4">
+                    <span class="worklog-badge badge-completion"
+                        >COMPLETION</span
+                    >
+                    <span class="worklog-section-title">Mark as Done</span>
+                </div>
+                <div class="worklog-completion-bar">
+                    <div>
+                        <p class="worklog-completion-title">
+                            All repairs completed?
+                        </p>
+                        <p class="worklog-completion-sub">
+                            This will send the item back to Testing for re-test
+                        </p>
+                    </div>
+                    <Button
+                        label="Done Repair"
+                        severity="success"
+                        :loading="savingRepairWorkLog"
+                        @click="saveRepairWorkLog(true)"
+                    />
                 </div>
             </div>
 
             <template #footer>
-                <Button
-                    label="Cancel"
-                    severity="secondary"
-                    text
-                    @click="showTestingWorkLog = false"
-                />
-                <Button
-                    label="Save Work Log"
-                    icon="pi pi-save"
-                    @click="saveTestingWorkLog"
-                />
+                <div class="d-flex justify-content-between w-100">
+                    <Button
+                        label="Save Progress"
+                        severity="secondary"
+                        outlined
+                        icon="pi pi-save"
+                        :loading="savingRepairWorkLog"
+                        @click="saveRepairWorkLog(false)"
+                    />
+                    <Button
+                        label="Cancel"
+                        severity="contrast"
+                        text
+                        @click="showRepairWorkLog = false"
+                    />
+                </div>
             </template>
         </Dialog>
 
@@ -802,22 +873,208 @@
     </div>
 </template>
 
+<style scoped>
+/* ── Work Log Modal ─────────────────────────────────────────── */
+.repair-worklog-body {
+    padding: 0.5rem 0.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.worklog-section-label {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
+}
+
+.worklog-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 0.2rem 0.55rem;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.badge-autofetch {
+    background: #e2e8f0;
+    color: #475569;
+}
+.badge-fromtesting {
+    background: #dbeafe;
+    color: #1e40af;
+}
+.badge-repairactions {
+    background: #fed7aa;
+    color: #9a3412;
+}
+.badge-completion {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.worklog-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+/* Pre-filled grid */
+.worklog-prefilled-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+    .worklog-prefilled-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.worklog-prefilled-field label {
+    display: block;
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-bottom: 0.25rem;
+}
+
+.worklog-readonly-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #f8fafc;
+    font-size: 0.875rem;
+    color: #334155;
+    outline: none;
+}
+
+/* Failed items box */
+.worklog-failed-box {
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    background: #fff5f5;
+    padding: 1rem;
+}
+
+.worklog-failed-header {
+    font-weight: 600;
+    color: #991b1b;
+    margin-bottom: 0.6rem;
+    font-size: 0.9rem;
+}
+
+.worklog-failed-empty {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.worklog-failed-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #fca5a5;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 0.875rem;
+    color: #374151;
+    margin-bottom: 0.4rem;
+}
+
+.worklog-failed-x {
+    color: #ef4444;
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+
+/* Action cards */
+.worklog-action-card {
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+    background: #fffbf5;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.worklog-action-title {
+    font-weight: 600;
+    color: #92400e;
+    font-size: 0.9rem;
+    margin-bottom: 0.6rem;
+}
+
+.worklog-select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 0.875rem;
+    color: #374151;
+    margin-bottom: 0.5rem;
+    outline: none;
+    appearance: auto;
+}
+
+.worklog-textarea {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 0.85rem;
+    color: #374151;
+    resize: vertical;
+    outline: none;
+}
+
+.worklog-textarea::placeholder {
+    color: #94a3b8;
+    font-style: italic;
+}
+
+/* Completion bar */
+.worklog-completion-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    gap: 1rem;
+}
+
+.worklog-completion-title {
+    font-weight: 600;
+    color: #166534;
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.worklog-completion-sub {
+    color: #16a34a;
+    font-size: 0.8rem;
+    margin: 0.15rem 0 0;
+}
+</style>
+
 <script>
-import { Button, Dialog, Card, ScrollTop, Select, Paginator } from "primevue";
-import Testing from "./testing.js";
-import gallery from "../../components/Gallery/gallery.vue";
-import TableGallery from "../../components/Gallery/tableGallery.vue";
+import { Button, Card, Dialog, ScrollTop, Select, Paginator } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
-import MobileCard1 from "../../components/MobileCard1/MobileCard1.vue";
+import TableGallery from "../../components/Gallery/tableGallery.vue";
+import Repair from "./repair.js";
+import Gallery from "../../components/Gallery/gallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
-import ReceivedConditionModal from "./modals/receivedCondtion_modal.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
-import axios from "axios";
 import { showPricingForPH } from "../../utils/helpers.js";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 const TABLE_COLUMNS = [
     {
@@ -832,13 +1089,20 @@ const TABLE_COLUMNS = [
         sortable: true,
         headerStyle: "font-size: 16px;",
         slot: "ProductTitle",
-        style: { maxWidth: "20rem" },
+        style: { minWidth: "15rem", maxWidth: "20rem" },
+    },
+    {
+        field: "ASIN",
+        header: "ASIN",
+        sortable: true,
+        bodyStyle: "font-size: 14px;",
     },
     {
         field: "price",
         header: "Price",
         sortable: true,
         bodyStyle: "font-size: 14px;",
+        visibility: showPricingForPH(),
     },
     {
         field: "serialnumber",
@@ -857,25 +1121,24 @@ const TABLE_COLUMNS = [
         header: "Date Delivered",
         sortable: true,
         bodyStyle: "font-size: 14px;",
+        slot: "datedelivered",
     },
 ];
 
 export default {
-    mixins: [Testing],
+    mixins: [Repair],
     components: {
+        XDataTable,
+        TableGallery,
         Button,
+        Gallery,
         Dialog,
         Card,
-        gallery,
-        TableGallery,
-        XDataTable,
-        MobileCard1,
         ScrollTop,
         TitlePage,
         ViewImageGalleryModal,
         AnimateDiv,
         Select,
-        ReceivedConditionModal,
         Paginator,
     },
     data() {
@@ -884,9 +1147,6 @@ export default {
             rowsPerPage: ROWS_PER_PAGE,
             showConditionModal: false,
             selectedItem: null,
-            showMoveConfirmation: false,
-            moveItemDetails: null,
-            movingItem: false,
             currentTimezone: "UTC",
             timezoneLabel: "Loading...",
             showPricingSection: showPricingForPH(),
@@ -895,64 +1155,22 @@ export default {
     async mounted() {
         await this.loadUserTimezone();
         window.addEventListener("resize", this.updatePricingView);
-
-        try {
-            const res = await axios.get("/api/auth/user");
-            this.currentUser = res.data?.name || res.data?.email || "";
-        } catch {
-            this.currentUser = "";
-        }
     },
     computed: {
         visibleColumns() {
-            if (!this.columns) return [];
-
-            const detailFields = [
-                "FBMAvailable",
-                "FbaAvailable",
-                "Outbound",
-                "Inbound",
-                "Reserved",
-                "Unfulfillable",
-            ];
-            const mandatoryFields = ["gallery", "ProductTitle"];
-
-            return this.columns.filter((col) => {
-                if (mandatoryFields.includes(col.field)) {
-                    return true;
-                }
-
-                if (!this.showDetails && detailFields.includes(col.field)) {
-                    return false;
-                }
-
-                return true;
-            });
+            return this.columns;
         },
 
-        // ✅ ADD THESE COMPUTED PROPERTIES FOR DATE CONVERSION
         localOrderDate() {
-            return this.convertToLocalDate(this.item.orderdate);
+            return this.convertToLocalDate(this.item?.orderdate);
         },
         localDeliveredDate: {
             get() {
-                return this.convertToLocalDate(this.item.datedelivered);
+                return this.convertToLocalDate(this.item?.datedelivered);
             },
             set(value) {
                 this.item.datedelivered = this.convertFromLocalDate(value);
             },
-        },
-
-        currentDateTime() {
-            if (!this.testingWorkLogOpenedAt) return "—";
-            return this.testingWorkLogOpenedAt.toLocaleString("en-US", {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-            });
         },
     },
     methods: {
@@ -961,190 +1179,36 @@ export default {
             this.showConditionModal = true;
         },
 
-        async handleConditionSaved(conditionData) {
-            console.log("Condition saved:", conditionData);
+        handleConditionSaved(conditionData) {
+            console.log("Release condition saved:", conditionData);
 
-            // Show success notification
             if (typeof this.$swal !== "undefined") {
-                await this.$swal.fire({
+                this.$swal.fire({
                     icon: "success",
                     title: "Success!",
-                    text: "Received condition saved successfully",
-                    timer: 2000,
-                    showConfirmButton: false,
-                });
-            } else if (typeof Swal !== "undefined") {
-                await Swal.fire({
-                    icon: "success",
-                    title: "Success!",
-                    text: "Received condition saved successfully",
+                    text: "Release condition saved successfully",
                     timer: 2000,
                     showConfirmButton: false,
                 });
             }
 
-            // Store item details for move confirmation
-            this.moveItemDetails = this.selectedItem;
-
-            // Show move to cleaning confirmation
-            this.showMoveConfirmation = true;
-        },
-
-        async confirmMoveToCleaning() {
-            if (!this.moveItemDetails) return;
-
-            this.movingItem = true;
-            try {
-                const dataToSend = {
-                    item_number: this.moveItemDetails.itemnumber,
-                    product_id: String(this.moveItemDetails.ProductID),
-                };
-
-                console.log("Moving to cleaning:", dataToSend);
-
-                const response = await axios.post(
-                    `${API_BASE_URL}/api/testing/move-to-cleaning`,
-                    dataToSend,
-                );
-
-                if (response.data.success) {
-                    // Success notification
-                    if (typeof this.$swal !== "undefined") {
-                        this.$swal.fire({
-                            icon: "success",
-                            title: "Moved!",
-                            text: "Item moved to Cleaning & Prepping module successfully",
-                            timer: 2000,
-                            showConfirmButton: false,
-                        });
-                    } else if (typeof Swal !== "undefined") {
-                        Swal.fire({
-                            icon: "success",
-                            title: "Moved!",
-                            text: "Item moved to Cleaning & Prepping module successfully",
-                            timer: 2000,
-                            showConfirmButton: false,
-                        });
-                    } else {
-                        alert(
-                            "Success! Item moved to Cleaning & Prepping module",
-                        );
-                    }
-
-                    // Close modal and refresh
-                    this.showMoveConfirmation = false;
-                    this.moveItemDetails = null;
-
-                    // Refresh inventory to remove the moved item
-                    await this.fetchInventory();
-                }
-            } catch (error) {
-                console.error("Failed to move item:", error);
-                console.error("Error response data:", error.response?.data);
-                console.error(
-                    "Validation errors:",
-                    error.response?.data?.errors,
-                );
-
-                let errorMessage = "Failed to move item to Cleaning module";
-
-                // Handle validation errors
-                if (error.response?.data?.errors) {
-                    const errors = error.response.data.errors;
-                    errorMessage = Object.values(errors).flat().join("\n");
-                } else if (error.response?.data?.message) {
-                    errorMessage = error.response.data.message;
-                }
-
-                if (typeof this.$swal !== "undefined") {
-                    this.$swal.fire({
-                        icon: "error",
-                        title: "Error Moving Item",
-                        text: errorMessage,
-                        confirmButtonText: "OK",
-                    });
-                } else if (typeof Swal !== "undefined") {
-                    Swal.fire({
-                        icon: "error",
-                        title: "Error Moving Item",
-                        text: errorMessage,
-                        confirmButtonText: "OK",
-                    });
-                } else {
-                    alert("Error: " + errorMessage);
-                }
-            } finally {
-                this.movingItem = false;
-            }
-        },
-
-        cancelMove() {
-            this.showMoveConfirmation = false;
-            this.moveItemDetails = null;
-
-            // Still refresh inventory to show updated condition
             this.fetchInventory();
         },
 
-        transformDataForGallery(data) {
-            if (!data) {
-                return {};
-            }
-
-            // If captured images exist, use them with full path
-            if (data.capturedImages && data.capturedImages.capturedimg1) {
-                const transformedData = { ...data };
-
-                // Map capturedimg1-12 to img1-12 with full path
-                for (let i = 1; i <= 12; i++) {
-                    const capturedImg = data.capturedImages[`capturedimg${i}`];
-                    if (capturedImg) {
-                        // Add full path: /images/product_images/Airstaffs/
-                        transformedData[`img${i}`] =
-                            `/images/product_images/Airstaffs/${capturedImg}`;
-                    } else {
-                        transformedData[`img${i}`] = null;
-                    }
-                }
-
-                // Clear img13-15 since captured images only go up to 12
-                for (let i = 13; i <= 15; i++) {
-                    transformedData[`img${i}`] = null;
-                }
-
-                return transformedData;
-            }
-
-            // Return original data if no captured images exist (fallback to product images)
-            return data;
-        },
-
         countAllImages(data) {
-            // Safety check
-            if (!data) {
-                return 0;
-            }
+            if (!data) return 0;
 
-            // If captured images exist, count them
             if (data.capturedImages) {
                 let count = 0;
                 for (let i = 1; i <= 12; i++) {
-                    if (data.capturedImages[`capturedimg${i}`]) {
-                        count++;
-                    }
+                    if (data.capturedImages[`capturedimg${i}`]) count++;
                 }
-                // Return count if captured images exist
-                if (count > 0) {
-                    return count;
-                }
+                if (count > 0) return count;
             }
 
-            // Otherwise count product images (fallback)
             let count = 0;
             for (let i = 1; i <= 15; i++) {
-                if (data[`img${i}`]) {
-                    count++;
-                }
+                if (data[`img${i}`]) count++;
             }
             return count;
         },
@@ -1159,12 +1223,10 @@ export default {
                     userTimezone === "America/Pacific" ||
                     !userTimezone;
 
-                // DB stores time in LA timezone — if user is already in LA, just extract date directly
                 if (isLATimezone) {
                     return dateString.split(" ")[0].split("T")[0];
                 }
 
-                // User is in a different timezone — convert LA time to user's local timezone
                 const isRawFormat =
                     !dateString.includes("T") &&
                     !dateString.includes("Z") &&
@@ -1202,17 +1264,11 @@ export default {
             if (!localDateString) return null;
 
             try {
-                // The input gives us YYYY-MM-DD in user's timezone
-                // We need to convert it to a proper datetime for storage
-
-                // Create a date object at noon in the user's timezone to avoid day boundary issues
                 const [year, month, day] = localDateString.split("-");
                 const dateInUserTz = new Date(
                     `${year}-${month}-${day}T12:00:00`,
                 );
-
-                // Format for database storage (ISO format)
-                return dateInUserTz.toISOString().split("T")[0]; // Returns YYYY-MM-DD
+                return dateInUserTz.toISOString().split("T")[0];
             } catch (error) {
                 console.error("Error converting from local date:", error);
                 return localDateString;
@@ -1226,46 +1282,29 @@ export default {
                 if (response.data.success && response.data.usertimezone) {
                     this.currentTimezone = response.data.usertimezone;
 
-                    // Format timezone for display
-                    const timezoneParts = this.currentTimezone.split("/");
-                    const location = timezoneParts[
-                        timezoneParts.length - 1
-                    ].replace("_", " ");
-
-                    // ✅ FIXED: Calculate GMT offset for the SELECTED timezone, not browser's
                     const date = new Date();
-
-                    // Get the date in UTC
                     const utcDate = new Date(
                         date.toLocaleString("en-US", { timeZone: "UTC" }),
                     );
-
-                    // Get the date in user's selected timezone
                     const userTzDate = new Date(
                         date.toLocaleString("en-US", {
                             timeZone: this.currentTimezone,
                         }),
                     );
-
-                    // Calculate offset in hours
                     const offsetMs = userTzDate - utcDate;
                     const offsetHours = Math.round(offsetMs / (1000 * 60 * 60));
                     const offsetSign = offsetHours >= 0 ? "+" : "-";
-                    const gmtOffset = `GMT${offsetSign}${Math.abs(
-                        offsetHours,
-                    )}`;
+                    const gmtOffset = `GMT${offsetSign}${Math.abs(offsetHours)}`;
 
                     this.timezoneLabel = `(${gmtOffset})`;
                 } else {
-                    // Fallback to browser timezone
                     const browserTz =
                         Intl.DateTimeFormat().resolvedOptions().timeZone;
                     this.currentTimezone = browserTz;
-                    const location = browserTz
+                    this.timezoneLabel = browserTz
                         .split("/")
                         .pop()
                         .replace("_", " ");
-                    this.timezoneLabel = location;
                 }
 
                 console.log("📍 Timezone loaded:", this.timezoneLabel);
@@ -1285,5 +1324,3 @@ export default {
     },
 };
 </script>
-
-<style scoped src="./testing.css"></style>
