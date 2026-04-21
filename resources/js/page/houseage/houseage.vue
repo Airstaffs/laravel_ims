@@ -1299,6 +1299,7 @@ import {
     InputText,
     ScrollTop,
     Select,
+    Tag,
     Textarea,
     Paginator,
 } from "primevue";
@@ -1326,7 +1327,7 @@ const TABLE_COLUMNS = [
         header: "Product Name",
         sortable: true,
         headerStyle: "font-size: 16px;",
-        slot: "ProductTitle",
+        slot: "productTitle",
         style: { minWidth: "15rem", maxWidth: "20rem" },
     },
     {
@@ -1397,6 +1398,7 @@ export default {
         InputText,
         TableGallery,
         Button,
+        Tag,
         Textarea,
         ScrollTop,
         TitlePage,
