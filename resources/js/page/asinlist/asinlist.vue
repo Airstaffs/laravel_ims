@@ -3739,7 +3739,147 @@
                             <span>Required Components (Seeds)</span>
                         </div>
                         <div class="pkg-card-body d-flex flex-column gap-2">
-                            <!-- Inherited global components (editable) -->
+                            <!-- ── Catalog search bar ── -->
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <InputText
+                                    v-model="suppliesCatalogSearch"
+                                    placeholder="Search supplies catalog by name or SKU…"
+                                    size="small"
+                                    class="flex-grow-1"
+                                />
+                                <span
+                                    v-if="suppliesCatalogLoading"
+                                    class="text-muted"
+                                    style="font-size: 12px"
+                                >
+                                    <i class="pi pi-spin pi-spinner"></i>
+                                    Loading…
+                                </span>
+                            </div>
+
+                            <!-- ── Catalog picker (scrollable dropdown list) ── -->
+                            <div
+                                v-if="
+                                    !suppliesCatalogLoading &&
+                                    filteredSuppliesCatalog.length
+                                "
+                                class="border rounded mb-2"
+                                style="
+                                    max-height: 180px;
+                                    overflow-y: auto;
+                                    background: #fafafa;
+                                "
+                            >
+                                <div
+                                    v-for="item in filteredSuppliesCatalog"
+                                    :key="'cat-' + item.id"
+                                    class="d-flex align-items-center gap-2 px-2 py-1"
+                                    style="
+                                        cursor: pointer;
+                                        border-bottom: 1px solid #eee;
+                                        font-size: 13px;
+                                    "
+                                    :style="
+                                        isAlreadyAdded(item)
+                                            ? 'opacity:.45; pointer-events:none;'
+                                            : ''
+                                    "
+                                    @click="addComponentFromCatalog(item)"
+                                >
+                                    <!-- Thumbnail -->
+                                    <img
+                                        v-if="item.img"
+                                        :src="resolveSupplyThumb(item)"
+                                        style="
+                                            width: 32px;
+                                            height: 32px;
+                                            object-fit: contain;
+                                            border-radius: 4px;
+                                            border: 1px solid #eee;
+                                        "
+                                        @error="
+                                            $event.target.style.display = 'none'
+                                        "
+                                    />
+                                    <div
+                                        v-else
+                                        style="
+                                            width: 32px;
+                                            height: 32px;
+                                            background: #eee;
+                                            border-radius: 4px;
+                                            display: flex;
+                                            align-items: center;
+                                            justify-content: center;
+                                            flex-shrink: 0;
+                                        "
+                                    >
+                                        <i
+                                            class="pi pi-box"
+                                            style="color: #bbb; font-size: 14px"
+                                        ></i>
+                                    </div>
+
+                                    <div
+                                        class="flex-grow-1"
+                                        style="min-width: 0"
+                                    >
+                                        <div
+                                            style="
+                                                font-weight: 600;
+                                                line-height: 1.2;
+                                                white-space: nowrap;
+                                                overflow: hidden;
+                                                text-overflow: ellipsis;
+                                            "
+                                        >
+                                            {{ item.name }}
+                                        </div>
+                                        <div
+                                            class="text-muted"
+                                            style="font-size: 11px"
+                                        >
+                                            {{ item.sku }} · {{ item.category }}
+                                        </div>
+                                    </div>
+
+                                    <i
+                                        v-if="isAlreadyAdded(item)"
+                                        class="pi pi-check-circle"
+                                        style="
+                                            color: #2e7d32;
+                                            font-size: 14px;
+                                            flex-shrink: 0;
+                                        "
+                                    ></i>
+                                    <i
+                                        v-else
+                                        class="pi pi-plus-circle"
+                                        style="
+                                            color: #0d6efd;
+                                            font-size: 14px;
+                                            flex-shrink: 0;
+                                        "
+                                    ></i>
+                                </div>
+                            </div>
+
+                            <!-- No results message -->
+                            <div
+                                v-else-if="
+                                    !suppliesCatalogLoading &&
+                                    suppliesCatalogSearch &&
+                                    !filteredSuppliesCatalog.length
+                                "
+                                class="text-muted mb-1"
+                                style="font-size: 12px"
+                            >
+                                No catalog items match "{{
+                                    suppliesCatalogSearch
+                                }}".
+                            </div>
+
+                            <!-- ── Inherited global components header ── -->
                             <template v-if="globalPackagingComponents.length">
                                 <div class="gc-module-inherited-header">
                                     <i class="pi pi-globe"></i>
@@ -3750,7 +3890,7 @@
                                 </div>
                             </template>
 
-                            <!-- ALL components -->
+                            <!-- ── Added components list (global-inherited + ASIN-specific + catalog-picked) ── -->
                             <div
                                 v-for="(comp, i) in packagingComponents"
                                 :key="'comp-' + i"
@@ -3760,7 +3900,22 @@
                                 }"
                             >
                                 <div class="pkg-comp-icon">
+                                    <img
+                                        v-if="comp.img"
+                                        :src="resolveSupplyThumb(comp)"
+                                        style="
+                                            width: 32px;
+                                            height: 32px;
+                                            object-fit: contain;
+                                            border-radius: 4px;
+                                            border: 1px solid #eee;
+                                        "
+                                        @error="
+                                            $event.target.style.display = 'none'
+                                        "
+                                    />
                                     <i
+                                        v-else
                                         class="pi pi-box"
                                         style="color: #aaa; font-size: 16px"
                                     ></i>
@@ -3786,6 +3941,23 @@
                                                 style="font-size: 10px"
                                             ></i>
                                             Global
+                                        </span>
+                                        <span
+                                            v-if="comp._fromCatalog"
+                                            style="
+                                                font-size: 10px;
+                                                background: #e3f2fd;
+                                                color: #1565c0;
+                                                padding: 1px 6px;
+                                                border-radius: 4px;
+                                                white-space: nowrap;
+                                            "
+                                        >
+                                            <i
+                                                class="pi pi-database"
+                                                style="font-size: 9px"
+                                            ></i>
+                                            Catalog
                                         </span>
                                     </div>
                                     <div class="d-flex gap-2">
@@ -3822,7 +3994,7 @@
                             </div>
 
                             <Button
-                                label="Add Component"
+                                label="Add Blank Component"
                                 icon="pi pi-plus"
                                 size="small"
                                 text
