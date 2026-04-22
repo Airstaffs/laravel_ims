@@ -897,13 +897,13 @@ export default {
                     icon: "success",
                     title: "Cleaning Complete! ✓",
                     html: `
-                <p>Work log saved successfully.</p>
-                <p>Moving <strong>${this.getDisplayTitle(item)}</strong>
-                to <strong>Packaging</strong>.</p>
-            `,
+                        <p>Work log saved successfully.</p>
+                        <p>Moving <strong>${this.getDisplayTitle(item)}</strong>
+                        to <strong>Validation</strong>.</p>
+                    `,
                     confirmButtonText: "OK",
                 });
-                await this.moveToPackaging(item);
+                await this.moveToValidation(item);
             } else {
                 Swal.fire({
                     icon: "success",
@@ -915,6 +915,66 @@ export default {
             }
 
             this.savingCleaningWorkLog = false;
+        },
+
+        // Move to Validation after cleaning done
+        async moveToValidation(item) {
+            // ✅ was moveToPackaging
+            if (!item?.ProductID) return;
+            try {
+                const csrfToken = document
+                    .querySelector('meta[name="csrf-token"]')
+                    .getAttribute("content");
+
+                Swal.fire({
+                    title: "Moving to Validation...", // ✅ was "Moving to Packaging..."
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    },
+                });
+
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/cleaning/move-to-validation`, // ✅ updated route
+                    {
+                        product_id: item.ProductID,
+                        rt_counter: item.rtcounter,
+                        current_location: "Cleaning",
+                        new_location: "Validation", // ✅ was "Packaging"
+                    },
+                    { headers: { "X-CSRF-TOKEN": csrfToken } },
+                );
+
+                Swal.close();
+
+                if (response.data.success) {
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Moved to Validation!", // ✅
+                        text: `Item ${item.rtcounter} successfully moved to Validation.`, // ✅
+                        confirmButtonText: "OK",
+                    });
+                    if (typeof this.fetchInventory === "function")
+                        this.fetchInventory();
+                } else {
+                    await Swal.fire({
+                        icon: "warning",
+                        title: "Failed",
+                        text:
+                            response.data.message ||
+                            "Failed to move item to Validation.", // ✅
+                    });
+                }
+            } catch (error) {
+                Swal.close();
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text:
+                        error.response?.data?.message ||
+                        "An error occurred while moving to Validation.", // ✅
+                });
+            }
         },
 
         // Move to Packaging after cleaning done

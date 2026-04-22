@@ -695,6 +695,88 @@
                     </div>
                 </template>
 
+                <template v-if="showValidationModule">
+                    <div
+                        class="wl-section-header"
+                        style="
+                            background: #f0fdf4;
+                            border-left: 4px solid #16a34a;
+                        "
+                    >
+                        <span>✅</span>
+                        <span
+                            >{{ validationModuleNumber }}. VALIDATION
+                            MODULE</span
+                        >
+                    </div>
+                    <div class="wl-section-body">
+                        <div
+                            v-if="validationWorkLogMeta.dateValidated"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Date Validated:</span>
+                            <span class="wl-field-value">{{
+                                validationWorkLogMeta.dateValidated
+                            }}</span>
+                        </div>
+                        <div
+                            v-if="validationWorkLogMeta.validatedBy"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Validated By:</span>
+                            <span class="wl-field-value">{{
+                                validationWorkLogMeta.validatedBy
+                            }}</span>
+                        </div>
+                        <div
+                            v-if="validationWorkLogMeta.status"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label"
+                                >Validation Status:</span
+                            >
+                            <span
+                                class="wl-field-value"
+                                :class="
+                                    validationWorkLogMeta.status === 'validated'
+                                        ? 'text-success'
+                                        : 'text-danger'
+                                "
+                            >
+                                {{
+                                    validationWorkLogMeta.status === "validated"
+                                        ? "Validated ✓"
+                                        : "Invalid ✗"
+                                }}
+                            </span>
+                        </div>
+                        <div
+                            v-if="validationWorkLogMeta.notes"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Notes:</span>
+                            <span class="wl-field-value">{{
+                                validationWorkLogMeta.notes
+                            }}</span>
+                        </div>
+                        <div
+                            v-if="
+                                !validationWorkLogMeta.dateValidated &&
+                                !validationWorkLogMeta.status
+                            "
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Work Log:</span>
+                            <span
+                                class="wl-field-value"
+                                style="color: #aaa; font-style: italic"
+                            >
+                                Not recorded yet
+                            </span>
+                        </div>
+                    </div>
+                </template>
+
                 <!-- Packaging Module (renumbered dynamically) -->
                 <template v-if="showPackagingModule">
                     <div
@@ -1032,8 +1114,27 @@ export default {
                 .filter((e) => e.value !== null && e.value !== "");
         },
 
-        // ── Dynamic module numbering ───────────────────────────────────────
-        // Cleaning and Packaging shift their number when Repair/Re-Testing exist
+        // ── Validation Module ──────────────────────────────────────────────
+        // In FullLog computed:
+        showValidationModule() {
+            return (
+                !!this.log?.date_validated ||
+                !!this.log?.validated_by ||
+                !!this.log?.validation_status
+            );
+        },
+
+        validationWorkLogMeta() {
+            return {
+                dateValidated: this.log?.date_validated || null,
+                validatedBy: this.log?.validated_by || null,
+                status: this.log?.validation_status || null,
+                notes: this.log?.validation_notes || null,
+            };
+        },
+
+        // ── Update dynamic numbering to account for Validation ────────────
+        // REPLACE the existing cleaningModuleNumber and packagingModuleNumber:
         cleaningModuleNumber() {
             let num = 4;
             if (this.showRepairModule) num++;
@@ -1041,8 +1142,12 @@ export default {
             return num;
         },
 
-        packagingModuleNumber() {
+        validationModuleNumber() {
             return this.cleaningModuleNumber + 1;
+        },
+
+        packagingModuleNumber() {
+            return this.validationModuleNumber + 1;
         },
 
         // ── Packaging Module ───────────────────────────────────────────────
@@ -1231,9 +1336,9 @@ export default {
 
             const section = (icon, title, bgColor, borderColor, rows) =>
                 `<div class="section">
-            <div class="section-head" style="background:${bgColor};border-left:4px solid ${borderColor}">${icon} ${title}</div>
-            <table>${rows}</table>
-        </div>`;
+                <div class="section-head" style="background:${bgColor};border-left:4px solid ${borderColor}">${icon} ${title}</div>
+                <table>${rows}</table>
+            </div>`;
 
             // 1. Received
             let receivedRows = "";
@@ -1512,6 +1617,42 @@ export default {
                 );
             }
 
+            // Validation
+            let validationSection = "";
+            if (this.showValidationModule) {
+                let rows = "";
+                if (this.validationWorkLogMeta.dateValidated)
+                    rows += row(
+                        "Date Validated",
+                        this.validationWorkLogMeta.dateValidated,
+                    );
+                if (this.validationWorkLogMeta.validatedBy)
+                    rows += row(
+                        "Validated By",
+                        this.validationWorkLogMeta.validatedBy,
+                    );
+                if (this.validationWorkLogMeta.status)
+                    rows += row(
+                        "Validation Status",
+                        this.validationWorkLogMeta.status === "validated"
+                            ? "Validated ✓"
+                            : "Invalid ✗",
+                        this.validationWorkLogMeta.status === "validated"
+                            ? "#16a34a"
+                            : "#dc2626",
+                    );
+                if (this.validationWorkLogMeta.notes)
+                    rows += row("Notes", this.validationWorkLogMeta.notes);
+
+                validationSection = section(
+                    "✅",
+                    `${this.validationModuleNumber}. VALIDATION MODULE`,
+                    "#f0fdf4",
+                    "#16a34a",
+                    rows,
+                );
+            }
+
             // Packaging
             let packagingSection = "";
             if (this.showPackagingModule) {
@@ -1547,67 +1688,68 @@ export default {
             }
 
             const html = `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Workflow Log — ${this.log.serialnumber || ""}</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1a1a2e; background: #fff; padding: 20px; }
-        .page-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 2px solid #1a1a2e; margin-bottom: 12px; }
-        .report-title { font-size: 18px; font-weight: 800; letter-spacing: 2px; }
-        .report-sub   { font-size: 11px; color: #64748b; margin-top: 3px; }
-        .serial-badge { background: #1a1a2e; color: #fff; padding: 8px 16px; border-radius: 6px; text-align: center; }
-        .serial-label { font-size: 8px; text-transform: uppercase; letter-spacing: 1px; opacity: .65; }
-        .serial-value { font-size: 14px; font-weight: 700; font-family: monospace; }
-        .meta-strip   { display: flex; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; margin-bottom: 14px; }
-        .meta-cell    { flex: 1; padding: 7px 10px; border-right: 1px solid #e2e8f0; }
-        .meta-cell:last-child { border-right: none; }
-        .meta-cell.wide { flex: 2; }
-        .meta-lbl     { font-size: 8px; text-transform: uppercase; letter-spacing: .8px; color: #94a3b8; font-weight: 600; }
-        .meta-val     { font-size: 11px; font-weight: 600; margin-top: 2px; }
-        .section      { margin-bottom: 10px; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; page-break-inside: avoid; }
-        .section-head { padding: 7px 12px; font-size: 11px; font-weight: 700; letter-spacing: .8px; }
-        table         { width: 100%; border-collapse: collapse; }
-        tr:nth-child(even) { background: #fafafa; }
-        td            { padding: 4px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
-        tr:last-child td { border-bottom: none; }
-        td.lbl        { width: 200px; font-size: 10px; color: #64748b; font-weight: 500; white-space: nowrap; }
-        td.val        { font-size: 11px; font-weight: 500; }
-        .badge        { background: #e0f2fe; color: #0369a1; font-size: 8px; padding: 1px 5px; border-radius: 3px; }
-        .print-footer { text-align: center; font-size: 9px; color: #94a3b8; margin-top: 16px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
-        @media print  { body { padding: 0; } @page { margin: 15mm; } }
-    </style>
-</head>
-<body>
-    <div class="page-header">
-        <div>
-            <div class="report-title">WORKFLOW LOG REPORT</div>
-            <div class="report-sub">Complete Item Processing History</div>
-        </div>
-        <div class="serial-badge">
-            <div class="serial-label">Serial Number</div>
-            <div class="serial-value">${this.log.serialnumber || "—"}</div>
-        </div>
-    </div>
-    <div class="meta-strip">
-        <div class="meta-cell"><div class="meta-lbl">ASIN</div><div class="meta-val">${this.logAsin || "—"}</div></div>
-        <div class="meta-cell"><div class="meta-lbl">FNSKU</div><div class="meta-val">${this.log.fnsku || this.log.FNSKU || "—"}</div></div>
-        <div class="meta-cell wide"><div class="meta-lbl">Product</div><div class="meta-val">${this.log.product_name || this.log.ProductTitle || "—"}</div></div>
-        <div class="meta-cell"><div class="meta-lbl">Date Received</div><div class="meta-val">${this.log.date_received || "—"}</div></div>
-        <div class="meta-cell"><div class="meta-lbl">Date Labelled</div><div class="meta-val">${this.log.date_labelled || this.log.lastDateUpdate || "—"}</div></div>
-        <div class="meta-cell"><div class="meta-lbl">RT#</div><div class="meta-val">${this.log.rtcounter || "—"}</div></div>
-    </div>
-    ${section("📦", "1. RECEIVED MODULE", "#eff6ff", "#1d4ed8", receivedRows)}
-    ${labellingSection}
-    ${testingSection}
-    ${repairSection}
-    ${retestSection}
-    ${cleaningSection}
-    ${packagingSection}
-    <div class="print-footer">Printed ${new Date().toLocaleString()} · Workflow Log Report · ${this.log.serialnumber || ""}</div>
-</body>
-</html>`;
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Workflow Log — ${this.log.serialnumber || ""}</title>
+                    <style>
+                        * { box-sizing: border-box; margin: 0; padding: 0; }
+                        body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1a1a2e; background: #fff; padding: 20px; }
+                        .page-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 2px solid #1a1a2e; margin-bottom: 12px; }
+                        .report-title { font-size: 18px; font-weight: 800; letter-spacing: 2px; }
+                        .report-sub   { font-size: 11px; color: #64748b; margin-top: 3px; }
+                        .serial-badge { background: #1a1a2e; color: #fff; padding: 8px 16px; border-radius: 6px; text-align: center; }
+                        .serial-label { font-size: 8px; text-transform: uppercase; letter-spacing: 1px; opacity: .65; }
+                        .serial-value { font-size: 14px; font-weight: 700; font-family: monospace; }
+                        .meta-strip   { display: flex; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; margin-bottom: 14px; }
+                        .meta-cell    { flex: 1; padding: 7px 10px; border-right: 1px solid #e2e8f0; }
+                        .meta-cell:last-child { border-right: none; }
+                        .meta-cell.wide { flex: 2; }
+                        .meta-lbl     { font-size: 8px; text-transform: uppercase; letter-spacing: .8px; color: #94a3b8; font-weight: 600; }
+                        .meta-val     { font-size: 11px; font-weight: 600; margin-top: 2px; }
+                        .section      { margin-bottom: 10px; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; page-break-inside: avoid; }
+                        .section-head { padding: 7px 12px; font-size: 11px; font-weight: 700; letter-spacing: .8px; }
+                        table         { width: 100%; border-collapse: collapse; }
+                        tr:nth-child(even) { background: #fafafa; }
+                        td            { padding: 4px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+                        tr:last-child td { border-bottom: none; }
+                        td.lbl        { width: 200px; font-size: 10px; color: #64748b; font-weight: 500; white-space: nowrap; }
+                        td.val        { font-size: 11px; font-weight: 500; }
+                        .badge        { background: #e0f2fe; color: #0369a1; font-size: 8px; padding: 1px 5px; border-radius: 3px; }
+                        .print-footer { text-align: center; font-size: 9px; color: #94a3b8; margin-top: 16px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
+                        @media print  { body { padding: 0; } @page { margin: 15mm; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="page-header">
+                        <div>
+                            <div class="report-title">WORKFLOW LOG REPORT</div>
+                            <div class="report-sub">Complete Item Processing History</div>
+                        </div>
+                        <div class="serial-badge">
+                            <div class="serial-label">Serial Number</div>
+                            <div class="serial-value">${this.log.serialnumber || "—"}</div>
+                        </div>
+                    </div>
+                    <div class="meta-strip">
+                        <div class="meta-cell"><div class="meta-lbl">ASIN</div><div class="meta-val">${this.logAsin || "—"}</div></div>
+                        <div class="meta-cell"><div class="meta-lbl">FNSKU</div><div class="meta-val">${this.log.fnsku || this.log.FNSKU || "—"}</div></div>
+                        <div class="meta-cell wide"><div class="meta-lbl">Product</div><div class="meta-val">${this.log.product_name || this.log.ProductTitle || "—"}</div></div>
+                        <div class="meta-cell"><div class="meta-lbl">Date Received</div><div class="meta-val">${this.log.date_received || "—"}</div></div>
+                        <div class="meta-cell"><div class="meta-lbl">Date Labelled</div><div class="meta-val">${this.log.date_labelled || this.log.lastDateUpdate || "—"}</div></div>
+                        <div class="meta-cell"><div class="meta-lbl">RT#</div><div class="meta-val">${this.log.rtcounter || "—"}</div></div>
+                    </div>
+                    ${section("📦", "1. RECEIVED MODULE", "#eff6ff", "#1d4ed8", receivedRows)}
+                    ${labellingSection}
+                    ${testingSection}
+                    ${repairSection}
+                    ${retestSection}
+                    ${cleaningSection}
+                    ${validationSection}
+                    ${packagingSection}
+                    <div class="print-footer">Printed ${new Date().toLocaleString()} · Workflow Log Report · ${this.log.serialnumber || ""}</div>
+                </body>
+                </html>`;
 
             const w = window.open("", "_blank", "width=900,height=700");
             w.document.write(html);

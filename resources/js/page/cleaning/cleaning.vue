@@ -909,7 +909,7 @@
                                 All cleaning tasks completed?
                             </p>
                             <p class="cwl-completion-sub">
-                                Item will proceed to Packaging module
+                                Item will proceed to Validation module
                             </p>
                         </div>
                         <Button

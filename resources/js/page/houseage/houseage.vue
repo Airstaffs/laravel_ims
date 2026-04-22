@@ -1669,6 +1669,12 @@ export default {
                 cleaning_done: data.cleaning_done ?? null,
                 cleaning_category_values: data.cleaning_category_values ?? null,
 
+                // ── Validation work log ────────────────────────────────────────────
+                validated_by: data.validated_by ?? null,
+                date_validated: data.date_validated ?? null,
+                validation_status: data.validation_status ?? null,
+                validation_notes: data.validation_notes ?? null,
+
                 // ── Packaging work log ─────────────────────────────────────────────
                 pkg_packed_by: data.packed_by ?? null,
                 pkg_date_packed: data.date_packed ?? null,
