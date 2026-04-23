@@ -209,12 +209,9 @@ export default {
 
         filteredSuppliesCatalog() {
             const q = this.suppliesCatalogSearch.trim().toLowerCase();
-            if (!q) return this.suppliesCatalog;
-            return this.suppliesCatalog.filter(
-                (item) =>
-                    item.name.toLowerCase().includes(q) ||
-                    item.sku.toLowerCase().includes(q) ||
-                    item.category.toLowerCase().includes(q),
+            if (!q) return [];
+            return this.suppliesCatalog.filter((item) =>
+                String(item.sku).toLowerCase().includes(q),
             );
         },
     },
@@ -2010,8 +2007,8 @@ export default {
                     name: item.product_title,
                     sku: item.rt_counter || "",
                     category: item.category,
-                    img: item.img1 || null,
-                    img1Source: item.img1_source || null,
+                    img: item.img1 || item.img2 || item.img3 || null, // ← walks img1–img3 for first available
+                    img1_source: item.img1_source || null,
                 }));
             } catch (e) {
                 console.error("Failed to load supplies catalog:", e);
