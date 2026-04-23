@@ -182,7 +182,7 @@
             window.defaultComponent = "{{ $defaultModule }}";
             window.mainModule = "{{ $mainModule }}";
             window.allowedModules = @json($subModules);
-            window.customModules = ['printcustominvoice', 'fbashipmentinbound', 'mskucreation', 'scheduling', 'itemchecker'];
+            window.customModules = ['printcustominvoice', 'fbashipmentinbound', 'mskucreation', 'scheduling', 'itemchecker', 'findr'];
 
             console.log('Session Modules:', {
                 defaultComponent: window.defaultComponent,

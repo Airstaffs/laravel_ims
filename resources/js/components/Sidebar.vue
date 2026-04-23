@@ -164,6 +164,7 @@ const asinSubItems = ref([
 // Utility Scanner submenu items
 const utilScannerSubItems = ref([
     { id: "itemchecker", label: "Item Checker", icon: "pi-search" },
+    { id: "findr", label: "Findr", icon: "pi-search" },
 ]);
 
 // Module names
@@ -173,6 +174,7 @@ const modules = ref({
     asinoption: "Asin Option",
     util_scanner: "Utility Scanner",
     itemchecker: "Item Checker",
+    findr: "Findr",
     unreceived: "Unreceived",
     receiving: "Received",
     labeling: "Labeling",
@@ -208,6 +210,7 @@ const moduleIcons = {
     asinoption: "pi-list",
     util_scanner: "pi-wrench",
     itemchecker: "pi-search",
+    findr: "pi-search",
     unreceived: "pi-inbox",
     receiving: "pi-download",
     labeling: "pi-tag",
