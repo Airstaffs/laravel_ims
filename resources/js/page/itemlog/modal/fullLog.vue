@@ -695,6 +695,88 @@
                     </div>
                 </template>
 
+                <template v-if="showValidationModule">
+                    <div
+                        class="wl-section-header"
+                        style="
+                            background: #f0fdf4;
+                            border-left: 4px solid #16a34a;
+                        "
+                    >
+                        <span>✅</span>
+                        <span
+                            >{{ validationModuleNumber }}. VALIDATION
+                            MODULE</span
+                        >
+                    </div>
+                    <div class="wl-section-body">
+                        <div
+                            v-if="validationWorkLogMeta.dateValidated"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Date Validated:</span>
+                            <span class="wl-field-value">{{
+                                validationWorkLogMeta.dateValidated
+                            }}</span>
+                        </div>
+                        <div
+                            v-if="validationWorkLogMeta.validatedBy"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Validated By:</span>
+                            <span class="wl-field-value">{{
+                                validationWorkLogMeta.validatedBy
+                            }}</span>
+                        </div>
+                        <div
+                            v-if="validationWorkLogMeta.status"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label"
+                                >Validation Status:</span
+                            >
+                            <span
+                                class="wl-field-value"
+                                :class="
+                                    validationWorkLogMeta.status === 'validated'
+                                        ? 'text-success'
+                                        : 'text-danger'
+                                "
+                            >
+                                {{
+                                    validationWorkLogMeta.status === "validated"
+                                        ? "Validated ✓"
+                                        : "Invalid ✗"
+                                }}
+                            </span>
+                        </div>
+                        <div
+                            v-if="validationWorkLogMeta.notes"
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Notes:</span>
+                            <span class="wl-field-value">{{
+                                validationWorkLogMeta.notes
+                            }}</span>
+                        </div>
+                        <div
+                            v-if="
+                                !validationWorkLogMeta.dateValidated &&
+                                !validationWorkLogMeta.status
+                            "
+                            class="wl-field"
+                        >
+                            <span class="wl-field-label">Work Log:</span>
+                            <span
+                                class="wl-field-value"
+                                style="color: #aaa; font-style: italic"
+                            >
+                                Not recorded yet
+                            </span>
+                        </div>
+                    </div>
+                </template>
+
                 <!-- Packaging Module (renumbered dynamically) -->
                 <template v-if="showPackagingModule">
                     <div
@@ -788,7 +870,7 @@
                     label="Print"
                     icon="pi pi-print"
                     class="p-button-success"
-                    @click="$emit('print', log)"
+                    @click="printLog"
                 />
                 <Button
                     label="Close"
@@ -802,7 +884,8 @@
 </template>
 
 <script>
-import { Button, Dialog } from "primevue";
+import Button from "primevue/button";
+import Dialog from "primevue/dialog";
 
 export default {
     name: "FullLog",
@@ -1031,8 +1114,27 @@ export default {
                 .filter((e) => e.value !== null && e.value !== "");
         },
 
-        // ── Dynamic module numbering ───────────────────────────────────────
-        // Cleaning and Packaging shift their number when Repair/Re-Testing exist
+        // ── Validation Module ──────────────────────────────────────────────
+        // In FullLog computed:
+        showValidationModule() {
+            return (
+                !!this.log?.date_validated ||
+                !!this.log?.validated_by ||
+                !!this.log?.validation_status
+            );
+        },
+
+        validationWorkLogMeta() {
+            return {
+                dateValidated: this.log?.date_validated || null,
+                validatedBy: this.log?.validated_by || null,
+                status: this.log?.validation_status || null,
+                notes: this.log?.validation_notes || null,
+            };
+        },
+
+        // ── Update dynamic numbering to account for Validation ────────────
+        // REPLACE the existing cleaningModuleNumber and packagingModuleNumber:
         cleaningModuleNumber() {
             let num = 4;
             if (this.showRepairModule) num++;
@@ -1040,8 +1142,12 @@ export default {
             return num;
         },
 
-        packagingModuleNumber() {
+        validationModuleNumber() {
             return this.cleaningModuleNumber + 1;
+        },
+
+        packagingModuleNumber() {
+            return this.validationModuleNumber + 1;
         },
 
         // ── Packaging Module ───────────────────────────────────────────────
@@ -1197,6 +1303,462 @@ export default {
                 v.includes("broken") ||
                 v.includes("issue")
             );
+        },
+
+        printLog() {
+            if (!this.log) return;
+
+            const pass = (v) => {
+                if (!v) return false;
+                const s = String(v).toLowerCase();
+                return (
+                    s.includes("ok") ||
+                    s.includes("pass") ||
+                    s.includes("good") ||
+                    s === "true"
+                );
+            };
+            const fail = (v) => {
+                if (!v) return false;
+                const s = String(v).toLowerCase();
+                return (
+                    s.includes("fail") ||
+                    s.includes("bad") ||
+                    s.includes("broken") ||
+                    s.includes("issue")
+                );
+            };
+            const color = (v) =>
+                pass(v) ? "#16a34a" : fail(v) ? "#dc2626" : "#0f172a";
+
+            const row = (label, value, valueColor) =>
+                `<tr><td class="lbl">${label}</td><td class="val" style="color:${valueColor || "#0f172a"}">${value ?? "—"}</td></tr>`;
+
+            const section = (icon, title, bgColor, borderColor, rows) =>
+                `<div class="section">
+                <div class="section-head" style="background:${bgColor};border-left:4px solid ${borderColor}">${icon} ${title}</div>
+                <table>${rows}</table>
+            </div>`;
+
+            // 1. Received
+            let receivedRows = "";
+            receivedRows += row("Date Received", this.log.date_received);
+            receivedRows += row("Tracking Number", this.log.trackingnumber);
+            this.parsedSerials.forEach((sn, i) => {
+                receivedRows += row(
+                    `Serial Number${i > 0 ? " " + (i + 1) : ""}`,
+                    sn,
+                );
+            });
+            if (!this.parsedSerials.length)
+                receivedRows += row("Serial Number", "—");
+            receivedRows += row(
+                "Working / Not Working",
+                this.log.pass_fail_result === "pass"
+                    ? "Working ✓"
+                    : "Not Working ✗",
+                this.log.pass_fail_result === "pass" ? "#16a34a" : "#dc2626",
+            );
+            receivedRows += row("Received By", this.log.received_by);
+            receivedRows += row(
+                "Item Correct on Order",
+                this.log.correct_on_order === "yes" ? "Yes ✓" : "No ✗",
+                this.log.correct_on_order === "yes" ? "#16a34a" : "#dc2626",
+            );
+            receivedRows += row(
+                "Condition on Arrival",
+                (this.log.condition_on_arrival || "—") +
+                    (this.log.condition_on_arrival === "good" ? " ✓" : ""),
+            );
+            if (this.log.condition_notes)
+                receivedRows += row(
+                    "Condition Notes",
+                    this.log.condition_notes,
+                );
+            receivedRows += row("PCN", this.log.pcn_number || this.log.PCN);
+            receivedRows += row(
+                "Basket",
+                this.log.basket_number || this.log.basketnumber,
+            );
+
+            // 2. Labelling
+            let labellingSection = "";
+            if (this.log.passed_labeling || this.log.MSKUviewer) {
+                let rows = "";
+                rows += row(
+                    "Date Labelled",
+                    this.log.date_labelled || this.log.lastDateUpdate,
+                );
+                rows += row(
+                    "Labelled By",
+                    this.log.labelled_by || this.log.Username,
+                );
+                rows += row("FNSKU", this.log.fnsku || this.log.FNSKU);
+                rows += row("ASIN", this.logAsin);
+                rows += row("MSKU", this.log.msku || this.log.MSKU);
+                rows += row("RPN", this.log.rpn || this.log.RPN);
+                rows += row("PRD", this.log.prd || this.log.PRD);
+                rows += row(
+                    "Priority Rank",
+                    this.log.priority_rank || this.log.priorityrank,
+                );
+                if (this.log.sticker_note || this.log.stickernote)
+                    rows += row(
+                        "Sticker Notes",
+                        this.log.sticker_note || this.log.stickernote,
+                    );
+                if (this.log.employee_note || this.log.EmployeeNote)
+                    rows += row(
+                        "Employee Notes",
+                        this.log.employee_note || this.log.EmployeeNote,
+                    );
+                rows += row(
+                    "Current Location",
+                    this.log.current_location || this.log.ProductModuleLoc,
+                );
+                if (this.log.last_edited_at) {
+                    rows += row("Last Edited", this.log.last_edited_at);
+                    rows += row("Edited By", this.log.last_edited_by);
+                    if (this.log.edit_before)
+                        rows += row("Before Edit", this.log.edit_before);
+                    if (this.log.edit_after)
+                        rows += row("After Edit", this.log.edit_after);
+                }
+                if (this.log.moved_to_validation_at) {
+                    rows += row(
+                        "Moved to Validation",
+                        this.log.moved_to_validation_at,
+                        "#16a34a",
+                    );
+                    rows += row("Moved by", this.log.moved_to_validation_by);
+                }
+                if (this.log.moved_to_stockroom_at) {
+                    rows += row(
+                        "Moved to Stockroom",
+                        this.log.moved_to_stockroom_at,
+                        "#16a34a",
+                    );
+                    rows += row("Moved by", this.log.moved_to_stockroom_by);
+                }
+                this.asinConfigFields.forEach((f) => {
+                    rows += row(
+                        f.label +
+                            (f._fromGlobal
+                                ? ' <span class="badge">Global</span>'
+                                : ""),
+                        f.defaultValue || "—",
+                    );
+                });
+                labellingSection = section(
+                    "🏷️",
+                    "2. LABELLING MODULE",
+                    "#f0fdf4",
+                    "#16a34a",
+                    rows,
+                );
+            }
+
+            // 3. Testing
+            let testingSection = "";
+            if (this.showTestingModule) {
+                let rows = "";
+                rows += row("Status", "Completed ✓", "#16a34a");
+                rows += row(
+                    "Current Location",
+                    this.log.current_location || this.log.ProductModuleLoc,
+                );
+                if (this.testingWorkLogMeta.testResult)
+                    rows += row(
+                        "Test Result",
+                        this.testingWorkLogMeta.testResult === "pass"
+                            ? "PASS ✓"
+                            : "FAIL ✗",
+                        this.testingWorkLogMeta.testResult === "pass"
+                            ? "#16a34a"
+                            : "#dc2626",
+                    );
+                if (this.testingWorkLogMeta.dateTested)
+                    rows += row(
+                        "Date Tested",
+                        this.testingWorkLogMeta.dateTested,
+                    );
+                if (this.testingWorkLogMeta.tester)
+                    rows += row("Tester", this.testingWorkLogMeta.tester);
+                this.testingWorkLogEntries.forEach((e) => {
+                    rows += row(
+                        e.label +
+                            (e._fromGlobal
+                                ? ' <span class="badge">Global</span>'
+                                : ""),
+                        e.value || "—",
+                        color(e.value),
+                    );
+                });
+                testingSection = section(
+                    "🔬",
+                    "3. TESTING MODULE",
+                    "#faf5ff",
+                    "#7c3aed",
+                    rows,
+                );
+            }
+
+            // 4. Repair
+            let repairSection = "";
+            if (this.showRepairModule) {
+                let rows = "";
+                if (this.repairWorkLogMeta.dateRepaired)
+                    rows += row(
+                        "Date Repaired",
+                        this.repairWorkLogMeta.dateRepaired,
+                    );
+                if (this.repairWorkLogMeta.repairedBy)
+                    rows += row(
+                        "Repaired By",
+                        this.repairWorkLogMeta.repairedBy,
+                    );
+                if (this.repairFailedItems.length)
+                    rows += row(
+                        "Failed Items from Testing",
+                        this.repairFailedItems.join(", "),
+                    );
+                this.repairCategoryEntries.forEach((e) => {
+                    rows += row(`Repair Action — ${e.name}`, e.status || "—");
+                    if (e.notes)
+                        rows += row(`Repair Notes — ${e.name}`, e.notes);
+                });
+                if (this.repairWorkLogMeta.markDone)
+                    rows += row(
+                        "Repair Status",
+                        "Done — Returned to Testing",
+                        "#16a34a",
+                    );
+                repairSection = section(
+                    "🔧",
+                    "4. REPAIR MODULE",
+                    "#fff8f0",
+                    "#e65100",
+                    rows,
+                );
+            }
+
+            // 5. Re-Testing
+            let retestSection = "";
+            if (this.showReTestingModule) {
+                let rows = "";
+                if (this.reTestingWorkLogMeta.dateRetested)
+                    rows += row(
+                        "Date Re-tested",
+                        this.reTestingWorkLogMeta.dateRetested,
+                    );
+                if (this.reTestingWorkLogMeta.tester)
+                    rows += row("Tester", this.reTestingWorkLogMeta.tester);
+                if (this.reTestingScope.length)
+                    rows += row(
+                        "Re-test Scope",
+                        this.reTestingScope.join(", ") +
+                            " (repaired items only)",
+                    );
+                this.reTestingEntries.forEach((e) => {
+                    rows += row(
+                        e.label,
+                        (e.value || "—") + (pass(e.value) ? " ✓" : ""),
+                        color(e.value),
+                    );
+                });
+                if (this.reTestingWorkLogMeta.testResult)
+                    rows += row(
+                        "Re-test Result",
+                        this.reTestingWorkLogMeta.testResult === "pass"
+                            ? "PASS — All Repairs Successful"
+                            : "FAIL — Further Repair Needed",
+                        this.reTestingWorkLogMeta.testResult === "pass"
+                            ? "#16a34a"
+                            : "#dc2626",
+                    );
+                retestSection = section(
+                    "🔁",
+                    "5. RE-TESTING MODULE",
+                    "#f0fff4",
+                    "#16a34a",
+                    rows,
+                );
+            }
+
+            // Cleaning
+            let cleaningSection = "";
+            if (this.showCleaningModule) {
+                let rows = "";
+                if (this.cleaningWorkLogMeta.dateCleaned)
+                    rows += row(
+                        "Date Cleaned",
+                        this.cleaningWorkLogMeta.dateCleaned,
+                    );
+                if (this.cleaningWorkLogMeta.cleanedBy)
+                    rows += row(
+                        "Cleaned By",
+                        this.cleaningWorkLogMeta.cleanedBy,
+                    );
+                this.cleaningCategoryEntries.forEach((e) => {
+                    rows += row(
+                        e.name,
+                        (e.status || "—") +
+                            (e.notes
+                                ? ` — <span style="color:#64748b;font-size:11px">${e.notes}</span>`
+                                : ""),
+                    );
+                });
+                cleaningSection = section(
+                    "🧹",
+                    `${this.cleaningModuleNumber}. CLEANING MODULE`,
+                    "#f0f9ff",
+                    "#0369a1",
+                    rows,
+                );
+            }
+
+            // Validation
+            let validationSection = "";
+            if (this.showValidationModule) {
+                let rows = "";
+                if (this.validationWorkLogMeta.dateValidated)
+                    rows += row(
+                        "Date Validated",
+                        this.validationWorkLogMeta.dateValidated,
+                    );
+                if (this.validationWorkLogMeta.validatedBy)
+                    rows += row(
+                        "Validated By",
+                        this.validationWorkLogMeta.validatedBy,
+                    );
+                if (this.validationWorkLogMeta.status)
+                    rows += row(
+                        "Validation Status",
+                        this.validationWorkLogMeta.status === "validated"
+                            ? "Validated ✓"
+                            : "Invalid ✗",
+                        this.validationWorkLogMeta.status === "validated"
+                            ? "#16a34a"
+                            : "#dc2626",
+                    );
+                if (this.validationWorkLogMeta.notes)
+                    rows += row("Notes", this.validationWorkLogMeta.notes);
+
+                validationSection = section(
+                    "✅",
+                    `${this.validationModuleNumber}. VALIDATION MODULE`,
+                    "#f0fdf4",
+                    "#16a34a",
+                    rows,
+                );
+            }
+
+            // Packaging
+            let packagingSection = "";
+            if (this.showPackagingModule) {
+                let rows = "";
+                if (this.packagingWorkLogMeta.datePacked)
+                    rows += row(
+                        "Date Packaged",
+                        this.packagingWorkLogMeta.datePacked,
+                    );
+                if (this.packagingWorkLogMeta.packedBy)
+                    rows += row(
+                        "Packaged By",
+                        this.packagingWorkLogMeta.packedBy,
+                    );
+                if (this.packagingIncludedComponents.length)
+                    rows += row(
+                        "Components Included",
+                        this.packagingIncludedComponents.join(", "),
+                    );
+                if (this.packagingBoxSpecs.size)
+                    rows += row("Box Size", this.packagingBoxSpecs.size);
+                if (this.packagingBoxSpecs.type)
+                    rows += row("Box Type", this.packagingBoxSpecs.type);
+                if (this.packagingNotes)
+                    rows += row("Notes", this.packagingNotes);
+                packagingSection = section(
+                    "📦",
+                    `${this.packagingModuleNumber}. PACKAGING MODULE`,
+                    "#fdf2f8",
+                    "#e91e8c",
+                    rows,
+                );
+            }
+
+            const html = `<!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Workflow Log — ${this.log.serialnumber || ""}</title>
+                    <style>
+                        * { box-sizing: border-box; margin: 0; padding: 0; }
+                        body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1a1a2e; background: #fff; padding: 20px; }
+                        .page-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 2px solid #1a1a2e; margin-bottom: 12px; }
+                        .report-title { font-size: 18px; font-weight: 800; letter-spacing: 2px; }
+                        .report-sub   { font-size: 11px; color: #64748b; margin-top: 3px; }
+                        .serial-badge { background: #1a1a2e; color: #fff; padding: 8px 16px; border-radius: 6px; text-align: center; }
+                        .serial-label { font-size: 8px; text-transform: uppercase; letter-spacing: 1px; opacity: .65; }
+                        .serial-value { font-size: 14px; font-weight: 700; font-family: monospace; }
+                        .meta-strip   { display: flex; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; margin-bottom: 14px; }
+                        .meta-cell    { flex: 1; padding: 7px 10px; border-right: 1px solid #e2e8f0; }
+                        .meta-cell:last-child { border-right: none; }
+                        .meta-cell.wide { flex: 2; }
+                        .meta-lbl     { font-size: 8px; text-transform: uppercase; letter-spacing: .8px; color: #94a3b8; font-weight: 600; }
+                        .meta-val     { font-size: 11px; font-weight: 600; margin-top: 2px; }
+                        .section      { margin-bottom: 10px; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; page-break-inside: avoid; }
+                        .section-head { padding: 7px 12px; font-size: 11px; font-weight: 700; letter-spacing: .8px; }
+                        table         { width: 100%; border-collapse: collapse; }
+                        tr:nth-child(even) { background: #fafafa; }
+                        td            { padding: 4px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+                        tr:last-child td { border-bottom: none; }
+                        td.lbl        { width: 200px; font-size: 10px; color: #64748b; font-weight: 500; white-space: nowrap; }
+                        td.val        { font-size: 11px; font-weight: 500; }
+                        .badge        { background: #e0f2fe; color: #0369a1; font-size: 8px; padding: 1px 5px; border-radius: 3px; }
+                        .print-footer { text-align: center; font-size: 9px; color: #94a3b8; margin-top: 16px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
+                        @media print  { body { padding: 0; } @page { margin: 15mm; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="page-header">
+                        <div>
+                            <div class="report-title">WORKFLOW LOG REPORT</div>
+                            <div class="report-sub">Complete Item Processing History</div>
+                        </div>
+                        <div class="serial-badge">
+                            <div class="serial-label">Serial Number</div>
+                            <div class="serial-value">${this.log.serialnumber || "—"}</div>
+                        </div>
+                    </div>
+                    <div class="meta-strip">
+                        <div class="meta-cell"><div class="meta-lbl">ASIN</div><div class="meta-val">${this.logAsin || "—"}</div></div>
+                        <div class="meta-cell"><div class="meta-lbl">FNSKU</div><div class="meta-val">${this.log.fnsku || this.log.FNSKU || "—"}</div></div>
+                        <div class="meta-cell wide"><div class="meta-lbl">Product</div><div class="meta-val">${this.log.product_name || this.log.ProductTitle || "—"}</div></div>
+                        <div class="meta-cell"><div class="meta-lbl">Date Received</div><div class="meta-val">${this.log.date_received || "—"}</div></div>
+                        <div class="meta-cell"><div class="meta-lbl">Date Labelled</div><div class="meta-val">${this.log.date_labelled || this.log.lastDateUpdate || "—"}</div></div>
+                        <div class="meta-cell"><div class="meta-lbl">RT#</div><div class="meta-val">${this.log.rtcounter || "—"}</div></div>
+                    </div>
+                    ${section("📦", "1. RECEIVED MODULE", "#eff6ff", "#1d4ed8", receivedRows)}
+                    ${labellingSection}
+                    ${testingSection}
+                    ${repairSection}
+                    ${retestSection}
+                    ${cleaningSection}
+                    ${validationSection}
+                    ${packagingSection}
+                    <div class="print-footer">Printed ${new Date().toLocaleString()} · Workflow Log Report · ${this.log.serialnumber || ""}</div>
+                </body>
+                </html>`;
+
+            const w = window.open("", "_blank", "width=900,height=700");
+            w.document.write(html);
+            w.document.close();
+            w.focus();
+            setTimeout(() => {
+                w.print();
+                w.close();
+            }, 400);
         },
     },
 

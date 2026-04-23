@@ -142,6 +142,11 @@ export default {
             // Inherited preview toggle (inside per-ASIN config dialog)
             showInheritedPreview: false,
             savingFnskuLimitFor: null,
+
+            // Supplies/Components catalog for packaging seeds
+            suppliesCatalog: [],
+            suppliesCatalogLoading: false,
+            suppliesCatalogSearch: "",
         };
     },
 
@@ -199,6 +204,17 @@ export default {
                 this.globalRepairFields.length +
                 this.globalCleaningFields.length +
                 this.globalPackagingComponents.length
+            );
+        },
+
+        filteredSuppliesCatalog() {
+            const q = this.suppliesCatalogSearch.trim().toLowerCase();
+            if (!q) return this.suppliesCatalog;
+            return this.suppliesCatalog.filter(
+                (item) =>
+                    item.name.toLowerCase().includes(q) ||
+                    item.sku.toLowerCase().includes(q) ||
+                    item.category.toLowerCase().includes(q),
             );
         },
     },
@@ -1372,6 +1388,8 @@ export default {
             this.showInheritedPreview = false;
 
             this.selectedConfig = data;
+            this.suppliesCatalogSearch = "";
+            this.fetchSuppliesCatalog();
             this.showASINConfig = true;
 
             // Load global defaults first (populates hasGlobalConfig / globalInheritedCount)
@@ -1975,6 +1993,63 @@ export default {
         getUniqueStores(fnskus) {
             if (!fnskus?.length) return [];
             return [...new Set(fnskus.map((f) => f.storename).filter(Boolean))];
+        },
+
+        async fetchSuppliesCatalog() {
+            this.suppliesCatalogLoading = true;
+            try {
+                const res = await axios.get(
+                    `${API_BASE_URL}/api/supplies-components`,
+                    {
+                        params: { per_page: 200, page: 1 },
+                        withCredentials: true,
+                    },
+                );
+                this.suppliesCatalog = (res.data.data || []).map((item) => ({
+                    id: item.product_id,
+                    name: item.product_title,
+                    sku: item.rt_counter || "",
+                    category: item.category,
+                    img: item.img1 || null,
+                    img1Source: item.img1_source || null,
+                }));
+            } catch (e) {
+                console.error("Failed to load supplies catalog:", e);
+                this.suppliesCatalog = [];
+            } finally {
+                this.suppliesCatalogLoading = false;
+            }
+        },
+
+        // Prevent adding the same item twice
+        isAlreadyAdded(catalogItem) {
+            return this.packagingComponents.some(
+                (c) => c.sku === catalogItem.sku && c.name === catalogItem.name,
+            );
+        },
+
+        // One-click add from catalog row
+        addComponentFromCatalog(catalogItem) {
+            if (this.isAlreadyAdded(catalogItem)) return;
+            this.packagingComponents.push({
+                name: catalogItem.name,
+                sku: catalogItem.sku,
+                qty: 1,
+                note: "",
+                img: catalogItem.img,
+                img1Source: catalogItem.img1Source,
+                _fromCatalog: true,
+            });
+        },
+
+        // Resolve thumbnail path the same way SuppliesComponents does
+        resolveSupplyThumb(item) {
+            if (!item.img) return null;
+            if (item.img.startsWith("http")) return item.img;
+            const base = window.location.origin;
+            return item.img1Source === "captured"
+                ? `${base}/images/product_images/Airstaffs/${item.img}`
+                : `${base}/images/thumbnails/${item.img}`;
         },
     },
 

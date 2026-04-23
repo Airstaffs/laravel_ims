@@ -71,6 +71,11 @@ class HouseageController extends BasetablesController
                 'cwl.date_cleaned',
                 'cwl.mark_done as cleaning_done',
                 DB::raw('cwl.category_values as cleaning_category_values'),
+                // ── Validation ─────────────────────────────────────────────────────────────
+                'vwl.validated_by',
+                'vwl.date_validated',
+                'vwl.validation_status',
+                'vwl.notes as validation_notes',
                 // ── Packaging ──────────────────────────────────────────────────────────
                 'pwl.packed_by',
                 'pwl.date_packed',
@@ -131,6 +136,11 @@ class HouseageController extends BasetablesController
                         '=',
                         DB::raw('CONVERT(cwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
                     )
+                    ->leftJoin('tblvalidationlogs as vwl',
+                        DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
+                        '=',
+                        DB::raw('CONVERT(vwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+                    )
                     ->leftJoin('tblpackagingworklogs as pwl',
                         DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
                         '=',
@@ -162,20 +172,23 @@ class HouseageController extends BasetablesController
                     ->leftJoin('tblfnsku as fnsku', 'prod.MSKUviewer', '=', 'fnsku.MSKU')
                     ->leftJoin('tblasin as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                     ->leftJoin('tblEbayOrderImages as ebayimgs', 'prod.ProductID', '=', 'ebayimgs.ProductID')
-                    // Initial test
                     ->leftJoin('tbltestingworklogs as twl', $twlJoin)
-                    // Repair
                     ->leftJoin('tblrepairworklogs as rwl',
                         DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
                         '=',
                         DB::raw('CONVERT(rwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
                     )
-                    // Re-test
                     ->leftJoin('tbltestingworklogs as rtwl', $rtwlJoin)
                     ->leftJoin('tblcleaningWorkLogs as cwl',
                         DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
                         '=',
                         DB::raw('CONVERT(cwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+                    )
+                    // ✅ Validation join
+                    ->leftJoin('tblvalidationlogs as vwl',
+                        DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
+                        '=',
+                        DB::raw('CONVERT(vwl.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci')
                     )
                     ->leftJoin('tblpackagingworklogs as pwl',
                         DB::raw('CONVERT(prod.rtcounter USING utf8mb4) COLLATE utf8mb4_unicode_ci'),
@@ -191,10 +204,10 @@ class HouseageController extends BasetablesController
                         'fnsku.grading',
                         'fnsku.storename',
                         DB::raw("COALESCE(
-                        NULLIF(TRIM(asin.system_title), ''),
-                        NULLIF(TRIM(asin.internal), ''),
-                        NULLIF(TRIM(prod.ProductTitle), '')
-                    ) as AStitle"),
+                NULLIF(TRIM(asin.system_title), ''),
+                NULLIF(TRIM(asin.internal), ''),
+                NULLIF(TRIM(prod.ProductTitle), '')
+            ) as AStitle"),
                         'asin.internal',
                         'asin.system_title',
                         'asin.metakeyword',

@@ -13,143 +13,143 @@ class SuppliesComponentsController extends BasetablesController
     /**
      * Get paginated items from tblproduct only
      */
-  
-public function index(Request $request)
-{
-    try {
-        $perPage  = $request->input('per_page', 10);
-        $page     = $request->input('page', 1);
-        $search   = $request->input('search', '');
-        $category = $request->input('category', '');
+    public function index(Request $request)
+    {
+        try {
+            $perPage = $request->input('per_page', 10);
+            $page = $request->input('page', 1);
+            $search = $request->input('search', '');
+            $category = $request->input('category', '');
 
-        $query = DB::table('tblproduct as p')
-            ->leftJoin($this->capturedImagesTable.' as img', 'p.ProductID', '=', 'img.ProductID')
-            // ✅ Always join — needed for thumbnail fallback
-            ->leftJoin('tblEbayOrderImages as ebayimgs',     'p.ProductID', '=', 'ebayimgs.ProductID')
-            ->select(
-                'p.ProductID',
-                'p.rtcounter',
-                'p.ProductTitle',
-                'p.quantity',
-                'p.orderdate',
-                'p.datedelivered',
-                'p.ProductModuleLoc',
-                // ✅ eBay order images — fallback when no captured images exist
-                'ebayimgs.img1',  'ebayimgs.img2',  'ebayimgs.img3',
-                'ebayimgs.img4',  'ebayimgs.img5',  'ebayimgs.img6',
-                'ebayimgs.img7',  'ebayimgs.img8',  'ebayimgs.img9',
-                'ebayimgs.img10', 'ebayimgs.img11', 'ebayimgs.img12',
-                'ebayimgs.img13', 'ebayimgs.img14', 'ebayimgs.img15',
-                // Captured images
-                'img.capturedimg1',  'img.capturedimg2',  'img.capturedimg3',
-                'img.capturedimg4',  'img.capturedimg5',  'img.capturedimg6',
-                'img.capturedimg7',  'img.capturedimg8',  'img.capturedimg9',
-                'img.capturedimg10', 'img.capturedimg11', 'img.capturedimg12',
-                'img.serialimg1',    'img.serialimg2',
-                'img.trackingimg1',  'img.trackingimg2'
-            )
-            ->whereIn('p.ProductModuleLoc', self::CATEGORIES);
+            $query = DB::table('tblproduct as p')
+                ->leftJoin($this->capturedImagesTable.' as img', 'p.ProductID', '=', 'img.ProductID')
+                // ✅ Always join — needed for thumbnail fallback
+                ->leftJoin('tblEbayOrderImages as ebayimgs', 'p.ProductID', '=', 'ebayimgs.ProductID')
+                ->select(
+                    'p.ProductID',
+                    'p.rtcounter',
+                    'p.ProductTitle',
+                    'p.quantity',
+                    'p.orderdate',
+                    'p.datedelivered',
+                    'p.ProductModuleLoc',
+                    // ✅ eBay order images — fallback when no captured images exist
+                    'ebayimgs.img1', 'ebayimgs.img2', 'ebayimgs.img3',
+                    'ebayimgs.img4', 'ebayimgs.img5', 'ebayimgs.img6',
+                    'ebayimgs.img7', 'ebayimgs.img8', 'ebayimgs.img9',
+                    'ebayimgs.img10', 'ebayimgs.img11', 'ebayimgs.img12',
+                    'ebayimgs.img13', 'ebayimgs.img14', 'ebayimgs.img15',
+                    // Captured images
+                    'img.capturedimg1', 'img.capturedimg2', 'img.capturedimg3',
+                    'img.capturedimg4', 'img.capturedimg5', 'img.capturedimg6',
+                    'img.capturedimg7', 'img.capturedimg8', 'img.capturedimg9',
+                    'img.capturedimg10', 'img.capturedimg11', 'img.capturedimg12',
+                    'img.serialimg1', 'img.serialimg2',
+                    'img.trackingimg1', 'img.trackingimg2'
+                )
+                ->whereIn('p.ProductModuleLoc', self::CATEGORIES);
 
-        // Category filter
-        if (!empty($category) && in_array($category, self::CATEGORIES)) {
-            $query->where('p.ProductModuleLoc', $category);
-        }
+            // Category filter
+            if (! empty($category) && in_array($category, self::CATEGORIES)) {
+                $query->where('p.ProductModuleLoc', $category);
+            }
 
-        // Search filter
-        if (!empty($search)) {
-            $query->where(function ($q) use ($search) {
-                $q->where('p.ProductID',    'LIKE', "%{$search}%")
-                  ->orWhere('p.ProductTitle','LIKE', "%{$search}%")
-                  ->orWhere('p.rtcounter',   'LIKE', "%{$search}%");
+            // Search filter
+            if (! empty($search)) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('p.ProductID', 'LIKE', "%{$search}%")
+                        ->orWhere('p.ProductTitle', 'LIKE', "%{$search}%")
+                        ->orWhere('p.rtcounter', 'LIKE', "%{$search}%");
+                });
+            }
+
+            $totalCount = $query->count();
+            $totalPages = ceil($totalCount / $perPage);
+
+            $rows = $query
+                ->orderBy('p.orderdate', 'desc')
+                ->skip(($page - 1) * $perPage)
+                ->take($perPage)
+                ->get();
+
+            $formatted = $rows->map(function ($r) {
+                // Build capturedImages object
+                $capturedImages = [];
+
+                for ($i = 1; $i <= 12; $i++) {
+                    $key = "capturedimg{$i}";
+                    if (! empty($r->$key) && $r->$key !== 'NULL') {
+                        $capturedImages[$key] = $r->$key;
+                    }
+                }
+
+                foreach (['serialimg1', 'serialimg2', 'trackingimg1', 'trackingimg2'] as $key) {
+                    if (! empty($r->$key) && $r->$key !== 'NULL') {
+                        $capturedImages[$key] = $r->$key;
+                    }
+                }
+
+                // ── Thumbnail priority ───────────────────────────────────────
+                // 1st: captured image  (path: /images/product_images/{company}/)
+                // 2nd: eBay image      (path: /images/thumbnails/)
+                if (! empty($capturedImages['capturedimg1'])) {
+                    $thumbnail = $capturedImages['capturedimg1'];
+                    $img1Source = 'captured';
+                } elseif (! empty($r->img1)) {
+                    $thumbnail = $r->img1;
+                    $img1Source = 'ebay';
+                } else {
+                    $thumbnail = null;
+                    $img1Source = null;
+                }
+
+                return [
+                    'product_id' => $r->ProductID,
+                    'rt_counter' => $r->rtcounter,
+                    'product_title' => $r->ProductTitle ?? 'N/A',
+                    'quantity' => $r->quantity,
+                    'order_date' => $r->orderdate,
+                    'delivered_date' => $r->datedelivered,
+                    'category' => $r->ProductModuleLoc,
+                    'company' => 'Airstaffs',
+                    // Thumbnail (captured takes priority over eBay)
+                    'img1' => $thumbnail,
+                    'img1_source' => $img1Source,
+                    // Remaining eBay images
+                    'img2' => $r->img2 ?? null,
+                    'img3' => $r->img3 ?? null,
+                    'img4' => $r->img4 ?? null,
+                    'img5' => $r->img5 ?? null,
+                    'img6' => $r->img6 ?? null,
+                    'img7' => $r->img7 ?? null,
+                    'img8' => $r->img8 ?? null,
+                    'img9' => $r->img9 ?? null,
+                    'img10' => $r->img10 ?? null,
+                    'img11' => $r->img11 ?? null,
+                    'img12' => $r->img12 ?? null,
+                    'img13' => $r->img13 ?? null,
+                    'img14' => $r->img14 ?? null,
+                    'img15' => $r->img15 ?? null,
+                    // Captured images object
+                    'capturedImages' => ! empty($capturedImages) ? $capturedImages : null,
+                ];
             });
+
+            return response()->json([
+                'success' => true,
+                'data' => $formatted,
+                'total' => $totalCount,
+                'per_page' => $perPage,
+                'current_page' => $page,
+                'last_page' => $totalPages,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('SuppliesComponents index error: '.$e->getMessage());
+
+            return response()->json(['success' => false, 'message' => 'Error fetching items', 'error' => $e->getMessage()], 500);
         }
-
-        $totalCount = $query->count();
-        $totalPages = ceil($totalCount / $perPage);
-
-        $rows = $query
-            ->orderBy('p.orderdate', 'desc')
-            ->skip(($page - 1) * $perPage)
-            ->take($perPage)
-            ->get();
-
-        $formatted = $rows->map(function ($r) {
-            // Build capturedImages object
-            $capturedImages = [];
-
-            for ($i = 1; $i <= 12; $i++) {
-                $key = "capturedimg{$i}";
-                if (!empty($r->$key) && $r->$key !== 'NULL') {
-                    $capturedImages[$key] = $r->$key;
-                }
-            }
-
-            foreach (['serialimg1', 'serialimg2', 'trackingimg1', 'trackingimg2'] as $key) {
-                if (!empty($r->$key) && $r->$key !== 'NULL') {
-                    $capturedImages[$key] = $r->$key;
-                }
-            }
-
-            // ── Thumbnail priority ───────────────────────────────────────
-            // 1st: captured image  (path: /images/product_images/{company}/)
-            // 2nd: eBay image      (path: /images/thumbnails/)
-            if (!empty($capturedImages['capturedimg1'])) {
-                $thumbnail     = $capturedImages['capturedimg1'];
-                $img1Source    = 'captured';
-            } elseif (!empty($r->img1)) {
-                $thumbnail     = $r->img1;
-                $img1Source    = 'ebay';
-            } else {
-                $thumbnail     = null;
-                $img1Source    = null;
-            }
-
-            return [
-                'product_id'     => $r->ProductID,
-                'rt_counter'     => $r->rtcounter,
-                'product_title'  => $r->ProductTitle ?? 'N/A',
-                'quantity'       => $r->quantity,
-                'order_date'     => $r->orderdate,
-                'delivered_date' => $r->datedelivered,
-                'category'       => $r->ProductModuleLoc,
-                'company'        => 'Airstaffs',
-                // Thumbnail (captured takes priority over eBay)
-                'img1'           => $thumbnail,
-                'img1_source'    => $img1Source,
-                // Remaining eBay images
-                'img2'           => $r->img2  ?? null,
-                'img3'           => $r->img3  ?? null,
-                'img4'           => $r->img4  ?? null,
-                'img5'           => $r->img5  ?? null,
-                'img6'           => $r->img6  ?? null,
-                'img7'           => $r->img7  ?? null,
-                'img8'           => $r->img8  ?? null,
-                'img9'           => $r->img9  ?? null,
-                'img10'          => $r->img10 ?? null,
-                'img11'          => $r->img11 ?? null,
-                'img12'          => $r->img12 ?? null,
-                'img13'          => $r->img13 ?? null,
-                'img14'          => $r->img14 ?? null,
-                'img15'          => $r->img15 ?? null,
-                // Captured images object
-                'capturedImages' => !empty($capturedImages) ? $capturedImages : null,
-            ];
-        });
-
-        return response()->json([
-            'success'      => true,
-            'data'         => $formatted,
-            'total'        => $totalCount,
-            'per_page'     => $perPage,
-            'current_page' => $page,
-            'last_page'    => $totalPages,
-        ]);
-
-    } catch (\Exception $e) {
-        Log::error('SuppliesComponents index error: ' . $e->getMessage());
-        return response()->json(['success' => false, 'message' => 'Error fetching items', 'error' => $e->getMessage()], 500);
     }
-}
 
     /**
      * Get count statistics per category
@@ -165,16 +165,17 @@ public function index(Request $request)
                 ->keyBy('ProductModuleLoc');
 
             $stats = [
-                'total'            => $byCategory->sum('count'),
-                'components'       => $byCategory->get('Components')?->count ?? 0,
-                'supplies'         => $byCategory->get('Supplies')?->count ?? 0,
+                'total' => $byCategory->sum('count'),
+                'components' => $byCategory->get('Components')?->count ?? 0,
+                'supplies' => $byCategory->get('Supplies')?->count ?? 0,
                 'office_equipment' => $byCategory->get('Office Equipment')?->count ?? 0,
             ];
 
             return response()->json(['success' => true, 'stats' => $stats]);
 
         } catch (\Exception $e) {
-            Log::error('SuppliesComponents getStats error: ' . $e->getMessage());
+            Log::error('SuppliesComponents getStats error: '.$e->getMessage());
+
             return response()->json(['success' => false, 'message' => 'Error fetching statistics'], 500);
         }
     }
@@ -196,7 +197,7 @@ public function index(Request $request)
                 ->whereIn('ProductModuleLoc', self::CATEGORIES)
                 ->first();
 
-            if (!$product) {
+            if (! $product) {
                 return response()->json([
                     'success' => false,
                     'message' => "Product {$productId} not found or not in Supplies/Components/Office Equipment.",
@@ -207,7 +208,7 @@ public function index(Request $request)
                 ->where('ProductID', $productId)
                 ->update([
                     'ProductModuleLoc' => 'Labeling',
-                    'materialtype'     => 'Inventory',
+                    'materialtype' => 'Inventory',
                 ]);
 
             Log::info("Product {$productId} moved from {$product->ProductModuleLoc} to Labeling.");
@@ -218,7 +219,8 @@ public function index(Request $request)
             ]);
 
         } catch (\Throwable $e) {
-            Log::error("moveToLabeling error: " . $e->getMessage());
+            Log::error('moveToLabeling error: '.$e->getMessage());
+
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
     }

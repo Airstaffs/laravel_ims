@@ -251,6 +251,69 @@ class CleaningController extends BasetablesController
         }
     }
 
+    public function moveToValidation(Request $request)
+    {
+        Log::info('=== MOVE TO VALIDATION FROM CLEANING ===', $request->all());
+
+        try {
+            $validator = Validator::make($request->all(), [
+                'product_id' => 'required',
+                'rt_counter' => 'required',
+                'current_location' => 'required',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $product = DB::table($this->productTable)
+                ->where('ProductID', $request->product_id)
+                ->first();
+
+            if (! $product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found',
+                ], 404);
+            }
+
+            DB::table($this->productTable)
+                ->where('ProductID', $request->product_id)
+                ->update([
+                    'ProductModuleLoc' => 'Validation',
+                    'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
+                ]);
+
+            $this->trackLocationChange(
+                'Cleaning',
+                "RTC: {$request->rt_counter}",
+                $request->current_location,
+                'Validation'
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Product successfully moved to Validation',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Exception in Validation moveToValidation', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to move product to Validation',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function saveWorkLog(Request $request)
     {
         $request->validate([

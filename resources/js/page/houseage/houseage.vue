@@ -1299,6 +1299,7 @@ import {
     InputText,
     ScrollTop,
     Select,
+    Tag,
     Textarea,
     Paginator,
 } from "primevue";
@@ -1326,7 +1327,7 @@ const TABLE_COLUMNS = [
         header: "Product Name",
         sortable: true,
         headerStyle: "font-size: 16px;",
-        slot: "ProductTitle",
+        slot: "productTitle",
         style: { minWidth: "15rem", maxWidth: "20rem" },
     },
     {
@@ -1397,6 +1398,7 @@ export default {
         InputText,
         TableGallery,
         Button,
+        Tag,
         Textarea,
         ScrollTop,
         TitlePage,
@@ -1666,6 +1668,12 @@ export default {
                 date_cleaned: data.date_cleaned ?? null,
                 cleaning_done: data.cleaning_done ?? null,
                 cleaning_category_values: data.cleaning_category_values ?? null,
+
+                // ── Validation work log ────────────────────────────────────────────
+                validated_by: data.validated_by ?? null,
+                date_validated: data.date_validated ?? null,
+                validation_status: data.validation_status ?? null,
+                validation_notes: data.validation_notes ?? null,
 
                 // ── Packaging work log ─────────────────────────────────────────────
                 pkg_packed_by: data.packed_by ?? null,
