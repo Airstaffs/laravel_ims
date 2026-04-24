@@ -147,6 +147,8 @@ export default {
             suppliesCatalog: [],
             suppliesCatalogLoading: false,
             suppliesCatalogSearch: "",
+
+            savingFnskuStatusFor: null,
         };
     },
 
@@ -2051,6 +2053,77 @@ export default {
                 ? `${base}/images/product_images/Airstaffs/${item.img}`
                 : `${base}/images/thumbnails/${item.img}`;
         },
+
+        handleFnskuLimitChange(data) {
+    const units = Number(data.Units || 0);
+    let limit = Number(data.fnsku_limit || 0);
+
+    if (limit < 0) {
+        limit = 0;
+    }
+
+    if (limit > units) {
+        limit = units;
+        data.fnsku_limit = units;
+
+        this.$toast?.add?.({
+            severity: "warn",
+            summary: "Limit adjusted",
+            detail: `FNSKU limit cannot exceed current Units (${units}).`,
+            life: 3000,
+        });
+    }
+
+    this.updateFnskuLimit(data);
+
+    
+},
+
+async toggleFnskuStatus(data, newStatus) {
+    const originalStatus = data.ims_status || "Active";
+
+    try {
+        this.savingFnskuStatusFor = data.FNSKU;
+
+        const response = await axios.post("/api/asinlist/fnsku/toggle-status", {
+            fnsku: data.FNSKU,
+            ims_status: newStatus,
+        });
+
+        if (response.data?.success) {
+            data.ims_status = newStatus;
+
+            this.$toast?.add?.({
+                severity: "success",
+                summary: "Success",
+                detail: `FNSKU ${newStatus === "Disabled" ? "disabled" : "enabled"} successfully.`,
+                life: 2500,
+            });
+        } else {
+            data.ims_status = originalStatus;
+
+            this.$toast?.add?.({
+                severity: "error",
+                summary: "Error",
+                detail: response.data?.message || "Failed to update FNSKU status.",
+                life: 3000,
+            });
+        }
+    } catch (error) {
+        data.ims_status = originalStatus;
+
+        this.$toast?.add?.({
+            severity: "error",
+            summary: "Error",
+            detail:
+                error.response?.data?.message ||
+                "Failed to update FNSKU status.",
+            life: 3000,
+        });
+    } finally {
+        this.savingFnskuStatusFor = null;
+    }
+}
     },
 
     // ══════════════════════════════════════════════════════════════

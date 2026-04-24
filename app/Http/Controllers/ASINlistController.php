@@ -1531,7 +1531,7 @@ class ASINlistController extends BasetablesController
 }
 
 
- public function updateFnskuLimit(Request $request)
+public function updateFnskuLimit(Request $request)
 {
     try {
         $validated = $request->validate([
@@ -1550,10 +1550,19 @@ class ASINlistController extends BasetablesController
             ], 404);
         }
 
-        $maximumUnits = 30;
-        $newLimit     = $validated['fnsku_limit'];
+        $newLimit = $validated['fnsku_limit'];
 
-        // If fnsku_limit is 0, fall back to the ASIN-level limit for LimitStatus
+        // ✅ HARD LIMIT: fnsku_limit must not exceed current Units
+        if ($newLimit > $fnsku->Units) {
+            return response()->json([
+                'success' => false,
+                'message' => "Limit cannot exceed current Units ({$fnsku->Units})"
+            ], 400);
+        }
+
+        $maximumUnits = 30;
+
+        // fallback logic
         $effectiveLimit = $newLimit > 0 ? $newLimit : $fnsku->asin_limit ?? 0;
 
         DB::table($this->fnskuTable)
@@ -1583,5 +1592,48 @@ class ASINlistController extends BasetablesController
     }
 }
 
+public function toggleFnskuStatus(Request $request)
+{
+    try {
+        $validated = $request->validate([
+            'fnsku' => 'required|string',
+            'ims_status' => 'required|in:Active,Disabled',
+        ]);
+
+        $fnsku = DB::table($this->fnskuTable)
+            ->where('FNSKU', $validated['fnsku'])
+            ->first();
+
+        if (!$fnsku) {
+            return response()->json([
+                'success' => false,
+                'message' => 'FNSKU not found',
+            ], 404);
+        }
+
+        DB::table($this->fnskuTable)
+            ->where('FNSKU', $validated['fnsku'])
+            ->update([
+                'ims_status' => $validated['ims_status'],
+            ]);
+
+        Log::info("FNSKU status updated: {$validated['fnsku']}", [
+            'ims_status' => $validated['ims_status']
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'FNSKU status updated successfully',
+        ]);
+    } catch (\Exception $e) {
+        Log::error('Error updating FNSKU status: ' . $e->getMessage());
+
+        return response()->json([
+            'success' => false,
+            'message' => 'An error occurred while updating FNSKU status',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
 
 }

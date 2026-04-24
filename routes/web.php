@@ -664,6 +664,7 @@ Route::prefix('api/asinlist')->group(function () {
     Route::post('update-color', [ASINlistController::class, 'updateColor']);
 
     Route::post('update-fnsku-limit', [ASINlistController::class, 'updateFnskuLimit']);
+    Route::post('/fnsku/toggle-status', [ASINlistController::class, 'toggleFnskuStatus']);
 });
 
 // AFTER - Add rate limiting
