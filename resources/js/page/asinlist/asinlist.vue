@@ -3772,10 +3772,11 @@
                         </div>
                         <div class="pkg-card-body d-flex flex-column gap-2">
                             <!-- ── Catalog search bar ── -->
+                            <!-- ── Catalog search bar ── -->
                             <div class="d-flex align-items-center gap-2 mb-1">
                                 <InputText
                                     v-model="suppliesCatalogSearch"
-                                    placeholder="Search supplies catalog by name or SKU…"
+                                    placeholder="Search by RT counter (e.g. 17232)…"
                                     size="small"
                                     class="flex-grow-1"
                                 />
