@@ -763,11 +763,18 @@ Route::prefix('api/inventory-statistics')->group(function () {
     Route::get('/asin-details', [InventoryStatisticsController::class, 'getAsinDetails']);
 });
 
-// Routes for Supplies & Components Module
 Route::prefix('api/supplies-components')->group(function () {
     Route::get('/', [SuppliesComponentsController::class, 'index']);
     Route::get('/stats', [SuppliesComponentsController::class, 'getStats']);
     Route::post('/move-to-labeling', [SuppliesComponentsController::class, 'moveToLabeling']);
+
+    // SID List
+    Route::get('/sid-list', [SuppliesComponentsController::class, 'sidList']);
+    Route::post('/sid-list', [SuppliesComponentsController::class, 'storeSid']);
+    Route::put('/sid-list/{id}', [SuppliesComponentsController::class, 'updateSid']);
+    Route::delete('/sid-list/{id}', [SuppliesComponentsController::class, 'deleteSid']);
+    Route::post('/sid-list/{id}/upload-image', [SuppliesComponentsController::class, 'uploadSidImage']);
+    Route::delete('/sid-list/{id}/delete-image', [SuppliesComponentsController::class, 'deleteSidImage']);
 });
 
 // Routes for Switcheru Module

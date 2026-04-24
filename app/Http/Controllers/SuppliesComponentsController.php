@@ -224,4 +224,219 @@ class SuppliesComponentsController extends BasetablesController
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
     }
+
+    /**
+     * Get all SID list entries (global, not tied to a product)
+     */
+    public function sidList()
+    {
+        try {
+            $items = DB::table('tblsid')
+                ->select('id', 'sid_number', 'alias', 'price', 'quantity', 'threshold', 'image_path')
+                ->orderBy('sid_number', 'asc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $items,
+                'total' => $items->count(),
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('SID list fetch error: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching SID list.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Add a new SID entry
+     */
+    public function storeSid(Request $request)
+    {
+        $data = $request->validate([
+            'sid_number' => ['required', 'string', 'max:100', 'unique:tblsid,sid_number'],
+            'alias' => ['nullable', 'string', 'max:255'],
+            'price' => ['nullable', 'numeric', 'min:0'],
+            'quantity' => ['nullable', 'integer', 'min:0'],
+            'threshold' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        try {
+            $id = DB::table('tblsid')->insertGetId([
+                'sid_number' => $data['sid_number'],
+                'alias' => $data['alias'] ?? null,
+                'price' => $data['price'] ?? null,
+                'quantity' => $data['quantity'] ?? 0,
+                'threshold' => $data['threshold'] ?? 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            Log::info("SID entry created: ID {$id}, SID {$data['sid_number']}");
+
+            return response()->json(['success' => true, 'message' => 'SID entry added.', 'id' => $id]);
+
+        } catch (\Exception $e) {
+            Log::error('SID store error: '.$e->getMessage());
+
+            return response()->json(['success' => false, 'message' => 'Error saving SID entry.'], 500);
+        }
+    }
+
+    /**
+     * Delete a SID entry by ID
+     */
+    public function deleteSid(int $id)
+    {
+        try {
+            $exists = DB::table('tblsid')->where('id', $id)->exists();
+
+            if (! $exists) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "SID entry with ID {$id} not found.",
+                ], 404);
+            }
+
+            DB::table('tblsid')->where('id', $id)->delete();
+
+            Log::info("SID entry {$id} deleted.");
+
+            return response()->json([
+                'success' => true,
+                'message' => 'SID entry deleted successfully.',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('SID delete error: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting SID entry.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Upload image for a SID entry
+     */
+    public function uploadSidImage(Request $request, int $id)
+    {
+        $request->validate([
+            'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:5120'],
+        ]);
+
+        try {
+            $sid = DB::table('tblsid')->where('id', $id)->first();
+            if (! $sid) {
+                return response()->json(['success' => false, 'message' => 'SID entry not found.'], 404);
+            }
+
+            // Delete old image if exists
+            if (! empty($sid->image_path)) {
+                $oldPath = public_path("images/sid/{$sid->image_path}");
+                if (file_exists($oldPath)) {
+                    unlink($oldPath);
+                }
+            }
+
+            $file = $request->file('image');
+            $filename = 'sid_'.$id.'_'.time().'.'.$file->getClientOriginalExtension();
+            $file->move(public_path('images/sid'), $filename);
+
+            DB::table('tblsid')->where('id', $id)->update([
+                'image_path' => $filename,
+                'updated_at' => now(),
+            ]);
+
+            Log::info("SID {$id} image uploaded: {$filename}");
+
+            return response()->json(['success' => true, 'image_path' => $filename]);
+
+        } catch (\Exception $e) {
+            Log::error('SID upload image error: '.$e->getMessage());
+
+            return response()->json(['success' => false, 'message' => 'Error uploading image.'], 500);
+        }
+    }
+
+    /**
+     * Delete image for a SID entry
+     */
+    public function deleteSidImage(int $id)
+    {
+        try {
+            $sid = DB::table('tblsid')->where('id', $id)->first();
+            if (! $sid) {
+                return response()->json(['success' => false, 'message' => 'SID entry not found.'], 404);
+            }
+
+            if (! empty($sid->image_path)) {
+                $path = public_path("images/sid/{$sid->image_path}");
+                if (file_exists($path)) {
+                    unlink($path);
+                }
+            }
+
+            DB::table('tblsid')->where('id', $id)->update([
+                'image_path' => null,
+                'updated_at' => now(),
+            ]);
+
+            Log::info("SID {$id} image deleted.");
+
+            return response()->json(['success' => true, 'message' => 'Image deleted.']);
+
+        } catch (\Exception $e) {
+            Log::error('SID delete image error: '.$e->getMessage());
+
+            return response()->json(['success' => false, 'message' => 'Error deleting image.'], 500);
+        }
+    }
+
+    /**
+     * Update a SID entry
+     */
+    public function updateSid(Request $request, int $id)
+    {
+        $data = $request->validate([
+            'sid_number' => ['required', 'string', 'max:100', "unique:tblsid,sid_number,{$id}"],
+            'alias' => ['nullable', 'string', 'max:255'],
+            'price' => ['nullable', 'numeric', 'min:0'],
+            'quantity' => ['nullable', 'integer', 'min:0'],
+            'threshold' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        try {
+            $exists = DB::table('tblsid')->where('id', $id)->exists();
+
+            if (! $exists) {
+                return response()->json(['success' => false, 'message' => "SID entry with ID {$id} not found."], 404);
+            }
+
+            DB::table('tblsid')->where('id', $id)->update([
+                'sid_number' => $data['sid_number'],
+                'alias' => $data['alias'] ?? null,
+                'price' => $data['price'] ?? null,
+                'quantity' => $data['quantity'] ?? 0,
+                'threshold' => $data['threshold'] ?? 0,
+                'updated_at' => now(),
+            ]);
+
+            Log::info("SID entry {$id} updated.");
+
+            return response()->json(['success' => true, 'message' => 'SID entry updated successfully.']);
+
+        } catch (\Exception $e) {
+            Log::error('SID update error: '.$e->getMessage());
+
+            return response()->json(['success' => false, 'message' => 'Error updating SID entry.'], 500);
+        }
+    }
 }
