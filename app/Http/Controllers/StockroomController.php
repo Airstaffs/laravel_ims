@@ -50,7 +50,7 @@ class StockroomController extends BasetablesController
                 ->lockForUpdate()
                 ->first();
 
-            if (! $fnskuRecord) {
+            if (!$fnskuRecord) {
                 Log::warning('FNSKU not found in database', [
                     'base_fnsku' => $baseFnsku,
                     'msku' => $msku,
@@ -78,7 +78,7 @@ class StockroomController extends BasetablesController
                 ->select('FNSKUviewer')
                 ->where(function ($query) use ($baseFnsku) {
                     $query->where('FNSKUviewer', $baseFnsku)
-                        ->orWhere('FNSKUviewer', 'LIKE', '%'.$baseFnsku); // Match any prefix
+                        ->orWhere('FNSKUviewer', 'LIKE', '%' . $baseFnsku); // Match any prefix
                 })
                 ->whereNotIn('ProductModuleLoc', ['Shipment', 'Soldlist', 'Returnlist', 'Merged', 'RTS'])
                 ->lockForUpdate()
@@ -99,7 +99,7 @@ class StockroomController extends BasetablesController
                 if ($fnsku === $baseFnsku) {
                     // Base FNSKU (no prefix) is used
                     $usedPrefixes[] = ['letter' => null, 'number' => 0];
-                } elseif (preg_match('/^([C-W]|[Y-Z])(\d+)'.preg_quote($baseFnsku, '/').'$/', $fnsku, $matches)) {
+                } elseif (preg_match('/^([C-W]|[Y-Z])(\d+)' . preg_quote($baseFnsku, '/') . '$/', $fnsku, $matches)) {
                     // Extract prefix letter and number (e.g., "C3", "D5", "E1")
                     // Excluding X since base FNSKUs start with X
                     $usedPrefixes[] = [
@@ -161,7 +161,7 @@ class StockroomController extends BasetablesController
                     }
                 }
 
-                if (! $isUsed) {
+                if (!$isUsed) {
                     $nextPrefix = $candidate;
                     break;
                 }
@@ -170,8 +170,8 @@ class StockroomController extends BasetablesController
             // ✅ Check if we found an available prefix slot
             if ($nextPrefix === null) {
                 throw new \Exception(
-                    "All prefix slots exhausted for FNSKU: {$baseFnsku}. ".
-                    'All '.count($prefixSequence).' prefixes (base + C1-W9 + Y1-Z9) are in use.'
+                    "All prefix slots exhausted for FNSKU: {$baseFnsku}. " .
+                    'All ' . count($prefixSequence) . ' prefixes (base + C1-W9 + Y1-Z9) are in use.'
                 );
             }
 
@@ -204,7 +204,7 @@ class StockroomController extends BasetablesController
             ];
 
         } catch (\Exception $e) {
-            Log::error('Error in getNextAvailableFnsku: '.$e->getMessage(), [
+            Log::error('Error in getNextAvailableFnsku: ' . $e->getMessage(), [
                 'base_fnsku' => $baseFnsku,
                 'msku' => $msku,
                 'trace' => $e->getTraceAsString(),
@@ -228,7 +228,7 @@ class StockroomController extends BasetablesController
      */
     private function findRelatedAsins($searchTerm)
     {
-        $cacheKey = 'related_asins_'.md5($searchTerm);
+        $cacheKey = 'related_asins_' . md5($searchTerm);
 
         return Cache::remember($cacheKey, 300, function () use ($searchTerm) { // Cache for 5 minutes
             $related = [$searchTerm]; // Start with the search term in the array
@@ -238,7 +238,7 @@ class StockroomController extends BasetablesController
             $maxIterations = 50;
             $iterations = 0;
 
-            while (! empty($related) && $iterations < $maxIterations) {
+            while (!empty($related) && $iterations < $maxIterations) {
                 $asinToCheck = array_pop($related);
                 if (in_array($asinToCheck, $checked)) {
                     continue;
@@ -261,7 +261,7 @@ class StockroomController extends BasetablesController
                 foreach ($results as $row) {
                     foreach (['ASIN', 'ParentAsin', 'CousinASIN', 'UpgradeASIN', 'GrandASIN'] as $field) {
                         $val = $row->$field ?? '';
-                        if (! empty($val) && ! in_array($val, $checked) && ! in_array($val, $related)) {
+                        if (!empty($val) && !in_array($val, $checked) && !in_array($val, $related)) {
                             $related[] = $val;
                         }
                     }
@@ -289,10 +289,10 @@ class StockroomController extends BasetablesController
             // NEW: Check if this is a forced refresh (skip cache)
             $forceFresh = $request->has('_t');
 
-            $cacheKey = "stockroom_inventory_{$page}_{$perPage}_{$store}_".md5($search);
+            $cacheKey = "stockroom_inventory_{$page}_{$perPage}_{$store}_" . md5($search);
 
             // Only use cache if NOT forced fresh AND search is empty
-            if (! $forceFresh && empty($search)) {
+            if (!$forceFresh && empty($search)) {
                 $cachedResult = Cache::get($cacheKey);
                 if ($cachedResult) {
                     Log::info('Returning cached inventory data');
@@ -306,7 +306,7 @@ class StockroomController extends BasetablesController
             }
 
             // Get products first
-            $productsQuery = DB::table($this->productTable.' as prod')
+            $productsQuery = DB::table($this->productTable . ' as prod')
                 ->select([
                     'prod.ProductID',
                     'prod.serialnumber',
@@ -333,7 +333,7 @@ class StockroomController extends BasetablesController
                 $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
                 $baseFnskus[] = $baseFnsku;
 
-                if (! isset($fnskuProductMap[$baseFnsku])) {
+                if (!isset($fnskuProductMap[$baseFnsku])) {
                     $fnskuProductMap[$baseFnsku] = [];
                 }
                 $fnskuProductMap[$baseFnsku][] = $product;
@@ -362,7 +362,7 @@ class StockroomController extends BasetablesController
             }
 
             // Modified query to include QuantityInside
-            $asinQuery = DB::table($this->asinTable.' as asin')
+            $asinQuery = DB::table($this->asinTable . ' as asin')
                 ->select([
                     'asin.ASIN',
                     'asin.internal as AStitle',
@@ -375,7 +375,7 @@ class StockroomController extends BasetablesController
                 ->whereNotNull('asin.ASIN');
 
             // Apply search functionality
-            if (! empty($search)) {
+            if (!empty($search)) {
                 $asinQuery->where(function ($query) use ($search, $baseFnskus, $products) {
                     $query->where('asin.ASIN', 'like', "%{$search}%");
 
@@ -389,12 +389,12 @@ class StockroomController extends BasetablesController
                     $matchingFnskus = array_filter($baseFnskus, function ($fnsku) use ($search) {
                         return strpos($fnsku, $search) !== false;
                     });
-                    if (! empty($matchingFnskus)) {
+                    if (!empty($matchingFnskus)) {
                         $matchingAsins = DB::table($this->fnskuTable)
                             ->whereIn('FNSKU', $matchingFnskus)
                             ->pluck('ASIN')
                             ->toArray();
-                        if (! empty($matchingAsins)) {
+                        if (!empty($matchingAsins)) {
                             $query->orWhereIn('asin.ASIN', $matchingAsins);
                         }
                     }
@@ -415,19 +415,19 @@ class StockroomController extends BasetablesController
                             ->whereIn('FNSKU', $matchingFnskusFromSerials)
                             ->pluck('ASIN')
                             ->toArray();
-                        if (! empty($matchingAsinsFromSerials)) {
+                        if (!empty($matchingAsinsFromSerials)) {
                             $query->orWhereIn('asin.ASIN', $matchingAsinsFromSerials);
                         }
                     }
 
                     if (preg_match('/^B0[A-Z0-9]{8}$/i', $search)) {
                         $relatedAsins = $this->findRelatedAsins($search);
-                        if (! empty($relatedAsins)) {
+                        if (!empty($relatedAsins)) {
                             $relatedAsins = array_filter($relatedAsins, function ($asin) {
-                                return ! empty($asin) && $asin !== null;
+                                return !empty($asin) && $asin !== null;
                             });
 
-                            if (! empty($relatedAsins)) {
+                            if (!empty($relatedAsins)) {
                                 $query->orWhereIn('asin.ASIN', $relatedAsins);
                             }
                         }
@@ -436,14 +436,14 @@ class StockroomController extends BasetablesController
             }
 
             // Apply store filter
-            if (! empty($store)) {
+            if (!empty($store)) {
                 $storeFilteredFnskus = DB::table($this->fnskuTable)
                     ->where('storename', $store)
                     ->whereIn('FNSKU', $baseFnskus)
                     ->pluck('ASIN')
                     ->toArray();
 
-                if (! empty($storeFilteredFnskus)) {
+                if (!empty($storeFilteredFnskus)) {
                     $asinQuery->whereIn('asin.ASIN', $storeFilteredFnskus);
                 } else {
                     return response()->json([
@@ -483,7 +483,7 @@ class StockroomController extends BasetablesController
                 }
 
                 // Apply store filter at product level if needed
-                if (! empty($store)) {
+                if (!empty($store)) {
                     $storeAsinFnskus = $asinFnskus->where('storename', $store);
                     if ($storeAsinFnskus->isEmpty()) {
                         continue;
@@ -555,7 +555,7 @@ class StockroomController extends BasetablesController
             ];
 
             // Only cache if NOT forced fresh and search is empty
-            if (! $forceFresh && empty($search)) {
+            if (!$forceFresh && empty($search)) {
                 Cache::put($cacheKey, $result, 30);
                 Log::info('Cached inventory data');
             }
@@ -571,7 +571,7 @@ class StockroomController extends BasetablesController
             return response()->json($result);
 
         } catch (\Exception $e) {
-            Log::error('Error in StockroomController@index: '.$e->getMessage());
+            Log::error('Error in StockroomController@index: ' . $e->getMessage());
             Log::error($e->getTraceAsString());
 
             return response()->json([
@@ -598,7 +598,7 @@ class StockroomController extends BasetablesController
                     ->pluck('storename');
             }));
         } catch (\Exception $e) {
-            Log::error('Error getting stores: '.$e->getMessage());
+            Log::error('Error getting stores: ' . $e->getMessage());
 
             return response()->json([
                 'error' => 'An error occurred while retrieving store list',
@@ -649,7 +649,7 @@ class StockroomController extends BasetablesController
         }
 
         try {
-            $normalizedFnsku = ! empty($fnsku) ? $this->normalizeFnsku($fnsku) : null;
+            $normalizedFnsku = !empty($fnsku) ? $this->normalizeFnsku($fnsku) : null;
             $baseFnsku = $this->extractBaseFnsku($normalizedFnsku);
 
             Log::info('🔍 Checking FNSKU availability', [
@@ -673,27 +673,29 @@ class StockroomController extends BasetablesController
             // ✅ Get FNSKU record directly (priority: MSKU > FNSKU)
             $fnskuRecord = null;
 
-            if (! empty($msku)) {
+            if (!empty($msku)) {
                 $fnskuRecord = DB::table($this->fnskuTable)
                     ->where('MSKU', $msku)
                     ->where('fnsku_status', 'Available')
+                    ->where('ims_status', 'Active')
                     ->where('Units', '>', 0)
                     ->whereIn('amazon_status', ['Active', 'Inactive', 'Notposted'])
                     ->where('LimitStatus', 'False')
                     ->first();
             }
 
-            if (! $fnskuRecord && ! empty($baseFnsku)) {
+            if (!$fnskuRecord && !empty($baseFnsku)) {
                 $fnskuRecord = DB::table($this->fnskuTable)
                     ->where('FNSKU', $baseFnsku)
                     ->where('fnsku_status', 'Available')
+                    ->where('ims_status', 'Active')
                     ->where('Units', '>', 0)
                     ->whereIn('amazon_status', ['Active', 'Inactive', 'Notposted'])
                     ->where('LimitStatus', 'False')
                     ->first();
             }
 
-            if (! $fnskuRecord) {
+            if (!$fnskuRecord) {
                 return response()->json([
                     'exists' => false,
                     'status' => 'not_found',
@@ -777,7 +779,7 @@ class StockroomController extends BasetablesController
             } catch (\Illuminate\Validation\ValidationException $e) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Validation failed: '.implode(', ', $e->errors()),
+                    'message' => 'Validation failed: ' . implode(', ', $e->errors()),
                     'reason' => 'validation_error',
                 ], 422);
             }
@@ -787,7 +789,7 @@ class StockroomController extends BasetablesController
             $location = trim($request->input('Location', ''));
             $scannedFNSKU = trim($request->input('FNSKU', ''));
 
-            if (! empty($scannedFNSKU)) {
+            if (!empty($scannedFNSKU)) {
                 $scannedFNSKU = $this->normalizeFnsku($scannedFNSKU);
             }
 
@@ -799,7 +801,7 @@ class StockroomController extends BasetablesController
             $curentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
 
             // Validate serial format
-            if (! preg_match('/^[a-zA-Z0-9]+$/', $serial) || strpos($serial, 'X00') !== false) {
+            if (!preg_match('/^[a-zA-Z0-9]+$/', $serial) || strpos($serial, 'X00') !== false) {
                 DB::rollBack();
 
                 return response()->json([
@@ -810,7 +812,7 @@ class StockroomController extends BasetablesController
             }
 
             // Validate location format
-            if (! preg_match('/^L\d{3}[A-G]$/i', $location) && $location !== 'Floor' && $location !== 'L800G') {
+            if (!preg_match('/^L\d{3}[A-G]$/i', $location) && $location !== 'Floor' && $location !== 'L800G') {
                 DB::rollBack();
 
                 return response()->json([
@@ -1031,12 +1033,13 @@ class StockroomController extends BasetablesController
             $fnskuRecord = DB::table($this->fnskuTable)
                 ->where('FNSKU', $baseFnsku)
                 ->where('fnsku_status', 'Available')
+                ->where('ims_status', 'Active')
                 ->where('Units', '>', 0)
                 ->whereIn('amazon_status', ['Active', 'Inactive', 'Notposted'])
                 ->where('LimitStatus', 'False')
                 ->first();
 
-            if (! $fnskuRecord) {
+            if (!$fnskuRecord) {
                 DB::rollBack();
 
                 Log::warning('❌ FNSKU not available for new item', [
@@ -1047,7 +1050,7 @@ class StockroomController extends BasetablesController
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'FNSKU not found or not available: '.$scannedFNSKU,
+                    'message' => 'FNSKU not found or not available: ' . $scannedFNSKU,
                     'reason' => 'fnsku_not_found',
                 ]);
             }
@@ -1166,7 +1169,7 @@ class StockroomController extends BasetablesController
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error processing scan: '.$e->getMessage(),
+                'message' => 'Error processing scan: ' . $e->getMessage(),
                 'reason' => 'server_error',
             ], 500);
         }
@@ -1231,7 +1234,7 @@ class StockroomController extends BasetablesController
 
             return response()->json([
                 'exists' => false,
-                'error' => 'Error checking serial: '.$e->getMessage(),
+                'error' => 'Error checking serial: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -1278,7 +1281,7 @@ class StockroomController extends BasetablesController
             Log::info('🔍 MERGE DEBUG: Transaction started');
 
             // Get selected items
-            $serialNumberResults = DB::table($this->productTable.' as prod')
+            $serialNumberResults = DB::table($this->productTable . ' as prod')
                 ->select('prod.*')
                 ->whereIn('prod.ProductID', $selectedIds)
                 ->get();
@@ -1306,7 +1309,7 @@ class StockroomController extends BasetablesController
                     'MSKUviewer' => $msku,
                 ]);
 
-                if (! empty($msku)) {
+                if (!empty($msku)) {
                     $fnskuRecord = DB::table($this->fnskuTable)
                         ->where('MSKU', $msku)
                         ->first();
@@ -1443,7 +1446,7 @@ class StockroomController extends BasetablesController
                 }
             }
 
-            if (! empty($incompatibleItems)) {
+            if (!empty($incompatibleItems)) {
                 DB::rollBack();
 
                 Log::warning('🔍 MERGE DEBUG: Validation failed - incompatible items', [
@@ -1478,7 +1481,7 @@ class StockroomController extends BasetablesController
             $providedFnsku = $request->fnsku ?? '';
             $providedMsku = $request->msku ?? '';
 
-            if (! empty($providedFnsku)) {
+            if (!empty($providedFnsku)) {
                 $providedFnsku = $this->normalizeFnsku($providedFnsku);
             }
 
@@ -1531,7 +1534,7 @@ class StockroomController extends BasetablesController
 
             $allowedPackSizes = [2, 4];
 
-            if (! in_array($targetQuantityInside, $allowedPackSizes)) {
+            if (!in_array($targetQuantityInside, $allowedPackSizes)) {
                 DB::rollBack();
 
                 Log::warning('🔍 MERGE DEBUG: Invalid pack size', [
@@ -1541,13 +1544,13 @@ class StockroomController extends BasetablesController
 
                 return response()->json([
                     'success' => false,
-                    'message' => "Cannot merge: Invalid pack size.\n\n".
-                        "You are trying to create a {$targetQuantityInside}-pack, but only 2-pack and 4-pack merges are allowed.\n\n".
-                        "Current selection:\n".
-                        "- {$numOfSerial} items selected\n".
-                        "- Each item contains {$firstQuantityInside} unit(s)\n".
-                        "- Target pack size: {$targetQuantityInside}-pack\n\n".
-                        "To create a 2-pack: Select 2 single items\n".
+                    'message' => "Cannot merge: Invalid pack size.\n\n" .
+                        "You are trying to create a {$targetQuantityInside}-pack, but only 2-pack and 4-pack merges are allowed.\n\n" .
+                        "Current selection:\n" .
+                        "- {$numOfSerial} items selected\n" .
+                        "- Each item contains {$firstQuantityInside} unit(s)\n" .
+                        "- Target pack size: {$targetQuantityInside}-pack\n\n" .
+                        "To create a 2-pack: Select 2 single items\n" .
                         'To create a 4-pack: Select 4 single items or 2 double items',
                     'reason' => 'invalid_pack_size',
                     'target_pack_size' => $targetQuantityInside,
@@ -1557,11 +1560,11 @@ class StockroomController extends BasetablesController
 
             // Find exact matching ASIN for pack
             $asinResult = DB::table($this->asinTable)
-                ->where('internal', 'like', '%'.$baseTitle.'%')
+                ->where('internal', 'like', '%' . $baseTitle . '%')
                 ->where('QuantityInside', $targetQuantityInside)
                 ->where(function ($query) use ($colorFromTitle) {
-                    if (! empty($colorFromTitle)) {
-                        $query->where('color', 'like', '%'.$colorFromTitle.'%');
+                    if (!empty($colorFromTitle)) {
+                        $query->where('color', 'like', '%' . $colorFromTitle . '%');
                     }
                 })
                 ->first();
@@ -1573,18 +1576,18 @@ class StockroomController extends BasetablesController
                 'found' => $asinResult ? 'YES' : 'NO',
             ]);
 
-            if (! $asinResult) {
+            if (!$asinResult) {
                 DB::rollBack();
 
                 Log::error('🔍 MERGE DEBUG: No pack ASIN found');
 
                 return response()->json([
                     'success' => false,
-                    'message' => "Cannot merge: No exact matching pack ASIN found.\n\n".
-                        "Required:\n".
-                        "- Title: {$baseTitle}\n".
-                        "- Pack Size: {$targetQuantityInside}-pack\n".
-                        '- Color: '.($colorFromTitle ?: 'Any')."\n\n".
+                    'message' => "Cannot merge: No exact matching pack ASIN found.\n\n" .
+                        "Required:\n" .
+                        "- Title: {$baseTitle}\n" .
+                        "- Pack Size: {$targetQuantityInside}-pack\n" .
+                        '- Color: ' . ($colorFromTitle ?: 'Any') . "\n\n" .
                         "Please ensure a {$targetQuantityInside}-pack variant exists in the database before merging.",
                     'reason' => 'no_exact_asin_match',
                     'required' => [
@@ -1604,11 +1607,11 @@ class StockroomController extends BasetablesController
             $constructedTitle = $asinTitle;
 
             if ($asinQuantityInside > 1 && stripos($constructedTitle, '-pack') === false) {
-                $constructedTitle .= ' '.$asinQuantityInside.'-Pack';
+                $constructedTitle .= ' ' . $asinQuantityInside . '-Pack';
             }
 
-            if (! empty($asinColor) && stripos($constructedTitle, '('.$asinColor.')') === false) {
-                $constructedTitle .= ' ('.$asinColor.')';
+            if (!empty($asinColor) && stripos($constructedTitle, '(' . $asinColor . ')') === false) {
+                $constructedTitle .= ' (' . $asinColor . ')';
             }
 
             Log::info('🔍 MERGE DEBUG: Pack ASIN found', [
@@ -1630,14 +1633,14 @@ class StockroomController extends BasetablesController
 
             try {
                 // Priority 1: Search by MSKU if provided
-                if (! empty($providedMsku)) {
+                if (!empty($providedMsku)) {
                     Log::info('🔍 MERGE DEBUG: Searching by provided MSKU', [
                         'provided_msku' => $providedMsku,
                     ]);
 
-                    $packFnsku = DB::table($this->fnskuTable.' as fnsku')
+                    $packFnsku = DB::table($this->fnskuTable . ' as fnsku')
                         ->select('fnsku.*')
-                        ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                        ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                         ->where('fnsku.MSKU', $providedMsku)
                         ->where('fnsku.fnsku_status', 'Available')
                         ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted'])
@@ -1657,12 +1660,12 @@ class StockroomController extends BasetablesController
                 }
 
                 // Priority 2: Search by ASIN
-                if (! $packFnsku) {
+                if (!$packFnsku) {
                     Log::info('🔍 MERGE DEBUG: Searching by ASIN');
 
-                    $packFnsku = DB::table($this->fnskuTable.' as fnsku')
+                    $packFnsku = DB::table($this->fnskuTable . ' as fnsku')
                         ->select('fnsku.*')
-                        ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                        ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                         ->where('fnsku.ASIN', $targetAsin)
                         ->where('fnsku.fnsku_status', 'Available')
                         ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted'])
@@ -1683,7 +1686,7 @@ class StockroomController extends BasetablesController
                 }
 
                 // Priority 3: Related ASINs
-                if (! $packFnsku) {
+                if (!$packFnsku) {
                     Log::info('🔍 MERGE DEBUG: Trying related ASINs');
 
                     $relatedAsins = $this->findRelatedAsins($targetAsin);
@@ -1693,10 +1696,10 @@ class StockroomController extends BasetablesController
                         'asins' => $relatedAsins,
                     ]);
 
-                    if (! empty($relatedAsins)) {
-                        $packFnsku = DB::table($this->fnskuTable.' as fnsku')
+                    if (!empty($relatedAsins)) {
+                        $packFnsku = DB::table($this->fnskuTable . ' as fnsku')
                             ->select('fnsku.*')
-                            ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                            ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                             ->whereIn('fnsku.ASIN', $relatedAsins)
                             ->where('fnsku.fnsku_status', 'Available')
                             ->whereIn('fnsku.amazon_status', ['Active', 'Inactive', 'Notposted'])
@@ -1717,21 +1720,21 @@ class StockroomController extends BasetablesController
                     }
                 }
 
-                if (! $packFnsku) {
+                if (!$packFnsku) {
                     DB::rollBack();
 
                     Log::error('🔍 MERGE DEBUG: No pack FNSKU found after all searches');
 
                     return response()->json([
                         'success' => false,
-                        'message' => "Cannot merge: No available pack FNSKU found.\n\n".
-                            "Required:\n".
-                            "• ASIN: {$targetAsin}\n".
-                            "• Pack Size: {$asinQuantityInside}-pack\n".
-                            '• Color: '.($asinColor ?: 'Any')."\n".
-                            "• Condition: {$condition}\n".
-                            "• Store: {$storename}\n".
-                            "• Status: Available with units\n\n".
+                        'message' => "Cannot merge: No available pack FNSKU found.\n\n" .
+                            "Required:\n" .
+                            "• ASIN: {$targetAsin}\n" .
+                            "• Pack Size: {$asinQuantityInside}-pack\n" .
+                            '• Color: ' . ($asinColor ?: 'Any') . "\n" .
+                            "• Condition: {$condition}\n" .
+                            "• Store: {$storename}\n" .
+                            "• Status: Available with units\n\n" .
                             'Please create an FNSKU matching all criteria.',
                         'reason' => 'no_pack_fnsku_available',
                     ]);
@@ -1770,7 +1773,7 @@ class StockroomController extends BasetablesController
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Error getting FNSKU for merge: '.$e->getMessage(),
+                    'message' => 'Error getting FNSKU for merge: ' . $e->getMessage(),
                 ]);
             }
 
@@ -1847,7 +1850,7 @@ class StockroomController extends BasetablesController
             $this->trackHistory(
                 'Stockroom',
                 'Merge Items',
-                "Merged {$numOfSerial} items | Original RTs: ".implode(', ', $originalRTs),
+                "Merged {$numOfSerial} items | Original RTs: " . implode(', ', $originalRTs),
                 "Created RT#{$newRt} | FNSKU: {$actualFnskuToUse} | MSKU: {$actualMskuToUse} | {$targetQuantityInside}-pack",
                 $employeeName
             );
@@ -1886,7 +1889,7 @@ class StockroomController extends BasetablesController
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error during merge operation: '.$e->getMessage(),
+                'message' => 'Error during merge operation: ' . $e->getMessage(),
                 'debug' => [
                     'error' => $e->getMessage(),
                     'line' => $e->getLine(),
@@ -1998,7 +2001,7 @@ class StockroomController extends BasetablesController
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error updating location: '.$e->getMessage(),
+                'message' => 'Error updating location: ' . $e->getMessage(),
             ]);
         }
     }
@@ -2040,7 +2043,7 @@ class StockroomController extends BasetablesController
                 ->where('FNSKU', $baseFnsku) // Use base FNSKU for lookup
                 ->first();
 
-            if (! $fnsku) {
+            if (!$fnsku) {
                 $invalid[] = $product->ProductID;
 
                 continue;
@@ -2089,12 +2092,12 @@ class StockroomController extends BasetablesController
                 ->where('FNSKU', $baseFnsku) // Use base FNSKU for lookup
                 ->first();
 
-            if (! $fnsku) {
+            if (!$fnsku) {
                 continue;
             }
 
             $msku = $fnsku->MSKU;
-            if (! isset($grouped[$msku])) {
+            if (!isset($grouped[$msku])) {
                 $grouped[$msku] = [
                     'msku' => $msku,
                     'asin' => $fnsku->ASIN,
@@ -2163,7 +2166,7 @@ class StockroomController extends BasetablesController
             }
 
             $productType = null;
-            if (! isset($productTypeCache[$asinKey])) {
+            if (!isset($productTypeCache[$asinKey])) {
                 $response = Http::get(url('/amzn/catalog/get_asin_catalog'), [
                     'searchedAsin' => $asinKey,
                     'store' => $data['storename'],
@@ -2270,7 +2273,7 @@ class StockroomController extends BasetablesController
 
         if ($uploadSuccess) {
             $feedId = create_feed_from_document($first['storename'], $feeddocumentid, $payload);
-            if ($feedId && ! empty($batchSummary)) {
+            if ($feedId && !empty($batchSummary)) {
 
                 $lines = [];
                 foreach ($batchSummary as $row) {
@@ -2281,7 +2284,7 @@ class StockroomController extends BasetablesController
                     'module' => 'Stockroom',
                     'title' => 'Amazon Posting: Feed Submitted',
                     'subtitle' => "Feed ID: {$feedId}",
-                    'content' => "Submitted the following MSKUs:\n".implode("\n", $lines),
+                    'content' => "Submitted the following MSKUs:\n" . implode("\n", $lines),
                     'severity' => 'success',
                     'user_ids' => ['user_ids' => [Auth::id()]],
                     'link_data' => [
@@ -2306,14 +2309,14 @@ class StockroomController extends BasetablesController
             $timezone = new DateTimeZone('America/Los_Angeles');
             $today = $request->input('date');
 
-            if (! $today) {
+            if (!$today) {
                 $today = (new DateTime('now', $timezone))->format('Y-m-d');
             }
 
-            Log::info('🔍 Fetching count for date: '.$today);
+            Log::info('🔍 Fetching count for date: ' . $today);
 
             // Don't use cache for fresh scans
-            $cacheKey = 'new_scanned_count_'.$today;
+            $cacheKey = 'new_scanned_count_' . $today;
             Cache::forget($cacheKey); // Clear any existing cache
 
             $count = DB::table($this->productTable)
@@ -2322,7 +2325,7 @@ class StockroomController extends BasetablesController
                 ->whereNotNull('stockroom_insert_date')
                 ->count();
 
-            Log::info('✅ Count result: '.$count.' for date: '.$today);
+            Log::info('✅ Count result: ' . $count . ' for date: ' . $today);
 
             // Cache for only 10 seconds to allow quick refresh
             Cache::put($cacheKey, $count, 10);
@@ -2335,11 +2338,11 @@ class StockroomController extends BasetablesController
             ]);
 
         } catch (\Exception $e) {
-            Log::error('❌ Error fetching count: '.$e->getMessage());
+            Log::error('❌ Error fetching count: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error fetching count: '.$e->getMessage(),
+                'message' => 'Error fetching count: ' . $e->getMessage(),
                 'count' => 0,
             ], 500);
         }
@@ -2367,7 +2370,7 @@ class StockroomController extends BasetablesController
             }
 
             // SIMPLIFIED: Get products first, then match FNSKUs in PHP
-            $items = DB::table($this->productTable.' as prod')
+            $items = DB::table($this->productTable . ' as prod')
                 ->select([
                     'prod.ProductID',
                     'prod.rtcounter',
@@ -2378,7 +2381,7 @@ class StockroomController extends BasetablesController
                     'prod.shipment_tracking_number',
                     'hist.employeeName',
                 ])
-                ->join($this->itemProcessHistoryTable.' as hist', 'prod.rtcounter', '=', 'hist.rtcounter')
+                ->join($this->itemProcessHistoryTable . ' as hist', 'prod.rtcounter', '=', 'hist.rtcounter')
                 ->where(function ($query) {
                     $query->where('hist.Action', 'Scanned and insert to Stockroom')
                         ->orWhere('hist.Action', 'Move Item to Stockroom');
@@ -2435,11 +2438,11 @@ class StockroomController extends BasetablesController
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error fetching new scanned items: '.$e->getMessage());
+            Log::error('Error fetching new scanned items: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error fetching items: '.$e->getMessage(),
+                'message' => 'Error fetching items: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -2470,11 +2473,11 @@ class StockroomController extends BasetablesController
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error updating FBM status: '.$e->getMessage());
+            Log::error('Error updating FBM status: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error updating status: '.$e->getMessage(),
+                'message' => 'Error updating status: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -2504,11 +2507,11 @@ class StockroomController extends BasetablesController
             } else {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Error: '.$response['message'],
+                    'message' => 'Error: ' . $response['message'],
                 ]);
             }
         } catch (\Exception $e) {
-            Log::error('Error printing label: '.$e->getMessage());
+            Log::error('Error printing label: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
@@ -2581,11 +2584,11 @@ class StockroomController extends BasetablesController
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error processing items: '.$e->getMessage());
+            Log::error('Error processing items: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error processing items: '.$e->getMessage(),
+                'message' => 'Error processing items: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -2604,7 +2607,7 @@ class StockroomController extends BasetablesController
                 ->where('ProductModuleLoc', 'Stockroom')
                 ->first();
 
-            if (! $mergedItem) {
+            if (!$mergedItem) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Item not found or not in Stockroom',
@@ -2660,7 +2663,7 @@ class StockroomController extends BasetablesController
             }
 
             // ✅ ONLY Return the 1 unit to the pack FNSKU (reverse the merge deduction)
-            if (! empty($mergedItem->MSKUviewer) && ! empty($mergedItem->ASINviewer)) {
+            if (!empty($mergedItem->MSKUviewer) && !empty($mergedItem->ASINviewer)) {
                 $returnSuccess = $this->returnFnskuUnits(
                     $mergedItem->MSKUviewer,  // Pack MSKU
                     $mergedItem->ASINviewer   // Pack ASIN
@@ -2727,17 +2730,17 @@ class StockroomController extends BasetablesController
                 'success' => true,
                 'message' => "Successfully unmerged item. Restored {$restoredCount} original items to Stockroom.",
                 'restored_count' => $restoredCount,
-                'units_returned' => ! empty($mergedItem->MSKUviewer) && ! empty($mergedItem->ASINviewer),
+                'units_returned' => !empty($mergedItem->MSKUviewer) && !empty($mergedItem->ASINviewer),
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error unmerging item: '.$e->getMessage());
+            Log::error('Error unmerging item: ' . $e->getMessage());
             Log::error($e->getTraceAsString());
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error unmerging item: '.$e->getMessage(),
+                'message' => 'Error unmerging item: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -2766,7 +2769,7 @@ class StockroomController extends BasetablesController
             ->where('ASIN', $asinViewer)
             ->first();
 
-        if (! $fnskuRecord) {
+        if (!$fnskuRecord) {
             Log::warning('FNSKU record not found for return', [
                 'msku' => $mskuViewer,
                 'asin' => $asinViewer,
@@ -2819,7 +2822,7 @@ class StockroomController extends BasetablesController
                 for ($page = 1; $page <= 50; $page++) { // Clear first 50 pages
                     foreach ($stores as $store) {
                         // Clear with empty search
-                        $cacheKey = "stockroom_inventory_{$page}_{$perPage}_{$store}_".md5('');
+                        $cacheKey = "stockroom_inventory_{$page}_{$perPage}_{$store}_" . md5('');
                         if (Cache::has($cacheKey)) {
                             Cache::forget($cacheKey);
                             $clearedCount++;
@@ -2844,7 +2847,7 @@ class StockroomController extends BasetablesController
                     $date->modify("-{$i} days");
                 }
                 $dateString = $date->format('Y-m-d');
-                $countCacheKey = 'new_scanned_count_'.$dateString;
+                $countCacheKey = 'new_scanned_count_' . $dateString;
 
                 if (Cache::has($countCacheKey)) {
                     Cache::forget($countCacheKey);
@@ -2857,7 +2860,7 @@ class StockroomController extends BasetablesController
             return true;
 
         } catch (\Exception $e) {
-            Log::error('❌ Error clearing caches: '.$e->getMessage());
+            Log::error('❌ Error clearing caches: ' . $e->getMessage());
 
             return false;
         }
@@ -2992,14 +2995,14 @@ class StockroomController extends BasetablesController
                     'employeeName' => $user,
                     'editDate' => $currentDatetimeString,
                     'Module' => 'Stockroom',
-                    'Action' => 'Moved back to Labeling'.($reason ? " | Reason: {$reason}" : ''),
+                    'Action' => 'Moved back to Labeling' . ($reason ? " | Reason: {$reason}" : ''),
                 ]);
 
                 // Track with new history system
-                $identifier = "RT#{$product->rtcounter}".
-                    (! empty($product->serialnumber) ? " | Serial: {$product->serialnumber}" : '');
+                $identifier = "RT#{$product->rtcounter}" .
+                    (!empty($product->serialnumber) ? " | Serial: {$product->serialnumber}" : '');
 
-                if (! empty($product->FNSKUviewer)) {
+                if (!empty($product->FNSKUviewer)) {
                     $identifier .= " | FNSKU: {$product->FNSKUviewer}";
                 }
 
