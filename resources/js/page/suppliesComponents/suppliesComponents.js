@@ -72,6 +72,17 @@ export default {
                 quantity: 0,
                 threshold: 0,
             },
+
+            // Setup SID modal
+            showSetupSidModal: false,
+            setupSidProduct: null,
+            setupSidCurrent: null,
+            sidSearchQuery: "",
+            allSidOptions: [],
+            filteredSidOptions: [],
+            selectedSidId: null,
+            assignSidLoading: false,
+            unlinkSidLoading: false,
         };
     },
     computed: {
@@ -702,6 +713,173 @@ export default {
                 });
             } finally {
                 this.editSidLoading = false;
+            }
+        },
+
+        // ─── Setup SID ────────────────────────────────────────────────────────────
+
+        async openSetupSidModal(item) {
+            this.setupSidProduct = item;
+            this.setupSidCurrent = null;
+            this.sidSearchQuery = "";
+            this.selectedSidId = null;
+            this.allSidOptions = [];
+            this.filteredSidOptions = [];
+            this.showSetupSidModal = true;
+
+            await Promise.all([
+                this.fetchAllSidOptions(),
+                this.fetchCurrentSid(item.product_id),
+            ]);
+        },
+
+        closeSetupSidModal() {
+            this.showSetupSidModal = false;
+            this.setupSidProduct = null;
+            this.setupSidCurrent = null;
+            this.sidSearchQuery = "";
+            this.selectedSidId = null;
+            this.allSidOptions = [];
+            this.filteredSidOptions = [];
+        },
+
+        async fetchAllSidOptions() {
+            try {
+                const resp = await axios.get(
+                    `${API_BASE_URL}/api/supplies-components/sid-list`,
+                    {
+                        withCredentials: true,
+                    },
+                );
+                if (resp?.data?.success) {
+                    this.allSidOptions = resp.data.data || [];
+                    this.filteredSidOptions = [...this.allSidOptions];
+                }
+            } catch (e) {
+                console.error("fetchAllSidOptions error:", e);
+            }
+        },
+
+        async fetchCurrentSid(productId) {
+            try {
+                const resp = await axios.get(
+                    `${API_BASE_URL}/api/supplies-components/product-sid/${productId}`,
+                    { withCredentials: true },
+                );
+                if (resp?.data?.success && resp.data.sid) {
+                    this.setupSidCurrent = resp.data.sid;
+                    this.selectedSidId = resp.data.sid.id;
+                }
+            } catch (e) {
+                console.error("fetchCurrentSid error:", e);
+            }
+        },
+
+        filterSidOptions() {
+            const q = this.sidSearchQuery.toLowerCase().trim();
+            if (!q) {
+                this.filteredSidOptions = [...this.allSidOptions];
+                return;
+            }
+            this.filteredSidOptions = this.allSidOptions.filter(
+                (s) =>
+                    s.sid_number.toLowerCase().includes(q) ||
+                    (s.alias || "").toLowerCase().includes(q),
+            );
+        },
+
+        async submitAssignSid() {
+            if (!this.selectedSidId || !this.setupSidProduct?.product_id)
+                return;
+
+            this.assignSidLoading = true;
+            try {
+                const resp = await axios.post(
+                    `${API_BASE_URL}/api/supplies-components/product-sid`,
+                    {
+                        product_id: this.setupSidProduct.product_id,
+                        sid_id: this.selectedSidId,
+                    },
+                    { withCredentials: true },
+                );
+
+                if (resp?.data?.success) {
+                    await Swal.fire({
+                        icon: "success",
+                        title: "SID Assigned!",
+                        timer: 1800,
+                        showConfirmButton: false,
+                    });
+                    this.closeSetupSidModal();
+                } else {
+                    await Swal.fire({
+                        icon: "error",
+                        title: "Failed",
+                        text: resp?.data?.message || "Assign failed.",
+                    });
+                }
+            } catch (e) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text:
+                        e?.response?.data?.message ||
+                        e?.message ||
+                        "Assign error.",
+                });
+            } finally {
+                this.assignSidLoading = false;
+            }
+        },
+
+        async unlinkSid() {
+            if (!this.setupSidProduct?.product_id) return;
+
+            const confirm = await Swal.fire({
+                icon: "warning",
+                title: "Unlink SID?",
+                text: "This will remove the SID assignment from this product.",
+                showCancelButton: true,
+                confirmButtonText: "Yes, Unlink",
+                confirmButtonColor: "#ef4444",
+            });
+
+            if (!confirm.isConfirmed) return;
+
+            this.unlinkSidLoading = true;
+            try {
+                const resp = await axios.delete(
+                    `${API_BASE_URL}/api/supplies-components/product-sid/${this.setupSidProduct.product_id}`,
+                    { withCredentials: true },
+                );
+
+                if (resp?.data?.success) {
+                    this.setupSidCurrent = null;
+                    this.selectedSidId = null;
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Unlinked!",
+                        timer: 1800,
+                        showConfirmButton: false,
+                    });
+                } else {
+                    await Swal.fire({
+                        icon: "error",
+                        title: "Failed",
+                        text: resp?.data?.message || "Unlink failed.",
+                    });
+                }
+            } catch (e) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text:
+                        e?.response?.data?.message ||
+                        e?.message ||
+                        "Unlink error.",
+                });
+            } finally {
+                this.unlinkSidLoading = false;
             }
         },
     },

@@ -8,7 +8,7 @@
                 title="Supplies & Components Module"
                 subtitle="Track all supplies, components, and office equipment in inventory."
             />
-            <div class="d-flex align-item-end gap-2">
+            <div class="d-flex align-item-end gap-2 px-4">
                 <Button
                     severity="secondary"
                     size="small"
@@ -180,6 +180,15 @@
                             :loading="moveLabelingLoading"
                             :disabled="moveLabelingLoading"
                             @click="moveToLabeling(data)"
+                        />
+                        <Button
+                            label="Setup SID"
+                            icon="pi pi-link"
+                            size="small"
+                            severity="contrast"
+                            variant="text"
+                            class="text-info"
+                            @click="openSetupSidModal(data)"
                         />
                     </div>
                 </template>
@@ -739,6 +748,160 @@
                     size="small"
                     :loading="editSidLoading"
                     @click="submitEditSid"
+                />
+            </template>
+        </Dialog>
+
+        <!-- Setup SID Dialog -->
+        <Dialog
+            v-model:visible="showSetupSidModal"
+            header="Setup SID"
+            :modal="true"
+            :draggable="false"
+            :style="{ width: '35rem' }"
+            :breakpoints="{ '1199px': '90vw', '767px': '95vw' }"
+        >
+            <div v-if="setupSidProduct" class="mb-3 p-2 bg-light rounded">
+                <div class="fw-semibold" style="font-size: 0.85rem">
+                    {{ setupSidProduct.product_title }}
+                </div>
+                <div class="text-muted" style="font-size: 0.8rem">
+                    RT# {{ setupSidProduct.rt_counter }}
+                </div>
+            </div>
+
+            <!-- Currently assigned SID -->
+            <div v-if="setupSidCurrent" class="mb-3">
+                <label class="form-label fw-semibold" style="font-size: 0.85rem"
+                    >Currently Assigned</label
+                >
+                <div
+                    class="d-flex align-items-center justify-content-between p-2 border rounded"
+                >
+                    <div>
+                        <span class="fw-semibold"
+                            >SID#{{
+                                setupSidCurrent.sid_number.replace(/^SID/i, "")
+                            }}</span
+                        >
+                        <span
+                            class="text-muted ms-2"
+                            style="font-size: 0.82rem"
+                            >{{ setupSidCurrent.alias || "—" }}</span
+                        >
+                    </div>
+                    <Button
+                        icon="pi pi-times"
+                        label="Unlink"
+                        severity="danger"
+                        size="small"
+                        text
+                        :loading="unlinkSidLoading"
+                        @click="unlinkSid"
+                    />
+                </div>
+            </div>
+
+            <Divider v-if="setupSidCurrent" />
+
+            <!-- Search & Select SID -->
+            <div>
+                <label class="form-label fw-semibold">
+                    {{
+                        setupSidCurrent
+                            ? "Replace with another SID"
+                            : "Select a SID to assign"
+                    }}
+                </label>
+                <div class="d-flex gap-2 mb-2">
+                    <InputText
+                        v-model="sidSearchQuery"
+                        class="w-100"
+                        placeholder="Search by SID number or alias..."
+                        @input="filterSidOptions"
+                    />
+                </div>
+
+                <!-- SID Options List -->
+                <div
+                    style="
+                        max-height: 220px;
+                        overflow-y: auto;
+                        border: 1px solid #dee2e6;
+                        border-radius: 6px;
+                    "
+                >
+                    <div
+                        v-if="filteredSidOptions.length === 0"
+                        class="text-center text-muted py-3"
+                        style="font-size: 0.85rem"
+                    >
+                        No SID entries found.
+                    </div>
+                    <div
+                        v-for="sid in filteredSidOptions"
+                        :key="sid.id"
+                        class="d-flex align-items-center justify-content-between px-3 py-2"
+                        style="
+                            cursor: pointer;
+                            border-bottom: 1px solid #f1f1f1;
+                            font-size: 0.875rem;
+                        "
+                        :class="
+                            selectedSidId === sid.id
+                                ? 'bg-primary text-white'
+                                : 'hover-bg-light'
+                        "
+                        @click="selectedSidId = sid.id"
+                    >
+                        <div>
+                            <span class="fw-semibold"
+                                >SID#{{
+                                    sid.sid_number.replace(/^SID/i, "")
+                                }}</span
+                            >
+                            <span
+                                class="ms-2"
+                                :class="
+                                    selectedSidId === sid.id
+                                        ? 'text-white-50'
+                                        : 'text-muted'
+                                "
+                                style="font-size: 0.8rem"
+                            >
+                                {{ sid.alias || "—" }}
+                            </span>
+                        </div>
+                        <div
+                            class="ms-2"
+                            :class="
+                                selectedSidId === sid.id
+                                    ? 'text-white-50'
+                                    : 'text-muted'
+                            "
+                            style="font-size: 0.8rem"
+                        >
+                            Qty: {{ sid.quantity }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <template #footer>
+                <Button
+                    label="Cancel"
+                    severity="secondary"
+                    size="small"
+                    @click="closeSetupSidModal"
+                />
+                <Button
+                    label="Assign SID"
+                    icon="pi pi-check"
+                    severity="primary"
+                    size="small"
+                    :disabled="!selectedSidId"
+                    :loading="assignSidLoading"
+                    @click="submitAssignSid"
                 />
             </template>
         </Dialog>

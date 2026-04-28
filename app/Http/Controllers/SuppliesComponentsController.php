@@ -439,4 +439,71 @@ class SuppliesComponentsController extends BasetablesController
             return response()->json(['success' => false, 'message' => 'Error updating SID entry.'], 500);
         }
     }
+
+    /**
+ * Get currently assigned SID for a product
+ */
+public function getProductSid(int $productId)
+{
+    try {
+        $link = DB::table('tblproduct_sid as ps')
+            ->join('tblsid as s', 'ps.sid_id', '=', 's.id')
+            ->where('ps.product_id', $productId)
+            ->select('s.id', 's.sid_number', 's.alias', 's.price', 's.quantity', 's.threshold')
+            ->first();
+
+        return response()->json([
+            'success' => true,
+            'sid'     => $link ?? null,
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('getProductSid error: ' . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Error fetching product SID.'], 500);
+    }
+}
+
+/**
+ * Assign (or replace) a SID to a product
+ */
+public function assignProductSid(Request $request)
+{
+    $data = $request->validate([
+        'product_id' => ['required', 'integer'],
+        'sid_id'     => ['required', 'integer'],
+    ]);
+
+    try {
+        DB::table('tblproduct_sid')->updateOrInsert(
+            ['product_id' => $data['product_id']],
+            ['sid_id' => $data['sid_id'], 'updated_at' => now(), 'created_at' => now()]
+        );
+
+        Log::info("Product {$data['product_id']} assigned SID {$data['sid_id']}.");
+
+        return response()->json(['success' => true, 'message' => 'SID assigned successfully.']);
+
+    } catch (\Exception $e) {
+        Log::error('assignProductSid error: ' . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Error assigning SID.'], 500);
+    }
+}
+
+/**
+ * Unlink SID from a product
+ */
+public function unlinkProductSid(int $productId)
+{
+    try {
+        DB::table('tblproduct_sid')->where('product_id', $productId)->delete();
+
+        Log::info("SID unlinked from product {$productId}.");
+
+        return response()->json(['success' => true, 'message' => 'SID unlinked successfully.']);
+
+    } catch (\Exception $e) {
+        Log::error('unlinkProductSid error: ' . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Error unlinking SID.'], 500);
+    }
+}
 }

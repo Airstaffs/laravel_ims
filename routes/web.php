@@ -775,6 +775,11 @@ Route::prefix('api/supplies-components')->group(function () {
     Route::delete('/sid-list/{id}', [SuppliesComponentsController::class, 'deleteSid']);
     Route::post('/sid-list/{id}/upload-image', [SuppliesComponentsController::class, 'uploadSidImage']);
     Route::delete('/sid-list/{id}/delete-image', [SuppliesComponentsController::class, 'deleteSidImage']);
+
+    // Product SID assignment
+    Route::get('/product-sid/{productId}', [SuppliesComponentsController::class, 'getProductSid']);
+    Route::post('/product-sid', [SuppliesComponentsController::class, 'assignProductSid']);
+    Route::delete('/product-sid/{productId}', [SuppliesComponentsController::class, 'unlinkProductSid']);
 });
 
 // Routes for Switcheru Module
