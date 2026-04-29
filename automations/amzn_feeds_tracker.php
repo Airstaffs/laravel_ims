@@ -14,7 +14,7 @@ $dotenv = Dotenv\Dotenv::createImmutable(dirname(__DIR__));
 $dotenv->safeLoad();
 
 $host = 'localhost';
-$db   = $_ENV['DB_DATABASE'] ?? '';23@
+$db   = $_ENV['DB_DATABASE'] ?? '';
 
 $pass = $_ENV['DB_PASSWORD'] ?? '';
 
