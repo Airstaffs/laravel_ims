@@ -14,8 +14,8 @@ $dotenv = Dotenv\Dotenv::createImmutable(dirname(__DIR__));
 $dotenv->safeLoad();
 
 $host = 'localhost';
-$db   = $_ENV['DB_DATABASE'] ?? '';
-$user = $_ENV['DB_USERNAME'] ?? '';
+$db   = $_ENV['DB_DATABASE'] ?? '';23@
+
 $pass = $_ENV['DB_PASSWORD'] ?? '';
 
 $Connect = new mysqli($host, $user, $pass, $db);
