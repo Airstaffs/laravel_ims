@@ -1151,62 +1151,78 @@
                                 </p>
                             </template>
 
-<template #fnskuLimit="{ data }">
-    <div class="d-flex align-items-center gap-1">
-        <input
-            v-if="editMode"
-            type="number"
-            v-model.number="data.fnsku_limit"
-            min="0" 
-            :max="data.Units || 0"
-            style="width: 60px; font-size: 13px"
-            class="form-control form-control-sm"
-            @change="handleFnskuLimitChange(data)"
-        />
-        <span v-else class="text-primary fw-bold">
-            {{ data.fnsku_limit ?? "-" }}
-        </span>
-        <i
-            v-if="savingFnskuLimitFor === data.FNSKU"
-            class="pi pi-spin pi-spinner"
-            style="color: #007bff; font-size: 12px"
-        ></i>
-    </div>
-</template>
+                            <template #fnskuLimit="{ data }">
+                                <div class="d-flex align-items-center gap-1">
+                                    <input
+                                        v-if="editMode"
+                                        type="number"
+                                        v-model.number="data.fnsku_limit"
+                                        min="0"
+                                        :max="data.Units || 0"
+                                        style="width: 60px; font-size: 13px"
+                                        class="form-control form-control-sm"
+                                        @change="handleFnskuLimitChange(data)"
+                                    />
+                                    <span v-else class="text-primary fw-bold">
+                                        {{ data.fnsku_limit ?? "-" }}
+                                    </span>
+                                    <i
+                                        v-if="
+                                            savingFnskuLimitFor === data.FNSKU
+                                        "
+                                        class="pi pi-spin pi-spinner"
+                                        style="color: #007bff; font-size: 12px"
+                                    ></i>
+                                </div>
+                            </template>
 
-<template #fnskuStatusAction="{ data }">
-    <div class="d-flex align-items-center gap-2">
-        <span
-            :class="data.ims_status === 'Disabled' ? 'text-danger fw-bold' : 'text-success fw-bold'"
-            style="min-width: 60px;"
-        >
-            {{ data.ims_status || 'Active' }}
-        </span>
+                            <template #fnskuStatusAction="{ data }">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span
+                                        :class="
+                                            data.ims_status === 'Disabled'
+                                                ? 'text-danger fw-bold'
+                                                : 'text-success fw-bold'
+                                        "
+                                        style="min-width: 60px"
+                                    >
+                                        {{ data.ims_status || "Active" }}
+                                    </span>
 
-        <Button
-            v-if="(data.ims_status || 'Active') === 'Active'"
-            label="Disable"
-            icon="pi pi-ban"
-            severity="danger"
-            size="small"
-            outlined
-            :loading="savingFnskuStatusFor === data.FNSKU"
-            @click="toggleFnskuStatus(data, 'Disabled')"
-        />
+                                    <Button
+                                        v-if="
+                                            (data.ims_status || 'Active') ===
+                                            'Active'
+                                        "
+                                        label="Disable"
+                                        icon="pi pi-ban"
+                                        severity="danger"
+                                        size="small"
+                                        outlined
+                                        :loading="
+                                            savingFnskuStatusFor === data.FNSKU
+                                        "
+                                        @click="
+                                            toggleFnskuStatus(data, 'Disabled')
+                                        "
+                                    />
 
-        <Button
-            v-else
-            label="Enable"
-            icon="pi pi-check"
-            severity="success"
-            size="small"
-            outlined
-            :loading="savingFnskuStatusFor === data.FNSKU"
-            @click="toggleFnskuStatus(data, 'Active')"
-        />
-    </div>
-</template>
-
+                                    <Button
+                                        v-else
+                                        label="Enable"
+                                        icon="pi pi-check"
+                                        severity="success"
+                                        size="small"
+                                        outlined
+                                        :loading="
+                                            savingFnskuStatusFor === data.FNSKU
+                                        "
+                                        @click="
+                                            toggleFnskuStatus(data, 'Active')
+                                        "
+                                    />
+                                </div>
+                            </template>
                         </XDataTable>
                     </div>
                 </div>
@@ -3772,7 +3788,6 @@
                         </div>
                         <div class="pkg-card-body d-flex flex-column gap-2">
                             <!-- ── Catalog search bar ── -->
-                            <!-- ── Catalog search bar ── -->
                             <div class="d-flex align-items-center gap-2 mb-1">
                                 <InputText
                                     v-model="suppliesCatalogSearch"
@@ -3872,7 +3887,12 @@
                                             class="text-muted"
                                             style="font-size: 11px"
                                         >
-                                            {{ item.sku }} · {{ item.category }}
+                                            {{
+                                                item.sid_number
+                                                    ? `SID#${item.sid_number.replace(/^SID/i, "")}`
+                                                    : item.sku
+                                            }}
+                                            · {{ item.category }}
                                         </div>
                                     </div>
 
