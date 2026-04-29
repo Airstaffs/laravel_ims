@@ -23,8 +23,9 @@ class SuppliesComponentsController extends BasetablesController
 
             $query = DB::table('tblproduct as p')
                 ->leftJoin($this->capturedImagesTable.' as img', 'p.ProductID', '=', 'img.ProductID')
-                // ✅ Always join — needed for thumbnail fallback
                 ->leftJoin('tblEbayOrderImages as ebayimgs', 'p.ProductID', '=', 'ebayimgs.ProductID')
+                ->leftJoin('tblproduct_sid as ps', 'p.ProductID', '=', 'ps.product_id')
+                ->leftJoin('tblsid as sid', 'ps.sid_id', '=', 'sid.id')
                 ->select(
                     'p.ProductID',
                     'p.rtcounter',
@@ -33,13 +34,12 @@ class SuppliesComponentsController extends BasetablesController
                     'p.orderdate',
                     'p.datedelivered',
                     'p.ProductModuleLoc',
-                    // ✅ eBay order images — fallback when no captured images exist
+                    'sid.sid_number',
                     'ebayimgs.img1', 'ebayimgs.img2', 'ebayimgs.img3',
                     'ebayimgs.img4', 'ebayimgs.img5', 'ebayimgs.img6',
                     'ebayimgs.img7', 'ebayimgs.img8', 'ebayimgs.img9',
                     'ebayimgs.img10', 'ebayimgs.img11', 'ebayimgs.img12',
                     'ebayimgs.img13', 'ebayimgs.img14', 'ebayimgs.img15',
-                    // Captured images
                     'img.capturedimg1', 'img.capturedimg2', 'img.capturedimg3',
                     'img.capturedimg4', 'img.capturedimg5', 'img.capturedimg6',
                     'img.capturedimg7', 'img.capturedimg8', 'img.capturedimg9',
@@ -111,11 +111,10 @@ class SuppliesComponentsController extends BasetablesController
                     'order_date' => $r->orderdate,
                     'delivered_date' => $r->datedelivered,
                     'category' => $r->ProductModuleLoc,
+                    'sid_number' => $r->sid_number ?? null,
                     'company' => 'Airstaffs',
-                    // Thumbnail (captured takes priority over eBay)
                     'img1' => $thumbnail,
                     'img1_source' => $img1Source,
-                    // Remaining eBay images
                     'img2' => $r->img2 ?? null,
                     'img3' => $r->img3 ?? null,
                     'img4' => $r->img4 ?? null,
@@ -130,7 +129,6 @@ class SuppliesComponentsController extends BasetablesController
                     'img13' => $r->img13 ?? null,
                     'img14' => $r->img14 ?? null,
                     'img15' => $r->img15 ?? null,
-                    // Captured images object
                     'capturedImages' => ! empty($capturedImages) ? $capturedImages : null,
                 ];
             });
@@ -441,69 +439,72 @@ class SuppliesComponentsController extends BasetablesController
     }
 
     /**
- * Get currently assigned SID for a product
- */
-public function getProductSid(int $productId)
-{
-    try {
-        $link = DB::table('tblproduct_sid as ps')
-            ->join('tblsid as s', 'ps.sid_id', '=', 's.id')
-            ->where('ps.product_id', $productId)
-            ->select('s.id', 's.sid_number', 's.alias', 's.price', 's.quantity', 's.threshold')
-            ->first();
+     * Get currently assigned SID for a product
+     */
+    public function getProductSid(int $productId)
+    {
+        try {
+            $link = DB::table('tblproduct_sid as ps')
+                ->join('tblsid as s', 'ps.sid_id', '=', 's.id')
+                ->where('ps.product_id', $productId)
+                ->select('s.id', 's.sid_number', 's.alias', 's.price', 's.quantity', 's.threshold')
+                ->first();
 
-        return response()->json([
-            'success' => true,
-            'sid'     => $link ?? null,
+            return response()->json([
+                'success' => true,
+                'sid' => $link ?? null,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('getProductSid error: '.$e->getMessage());
+
+            return response()->json(['success' => false, 'message' => 'Error fetching product SID.'], 500);
+        }
+    }
+
+    /**
+     * Assign (or replace) a SID to a product
+     */
+    public function assignProductSid(Request $request)
+    {
+        $data = $request->validate([
+            'product_id' => ['required', 'integer'],
+            'sid_id' => ['required', 'integer'],
         ]);
 
-    } catch (\Exception $e) {
-        Log::error('getProductSid error: ' . $e->getMessage());
-        return response()->json(['success' => false, 'message' => 'Error fetching product SID.'], 500);
+        try {
+            DB::table('tblproduct_sid')->updateOrInsert(
+                ['product_id' => $data['product_id']],
+                ['sid_id' => $data['sid_id'], 'updated_at' => now(), 'created_at' => now()]
+            );
+
+            Log::info("Product {$data['product_id']} assigned SID {$data['sid_id']}.");
+
+            return response()->json(['success' => true, 'message' => 'SID assigned successfully.']);
+
+        } catch (\Exception $e) {
+            Log::error('assignProductSid error: '.$e->getMessage());
+
+            return response()->json(['success' => false, 'message' => 'Error assigning SID.'], 500);
+        }
     }
-}
 
-/**
- * Assign (or replace) a SID to a product
- */
-public function assignProductSid(Request $request)
-{
-    $data = $request->validate([
-        'product_id' => ['required', 'integer'],
-        'sid_id'     => ['required', 'integer'],
-    ]);
+    /**
+     * Unlink SID from a product
+     */
+    public function unlinkProductSid(int $productId)
+    {
+        try {
+            DB::table('tblproduct_sid')->where('product_id', $productId)->delete();
 
-    try {
-        DB::table('tblproduct_sid')->updateOrInsert(
-            ['product_id' => $data['product_id']],
-            ['sid_id' => $data['sid_id'], 'updated_at' => now(), 'created_at' => now()]
-        );
+            Log::info("SID unlinked from product {$productId}.");
 
-        Log::info("Product {$data['product_id']} assigned SID {$data['sid_id']}.");
+            return response()->json(['success' => true, 'message' => 'SID unlinked successfully.']);
 
-        return response()->json(['success' => true, 'message' => 'SID assigned successfully.']);
+        } catch (\Exception $e) {
+            Log::error('unlinkProductSid error: '.$e->getMessage());
 
-    } catch (\Exception $e) {
-        Log::error('assignProductSid error: ' . $e->getMessage());
-        return response()->json(['success' => false, 'message' => 'Error assigning SID.'], 500);
+            return response()->json(['success' => false, 'message' => 'Error unlinking SID.'], 500);
+        }
     }
-}
-
-/**
- * Unlink SID from a product
- */
-public function unlinkProductSid(int $productId)
-{
-    try {
-        DB::table('tblproduct_sid')->where('product_id', $productId)->delete();
-
-        Log::info("SID unlinked from product {$productId}.");
-
-        return response()->json(['success' => true, 'message' => 'SID unlinked successfully.']);
-
-    } catch (\Exception $e) {
-        Log::error('unlinkProductSid error: ' . $e->getMessage());
-        return response()->json(['success' => false, 'message' => 'Error unlinking SID.'], 500);
-    }
-}
 }

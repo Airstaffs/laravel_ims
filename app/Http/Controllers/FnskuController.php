@@ -49,20 +49,20 @@ class FnskuController extends BasetablesController
                 ->lockForUpdate()
                 ->first();
 
-            if (!$fnskuRecord) {
-                Log::warning("FNSKU not found in database", [
+            if (! $fnskuRecord) {
+                Log::warning('FNSKU not found in database', [
                     'base_fnsku' => $baseFnsku,
                     'msku' => $msku,
                     'asin' => $asin,
                     'grading' => $grading,
-                    'storename' => $storename
+                    'storename' => $storename,
                 ]);
 
                 return [
                     'actual_fnsku' => $baseFnsku,
                     'actual_msku' => $msku,
                     'times_used' => 0,
-                    'remaining_units' => 0
+                    'remaining_units' => 0,
                 ];
             }
 
@@ -77,18 +77,18 @@ class FnskuController extends BasetablesController
                 ->select('FNSKUviewer')
                 ->where(function ($query) use ($baseFnsku) {
                     $query->where('FNSKUviewer', $baseFnsku)
-                        ->orWhere('FNSKUviewer', 'LIKE', '%' . $baseFnsku); // Match any prefix
+                        ->orWhere('FNSKUviewer', 'LIKE', '%'.$baseFnsku); // Match any prefix
                 })
                 ->whereNotIn('ProductModuleLoc', ['Shipment', 'Soldlist', 'Returnlist', 'Merged', 'RTS'])
                 ->lockForUpdate()
                 ->pluck('FNSKUviewer')
                 ->toArray();
 
-            Log::info("Active FNSKUs found", [
+            Log::info('Active FNSKUs found', [
                 'base_fnsku' => $baseFnsku,
                 'active_fnskus' => $activeFnskus,
                 'active_count' => count($activeFnskus),
-                'remaining_units' => $currentUnits
+                'remaining_units' => $currentUnits,
             ]);
 
             // ✅ Extract used prefixes from active products (supports C-W, Y-Z, excluding X)
@@ -98,21 +98,21 @@ class FnskuController extends BasetablesController
                 if ($fnsku === $baseFnsku) {
                     // Base FNSKU (no prefix) is used
                     $usedPrefixes[] = ['letter' => null, 'number' => 0];
-                } elseif (preg_match('/^([C-W]|[Y-Z])(\d+)' . preg_quote($baseFnsku, '/') . '$/', $fnsku, $matches)) {
+                } elseif (preg_match('/^([C-W]|[Y-Z])(\d+)'.preg_quote($baseFnsku, '/').'$/', $fnsku, $matches)) {
                     // Extract prefix letter and number (e.g., "C3", "D5", "E1")
                     // Excluding X since base FNSKUs start with X
                     $usedPrefixes[] = [
                         'letter' => $matches[1],
-                        'number' => (int) $matches[2]
+                        'number' => (int) $matches[2],
                     ];
                 }
             }
 
-            Log::info("Prefix analysis", [
+            Log::info('Prefix analysis', [
                 'base_fnsku' => $baseFnsku,
                 'used_prefixes' => $usedPrefixes,
                 'used_count' => count($usedPrefixes),
-                'remaining_units_in_db' => $currentUnits
+                'remaining_units_in_db' => $currentUnits,
             ]);
 
             // ✅ Generate prefix sequence from C to Z (excluding X since base FNSKUs start with X)
@@ -139,9 +139,9 @@ class FnskuController extends BasetablesController
                 }
             }
 
-            Log::info("Prefix sequence generated", [
+            Log::info('Prefix sequence generated', [
                 'total_slots_available' => count($prefixSequence),
-                'pattern' => 'base + C1-W9 + Y1-Z9 (excluding X)'
+                'pattern' => 'base + C1-W9 + Y1-Z9 (excluding X)',
             ]);
 
             // ✅ Find first UNUSED prefix in sequence
@@ -160,7 +160,7 @@ class FnskuController extends BasetablesController
                     }
                 }
 
-                if (!$isUsed) {
+                if (! $isUsed) {
                     $nextPrefix = $candidate;
                     break;
                 }
@@ -169,8 +169,8 @@ class FnskuController extends BasetablesController
             // ✅ Check if we found an available prefix slot
             if ($nextPrefix === null) {
                 throw new \Exception(
-                    "All prefix slots exhausted for FNSKU: {$baseFnsku}. " .
-                    "All " . count($prefixSequence) . " prefixes (base + C1-W9 + Y1-Z9) are in use."
+                    "All prefix slots exhausted for FNSKU: {$baseFnsku}. ".
+                    'All '.count($prefixSequence).' prefixes (base + C1-W9 + Y1-Z9) are in use.'
                 );
             }
 
@@ -185,13 +185,13 @@ class FnskuController extends BasetablesController
                 ? "{$nextPrefix['letter']}{$nextPrefix['number']}"
                 : 'base';
 
-            Log::info("✅ Generated FNSKU with available prefix", [
+            Log::info('✅ Generated FNSKU with available prefix', [
                 'base_fnsku' => $baseFnsku,
                 'used_count' => count($usedPrefixes),
                 'next_prefix' => $prefixDisplay,
                 'actual_fnsku' => $actualFnsku,
                 'remaining_units' => $currentUnits,
-                'total_capacity' => count($prefixSequence)
+                'total_capacity' => count($prefixSequence),
             ]);
 
             return [
@@ -199,20 +199,19 @@ class FnskuController extends BasetablesController
                 'actual_msku' => $msku,
                 'times_used' => count($usedPrefixes),
                 'remaining_units' => $currentUnits,
-                'next_prefix' => $prefixDisplay
+                'next_prefix' => $prefixDisplay,
             ];
 
         } catch (\Exception $e) {
-            Log::error("Error in getNextAvailableFnsku: " . $e->getMessage(), [
+            Log::error('Error in getNextAvailableFnsku: '.$e->getMessage(), [
                 'base_fnsku' => $baseFnsku,
                 'msku' => $msku,
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             throw $e;
         }
     }
-
 
     /**
      * Update FNSKU units after using an FNSKU
@@ -240,7 +239,7 @@ class FnskuController extends BasetablesController
             ->where('storename', $storename)
             ->first();
 
-        //check limit status everytime the unit is updating
+        // check limit status everytime the unit is updating
         $this->updateFnskuLimitStatus($asin, $msku, $currentFnsku);
 
         $becameUnavailable = false;
@@ -263,10 +262,11 @@ class FnskuController extends BasetablesController
     private function returnFnskuUnits($mskuViewer, $asinViewer)
     {
         if (empty($mskuViewer) || empty($asinViewer)) {
-            Log::warning("Missing MSKU or ASIN for unit return", [
+            Log::warning('Missing MSKU or ASIN for unit return', [
                 'msku' => $mskuViewer,
-                'asin' => $asinViewer
+                'asin' => $asinViewer,
             ]);
+
             return false;
         }
 
@@ -276,11 +276,12 @@ class FnskuController extends BasetablesController
             ->where('ASIN', $asinViewer)
             ->first();
 
-        if (!$fnskuRecord) {
-            Log::warning("FNSKU record not found for return", [
+        if (! $fnskuRecord) {
+            Log::warning('FNSKU record not found for return', [
                 'msku' => $mskuViewer,
-                'asin' => $asinViewer
+                'asin' => $asinViewer,
             ]);
+
             return false;
         }
 
@@ -296,7 +297,7 @@ class FnskuController extends BasetablesController
         Log::info('Successfully returned 1 unit using MSKU', [
             'msku' => $mskuViewer,
             'asin' => $asinViewer,
-            'fnsku' => $fnskuRecord->FNSKU
+            'fnsku' => $fnskuRecord->FNSKU,
         ]);
 
         return true;
@@ -356,7 +357,7 @@ class FnskuController extends BasetablesController
                 'exclude_assigned' => $exclude_assigned,
             ]);
 
-            if (!isset($this->fnskuTable) || !isset($this->asinTable) || !isset($this->productTable)) {
+            if (! isset($this->fnskuTable) || ! isset($this->asinTable) || ! isset($this->productTable)) {
                 Log::error('Table properties not set');
 
                 return response()->json([
@@ -365,8 +366,7 @@ class FnskuController extends BasetablesController
                 ], 500);
             }
 
-            // Build base query
-            $query = DB::table($this->fnskuTable . ' as fnsku')
+            $query = DB::table($this->fnskuTable.' as fnsku')
                 ->select([
                     'fnsku.FNSKU',
                     'fnsku.MSKU',
@@ -376,15 +376,15 @@ class FnskuController extends BasetablesController
                     'fnsku.storename',
                     'fnsku.fnsku_status',
                     'asin.internal as astitle',
-                    'asin.asin_limit as asinLimit'
+                    'asin.asin_limit as asinLimit',
                 ])
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                 ->where('fnsku.fnsku_status', 'available')
                 ->where(function ($query) {
-                    $query->whereNull('amazon_status')
-                        ->orWhere('amazon_status', '!=', 'Deleted');
+                    $query->whereNull('asin.amazon_status')        // ← prefixed with asin.
+                        ->orWhere('asin.amazon_status', '!=', 'Deleted');  // ← prefixed with asin.
                 })
-                ->where('ims_status', 'Active')
+                ->where('fnsku.ims_status', 'Active')              // ← prefixed with fnsku.
                 ->where('fnsku.Units', '>', 0)
                 ->whereNotNull('fnsku.FNSKU')
                 ->where('fnsku.FNSKU', '!=', '')
@@ -410,7 +410,7 @@ class FnskuController extends BasetablesController
             // STACK ALL FILTERS with AND logic
 
             // Filter 1: General search (Title or ASIN)
-            if (!empty($search)) {
+            if (! empty($search)) {
                 $query->where(function ($q) use ($search) {
                     $q->where('fnsku.ASIN', 'like', "%{$search}%")
                         ->orWhere('asin.internal', 'like', "%{$search}%")
@@ -420,25 +420,25 @@ class FnskuController extends BasetablesController
             }
 
             // Filter 2: FNSKU exact or partial match
-            if (!empty($fnsku)) {
+            if (! empty($fnsku)) {
                 $query->where('fnsku.FNSKU', 'like', "%{$fnsku}%");
                 Log::info('FNSKU filter applied:', ['fnsku' => $fnsku]);
             }
 
             // Filter 3: Store filter
-            if (!empty($store)) {
+            if (! empty($store)) {
                 $query->where('fnsku.storename', $store);
                 Log::info('Store filter applied:', ['store' => $store]);
             }
 
             // Filter 4: Grading/Condition filter
-            if (!empty($grading)) {
+            if (! empty($grading)) {
                 $query->where('fnsku.grading', $grading);
                 Log::info('Grading filter applied:', ['grading' => $grading]);
             }
 
             // Apply sorting
-            if (!empty($search)) {
+            if (! empty($search)) {
                 // When searching, prioritize exact matches
                 $query->orderByRaw('
             CASE 
@@ -447,7 +447,7 @@ class FnskuController extends BasetablesController
                 WHEN asin.internal LIKE ? THEN 3
                 ELSE 4
             END, fnsku.FNSKU
-        ', [$search, $search . '%', '%' . $search . '%']);
+        ', [$search, $search.'%', '%'.$search.'%']);
             } else {
                 $query->orderBy('fnsku.ASIN')
                     ->orderBy('fnsku.FNSKU');
@@ -470,7 +470,7 @@ class FnskuController extends BasetablesController
 
             // Filter out any remaining empty FNSKUs
             $filteredItems = $fnskuList->getCollection()->filter(function ($item) {
-                return !empty($item->FNSKU) && $item->FNSKU !== 'NULL' && trim($item->FNSKU) !== '';
+                return ! empty($item->FNSKU) && $item->FNSKU !== 'NULL' && trim($item->FNSKU) !== '';
             })->values();
 
             // ✅ ADD NEXT FNSKU TO USE FOR EACH ITEM
@@ -488,8 +488,8 @@ class FnskuController extends BasetablesController
                     $item->next_prefix = $fnskuInfo['next_prefix'] ?? 'base';
                     $item->times_used = $fnskuInfo['times_used'] ?? 0;
                 } catch (\Exception $e) {
-                    Log::warning('Could not get next FNSKU for MSKU: ' . $item->MSKU, [
-                        'error' => $e->getMessage()
+                    Log::warning('Could not get next FNSKU for MSKU: '.$item->MSKU, [
+                        'error' => $e->getMessage(),
                     ]);
                     $item->next_fnsku_to_use = $item->FNSKU;
                     $item->next_prefix = 'base';
@@ -514,18 +514,18 @@ class FnskuController extends BasetablesController
                 'total' => $totalCount,
                 'excluded_assigned' => $exclude_assigned,
                 'filters_applied' => [
-                    'search' => !empty($search),
-                    'fnsku' => !empty($fnsku),
-                    'store' => !empty($store),
-                    'grading' => !empty($grading),
+                    'search' => ! empty($search),
+                    'fnsku' => ! empty($fnsku),
+                    'store' => ! empty($store),
+                    'grading' => ! empty($grading),
                 ],
             ]);
 
         } catch (\Exception $e) {
             Log::error('=== FNSKU LIST ERROR ===');
-            Log::error('Error message: ' . $e->getMessage());
-            Log::error('Error line: ' . $e->getLine());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::error('Error message: '.$e->getMessage());
+            Log::error('Error line: '.$e->getLine());
+            Log::error('Stack trace: '.$e->getTraceAsString());
 
             return response()->json([
                 'error' => 'Failed to fetch FNSKU list',
@@ -539,7 +539,7 @@ class FnskuController extends BasetablesController
     {
         try {
             $request->validate([
-                'fnsku' => 'required|string|unique:' . $this->fnskuTable . ',FNSKU',
+                'fnsku' => 'required|string|unique:'.$this->fnskuTable.',FNSKU',
                 'asin' => 'required|string',
                 'grading' => 'required|string',
                 'msku' => 'nullable|string',
@@ -562,11 +562,11 @@ class FnskuController extends BasetablesController
                 'message' => 'FNSKU added successfully with 11 units',
             ]);
         } catch (\Exception $e) {
-            Log::error('Error adding FNSKU: ' . $e->getMessage());
+            Log::error('Error adding FNSKU: '.$e->getMessage());
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to add FNSKU: ' . $e->getMessage(),
+                'message' => 'Failed to add FNSKU: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -597,7 +597,7 @@ class FnskuController extends BasetablesController
                 ->lockForUpdate()
                 ->first();
 
-            if (!$product) {
+            if (! $product) {
                 DB::rollBack();
                 Log::error('Product not found:', ['product_id' => $request->product_id]);
 
@@ -629,16 +629,16 @@ class FnskuController extends BasetablesController
 
             // ✅ Handle OLD FNSKU - Return unit using MSKU
             if (
-                !empty($oldMskuViewer) && !empty($oldAsinViewer) &&
+                ! empty($oldMskuViewer) && ! empty($oldAsinViewer) &&
                 $oldMskuViewer !== 'NULL' && $oldAsinViewer !== 'NULL' &&
                 trim($oldMskuViewer) !== '' && trim($oldAsinViewer) !== ''
             ) {
 
-                Log::info('Returning unit to old MSKU: ' . $oldMskuViewer);
+                Log::info('Returning unit to old MSKU: '.$oldMskuViewer);
                 $returnSuccess = $this->returnFnskuUnits($oldMskuViewer, $oldAsinViewer);
 
-                if (!$returnSuccess) {
-                    Log::warning('Failed to return units to old MSKU: ' . $oldMskuViewer);
+                if (! $returnSuccess) {
+                    Log::warning('Failed to return units to old MSKU: '.$oldMskuViewer);
                 }
             }
 
@@ -650,12 +650,12 @@ class FnskuController extends BasetablesController
                 ->where('Units', '>', 0)
                 ->first();
 
-            if (!$newFnskuRecord) {
+            if (! $newFnskuRecord) {
                 DB::rollBack();
                 Log::error('New FNSKU/MSKU combination not available:', [
                     'fnsku' => $newBaseFnsku,
                     'msku' => $newMsku,
-                    'asin' => $newAsin
+                    'asin' => $newAsin,
                 ]);
 
                 $beforeState = empty($oldFnskuViewer) || $oldFnskuViewer === 'NULL' || trim($oldFnskuViewer) === ''
@@ -752,7 +752,7 @@ class FnskuController extends BasetablesController
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
-            Log::error('❌ Validation error: ' . json_encode($e->errors()));
+            Log::error('❌ Validation error: '.json_encode($e->errors()));
 
             if (isset($request->product_id)) {
                 $product = DB::table($this->productTable)
@@ -780,8 +780,8 @@ class FnskuController extends BasetablesController
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('❌ Error updating FNSKU: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::error('❌ Error updating FNSKU: '.$e->getMessage());
+            Log::error('Stack trace: '.$e->getTraceAsString());
 
             if (isset($request->product_id)) {
                 $product = DB::table($this->productTable)
@@ -803,7 +803,7 @@ class FnskuController extends BasetablesController
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update FNSKU: ' . $e->getMessage(),
+                'message' => 'Failed to update FNSKU: '.$e->getMessage(),
                 'debug' => [
                     'error' => $e->getMessage(),
                     'line' => $e->getLine(),
@@ -819,7 +819,7 @@ class FnskuController extends BasetablesController
             Log::info('Fetching single product:', ['product_id' => $productId]);
 
             // Get the product with all necessary joins
-            $product = DB::table($this->productTable . ' as prod')
+            $product = DB::table($this->productTable.' as prod')
                 ->select([
                     'prod.*',
                     'prod.FNSKUviewer as FNSKU', // Make sure FNSKU field is available
@@ -828,7 +828,7 @@ class FnskuController extends BasetablesController
                 ->where('prod.ProductID', $productId)
                 ->first();
 
-            if (!$product) {
+            if (! $product) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Product not found',
@@ -855,7 +855,7 @@ class FnskuController extends BasetablesController
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving product: ' . $e->getMessage(),
+                'message' => 'Error retrieving product: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -887,7 +887,7 @@ class FnskuController extends BasetablesController
                 })
                 ->first();
 
-            if (!$fnskuRecord) {
+            if (! $fnskuRecord) {
                 return response()->json([
                     'success' => false,
                     'message' => 'MSKU not available, disabled, deleted, or not found',
@@ -935,7 +935,7 @@ class FnskuController extends BasetablesController
             }
 
         } catch (\Exception $e) {
-            Log::error('Error checking FNSKU availability: ' . $e->getMessage());
+            Log::error('Error checking FNSKU availability: '.$e->getMessage());
 
             return response()->json([
                 'success' => false,
@@ -953,7 +953,7 @@ class FnskuController extends BasetablesController
             // 0. DETERMINE IF THIS IS NEW OR UPDATE
             // ===============================
             $isNewAssignment = empty($currentFnsku) ||
-                !isset($currentFnsku['MSKU']);
+                ! isset($currentFnsku['MSKU']);
 
             // ===============================
             // 1. GET ASIN LIMIT
@@ -976,7 +976,7 @@ class FnskuController extends BasetablesController
             $fnskuChanged = false;
             $prevFnskuWhere = null;
 
-            if (!$isNewAssignment) {
+            if (! $isNewAssignment) {
                 $prevFnskuWhere = [
                     'ASIN' => $asin,
                     'MSKU' => $currentFnsku['MSKU'],
@@ -992,7 +992,7 @@ class FnskuController extends BasetablesController
                 // ===============================
                 // 4. UPDATE PREVIOUS FNSKU (if changed)
                 // ===============================
-                if ($fnskuChanged && !$isNewAssignment) {
+                if ($fnskuChanged && ! $isNewAssignment) {
                     // Fetch ALL fnsku records for the previous MSKU+ASIN
                     $prevRecords = DB::table($this->fnskuTable)
                         ->where($prevFnskuWhere)
@@ -1197,8 +1197,9 @@ class FnskuController extends BasetablesController
                 $q->where('FNSKUID', $rowId);
             } else {
                 $q->where('MSKU', $msku);
-                if ($store)
+                if ($store) {
                     $q->where('storename', $store);
+                }
             }
 
             // Only flip if currently blocked (optional)
@@ -1218,6 +1219,4 @@ class FnskuController extends BasetablesController
             'affected' => $affected,
         ]);
     }
-
-
 }

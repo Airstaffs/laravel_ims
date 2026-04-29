@@ -3788,7 +3788,6 @@
                         </div>
                         <div class="pkg-card-body d-flex flex-column gap-2">
                             <!-- ── Catalog search bar ── -->
-                            <!-- ── Catalog search bar ── -->
                             <div class="d-flex align-items-center gap-2 mb-1">
                                 <InputText
                                     v-model="suppliesCatalogSearch"
@@ -3888,7 +3887,12 @@
                                             class="text-muted"
                                             style="font-size: 11px"
                                         >
-                                            {{ item.sku }} · {{ item.category }}
+                                            {{
+                                                item.sid_number
+                                                    ? `SID#${item.sid_number.replace(/^SID/i, "")}`
+                                                    : item.sku
+                                            }}
+                                            · {{ item.category }}
                                         </div>
                                     </div>
 

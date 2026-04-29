@@ -212,8 +212,13 @@ export default {
         filteredSuppliesCatalog() {
             const q = this.suppliesCatalogSearch.trim().toLowerCase();
             if (!q) return [];
-            return this.suppliesCatalog.filter((item) =>
-                String(item.sku).toLowerCase().includes(q),
+            return this.suppliesCatalog.filter(
+                (item) =>
+                    String(item.sku).toLowerCase().includes(q) ||
+                    String(item.name).toLowerCase().includes(q) ||
+                    String(item.sid_number || "")
+                        .toLowerCase()
+                        .includes(q),
             );
         },
     },
@@ -2008,8 +2013,9 @@ export default {
                     id: item.product_id,
                     name: item.product_title,
                     sku: item.rt_counter || "",
+                    sid_number: item.sid_number || "",
                     category: item.category,
-                    img: item.img1 || item.img2 || item.img3 || null, // ← walks img1–img3 for first available
+                    img: item.img1 || item.img2 || item.img3 || null,
                     img1_source: item.img1_source || null,
                 }));
             } catch (e) {
@@ -2032,11 +2038,11 @@ export default {
             if (this.isAlreadyAdded(catalogItem)) return;
             this.packagingComponents.push({
                 name: catalogItem.name,
-                sku: catalogItem.sku,
+                sku: catalogItem.sid_number || catalogItem.sku,
                 qty: 1,
                 note: "",
                 img: catalogItem.img,
-                img1Source: catalogItem.img1Source,
+                img1Source: catalogItem.img1_source,
                 _fromCatalog: true,
             });
         },
@@ -2052,75 +2058,78 @@ export default {
         },
 
         handleFnskuLimitChange(data) {
-    const units = Number(data.Units || 0);
-    let limit = Number(data.fnsku_limit || 0);
+            const units = Number(data.Units || 0);
+            let limit = Number(data.fnsku_limit || 0);
 
-    if (limit < 0) {
-        limit = 0;
-    }
+            if (limit < 0) {
+                limit = 0;
+            }
 
-    if (limit > units) {
-        limit = units;
-        data.fnsku_limit = units;
+            if (limit > units) {
+                limit = units;
+                data.fnsku_limit = units;
 
-        this.$toast?.add?.({
-            severity: "warn",
-            summary: "Limit adjusted",
-            detail: `FNSKU limit cannot exceed current Units (${units}).`,
-            life: 3000,
-        });
-    }
+                this.$toast?.add?.({
+                    severity: "warn",
+                    summary: "Limit adjusted",
+                    detail: `FNSKU limit cannot exceed current Units (${units}).`,
+                    life: 3000,
+                });
+            }
 
-    this.updateFnskuLimit(data);
+            this.updateFnskuLimit(data);
+        },
 
-    
-},
+        async toggleFnskuStatus(data, newStatus) {
+            const originalStatus = data.ims_status || "Active";
 
-async toggleFnskuStatus(data, newStatus) {
-    const originalStatus = data.ims_status || "Active";
+            try {
+                this.savingFnskuStatusFor = data.FNSKU;
 
-    try {
-        this.savingFnskuStatusFor = data.FNSKU;
+                const response = await axios.post(
+                    "/api/asinlist/fnsku/toggle-status",
+                    {
+                        fnsku: data.FNSKU,
+                        ims_status: newStatus,
+                    },
+                );
 
-        const response = await axios.post("/api/asinlist/fnsku/toggle-status", {
-            fnsku: data.FNSKU,
-            ims_status: newStatus,
-        });
+                if (response.data?.success) {
+                    data.ims_status = newStatus;
 
-        if (response.data?.success) {
-            data.ims_status = newStatus;
+                    this.$toast?.add?.({
+                        severity: "success",
+                        summary: "Success",
+                        detail: `FNSKU ${newStatus === "Disabled" ? "disabled" : "enabled"} successfully.`,
+                        life: 2500,
+                    });
+                } else {
+                    data.ims_status = originalStatus;
 
-            this.$toast?.add?.({
-                severity: "success",
-                summary: "Success",
-                detail: `FNSKU ${newStatus === "Disabled" ? "disabled" : "enabled"} successfully.`,
-                life: 2500,
-            });
-        } else {
-            data.ims_status = originalStatus;
+                    this.$toast?.add?.({
+                        severity: "error",
+                        summary: "Error",
+                        detail:
+                            response.data?.message ||
+                            "Failed to update FNSKU status.",
+                        life: 3000,
+                    });
+                }
+            } catch (error) {
+                data.ims_status = originalStatus;
 
-            this.$toast?.add?.({
-                severity: "error",
-                summary: "Error",
-                detail: response.data?.message || "Failed to update FNSKU status.",
-                life: 3000,
-            });
-        }
-    } catch (error) {
-        data.ims_status = originalStatus;
-
-        this.$toast?.add?.({
-            severity: "error",
-            summary: "Error",
-            detail:
-                error.response?.data?.message ||
-                "Failed to update FNSKU status.",
-            life: 3000,
-        });
-    } finally {
-        this.savingFnskuStatusFor = null;
-    }
-}
+                this.$toast?.add?.({
+                    severity: "error",
+                    summary: "Error",
+                    detail:
+                        error.response?.data?.message ||
+                        "Failed to update FNSKU status.",
+                    life: 3000,
+                });
+            } finally {
+                this.savingFnskuStatusFor = null;
+            }
+        },
     },
 
     // ══════════════════════════════════════════════════════════════
