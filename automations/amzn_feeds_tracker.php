@@ -5,12 +5,23 @@ error_reporting(E_ALL);
 set_time_limit(600);
 ini_set('max_execution_time', 600);
 
+
 $authEndpoint = 'https://api.amazon.com/auth/o2/token';
 
-$Connect = new mysqli("localhost", "imsv2_dbims_user", "Imsv2_dbims_user", "imsv2_dbims");
+require_once __DIR__ . '/../vendor/autoload.php';
+
+$dotenv = Dotenv\Dotenv::createImmutable(dirname(__DIR__));
+$dotenv->safeLoad();
+
+$host = 'localhost';
+$db   = $_ENV['DB_DATABASE'] ?? '';
+
+$pass = $_ENV['DB_PASSWORD'] ?? '';
+
+$Connect = new mysqli($host, $user, $pass, $db);
 
 if ($Connect->connect_error) {
-    die("Connection failed: " . $Connect->connect_error);
+    die("DB connection failed: " . $Connect->connect_error . PHP_EOL);
 }
 
 echo "hello";

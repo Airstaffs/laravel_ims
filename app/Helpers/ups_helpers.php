@@ -3,7 +3,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 
-//$credentials = getUPSCredentials($Connect);
 
 if (!function_exists('UPSCredentials')) {
     /**
