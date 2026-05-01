@@ -854,31 +854,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- ── COMPLETION ──────────────────────────────────────────── -->
-                <div class="cwl-completion-section">
-                    <div class="cwl-completion-header">
-                        <span class="cwl-completion-badge">COMPLETION</span>
-                        <span class="cwl-completion-title">Mark as Done</span>
-                    </div>
-                    <div class="cwl-completion-card">
-                        <div class="cwl-completion-text">
-                            <p class="cwl-completion-main">
-                                All packaging tasks completed?
-                            </p>
-                            <p class="cwl-completion-sub">
-                                Item will proceed to Stockroom
-                            </p>
-                        </div>
-                        <Button
-                            label="Done Packaging"
-                            icon="pi pi-check"
-                            class="cwl-done-btn"
-                            :loading="savingPackagingWorkLog"
-                            @click="savePackagingWorkLog(true)"
-                        />
-                    </div>
-                </div>
             </div>
 
             <template #footer>
@@ -894,7 +869,7 @@
                     severity="secondary"
                     outlined
                     :loading="savingPackagingWorkLog"
-                    @click="savePackagingWorkLog(false)"
+                    @click="savePackagingWorkLog"
                 />
             </template>
         </Dialog>

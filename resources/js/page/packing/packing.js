@@ -759,35 +759,59 @@ export default {
 
         openPackagingWorkLog(item) {
             this.packagingWorkLogItem = item;
-            this.packagingWorkLogValues = {};
+
+            let savedValues = {};
+
+            try {
+                if (item.packaging_category_values) {
+                    savedValues =
+                        typeof item.packaging_category_values === "string"
+                            ? JSON.parse(item.packaging_category_values)
+                            : item.packaging_category_values;
+                }
+            } catch (error) {
+                console.error("Invalid packaging_category_values JSON:", error);
+                savedValues = {};
+            }
+
+            // Make sure every component has a boolean value.
+            this.packagingComponents.forEach((comp) => {
+                savedValues[comp.name] = savedValues[comp.name] === true;
+            });
+
+            this.packagingWorkLogValues = { ...savedValues };
             this.packagingDateTime = new Date().toLocaleString();
             this.showPackagingWorkLog = true;
         },
 
-        async savePackagingWorkLog(markDone = false) {
+        async savePackagingWorkLog() {
             const item = this.packagingWorkLogItem;
             if (!item) return;
 
             this.savingPackagingWorkLog = true;
+
             try {
                 const csrfToken = document
                     .querySelector('meta[name="csrf-token"]')
                     .getAttribute("content");
 
-                // ── Auto-check all unchecked components when marking done ─────
-                if (markDone) {
-                    const filled = { ...this.packagingWorkLogValues };
-                    this.packagingComponents.forEach((comp) => {
-                        if (
-                            filled[comp.name] === undefined ||
-                            filled[comp.name] === false
-                        ) {
-                            filled[comp.name] = true;
-                        }
-                    });
-                    this.packagingWorkLogValues = filled;
-                }
-                // ─────────────────────────────────────────────────────────────
+                const categoryValues = { ...this.packagingWorkLogValues };
+
+                // Save all component checkbox states explicitly.
+                // Checked = true, unchecked = false.
+                this.packagingComponents.forEach((comp) => {
+                    categoryValues[comp.name] =
+                        categoryValues[comp.name] === true;
+                });
+
+                // Move only when every component row is checked.
+                const allComponentsChecked =
+                    this.packagingComponents.length > 0 &&
+                    this.packagingComponents.every(
+                        (comp) => categoryValues[comp.name] === true,
+                    );
+
+                const categoryValuesJson = JSON.stringify(categoryValues);
 
                 const response = await axios.post(
                     `${API_BASE_URL}/api/packaging/work-log`,
@@ -797,30 +821,56 @@ export default {
                         product_id: item.ProductID,
                         packed_by: item.Username || this.currentUser,
                         date_packed: this.packagingDateTime,
-                        mark_done: markDone ? 1 : 0,
-                        category_values: JSON.stringify(
-                            this.packagingWorkLogValues,
-                        ),
+                        mark_done: allComponentsChecked ? 1 : 0,
+                        category_values: categoryValuesJson,
                     },
                     { headers: { "X-CSRF-TOKEN": csrfToken } },
                 );
 
                 if (response.data.success) {
-                    if (markDone) {
+                    // Keep current dialog state checked after saving.
+                    this.packagingWorkLogValues = { ...categoryValues };
+
+                    // Important: keep the selected item updated, so reopening uses the saved values.
+                    this.packagingWorkLogItem = {
+                        ...this.packagingWorkLogItem,
+                        packaging_category_values: categoryValuesJson,
+                        packaging_done: allComponentsChecked ? 1 : 0,
+                    };
+
+                    // Important: also update the row inside inventory.
+                    // Otherwise reopening from the list uses the old item data.
+                    const inventoryIndex = this.inventory.findIndex(
+                        (row) =>
+                            String(row.rtcounter) === String(item.rtcounter) ||
+                            String(row.ProductID) === String(item.ProductID),
+                    );
+
+                    if (inventoryIndex !== -1) {
+                        this.inventory.splice(inventoryIndex, 1, {
+                            ...this.inventory[inventoryIndex],
+                            packaging_category_values: categoryValuesJson,
+                            packaging_done: allComponentsChecked ? 1 : 0,
+                        });
+                    }
+
+                    if (allComponentsChecked) {
                         await Swal.fire({
                             icon: "success",
                             title: "Packaging Complete!",
                             text: `Item ${item.rtcounter} moved to Stockroom.`,
                             confirmButtonText: "OK",
                         });
+
                         this.showPackagingWorkLog = false;
                         this.packagingWorkLogItem = null;
+
                         await this.fetchInventory();
                     } else {
                         await Swal.fire({
                             icon: "success",
                             title: "Progress Saved",
-                            text: "Packaging work log saved successfully.",
+                            text: "Packaging work log saved. Item was not moved because not all components are checked.",
                             confirmButtonText: "OK",
                         });
                     }
@@ -835,6 +885,7 @@ export default {
                 }
             } catch (error) {
                 console.error("Error saving packaging work log:", error);
+
                 await Swal.fire({
                     icon: "error",
                     title: "Error",

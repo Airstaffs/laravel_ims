@@ -584,6 +584,7 @@ Route::prefix('api/validation')->group(function () {
     Route::get('products', [ValidationController::class, 'index']);
     Route::post('move-to-stockroom', [ValidationController::class, 'moveToStockroom']);
     Route::post('move-to-labeling', [ValidationController::class, 'moveToLabeling']);
+    Route::post('move-to-packaging', [ValidationController::class, 'moveToPackaging']);
     Route::post('validate', [ValidationController::class, 'validate']);
 });
 

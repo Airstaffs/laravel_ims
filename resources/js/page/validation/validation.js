@@ -74,7 +74,7 @@ export default {
             currentPage: 1,
             totalRecords: 0,
             perPage: 10, // Default rows per page
-            first: 0 //paginator internal state
+            first: 0, //paginator internal state
         };
     },
     computed: {
@@ -616,9 +616,9 @@ export default {
         },
 
         onPageChange(event) {
-            this.first = event.first
+            this.first = event.first;
             this.currentPage = event.page + 1; // convert to 1-based
-            this.perPage     = event.rows;
+            this.perPage = event.rows;
             this.fetchInventory();
         },
         toggleAll() {
@@ -913,7 +913,7 @@ export default {
                     await Swal.fire({
                         icon: "success",
                         title: "Validated!",
-                        text: `Item ${this.currentValidationItem.rtcounter} has been validated successfully.`,
+                        text: `Item ${this.currentValidationItem.rtcounter} has been validated and moved to Packaging.`,
                         confirmButtonColor: "#3085d6",
                         confirmButtonText: "OK",
                     });
@@ -960,13 +960,6 @@ export default {
                 this.isProcessingValidation = true;
                 this.showConfirmationModal = false;
 
-                // Set location
-                this.currentValidationItem.ProductModuleLoc = "Labeling";
-                console.log(
-                    "markAsInvalid: Set ProductModuleLoc to 'Labeling'",
-                );
-
-                // Get CSRF token
                 const csrfToken = document
                     .querySelector('meta[name="csrf-token"]')
                     .getAttribute("content");
@@ -976,11 +969,8 @@ export default {
                     rt_counter: this.currentValidationItem.rtcounter,
                     status: "invalid",
                     notes: this.validationNotes,
-                    ProductModuleLoc:
-                        this.currentValidationItem.ProductModuleLoc,
                 });
 
-                // Send request
                 const response = await axios.post(
                     `${API_BASE_URL}/api/validation/validate`,
                     {
@@ -988,8 +978,6 @@ export default {
                         rt_counter: this.currentValidationItem.rtcounter,
                         status: "invalid",
                         notes: this.validationNotes,
-                        ProductModuleLoc:
-                            this.currentValidationItem.ProductModuleLoc,
                     },
                     {
                         headers: {
@@ -1004,7 +992,7 @@ export default {
                     await Swal.fire({
                         icon: "success",
                         title: "Marked as Invalid",
-                        text: `Item ${this.currentValidationItem.rtcounter} has been marked as invalid.`,
+                        text: `Item ${this.currentValidationItem.rtcounter} has been marked as invalid and moved to Labeling.`,
                         confirmButtonColor: "#3085d6",
                         confirmButtonText: "OK",
                     });
@@ -1012,6 +1000,7 @@ export default {
                     console.log(
                         "markAsInvalid: Success, closing modal and refreshing inventory",
                     );
+
                     this.closeValidationModal();
                     this.fetchInventory();
                 } else {
@@ -1019,12 +1008,14 @@ export default {
                         "markAsInvalid: Server returned failure",
                         response.data,
                     );
+
                     this.validationErrors =
                         response.data.message ||
                         "Failed to mark item as invalid";
                 }
             } catch (error) {
                 console.error("markAsInvalid: Request failed", error);
+
                 this.validationErrors =
                     "Failed to mark item as invalid. Please try again.";
             } finally {
@@ -1064,7 +1055,7 @@ export default {
     watch: {
         searchQuery() {
             this.currentPage = 1;
-            this.first = 0
+            this.first = 0;
             this.fetchInventory();
         },
     },
