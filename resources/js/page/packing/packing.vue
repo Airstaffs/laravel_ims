@@ -825,10 +825,7 @@
                 </div>
 
                 <!-- ── REFERENCE: Packaging Visual Guide ──────────────────── -->
-                <div
-                    v-if="packagingVisualImages.length"
-                    class="cwl-asin-section mt-3"
-                >
+                <div class="cwl-asin-section mt-3">
                     <div class="cwl-asin-header">
                         <span class="cwl-asin-badge" style="background: #e91e8c"
                             >REFERENCE</span
@@ -836,24 +833,290 @@
                         <span class="cwl-asin-title"
                             >Packaging Visual Guide</span
                         >
+                        <span
+                            v-if="packagingVisualImages.length"
+                            class="text-muted ms-2"
+                            style="font-size: 12px"
+                        >
+                            {{ packagingVisualImages.length }} image{{
+                                packagingVisualImages.length !== 1 ? "s" : ""
+                            }}
+                        </span>
                     </div>
-                    <div class="pkg-wl-gallery mt-2">
+
+                    <!-- Empty state -->
+                    <div
+                        v-if="!packagingVisualImages.length"
+                        class="cwl-asin-empty mt-2"
+                        style="text-align: center; color: #aaa; padding: 24px 0"
+                    >
+                        <i
+                            class="pi pi-image"
+                            style="font-size: 2rem; opacity: 0.4"
+                        ></i>
+                        <p class="mt-2 mb-0" style="font-size: 13px">
+                            No visual guide images configured for this ASIN.
+                        </p>
+                        <p style="font-size: 12px; color: #bbb">
+                            Upload images in
+                            <strong
+                                >ASIN Configuration → Packaging Module</strong
+                            >.
+                        </p>
+                    </div>
+
+                    <!-- Gallery grid -->
+                    <div v-else class="pkg-wl-gallery mt-2">
                         <div
                             v-for="(img, i) in packagingVisualImages"
                             :key="'pkgimg-' + i"
                             class="pkg-wl-gallery-item"
+                            style="
+                                display: flex;
+                                flex-direction: column;
+                                align-items: center;
+                                gap: 6px;
+                                cursor: pointer;
+                            "
+                            @click="
+                                pkgGalleryActive = i;
+                                pkgGalleryOpen = true;
+                            "
                         >
-                            <img
-                                :src="img.src"
-                                :alt="img.label"
-                                class="pkg-wl-img"
-                            />
-                            <span class="pkg-wl-img-label">{{
-                                img.label
-                            }}</span>
+                            <div
+                                style="
+                                    width: 100%;
+                                    aspect-ratio: 1;
+                                    border: 1px solid #e0e0e0;
+                                    border-radius: 8px;
+                                    overflow: hidden;
+                                    background: #f9f9f9;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    position: relative;
+                                "
+                            >
+                                <img
+                                    :src="img.src"
+                                    :alt="img.label"
+                                    style="
+                                        width: 100%;
+                                        height: 100%;
+                                        object-fit: contain;
+                                    "
+                                    @error="
+                                        $event.target.style.display = 'none'
+                                    "
+                                />
+                                <!-- Hover zoom hint -->
+                                <div
+                                    style="
+                                        position: absolute;
+                                        inset: 0;
+                                        background: rgba(0, 0, 0, 0);
+                                        display: flex;
+                                        align-items: center;
+                                        justify-content: center;
+                                        transition: background 0.15s;
+                                    "
+                                    @mouseenter="
+                                        $event.currentTarget.style.background =
+                                            'rgba(0,0,0,0.32)'
+                                    "
+                                    @mouseleave="
+                                        $event.currentTarget.style.background =
+                                            'rgba(0,0,0,0)'
+                                    "
+                                >
+                                    <i
+                                        class="pi pi-search-plus"
+                                        style="
+                                            color: #fff;
+                                            font-size: 1.4rem;
+                                            opacity: 0;
+                                            pointer-events: none;
+                                            transition: opacity 0.15s;
+                                        "
+                                        ref="zoomIcon"
+                                    ></i>
+                                </div>
+                            </div>
+                            <span
+                                class="pkg-wl-img-label"
+                                style="
+                                    font-size: 11px;
+                                    color: #555;
+                                    text-align: center;
+                                    max-width: 100%;
+                                    white-space: nowrap;
+                                    overflow: hidden;
+                                    text-overflow: ellipsis;
+                                    width: 100%;
+                                "
+                                >{{ img.label }}</span
+                            >
                         </div>
                     </div>
                 </div>
+
+                <!-- ── Lightbox overlay ────────────────────────────────────── -->
+                <Teleport to="body">
+                    <div
+                        v-if="pkgGalleryOpen"
+                        style="
+                            position: fixed;
+                            inset: 0;
+                            background: rgba(0, 0, 0, 0.88);
+                            z-index: 9999;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            flex-direction: column;
+                            gap: 12px;
+                        "
+                        @click.self="pkgGalleryOpen = false"
+                        @keydown.esc="pkgGalleryOpen = false"
+                    >
+                        <!-- Close -->
+                        <button
+                            style="
+                                position: fixed;
+                                top: 18px;
+                                right: 22px;
+                                background: transparent;
+                                border: none;
+                                color: #fff;
+                                font-size: 1.8rem;
+                                cursor: pointer;
+                                z-index: 10000;
+                            "
+                            @click="pkgGalleryOpen = false"
+                        >
+                            <i class="pi pi-times"></i>
+                        </button>
+
+                        <!-- Counter -->
+                        <div
+                            style="
+                                color: #ccc;
+                                font-size: 13px;
+                                margin-bottom: 4px;
+                            "
+                        >
+                            {{ pkgGalleryActive + 1 }} /
+                            {{ packagingVisualImages.length }}
+                            &nbsp;·&nbsp;
+                            <strong style="color: #fff">
+                                {{
+                                    packagingVisualImages[pkgGalleryActive]
+                                        ?.label
+                                }}
+                            </strong>
+                        </div>
+
+                        <!-- Image -->
+                        <div
+                            style="
+                                max-width: 88vw;
+                                max-height: 78vh;
+                                display: flex;
+                                align-items: center;
+                                gap: 16px;
+                            "
+                        >
+                            <!-- Prev -->
+                            <button
+                                v-if="packagingVisualImages.length > 1"
+                                style="
+                                    background: rgba(255, 255, 255, 0.15);
+                                    border: none;
+                                    color: #fff;
+                                    width: 40px;
+                                    height: 40px;
+                                    border-radius: 50%;
+                                    cursor: pointer;
+                                    font-size: 1.2rem;
+                                    flex-shrink: 0;
+                                "
+                                @click="
+                                    pkgGalleryActive =
+                                        (pkgGalleryActive -
+                                            1 +
+                                            packagingVisualImages.length) %
+                                        packagingVisualImages.length
+                                "
+                            >
+                                <i class="pi pi-chevron-left"></i>
+                            </button>
+
+                            <img
+                                :src="
+                                    packagingVisualImages[pkgGalleryActive]?.src
+                                "
+                                :alt="
+                                    packagingVisualImages[pkgGalleryActive]
+                                        ?.label
+                                "
+                                style="
+                                    max-width: 100%;
+                                    max-height: 74vh;
+                                    object-fit: contain;
+                                    border-radius: 6px;
+                                    box-shadow: 0 4px 32px rgba(0, 0, 0, 0.5);
+                                "
+                            />
+
+                            <!-- Next -->
+                            <button
+                                v-if="packagingVisualImages.length > 1"
+                                style="
+                                    background: rgba(255, 255, 255, 0.15);
+                                    border: none;
+                                    color: #fff;
+                                    width: 40px;
+                                    height: 40px;
+                                    border-radius: 50%;
+                                    cursor: pointer;
+                                    font-size: 1.2rem;
+                                    flex-shrink: 0;
+                                "
+                                @click="
+                                    pkgGalleryActive =
+                                        (pkgGalleryActive + 1) %
+                                        packagingVisualImages.length
+                                "
+                            >
+                                <i class="pi pi-chevron-right"></i>
+                            </button>
+                        </div>
+
+                        <!-- Dot strip -->
+                        <div
+                            v-if="packagingVisualImages.length > 1"
+                            style="display: flex; gap: 6px; margin-top: 4px"
+                        >
+                            <span
+                                v-for="(_, di) in packagingVisualImages"
+                                :key="'dot-' + di"
+                                style="
+                                    width: 8px;
+                                    height: 8px;
+                                    border-radius: 50%;
+                                    cursor: pointer;
+                                    transition: background 0.15s;
+                                "
+                                :style="{
+                                    background:
+                                        di === pkgGalleryActive
+                                            ? '#fff'
+                                            : 'rgba(255,255,255,.35)',
+                                }"
+                                @click="pkgGalleryActive = di"
+                            />
+                        </div>
+                    </div>
+                </Teleport>
             </div>
 
             <template #footer>

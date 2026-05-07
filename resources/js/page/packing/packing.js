@@ -44,6 +44,8 @@ export default {
             packagingWorkLogValues: {},
             savingPackagingWorkLog: false,
             packagingDateTime: "",
+            pkgGalleryOpen: false,
+            pkgGalleryActive: 0,
         };
     },
     computed: {
@@ -253,14 +255,49 @@ export default {
 
             const images = [];
             const asinPkg = parse(`asin_config_packaging:${asin}`);
+            const globalPkg = parse("asin_global_config_packaging");
 
+            // ── 1. Main packaging guide image (ASIN-level) ──────────────
             if (asinPkg?.image) {
                 images.push({ src: asinPkg.image, label: "Packaging Guide" });
             }
 
+            // ── 2. Global components with images ────────────────────────
+            const asinCompNames = new Set(
+                (asinPkg?.components || []).map((c) => c.name),
+            );
+            (globalPkg?.components || [])
+                .filter((c) => !asinCompNames.has(c.name))
+                .forEach((comp) => {
+                    // localImg (user-uploaded base64) takes priority over catalog CDN img
+                    const src =
+                        comp.localImg ||
+                        (comp.img
+                            ? comp.img.startsWith("http")
+                                ? comp.img
+                                : comp.img1Source === "captured"
+                                  ? `${window.location.origin}/images/product_images/Airstaffs/${comp.img}`
+                                  : `${window.location.origin}/images/thumbnails/${comp.img}`
+                            : null);
+                    if (src) {
+                        images.push({ src, label: `${comp.name} (Global)` });
+                    }
+                });
+
+            // ── 3. ASIN-specific components with images ──────────────────
             (asinPkg?.components || []).forEach((comp) => {
-                if (comp.image)
-                    images.push({ src: comp.image, label: comp.name });
+                const src =
+                    comp.localImg ||
+                    (comp.img
+                        ? comp.img.startsWith("http")
+                            ? comp.img
+                            : comp.img1Source === "captured"
+                              ? `${window.location.origin}/images/product_images/Airstaffs/${comp.img}`
+                              : `${window.location.origin}/images/thumbnails/${comp.img}`
+                        : null);
+                if (src) {
+                    images.push({ src, label: comp.name });
+                }
             });
 
             return images;

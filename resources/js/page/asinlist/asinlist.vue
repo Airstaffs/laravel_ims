@@ -3952,10 +3952,17 @@
                                     'gc-from-global-field': comp._fromGlobal,
                                 }"
                             >
-                                <div class="pkg-comp-icon">
+                                <div
+                                    class="pkg-comp-icon"
+                                    style="position: relative; cursor: pointer"
+                                    @click="triggerCompImageUpload(i)"
+                                >
                                     <img
-                                        v-if="comp.img"
-                                        :src="resolveSupplyThumb(comp)"
+                                        v-if="comp.img || comp.localImg"
+                                        :src="
+                                            comp.localImg ||
+                                            resolveSupplyThumb(comp)
+                                        "
                                         style="
                                             width: 32px;
                                             height: 32px;
@@ -3972,6 +3979,41 @@
                                         class="pi pi-box"
                                         style="color: #aaa; font-size: 16px"
                                     ></i>
+
+                                    <!-- Hover overlay -->
+                                    <div
+                                        style="
+                                            position: absolute;
+                                            inset: 0;
+                                            background: rgba(0, 0, 0, 0.45);
+                                            border-radius: 4px;
+                                            display: flex;
+                                            align-items: center;
+                                            justify-content: center;
+                                            opacity: 0;
+                                            transition: opacity 0.15s;
+                                        "
+                                        @mouseenter="
+                                            $event.currentTarget.style.opacity = 1
+                                        "
+                                        @mouseleave="
+                                            $event.currentTarget.style.opacity = 0
+                                        "
+                                    >
+                                        <i
+                                            class="pi pi-camera"
+                                            style="color: #fff; font-size: 13px"
+                                        ></i>
+                                    </div>
+
+                                    <!-- Hidden file input, one per row -->
+                                    <input
+                                        :ref="'compImg_' + i"
+                                        type="file"
+                                        accept="image/*"
+                                        style="display: none"
+                                        @change="onCompImageUpload($event, i)"
+                                    />
                                 </div>
                                 <div class="pkg-comp-details">
                                     <div

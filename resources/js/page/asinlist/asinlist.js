@@ -2130,6 +2130,42 @@ export default {
                 this.savingFnskuStatusFor = null;
             }
         },
+
+        triggerCompImageUpload(index) {
+            const input = this.$refs["compImg_" + index];
+            if (input) {
+                // support both array-wrapped (v-for refs) and direct refs
+                const el = Array.isArray(input) ? input[0] : input;
+                el.click();
+            }
+        },
+
+        onCompImageUpload(event, index) {
+            const file = event.target.files[0];
+            if (!file) return;
+            if (!file.type.startsWith("image/")) {
+                alert("Please select an image file");
+                return;
+            }
+            if (file.size > 2 * 1024 * 1024) {
+                alert("Image must be under 2MB");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                // store as localImg (base64) so it persists to localStorage via saveAllFields()
+                this.packagingComponents[index] = {
+                    ...this.packagingComponents[index],
+                    localImg: e.target.result,
+                    img: null, // clear catalog CDN path — local takes priority
+                    img1Source: null,
+                };
+                // force Vue to react to the replaced array item
+                this.packagingComponents = [...this.packagingComponents];
+            };
+            reader.readAsDataURL(file);
+            event.target.value = ""; // allow re-uploading same file
+        },
     },
 
     // ══════════════════════════════════════════════════════════════
