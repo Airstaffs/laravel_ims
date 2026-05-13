@@ -1236,6 +1236,7 @@ class LabelingController extends BasetablesController
                     $newItemData = [
                         'ProductTitle' => $originalProduct->ProductTitle ?? null,
                         'itemnumber' => $originalProduct->itemnumber ?? null,
+                        'rtid' => $originalProduct->rtid ?? null,
                         'RPN' => $originalProduct->RPN ?? null,
                         'PRD' => $originalProduct->PRD ?? null,
                         'quantity' => 1,
