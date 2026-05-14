@@ -987,15 +987,31 @@ export default {
 
                 if (response.data && response.data.data) {
                     // Filter out any empty FNSKUs on the frontend as well (extra safety)
-                    const validFnskus = response.data.data.filter(
-                        (fnsku) =>
+                    const allFnskus = response.data.data;
+                    const validFnskus = allFnskus.filter((fnsku) => {
+                        const keep =
                             fnsku.FNSKU &&
                             fnsku.FNSKU.trim() !== "" &&
                             fnsku.FNSKU !== "NULL" &&
                             fnsku.ASIN &&
                             fnsku.ASIN.trim() !== "" &&
-                            fnsku.ASIN !== "NULL",
-                    );
+                            fnsku.ASIN !== "NULL";
+
+                        if (!keep) {
+                            console.warn("⚠️ FNSKU filtered out:", {
+                                FNSKU: fnsku.FNSKU,
+                                ASIN: fnsku.ASIN,
+                                reason: !fnsku.FNSKU
+                                    ? "missing FNSKU"
+                                    : !fnsku.ASIN
+                                      ? "missing ASIN"
+                                      : fnsku.ASIN === "NULL"
+                                        ? "ASIN is string NULL"
+                                        : "ASIN empty",
+                            });
+                        }
+                        return keep;
+                    });
 
                     this.fnskuList = validFnskus;
                     this.filteredFnskuList = validFnskus;
@@ -1065,6 +1081,9 @@ export default {
             this.isSearching = true;
 
             try {
+                this.fnskuCurrentPage = page;
+                this.fnskuFirst = (page - 1) * this.fnskuPerPage;
+
                 const params = {
                     page: this.fnskuCurrentPage,
                     limit: this.fnskuPerPage,
@@ -1526,15 +1545,31 @@ export default {
 
                 if (response.data && response.data.data) {
                     // Filter out any empty FNSKUs on the frontend
-                    const validFnskus = response.data.data.filter(
-                        (fnsku) =>
+                    const allFnskus = response.data.data;
+                    const validFnskus = allFnskus.filter((fnsku) => {
+                        const keep =
                             fnsku.FNSKU &&
                             fnsku.FNSKU.trim() !== "" &&
                             fnsku.FNSKU !== "NULL" &&
                             fnsku.ASIN &&
                             fnsku.ASIN.trim() !== "" &&
-                            fnsku.ASIN !== "NULL",
-                    );
+                            fnsku.ASIN !== "NULL";
+
+                        if (!keep) {
+                            console.warn("⚠️ FNSKU filtered out:", {
+                                FNSKU: fnsku.FNSKU,
+                                ASIN: fnsku.ASIN,
+                                reason: !fnsku.FNSKU
+                                    ? "missing FNSKU"
+                                    : !fnsku.ASIN
+                                      ? "missing ASIN"
+                                      : fnsku.ASIN === "NULL"
+                                        ? "ASIN is string NULL"
+                                        : "ASIN empty",
+                            });
+                        }
+                        return keep;
+                    });
 
                     this.fnskuList = validFnskus;
                     this.filteredFnskuList = validFnskus;
@@ -2964,12 +2999,9 @@ export default {
         },
 
         getAsinImageSrc(item) {
-            // If ASIN exists, try to load the vector image
             if (item.ASIN) {
                 return `/images/asinimg/${item.ASIN}_0.webp`;
             }
-
-            // No ASIN, return default image
             return this.defaultImage;
         },
     },
@@ -3022,8 +3054,6 @@ export default {
             "🔍 Component mounted. showSplitModal initial state:",
             this.showSplitModal,
         );
-
-        this.filterFnskuList(1);
     },
 
     beforeDestroy() {
