@@ -23,6 +23,7 @@ export default {
             sortColumn: "",
             sortOrder: "asc",
             showDetails: false,
+            isScanCooldown: false,
 
             // Scanner workflow data
             currentStep: 1,
@@ -1204,8 +1205,12 @@ export default {
                     this.$refs.scanner.capturedImages = [];
                     this.$refs.scanner.setExistingTrackingImages([]);
 
-                    this.resetScannerState();
-                    this.fetchInventory();
+                    this.isScanCooldown = true;
+                    setTimeout(() => {
+                        this.isScanCooldown = false;
+                        this.resetScannerState();
+                        this.fetchInventory();
+                    }, 1500);
                 } else {
                     this.$refs.scanner.stopLoading();
                     this.$refs.scanner.showScanError(
@@ -1422,8 +1427,12 @@ export default {
 
                     this.$refs.scanner.capturedImages = [];
 
-                    this.resetScannerState();
-                    this.fetchInventory();
+                    this.isScanCooldown = true;
+                    setTimeout(() => {
+                        this.isScanCooldown = false;
+                        this.resetScannerState();
+                        this.fetchInventory();
+                    }, 1500);
                 } else {
                     this.$refs.scanner.stopLoading();
                     this.$refs.scanner.showScanError(
@@ -1492,6 +1501,7 @@ export default {
         },
 
         resetScannerState() {
+            this.isScanCooldown = false;
             this.currentStep = 1;
             this.trackingNumber = "";
             this.serialNumbers = ["", "", "", "", ""];
@@ -1499,7 +1509,7 @@ export default {
             this.pcnNumber = "";
             this.basketNumber = "";
             this.trackingValid = false;
-            this.trackingFound = false;
+            this.trackingFound = false; 
             this.productId = "";
             this.rtcounter = "";
             this.status = "";
@@ -1633,6 +1643,7 @@ export default {
         },
 
         handleHardwareScan(scannedCode) {
+            if (this.isScanCooldown) return;
             switch (this.currentStep) {
                 case 1:
                     this.trackingNumber = scannedCode;

@@ -20,6 +20,7 @@ export default {
             sortColumn: "",
             sortOrder: "asc",
             showDetails: false,
+            isScanCooldown: false,
 
             // Simplified scanner workflow - only tracking needed
             trackingNumber: "",
@@ -69,7 +70,7 @@ export default {
                 currentPage: 1,
                 totalRecords: 0,
                 perPage: 10,
-                first: 0 //for prime vues pagination internal state
+                first: 0, //for prime vues pagination internal state
         };
     },
     computed: {
@@ -388,6 +389,7 @@ export default {
 
         // Combined verification and processing
         async verifyAndProcessTracking() {
+            if (this.isScanCooldown) return;
             this.validateTrackingNumber();
 
             if (!this.trackingNumberValid) {
@@ -532,8 +534,12 @@ export default {
                     });
 
                     // Reset and refresh
-                    this.resetScannerState();
-                    this.fetchInventory();
+                    this.isScanCooldown = true;
+                    setTimeout(() => {
+                        this.isScanCooldown = false;
+                        this.resetScannerState();
+                        this.fetchInventory();
+                    }, 1500);  // 1.5 s cooldown — adjust to taste
                 } else {
                     this.$refs.scanner.showScanError(
                         data.message || "Error processing scan"
@@ -580,6 +586,7 @@ export default {
 
         // Reset scanner state
         resetScannerState() {
+            this.isScanCooldown = false;
             this.trackingNumber = "";
             this.trackingFound = false;
             this.productId = "";
@@ -604,6 +611,7 @@ export default {
         },
 
         handleHardwareScan(scannedCode) {
+            if (this.isScanCooldown) return;
             this.trackingNumber = scannedCode;
             this.verifyAndProcessTracking();
         },
