@@ -77,6 +77,17 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
 
+Route::get('/build/assets/{path}', function (string $path) {
+    $assetsRoot = realpath(public_path('build/assets'));
+    $assetPath = realpath(public_path('build/assets/' . $path));
+
+    if (!$assetsRoot || !$assetPath || !str_starts_with($assetPath, $assetsRoot)) {
+        abort(404);
+    }
+
+    return response()->file($assetPath);
+})->where('path', '.*');
+
 // ASIN Mappings Routes
 // ✅ Public API routes
 Route::group(['middleware' => []], function () {

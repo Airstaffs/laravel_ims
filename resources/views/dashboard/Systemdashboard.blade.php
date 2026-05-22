@@ -25,8 +25,28 @@
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 
-    <!-- App-specific CSS via Vite -->
-    @vite('resources/css/app.css')
+    @php
+        $viteManifestPath = public_path('build/manifest.json');
+        $viteManifest = file_exists($viteManifestPath) ? json_decode(file_get_contents($viteManifestPath), true) : [];
+        $dashboardCss = [];
+
+        if (isset($viteManifest['resources/css/app.css']['file'])) {
+            $dashboardCss[] = $viteManifest['resources/css/app.css']['file'];
+        }
+
+        foreach ($viteManifest['resources/js/app.js']['css'] ?? [] as $cssFile) {
+            $dashboardCss[] = $cssFile;
+        }
+    @endphp
+
+    <!-- App-specific CSS via Vite manifest -->
+    @if ($dashboardCss)
+        @foreach (array_unique($dashboardCss) as $cssFile)
+            <link rel="stylesheet" href="{{ asset('build/' . $cssFile) }}">
+        @endforeach
+    @else
+        @vite('resources/css/app.css')
+    @endif
 
     <!-- Inline Theme Styles -->
     <style>
@@ -817,7 +837,11 @@
         </script>
     @endif
 
-    @vite(['resources/js/app.js'])
+    @if (isset($viteManifest['resources/js/app.js']['file']))
+        <script type="module" src="{{ asset('build/' . $viteManifest['resources/js/app.js']['file']) }}"></script>
+    @else
+        @vite(['resources/js/app.js'])
+    @endif
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
