@@ -77,15 +77,19 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
 
-Route::get('/build/assets/{path}', function (string $path) {
-    $assetsRoot = realpath(public_path('build/assets'));
-    $assetPath = realpath(public_path('build/assets/' . $path));
+Route::get('/build/{path}', function (string $path) {
+    $buildRoot = realpath(public_path('build'));
+    $assetPath = realpath(public_path('build/' . $path));
 
-    if (!$assetsRoot || !$assetPath || !str_starts_with($assetPath, $assetsRoot)) {
+    if (!$buildRoot || !$assetPath || !str_starts_with($assetPath, $buildRoot)) {
         abort(404);
     }
 
-    return response()->file($assetPath);
+    return response()->file($assetPath, [
+        'Cache-Control' => str_starts_with($path, 'assets/')
+            ? 'public, max-age=31536000, immutable'
+            : 'no-cache',
+    ]);
 })->where('path', '.*');
 
 // ASIN Mappings Routes
