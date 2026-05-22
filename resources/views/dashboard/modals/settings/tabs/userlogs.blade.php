@@ -43,9 +43,3 @@
         <p id="noLogsMessageCard" class="text-center d-md-none d-none">No logs found</p>
     </div>
 </div>
-
-@auth
-    <script>
-        window.CURRENT_USER_ID = {{ auth()->user()->id }};
-    </script>
-@endauth

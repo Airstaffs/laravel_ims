@@ -10,7 +10,9 @@ document.addEventListener("DOMContentLoaded", function () {
         const mobileContainer = document.getElementById("timeRecordsMobile");
 
         const currentUserId =
-            typeof CURRENT_USER_ID !== "undefined" ? CURRENT_USER_ID : null;
+            window.CURRENT_USER_ID ||
+            document.querySelector('meta[name="user-id"]')?.content ||
+            null;
 
         function formatDate(date) {
             return new Date(date).toLocaleDateString("en-US", {

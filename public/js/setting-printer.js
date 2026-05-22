@@ -1,11 +1,8 @@
 // ==========================
 // COMPLETE PRINTER MANAGEMENT WITH ENHANCED MODAL FIX
 // ==========================
-const axios = window.axios;
-if (!axios) {
-    console.error(
-        'window.axios is not available. Ensure @vite("resources/js/app.js") loads BEFORE this script.'
-    );
+if (!window.axios) {
+    console.warn("window.axios is not available yet; printer settings will use fetch-based calls.");
 }
 
 // === SINGLE BACKDROP MANAGER (Bootstrap 5) ===

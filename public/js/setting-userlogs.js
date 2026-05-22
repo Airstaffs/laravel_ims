@@ -10,7 +10,9 @@ document.addEventListener("DOMContentLoaded", function () {
         const cardContainer = document.getElementById("userlogsCardView");
 
         const currentUserId =
-            typeof CURRENT_USER_ID !== "undefined" ? CURRENT_USER_ID : null;
+            window.CURRENT_USER_ID ||
+            document.querySelector('meta[name="user-id"]')?.content ||
+            null;
 
         function formatDate(dateTime) {
             return new Date(dateTime).toLocaleDateString("en-US", {

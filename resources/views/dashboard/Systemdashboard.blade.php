@@ -45,7 +45,7 @@
             <link rel="stylesheet" href="{{ asset('build/' . $cssFile) }}">
         @endforeach
     @else
-        @vite('resources/css/app.css')
+        <!-- Missing public/build/manifest.json: run npm run build and deploy public/build. -->
     @endif
 
     <!-- Inline Theme Styles -->
@@ -840,7 +840,7 @@
     @if (isset($viteManifest['resources/js/app.js']['file']))
         <script type="module" src="{{ asset('build/' . $viteManifest['resources/js/app.js']['file']) }}"></script>
     @else
-        @vite(['resources/js/app.js'])
+        <!-- Missing public/build/manifest.json: run npm run build and deploy public/build. -->
     @endif
 
     <script>
