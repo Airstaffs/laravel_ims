@@ -242,9 +242,7 @@
             </component>
         </div>
 
-        <div id="dynamic-content">
-            @vite(['resources/js/app.js'])
-        </div>
+        <div id="dynamic-content"></div>
     </div>
 
     @include('dashboard.modals.asinoption')

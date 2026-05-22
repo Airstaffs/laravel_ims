@@ -46,6 +46,6 @@
 
 @auth
     <script>
-        const CURRENT_USER_ID = {{ auth()->user()->id }};
+        window.CURRENT_USER_ID = {{ auth()->user()->id }};
     </script>
 @endauth

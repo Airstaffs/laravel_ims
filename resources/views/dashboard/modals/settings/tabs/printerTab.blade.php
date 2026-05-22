@@ -2067,7 +2067,7 @@
     }
 
     // If you still want the close button to explicitly do the same:
-    const closeBtn = document.querySelector("#editPrinterTestModal .btn-close");
+    var closeBtn = document.querySelector("#editPrinterTestModal .btn-close");
     if (closeBtn) {
         closeBtn.addEventListener("click", function () {
             const modal = bootstrap.Modal.getInstance(editModalEl);
