@@ -25,28 +25,7 @@
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 
-    @php
-        $viteManifestPath = public_path('build/manifest.json');
-        $viteManifest = file_exists($viteManifestPath) ? json_decode(file_get_contents($viteManifestPath), true) : [];
-        $dashboardCss = [];
-
-        if (isset($viteManifest['resources/css/app.css']['file'])) {
-            $dashboardCss[] = $viteManifest['resources/css/app.css']['file'];
-        }
-
-        foreach ($viteManifest['resources/js/app.js']['css'] ?? [] as $cssFile) {
-            $dashboardCss[] = $cssFile;
-        }
-    @endphp
-
-    <!-- App-specific CSS via Vite manifest -->
-    @if ($dashboardCss)
-        @foreach (array_unique($dashboardCss) as $cssFile)
-            <link rel="stylesheet" href="{{ asset('build/' . $cssFile) }}">
-        @endforeach
-    @else
-        <!-- Missing public/build/manifest.json: run npm run build and deploy public/build. -->
-    @endif
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     <!-- Inline Theme Styles -->
     <style>
@@ -835,12 +814,6 @@
         <script>
             window.user = null;
         </script>
-    @endif
-
-    @if (isset($viteManifest['resources/js/app.js']['file']))
-        <script type="module" src="{{ asset('build/' . $viteManifest['resources/js/app.js']['file']) }}"></script>
-    @else
-        <!-- Missing public/build/manifest.json: run npm run build and deploy public/build. -->
     @endif
 
     <script>
