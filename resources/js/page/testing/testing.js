@@ -738,9 +738,11 @@ export default {
         },
 
         // Open the Testing Work Log dialog for a given item
-        openTestingWorkLog(item) {
+        async openTestingWorkLog(item) {
             this.testingWorkLogItem = item;
-            this.testingWorkLogFields = this.loadTestingFields(
+
+            // loadTestingFields is now async
+            this.testingWorkLogFields = await this.loadTestingFields(
                 item.ASINviewer || item.ASIN || item.asin,
             );
 
@@ -748,55 +750,70 @@ export default {
             this.testingWorkLogOpenedAt = new Date();
 
             // Pre-fill: defaults first, then any previously saved values
-            const saved = this.loadSavedTestingValues(item.rtcounter);
+            const saved = await this.loadSavedTestingValues(item.rtcounter);
             const prefilled = {};
             this.testingWorkLogFields.forEach((f) => {
-                prefilled[f.label] = saved[f.label] ?? f.defaultValue ?? "";
+                prefilled[f.label] = saved[f.label] ?? f.defaultValue ?? '';
             });
             this.testingWorkLogValues = prefilled;
 
-            this.testResult = null; // reset decision
+            this.testResult = null;
             this.showTestingWorkLog = true;
         },
 
-        // Load merged testing fields from localStorage (global + ASIN-specific)
-        loadTestingFields(asin) {
+        // Replace loadTestingFields (was sync localStorage read)
+        async loadTestingFields(asin) {
             if (!asin) return [];
 
-            const parse = (key) => {
-                try {
-                    const r = localStorage.getItem(key);
-                    return r ? JSON.parse(r) : [];
-                } catch {
-                    return [];
-                }
-            };
+            try {
+                // Load global config
+                const globalRes = await axios.get(
+                    `${API_BASE_URL}/api/asinlist/global-config`,
+                    { withCredentials: true },
+                );
+                const globalFields = globalRes.data.data?.testing || [];
 
-            const globalFields = parse("asin_global_config_testing");
-            const asinFields = parse(`asin_config_testing:${asin}`);
+                // Load ASIN-specific config
+                const asinRes = await axios.get(
+                    `${API_BASE_URL}/api/asinlist/config`,
+                    {
+                        params: { asin },
+                        withCredentials: true,
+                    },
+                );
+                const asinFields = asinRes.data.data?.testing || [];
 
-            // Mark globals, merge — ASIN label overrides global of same name
-            const markedGlobals = globalFields.map((f) => ({
-                ...f,
-                _fromGlobal: true,
-            }));
-            const asinLabels = new Set(asinFields.map((f) => f.label));
+                // Merge — ASIN label overrides global of same name
+                const markedGlobals = globalFields.map((f) => ({
+                    ...f,
+                    _fromGlobal: true,
+                }));
+                const asinLabels = new Set(asinFields.map((f) => f.label));
 
-            return [
-                ...markedGlobals.filter((f) => !asinLabels.has(f.label)),
-                ...asinFields,
-            ];
+                return [
+                    ...markedGlobals.filter((f) => !asinLabels.has(f.label)),
+                    ...asinFields,
+                ];
+            } catch (e) {
+                console.error('Failed to load testing fields:', e);
+                return [];
+            }
         },
 
         // Load previously saved values for this rtcounter from localStorage
-        loadSavedTestingValues(rtcounter) {
+        async loadSavedTestingValues(rtcounter) {
             if (!rtcounter) return {};
             try {
-                const raw = localStorage.getItem(
-                    `testing_worklog:${rtcounter}`,
+                const res = await axios.get(
+                    `${API_BASE_URL}/api/testing/work-log`,
+                    {
+                        params: { rtcounter: String(rtcounter) },
+                        withCredentials: true,
+                    },
                 );
-                return raw ? JSON.parse(raw) : {};
-            } catch {
+                return res.data.data?.field_values || {};
+            } catch (e) {
+                console.error('Failed to load saved testing values:', e);
                 return {};
             }
         },

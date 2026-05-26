@@ -228,4 +228,28 @@ class PackagingController extends BasetablesController
             ], 500);
         }
     }
+
+    public function getWorkLog(Request $request, $rtcounter)
+    {
+        try {
+            $log = DB::table('tblpackagingworklogs')
+                ->where('rtcounter', $rtcounter)
+                ->first();
+
+            if (!$log) {
+                return response()->json(['success' => true, 'data' => null]);
+            }
+
+            $log->category_values = json_decode($log->category_values, true);
+
+            return response()->json(['success' => true, 'data' => $log]);
+
+        } catch (\Exception $e) {
+            Log::error('getWorkLog error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

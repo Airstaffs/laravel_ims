@@ -537,80 +537,79 @@ export default {
 
         // ── Repair Work Log ───────────────────────────────────────────────
 
-        openRepairWorkLog(item) {
+        async openRepairWorkLog(item) {
             this.repairWorkLogItem = item;
             this.repairWorkLogOpenedAt = new Date();
             this.repairWorkLogLoadingFailed = false;
 
             const asin = item.ASINviewer || item.ASIN || item.asin;
 
-            // ── 1. Load repair categories from Global + per-ASIN config ──────
-            //       This mirrors exactly how the ASIN Configuration dialog
-            //       builds repairFields: global first, then ASIN-specific,
-            //       with ASIN overrides taking precedence over global names.
-            this.repairWorkLogCategories = this.loadRepairCategories(asin);
+            try {
+                this.repairWorkLogCategories = await this.loadRepairCategories(asin);
 
-            // ── 2. Pre-fill form values from previously saved repair work log ──
-            const saved = this.loadSavedRepairValues(item.rtcounter);
-            const prefilled = {};
-            this.repairWorkLogCategories.forEach((cat) => {
-                prefilled[cat.name + "__status"] =
-                    saved[cat.name + "__status"] ?? "";
-                prefilled[cat.name + "__notes"] =
-                    saved[cat.name + "__notes"] ?? "";
-                (cat.actions || []).forEach((action) => {
-                    const key = cat.name + "__action__" + action.title;
-                    prefilled[key] = saved[key] ?? false;
+                const saved = await this.loadSavedRepairValues(item.rtcounter);
+                const prefilled = {};
+                this.repairWorkLogCategories.forEach((cat) => {
+                    prefilled[cat.name + '__status'] =
+                        saved[cat.name + '__status'] ?? '';
+                    prefilled[cat.name + '__notes'] =
+                        saved[cat.name + '__notes'] ?? '';
+                    (cat.actions || []).forEach((action) => {
+                        const key = cat.name + '__action__' + action.title;
+                        prefilled[key] = saved[key] ?? false;
+                    });
                 });
-            });
-            this.repairWorkLogValues = prefilled;
+                this.repairWorkLogValues = prefilled;
+            } catch (e) {
+                console.error('openRepairWorkLog failed:', e);
+                this.repairWorkLogLoadingFailed = true;
+            }
+
             this.showRepairWorkLog = true;
         },
 
-        /**
-         * Load repair categories by merging:
-         *   1. asin_global_config_repair        → global categories (shown for every ASIN)
-         *   2. asin_config_repair:{ASIN}         → ASIN-specific overrides / additions
-         *
-         * Mirrors the mergeCategories() logic in the ASIN Configuration dialog:
-         *   - Global categories come first, tagged _fromGlobal: true
-         *   - If an ASIN-specific category has the same name as a global one,
-         *     the ASIN version replaces the global one (no duplicates)
-         */
-        loadRepairCategories(asin) {
-            const parse = (key) => {
-                try {
-                    const r = localStorage.getItem(key);
-                    return r ? JSON.parse(r) : [];
-                } catch {
-                    return [];
-                }
-            };
+        async loadRepairCategories(asin) {
+            if (!asin) return [];
 
-            const globalCats = parse("asin_global_config_repair");
-            const asinCats = asin ? parse(`asin_config_repair:${asin}`) : [];
+            try {
+                const globalRes = await axios.get(
+                    `${API_BASE_URL}/api/asinlist/global-config`,
+                    { withCredentials: true },
+                );
+                const globalCats = globalRes.data.data?.repair || [];
 
-            // Mark global-origin entries so the template can badge them
-            const markedGlobals = globalCats.map((c) => ({
-                ...c,
-                _fromGlobal: true,
-            }));
+                const asinRes = await axios.get(
+                    `${API_BASE_URL}/api/asinlist/config`,
+                    { params: { asin }, withCredentials: true },
+                );
+                const asinCats = asinRes.data.data?.repair || [];
 
-            // ASIN-specific names take precedence — drop global copy if overridden
-            const asinNames = new Set(asinCats.map((c) => c.name));
+                const markedGlobals = globalCats.map((c) => ({
+                    ...c,
+                    _fromGlobal: true,
+                }));
+                const asinNames = new Set(asinCats.map((c) => c.name));
 
-            return [
-                ...markedGlobals.filter((c) => !asinNames.has(c.name)),
-                ...asinCats,
-            ];
+                return [
+                    ...markedGlobals.filter((c) => !asinNames.has(c.name)),
+                    ...asinCats,
+                ];
+            } catch (e) {
+                console.error('Failed to load repair categories:', e);
+                return [];
+            }
         },
 
-        loadSavedRepairValues(rtcounter) {
+        async loadSavedRepairValues(rtcounter) {
             if (!rtcounter) return {};
             try {
-                const raw = localStorage.getItem(`repair_worklog:${rtcounter}`);
-                return raw ? JSON.parse(raw) : {};
-            } catch {
+                const res = await axios.get(
+                    `${API_BASE_URL}/api/repair/work-log/${rtcounter}`,
+                    { withCredentials: true },
+                );
+                return res.data.data?.category_values || {};
+            } catch (e) {
+                console.error('Failed to load saved repair values:', e);
                 return {};
             }
         },
@@ -722,16 +721,6 @@ export default {
                     if (!filled[statusKey]) filled[statusKey] = "Repaired";
                 });
                 this.repairWorkLogValues = filled;
-            }
-
-            // ── Persist to localStorage as backup ─────────────────────────
-            try {
-                localStorage.setItem(
-                    `repair_worklog:${this.repairWorkLogItem.rtcounter}`,
-                    JSON.stringify(this.repairWorkLogValues),
-                );
-            } catch {
-                /* storage quota — non-fatal */
             }
 
             // ── POST to backend ───────────────────────────────────────────

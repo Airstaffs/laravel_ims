@@ -345,8 +345,6 @@ class ASINlistController extends BasetablesController
         ]);
     }
 
-
-
     public function saveMsku(Request $request)
     {
         $request->validate([
@@ -491,7 +489,6 @@ class ASINlistController extends BasetablesController
             'condition' => $condition,
         ]);
     }
-
 
     private function getMarketplaceIdForStore(string $store): string
     {
@@ -641,7 +638,6 @@ class ASINlistController extends BasetablesController
         }
     }
 
-
     private function checkListingRestriction(
         string $store,
         string $asin,
@@ -706,7 +702,6 @@ class ASINlistController extends BasetablesController
             'raw' => $result,
         ];
     }
-
 
     public function fetchStores()
     {
@@ -1273,7 +1268,6 @@ class ASINlistController extends BasetablesController
         }
     }
 
-
     public function bulkUploadInstructionCards(Request $request)
     {
         try {
@@ -1420,7 +1414,6 @@ class ASINlistController extends BasetablesController
         }
     }
 
-
    /**
      * Update Color for a specific ASIN
      */
@@ -1513,127 +1506,235 @@ class ASINlistController extends BasetablesController
         }
     }
 
- public function updateAllFnskuLimitStatus($newLimit, $asin)
-{
-    $maximumUnits = 10;
-
-    DB::table($this->fnskuTable)
-        ->where('ASIN', $asin)
-        ->update([
-            'fnsku_limit' => 0, // clear individual limits when ASIN-level is set
-            'LimitStatus' => DB::raw("
-                CASE 
-                    WHEN $newLimit > 0 AND ($maximumUnits - Units) >= $newLimit THEN 'True' 
-                    ELSE 'False' 
-                END
-            "),
-        ]);
-}
-
-
-public function updateFnskuLimit(Request $request)
-{
-    try {
-        $validated = $request->validate([
-            'fnsku'       => 'required|string',
-            'fnsku_limit' => 'required|integer|min:0|max:100',
-        ]);
-
-        $fnsku = DB::table($this->fnskuTable)
-            ->where('FNSKU', $validated['fnsku'])
-            ->first();
-
-        if (!$fnsku) {
-            return response()->json([
-                'success' => false,
-                'message' => 'FNSKU not found'
-            ], 404);
-        }
-
-        $newLimit = $validated['fnsku_limit'];
-
-        // ✅ HARD LIMIT: fnsku_limit must not exceed current Units
-        if ($newLimit > $fnsku->Units) {
-            return response()->json([
-                'success' => false,
-                'message' => "Limit cannot exceed current Units ({$fnsku->Units})"
-            ], 400);
-        }
-
-        $maximumUnits = 30;
-
-        // fallback logic
-        $effectiveLimit = $newLimit > 0 ? $newLimit : $fnsku->asin_limit ?? 0;
+    public function updateAllFnskuLimitStatus($newLimit, $asin)
+    {
+        $maximumUnits = 10;
 
         DB::table($this->fnskuTable)
-            ->where('FNSKU', $validated['fnsku'])
+            ->where('ASIN', $asin)
             ->update([
-                'fnsku_limit' => $newLimit,
-                'LimitStatus' => ($effectiveLimit > 0 && ($maximumUnits - $fnsku->Units) >= $effectiveLimit)
-                                    ? 'True'
-                                    : 'False',
+                'fnsku_limit' => 0, // clear individual limits when ASIN-level is set
+                'LimitStatus' => DB::raw("
+                    CASE 
+                        WHEN $newLimit > 0 AND ($maximumUnits - Units) >= $newLimit THEN 'True' 
+                        ELSE 'False' 
+                    END
+                "),
+            ]);
+    }
+
+
+    public function updateFnskuLimit(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'fnsku'       => 'required|string',
+                'fnsku_limit' => 'required|integer|min:0|max:100',
             ]);
 
-        Log::info("FNSKU limit updated: {$validated['fnsku']}", ['limit' => $newLimit]);
+            $fnsku = DB::table($this->fnskuTable)
+                ->where('FNSKU', $validated['fnsku'])
+                ->first();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'FNSKU limit updated successfully'
-        ]);
+            if (!$fnsku) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'FNSKU not found'
+                ], 404);
+            }
 
-    } catch (\Exception $e) {
-        Log::error('Error updating FNSKU limit: ' . $e->getMessage());
+            $newLimit = $validated['fnsku_limit'];
 
-        return response()->json([
-            'success' => false,
-            'message' => 'An error occurred while updating FNSKU limit',
-            'error'   => $e->getMessage()
-        ], 500);
-    }
-}
+            // ✅ HARD LIMIT: fnsku_limit must not exceed current Units
+            if ($newLimit > $fnsku->Units) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Limit cannot exceed current Units ({$fnsku->Units})"
+                ], 400);
+            }
 
-public function toggleFnskuStatus(Request $request)
-{
-    try {
-        $validated = $request->validate([
-            'fnsku' => 'required|string',
-            'ims_status' => 'required|in:Active,Disabled',
-        ]);
+            $maximumUnits = 30;
 
-        $fnsku = DB::table($this->fnskuTable)
-            ->where('FNSKU', $validated['fnsku'])
-            ->first();
+            // fallback logic
+            $effectiveLimit = $newLimit > 0 ? $newLimit : $fnsku->asin_limit ?? 0;
 
-        if (!$fnsku) {
+            DB::table($this->fnskuTable)
+                ->where('FNSKU', $validated['fnsku'])
+                ->update([
+                    'fnsku_limit' => $newLimit,
+                    'LimitStatus' => ($effectiveLimit > 0 && ($maximumUnits - $fnsku->Units) >= $effectiveLimit)
+                                        ? 'True'
+                                        : 'False',
+                ]);
+
+            Log::info("FNSKU limit updated: {$validated['fnsku']}", ['limit' => $newLimit]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'FNSKU limit updated successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error updating FNSKU limit: ' . $e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'FNSKU not found',
-            ], 404);
+                'message' => 'An error occurred while updating FNSKU limit',
+                'error'   => $e->getMessage()
+            ], 500);
         }
+    }
 
-        DB::table($this->fnskuTable)
-            ->where('FNSKU', $validated['fnsku'])
-            ->update([
-                'ims_status' => $validated['ims_status'],
+    public function toggleFnskuStatus(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'fnsku' => 'required|string',
+                'ims_status' => 'required|in:Active,Disabled',
             ]);
 
-        Log::info("FNSKU status updated: {$validated['fnsku']}", [
-            'ims_status' => $validated['ims_status']
-        ]);
+            $fnsku = DB::table($this->fnskuTable)
+                ->where('FNSKU', $validated['fnsku'])
+                ->first();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'FNSKU status updated successfully',
-        ]);
-    } catch (\Exception $e) {
-        Log::error('Error updating FNSKU status: ' . $e->getMessage());
+            if (!$fnsku) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'FNSKU not found',
+                ], 404);
+            }
 
-        return response()->json([
-            'success' => false,
-            'message' => 'An error occurred while updating FNSKU status',
-            'error' => $e->getMessage(),
-        ], 500);
+            DB::table($this->fnskuTable)
+                ->where('FNSKU', $validated['fnsku'])
+                ->update([
+                    'ims_status' => $validated['ims_status'],
+                ]);
+
+            Log::info("FNSKU status updated: {$validated['fnsku']}", [
+                'ims_status' => $validated['ims_status']
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'FNSKU status updated successfully',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error updating FNSKU status: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while updating FNSKU status',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
-}
+
+    // GET /api/asin-config?asin=XXXXX
+    public function getAsinConfig(Request $request)
+    {
+        $asin = strtoupper(trim($request->input('asin')));
+
+        $rows = DB::table('asin_configs')
+            ->where('asin', $asin)
+            ->where('is_global', 0)
+            ->get()
+            ->keyBy('ProductModuleLoc');
+
+        $result = [];
+        foreach (['labeling', 'testing', 'repair', 'cleaning', 'packaging'] as $module) {
+            $result[$module] = isset($rows[$module])
+                ? json_decode($rows[$module]->config_data, true)
+                : ($module === 'packaging' ? [] : []);
+        }
+
+        return response()->json(['success' => true, 'data' => $result]);
+    }
+
+    // POST /api/asin-config
+    public function saveAsinConfig(Request $request)
+    {
+        $validated = $request->validate([
+            'asin'      => 'required|string',
+            'labeling'  => 'nullable|array',
+            'testing'   => 'nullable|array',
+            'repair'    => 'nullable|array',
+            'cleaning'  => 'nullable|array',
+            'packaging' => 'nullable|array',
+        ]);
+
+        $asin = strtoupper(trim($validated['asin']));
+        $user = Auth::user()?->username ?? 'unknown';
+
+        foreach (['labeling', 'testing', 'repair', 'cleaning', 'packaging'] as $module) {
+            if (!array_key_exists($module, $validated)) continue;
+
+            DB::table('asin_configs')->upsert(
+                [
+                    'asin'             => $asin,
+                    'is_global'        => 0,
+                    'ProductModuleLoc' => $module,
+                    'config_data'      => json_encode($validated[$module] ?? []),
+                    'updated_by'       => $user,
+                    'updated_at'       => now(),
+                ],
+                ['asin', 'ProductModuleLoc', 'is_global'],
+                ['config_data', 'updated_by', 'updated_at']
+            );
+        }
+
+        return response()->json(['success' => true, 'message' => 'Configuration saved.']);
+    }
+
+    // GET /api/asin-global-config
+    public function getGlobalConfig()
+    {
+        $rows = DB::table('asin_configs')
+            ->whereNull('asin')
+            ->where('is_global', 1)
+            ->get()
+            ->keyBy('ProductModuleLoc');
+
+        $result = [];
+        foreach (['labeling', 'testing', 'repair', 'cleaning', 'packaging'] as $module) {
+            $result[$module] = isset($rows[$module])
+                ? json_decode($rows[$module]->config_data, true)
+                : ($module === 'packaging' ? ['components' => [], 'boxSpecs' => []] : []);
+        }
+
+        return response()->json(['success' => true, 'data' => $result]);
+    }
+
+    // POST /api/asin-global-config
+    public function saveGlobalConfigApi(Request $request)
+    {
+        $validated = $request->validate([
+            'labeling'  => 'nullable|array',
+            'testing'   => 'nullable|array',
+            'repair'    => 'nullable|array',
+            'cleaning'  => 'nullable|array',
+            'packaging' => 'nullable|array',
+        ]);
+
+        $user = Auth::user()?->username ?? 'unknown';
+
+        foreach (['labeling', 'testing', 'repair', 'cleaning', 'packaging'] as $module) {
+            if (!array_key_exists($module, $validated)) continue;
+
+            DB::table('asin_configs')->upsert(
+                [
+                    'asin'             => null,
+                    'is_global'        => 1,
+                    'ProductModuleLoc' => $module,
+                    'config_data'      => json_encode($validated[$module] ?? []),
+                    'updated_by'       => $user,
+                    'updated_at'       => now(),
+                ],
+                ['is_global', 'ProductModuleLoc'],
+                ['config_data', 'updated_by', 'updated_at']
+            );
+        }
+
+        return response()->json(['success' => true, 'message' => 'Global config saved.']);
+    }
 
 }

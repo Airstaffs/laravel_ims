@@ -540,6 +540,7 @@ Route::prefix('api/productionArea')->group(function () {
 Route::prefix('api/packaging')->group(function () {
     Route::get('products', [PackagingController::class, 'index']);
     Route::post('work-log', [PackagingController::class, 'saveWorkLog']);
+    Route::get('work-log/{rtcounter}', [PackagingController::class, 'getWorkLog']);
 });
 
 // Routes Returns
@@ -639,7 +640,7 @@ Route::prefix('api/asinlist')->group(function () {
     // Update ASIN details (EAN/UPC/Instruction Link/Meta Keyword/Transparency)
     Route::post('update-asin-details', [ASINlistController::class, 'updateAsinDetails']);
 
-    // Update default dimensions and weight (NEW)
+    // Update default dimensions and weight
     Route::post('update-default-dimensions', [ASINlistController::class, 'updateDefaultDimensions']);
 
     // Update related ASINs
@@ -666,6 +667,12 @@ Route::prefix('api/asinlist')->group(function () {
 
     Route::post('update-fnsku-limit', [ASINlistController::class, 'updateFnskuLimit']);
     Route::post('/fnsku/toggle-status', [ASINlistController::class, 'toggleFnskuStatus']);
+
+    // ASIN & Global Config
+    Route::get('config', [ASINlistController::class, 'getAsinConfig']);
+    Route::post('config', [ASINlistController::class, 'saveAsinConfig']);
+    Route::get('global-config', [ASINlistController::class, 'getGlobalConfig']);
+    Route::post('global-config', [ASINlistController::class, 'saveGlobalConfigApi']);
 });
 
 // AFTER - Add rate limiting
@@ -1190,8 +1197,10 @@ Route::prefix('utils/scanner')->group(function () {
     Route::post('/check', [UtilsScanners::class, 'checkItemStatus']);
     Route::post('/update', [UtilsScanners::class, 'updateItemStatus']);
 });
+
 Route::middleware(['auth'])->prefix('api/repair')->group(function () {
     Route::get('/products', [RepairController::class, 'index']);
+    Route::get('/work-log/{rtcounter}', [RepairController::class, 'getWorkLog']);
     Route::post('/work-log', [RepairController::class, 'workLog']);
     Route::post('/move-to-cleaning', [RepairController::class, 'moveToCleaning']);
     Route::post('/move-to-testing', [RepairController::class, 'moveToTesting']);

@@ -224,6 +224,31 @@ class RepairController extends BasetablesController
         }
     }
 
+    public function getWorkLog(Request $request, $rtcounter)
+    {
+        try {
+            $log = DB::table('tblrepairworklogs')
+                ->where('rtcounter', $rtcounter)
+                ->first();
+
+            if (!$log) {
+                return response()->json(['success' => true, 'data' => null]);
+            }
+
+            $log->category_values = json_decode($log->category_values, true);
+            $log->failed_items    = json_decode($log->failed_items, true);
+
+            return response()->json(['success' => true, 'data' => $log]);
+
+        } catch (\Exception $e) {
+            Log::error('getWorkLog error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function moveToTesting(Request $request)
     {
         try {

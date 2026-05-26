@@ -46,6 +46,10 @@ export default {
             packagingDateTime: "",
             pkgGalleryOpen: false,
             pkgGalleryActive: 0,
+
+            packagingComponents: [],
+            packagingVisualImages: [],
+            packagingBoxSpecs: { size: '', type: '', weight: '', materials: '' },
         };
     },
     computed: {
@@ -203,133 +207,6 @@ export default {
                 this.serialImagePath ||
                 this.defaultSerialImage
             );
-        },
-
-        packagingComponents() {
-            if (!this.packagingWorkLogItem) return [];
-            const asin =
-                this.packagingWorkLogItem.ASINviewer ||
-                this.packagingWorkLogItem.ASIN ||
-                null;
-            if (!asin) return [];
-
-            const parse = (key) => {
-                try {
-                    const r = localStorage.getItem(key);
-                    return r ? JSON.parse(r) : null;
-                } catch {
-                    return null;
-                }
-            };
-
-            const asinPkg = parse(`asin_config_packaging:${asin}`);
-            const globalPkg = parse("asin_global_config_packaging");
-
-            const asinComps = asinPkg?.components || [];
-            const globalComps = globalPkg?.components || [];
-
-            const savedNames = new Set(asinComps.map((c) => c.name));
-            const markedGlobals = globalComps
-                .filter((c) => !savedNames.has(c.name))
-                .map((c) => ({ ...c, _fromGlobal: true }));
-
-            return [...markedGlobals, ...asinComps];
-        },
-
-        packagingVisualImages() {
-            if (!this.packagingWorkLogItem) return [];
-            const asin =
-                this.packagingWorkLogItem.ASINviewer ||
-                this.packagingWorkLogItem.ASIN ||
-                null;
-            if (!asin) return [];
-
-            const parse = (key) => {
-                try {
-                    const r = localStorage.getItem(key);
-                    return r ? JSON.parse(r) : null;
-                } catch {
-                    return null;
-                }
-            };
-
-            const images = [];
-            const asinPkg = parse(`asin_config_packaging:${asin}`);
-            const globalPkg = parse("asin_global_config_packaging");
-
-            // ── 1. Main packaging guide image (ASIN-level) ──────────────
-            if (asinPkg?.image) {
-                images.push({ src: asinPkg.image, label: "Packaging Guide" });
-            }
-
-            // ── 2. Global components with images ────────────────────────
-            const asinCompNames = new Set(
-                (asinPkg?.components || []).map((c) => c.name),
-            );
-            (globalPkg?.components || [])
-                .filter((c) => !asinCompNames.has(c.name))
-                .forEach((comp) => {
-                    // localImg (user-uploaded base64) takes priority over catalog CDN img
-                    const src =
-                        comp.localImg ||
-                        (comp.img
-                            ? comp.img.startsWith("http")
-                                ? comp.img
-                                : comp.img1Source === "captured"
-                                  ? `${window.location.origin}/images/product_images/Airstaffs/${comp.img}`
-                                  : `${window.location.origin}/images/thumbnails/${comp.img}`
-                            : null);
-                    if (src) {
-                        images.push({ src, label: `${comp.name} (Global)` });
-                    }
-                });
-
-            // ── 3. ASIN-specific components with images ──────────────────
-            (asinPkg?.components || []).forEach((comp) => {
-                const src =
-                    comp.localImg ||
-                    (comp.img
-                        ? comp.img.startsWith("http")
-                            ? comp.img
-                            : comp.img1Source === "captured"
-                              ? `${window.location.origin}/images/product_images/Airstaffs/${comp.img}`
-                              : `${window.location.origin}/images/thumbnails/${comp.img}`
-                        : null);
-                if (src) {
-                    images.push({ src, label: comp.name });
-                }
-            });
-
-            return images;
-        },
-
-        packagingBoxSpecs() {
-            if (!this.packagingWorkLogItem) return {};
-            const asin =
-                this.packagingWorkLogItem.ASINviewer ||
-                this.packagingWorkLogItem.ASIN ||
-                null;
-
-            const parse = (key) => {
-                try {
-                    const r = localStorage.getItem(key);
-                    return r ? JSON.parse(r) : null;
-                } catch {
-                    return null;
-                }
-            };
-
-            const asinPkg = parse(`asin_config_packaging:${asin}`);
-            const globalPkg = parse("asin_global_config_packaging");
-            const asinSpecs = asinPkg?.boxSpecs || {};
-            const globalSpecs = globalPkg?.boxSpecs || {};
-
-            return {
-                size: asinSpecs.size || globalSpecs.size || "",
-                type: asinSpecs.type || globalSpecs.type || "",
-                weight: asinSpecs.weight || globalSpecs.weight || "",
-                materials: asinSpecs.materials || globalSpecs.materials || "",
-            };
         },
     },
     methods: {
@@ -794,31 +671,126 @@ export default {
             return String.fromCharCode(65 + index);
         },
 
-        openPackagingWorkLog(item) {
+        async openPackagingWorkLog(item) {
             this.packagingWorkLogItem = item;
+            this.packagingDateTime = new Date().toLocaleString();
 
+            // Load packaging config from API
+            const asin = item.ASINviewer || item.ASIN || null;
+            await this.loadPackagingConfig(asin);
+
+            // Pre-fill saved values
             let savedValues = {};
-
             try {
                 if (item.packaging_category_values) {
                     savedValues =
-                        typeof item.packaging_category_values === "string"
+                        typeof item.packaging_category_values === 'string'
                             ? JSON.parse(item.packaging_category_values)
                             : item.packaging_category_values;
                 }
             } catch (error) {
-                console.error("Invalid packaging_category_values JSON:", error);
+                console.error('Invalid packaging_category_values JSON:', error);
                 savedValues = {};
             }
 
-            // Make sure every component has a boolean value.
+            // Ensure every component has a boolean value
             this.packagingComponents.forEach((comp) => {
                 savedValues[comp.name] = savedValues[comp.name] === true;
             });
 
             this.packagingWorkLogValues = { ...savedValues };
-            this.packagingDateTime = new Date().toLocaleString();
             this.showPackagingWorkLog = true;
+        },
+
+        async loadPackagingConfig(asin) {
+            this.packagingComponents  = [];
+            this.packagingVisualImages = [];
+            this.packagingBoxSpecs    = { size: '', type: '', weight: '', materials: '' };
+
+            if (!asin) return;
+
+            try {
+                // Load global config
+                const globalRes = await axios.get(
+                    `${API_BASE_URL}/api/asinlist/global-config`,
+                    { withCredentials: true },
+                );
+                const globalPkg = globalRes.data.data?.packaging || {};
+                const globalComps   = globalPkg.components || [];
+                const globalBoxSpecs = globalPkg.boxSpecs  || {};
+
+                // Load ASIN-specific config
+                const asinRes = await axios.get(
+                    `${API_BASE_URL}/api/asinlist/config`,
+                    { params: { asin }, withCredentials: true },
+                );
+                const asinPkg   = asinRes.data.data?.packaging || {};
+                const asinComps = asinPkg.components || [];
+                const asinBoxSpecs = asinPkg.boxSpecs || {};
+
+                // Merge components — ASIN overrides global by name
+                const savedNames   = new Set(asinComps.map((c) => c.name));
+                const markedGlobals = globalComps
+                    .filter((c) => !savedNames.has(c.name))
+                    .map((c) => ({ ...c, _fromGlobal: true }));
+
+                this.packagingComponents = [...markedGlobals, ...asinComps];
+
+                // Merge box specs — ASIN overrides global where non-empty
+                this.packagingBoxSpecs = {
+                    size:      asinBoxSpecs.size      || globalBoxSpecs.size      || '',
+                    type:      asinBoxSpecs.type      || globalBoxSpecs.type      || '',
+                    weight:    asinBoxSpecs.weight    || globalBoxSpecs.weight    || '',
+                    materials: asinBoxSpecs.materials || globalBoxSpecs.materials || '',
+                };
+
+                // Build visual images list
+                const images = [];
+
+                // Main packaging guide image
+                if (asinPkg.image) {
+                    images.push({ src: asinPkg.image, label: 'Packaging Guide' });
+                }
+
+                // Helper to resolve component image src
+                const resolveImg = (comp, suffix = '') => {
+                    if (!comp.img && !comp.localImg) return null;
+
+                    let src = null;
+
+                    if (comp.localImg) {
+                        src = comp.localImg;
+                    } else if (comp.img.startsWith('http')) {
+                        src = comp.img;
+                    } else if (comp._source === 'sid' || comp.img1Source === 'sid') {
+                        // SID images live in /images/sid/
+                        src = `${window.location.origin}/images/sid/${comp.img}`;
+                    } else if (comp.img1Source === 'captured') {
+                        src = `${window.location.origin}/images/product_images/Airstaffs/${comp.img}`;
+                    } else {
+                        src = `${window.location.origin}/images/thumbnails/${comp.img}`;
+                    }
+
+                    return src ? { src, label: comp.name + suffix } : null;
+                };
+
+                // Global component images
+                markedGlobals.forEach((comp) => {
+                    const img = resolveImg(comp, ' (Global)');
+                    if (img) images.push(img);
+                });
+
+                // ASIN-specific component images
+                asinComps.forEach((comp) => {
+                    const img = resolveImg(comp);
+                    if (img) images.push(img);
+                });
+
+                this.packagingVisualImages = images;
+
+            } catch (e) {
+                console.error('Failed to load packaging config:', e);
+            }
         },
 
         async savePackagingWorkLog() {

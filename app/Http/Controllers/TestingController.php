@@ -597,35 +597,30 @@ class TestingController extends BasetablesController
         ]);
     }
 
-    public function getWorkLog(Request $request, $rtcounter)
+    // GET /api/testing/work-log?rtcounter=XXXXX
+    public function getWorkLog(Request $request)
     {
-        // ── Auto-detect which log to return ──────────────────────────────────
-        // If a repair exists, the relevant log is the retest. Otherwise initial.
-        $hasBeenRepaired = DB::table('tblrepairworklogs')
-            ->where('rtcounter', $rtcounter)
-            ->exists();
+        $rtcounter = $request->input('rtcounter');
 
-        $testType = $hasBeenRepaired ? 'retest' : 'initial';
-
-        $log = DB::table('tbltestingworklogs')
+        $log = DB::table('testing_work_logs')
             ->where('rtcounter', $rtcounter)
-            ->where(function ($q) use ($testType) {
-                $q->where('test_type', $testType)
-                    ->orWhereNull('test_type');     // backwards compat for old rows
-            })
-            ->orderByDesc('updated_at')           // take the latest if duplicates
+            ->orderBy('created_at', 'desc')
             ->first();
 
-        if (! $log) {
-            return response()->json(['success' => false, 'data' => null]);
+        if (!$log) {
+            return response()->json(['success' => true, 'data' => null]);
         }
-
-        $log->field_values = json_decode($log->field_values, true);
 
         return response()->json([
             'success' => true,
-            'data' => $log,
-            'test_type' => $log->test_type ?? $testType,
+            'data' => [
+                'rtcounter'    => $log->rtcounter,
+                'asin'         => $log->asin,
+                'test_result'  => $log->test_result,
+                'date_tested'  => $log->date_tested,
+                'tested_by'    => $log->tested_by,
+                'field_values' => json_decode($log->field_values, true) ?? [],
+            ],
         ]);
     }
 }

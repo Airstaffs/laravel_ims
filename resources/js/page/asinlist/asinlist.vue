@@ -3791,7 +3791,7 @@
                             <div class="d-flex align-items-center gap-2 mb-1">
                                 <InputText
                                     v-model="suppliesCatalogSearch"
-                                    placeholder="Search by RT counter (e.g. 17232)…"
+                                    placeholder="Search by name, RT counter, or SID number…"
                                     size="small"
                                     class="flex-grow-1"
                                 />
@@ -3822,76 +3822,40 @@
                                     v-for="item in filteredSuppliesCatalog"
                                     :key="'cat-' + item.id"
                                     class="d-flex align-items-center gap-2 px-2 py-1"
-                                    style="
-                                        cursor: pointer;
-                                        border-bottom: 1px solid #eee;
-                                        font-size: 13px;
-                                    "
-                                    :style="
-                                        isAlreadyAdded(item)
-                                            ? 'opacity:.45; pointer-events:none;'
-                                            : ''
-                                    "
+                                    style="cursor: pointer; border-bottom: 1px solid #eee; font-size: 13px;"
+                                    :style="isAlreadyAdded(item) ? 'opacity:.45; pointer-events:none;' : ''"
                                     @click="addComponentFromCatalog(item)"
                                 >
                                     <!-- Thumbnail -->
                                     <img
                                         v-if="item.img"
                                         :src="resolveSupplyThumb(item)"
-                                        style="
-                                            width: 32px;
-                                            height: 32px;
-                                            object-fit: contain;
-                                            border-radius: 4px;
-                                            border: 1px solid #eee;
-                                        "
-                                        @error="
-                                            $event.target.style.display = 'none'
-                                        "
+                                        style="width: 32px; height: 32px; object-fit: contain; border-radius: 4px; border: 1px solid #eee;"
+                                        @error="$event.target.style.display = 'none'"
                                     />
                                     <div
                                         v-else
-                                        style="
-                                            width: 32px;
-                                            height: 32px;
-                                            background: #eee;
-                                            border-radius: 4px;
-                                            display: flex;
-                                            align-items: center;
-                                            justify-content: center;
-                                            flex-shrink: 0;
-                                        "
+                                        style="width: 32px; height: 32px; background: #eee; border-radius: 4px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"
                                     >
-                                        <i
-                                            class="pi pi-box"
-                                            style="color: #bbb; font-size: 14px"
-                                        ></i>
+                                        <i class="pi pi-box" style="color: #bbb; font-size: 14px"></i>
                                     </div>
 
-                                    <div
-                                        class="flex-grow-1"
-                                        style="min-width: 0"
-                                    >
-                                        <div
-                                            style="
-                                                font-weight: 600;
-                                                line-height: 1.2;
-                                                white-space: nowrap;
-                                                overflow: hidden;
-                                                text-overflow: ellipsis;
-                                            "
-                                        >
+                                    <div class="flex-grow-1" style="min-width: 0">
+                                        <div style="font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                             {{ item.name }}
                                         </div>
-                                        <div
-                                            class="text-muted"
-                                            style="font-size: 11px"
-                                        >
-                                            {{
-                                                item.sid_number
-                                                    ? `SID#${item.sid_number.replace(/^SID/i, "")}`
-                                                    : item.sku
-                                            }}
+                                        <div class="text-muted" style="font-size: 11px; display: flex; align-items: center; gap: 4px;">
+                                            <!-- SID badge -->
+                                            <span
+                                                v-if="item._source === 'sid'"
+                                                style="background: #fff3e0; color: #e65100; font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 600;"
+                                            >SID</span>
+                                            <!-- Catalog badge -->
+                                            <span
+                                                v-else
+                                                style="background: #e3f2fd; color: #1565c0; font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 600;"
+                                            >Catalog</span>
+                                            {{ item.sid_number ? `SID#${item.sid_number.replace(/^SID/i, '')}` : item.sku }}
                                             · {{ item.category }}
                                         </div>
                                     </div>
@@ -3899,20 +3863,12 @@
                                     <i
                                         v-if="isAlreadyAdded(item)"
                                         class="pi pi-check-circle"
-                                        style="
-                                            color: #2e7d32;
-                                            font-size: 14px;
-                                            flex-shrink: 0;
-                                        "
+                                        style="color: #2e7d32; font-size: 14px; flex-shrink: 0;"
                                     ></i>
                                     <i
                                         v-else
                                         class="pi pi-plus-circle"
-                                        style="
-                                            color: #0d6efd;
-                                            font-size: 14px;
-                                            flex-shrink: 0;
-                                        "
+                                        style="color: #0d6efd; font-size: 14px; flex-shrink: 0;"
                                     ></i>
                                 </div>
                             </div>

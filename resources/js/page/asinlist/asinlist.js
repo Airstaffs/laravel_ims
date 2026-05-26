@@ -216,9 +216,8 @@ export default {
                 (item) =>
                     String(item.sku).toLowerCase().includes(q) ||
                     String(item.name).toLowerCase().includes(q) ||
-                    String(item.sid_number || "")
-                        .toLowerCase()
-                        .includes(q),
+                    String(item.sid_number || '').toLowerCase().includes(q) ||
+                    String(item.category || '').toLowerCase().includes(q),
             );
         },
     },
@@ -1383,176 +1382,129 @@ export default {
          * UPDATED — loads global config first so the inherited banner
          * and preview are ready when the dialog opens.
          */
-        openASINConfig(data) {
-            this.labelingCollapsed = true;
-            this.testingCollapsed = true;
-            this.repairCollapsed = true;
-            this.cleaningCollapsed = true;
+        async openASINConfig(data) {
+            this.labelingCollapsed  = true;
+            this.testingCollapsed   = true;
+            this.repairCollapsed    = true;
+            this.cleaningCollapsed  = true;
             this.packagingCollapsed = true;
             this.showInheritedPreview = false;
 
             this.selectedConfig = data;
-            this.suppliesCatalogSearch = "";
+            this.suppliesCatalogSearch = '';
             this.fetchSuppliesCatalog();
             this.showASINConfig = true;
 
-            // Load global defaults first (populates hasGlobalConfig / globalInheritedCount)
-            this.loadGlobalConfig();
-
-            // Then load ASIN-specific overrides
-            this.loadAllFields(data.ASIN);
+            // loadAllFields now handles loadGlobalConfig internally
+            await this.loadAllFields(data.ASIN);
         },
 
-        /**
-         * UPDATED — merges global defaults into ASIN-specific fields on load.
-         * Global fields are deep-cloned and prepended with _fromGlobal: true
-         * so they can be visually distinguished but are fully editable.
-         * Saving only writes to the ASIN-specific localStorage key.
-         */
-        loadAllFields(asin) {
-            const parse = (key, fallback) => {
-                try {
-                    const r = localStorage.getItem(key);
-                    return r ? JSON.parse(r) : fallback;
-                } catch {
-                    return fallback;
-                }
-            };
+        async loadAllFields(asin) {
+            // Load global defaults first so merge logic below has them ready
+            await this.loadGlobalConfig();
 
-            // Load ASIN-specific saved fields
-            const asinLabeling = parse(`asin_config_labeling:${asin}`, []);
-            const asinTesting = parse(`asin_config_testing:${asin}`, []);
-            const asinRepair = parse(`asin_config_repair:${asin}`, []);
-            const asinCleaning = parse(`asin_config_cleaning:${asin}`, []);
-            const pkg = parse(`asin_config_packaging:${asin}`, {});
+            try {
+                const res = await axios.get(`${API_BASE_URL}/api/asinlist/config`, {
+                    params: { asin },
+                    withCredentials: true,
+                });
 
-            // Deep-clone an array and tag each item as coming from global
-            const markGlobal = (arr) =>
-                JSON.parse(JSON.stringify(arr)).map((f) => ({
-                    ...f,
-                    _fromGlobal: true,
-                }));
+                const d = res.data.data;
 
-            // Merge: global-origin fields first (tagged), then ASIN-specific.
-            // If the ASIN already has a saved field with the same label as a
-            // global one, skip the global copy — ASIN version takes precedence.
-            const mergeFields = (globals, asinFields) => {
-                const savedLabels = new Set(asinFields.map((f) => f.label));
-                return [
-                    ...markGlobal(globals).filter(
-                        (f) => !savedLabels.has(f.label),
+                const markGlobal = (arr) =>
+                    JSON.parse(JSON.stringify(arr)).map((f) => ({ ...f, _fromGlobal: true }));
+
+                const mergeFields = (globals, asinFields) => {
+                    const savedLabels = new Set(asinFields.map((f) => f.label));
+                    return [
+                        ...markGlobal(globals).filter((f) => !savedLabels.has(f.label)),
+                        ...asinFields,
+                    ];
+                };
+
+                const mergeCategories = (globals, asinCats) => {
+                    const savedNames = new Set(asinCats.map((c) => c.name));
+                    return [
+                        ...markGlobal(globals).filter((c) => !savedNames.has(c.name)),
+                        ...asinCats,
+                    ];
+                };
+
+                this.labelingFields = mergeFields(this.globalLabelingFields, d.labeling || []);
+                this.testingFields  = mergeFields(this.globalTestingFields,  d.testing  || []);
+                this.repairFields   = mergeCategories(this.globalRepairFields,  d.repair   || []);
+                this.cleaningFields = mergeCategories(this.globalCleaningFields, d.cleaning || []);
+
+                const pkg = d.packaging || {};
+                this.packagingImage = pkg.image || null;
+
+                const savedCompNames = new Set((pkg.components || []).map((c) => c.name));
+                this.packagingComponents = [
+                    ...markGlobal(this.globalPackagingComponents).filter(
+                        (c) => !savedCompNames.has(c.name),
                     ),
-                    ...asinFields,
+                    ...(pkg.components || []),
                 ];
-            };
 
-            // Same logic for repair/cleaning which use .name instead of .label
-            const mergeCategories = (globals, asinCats) => {
-                const savedNames = new Set(asinCats.map((c) => c.name));
-                return [
-                    ...markGlobal(globals).filter(
-                        (c) => !savedNames.has(c.name),
-                    ),
-                    ...asinCats,
-                ];
-            };
+                this.boxSpecs = {
+                    size:      pkg.boxSpecs?.size      || this.globalBoxSpecs.size      || '',
+                    type:      pkg.boxSpecs?.type      || this.globalBoxSpecs.type      || '',
+                    weight:    pkg.boxSpecs?.weight    || this.globalBoxSpecs.weight    || '',
+                    materials: pkg.boxSpecs?.materials || this.globalBoxSpecs.materials || '',
+                };
 
-            this.labelingFields = mergeFields(
-                this.globalLabelingFields,
-                asinLabeling,
-            );
-            this.testingFields = mergeFields(
-                this.globalTestingFields,
-                asinTesting,
-            );
-            this.repairFields = mergeCategories(
-                this.globalRepairFields,
-                asinRepair,
-            );
-            this.cleaningFields = mergeCategories(
-                this.globalCleaningFields,
-                asinCleaning,
-            );
-
-            // Packaging
-            this.packagingImage = pkg.image || null;
-
-            const savedCompNames = new Set(
-                (pkg.components || []).map((c) => c.name),
-            );
-            this.packagingComponents = [
-                ...markGlobal(this.globalPackagingComponents).filter(
-                    (c) => !savedCompNames.has(c.name),
-                ),
-                ...(pkg.components || []),
-            ];
-
-            // Box specs: ASIN-specific values override global where non-empty
-            this.boxSpecs = {
-                size: pkg.boxSpecs?.size || this.globalBoxSpecs.size || "",
-                type: pkg.boxSpecs?.type || this.globalBoxSpecs.type || "",
-                weight:
-                    pkg.boxSpecs?.weight || this.globalBoxSpecs.weight || "",
-                materials:
-                    pkg.boxSpecs?.materials ||
-                    this.globalBoxSpecs.materials ||
-                    "",
-            };
+            } catch (e) {
+                console.error('Failed to load ASIN config:', e);
+            }
         },
 
-        saveAllFields(publish = false) {
+        async saveAllFields(publish = false) {
             publish ? (this.publishing = true) : (this.savingAll = true);
             try {
                 const asin = this.selectedConfig.ASIN;
-                localStorage.setItem(
-                    `asin_config_labeling:${asin}`,
-                    JSON.stringify(this.labelingFields),
+
+                await axios.post(
+                    `${API_BASE_URL}/api/asinlist/config`,
+                    {
+                        asin,
+                        labeling:  this.labelingFields,
+                        testing:   this.testingFields,
+                        repair:    this.repairFields,
+                        cleaning:  this.cleaningFields,
+                        packaging: {
+                            image:      this.packagingImage,
+                            components: this.packagingComponents,
+                            boxSpecs:   this.boxSpecs,
+                        },
+                    },
+                    { withCredentials: true },
                 );
-                localStorage.setItem(
-                    `asin_config_testing:${asin}`,
-                    JSON.stringify(this.testingFields),
-                );
-                localStorage.setItem(
-                    `asin_config_repair:${asin}`,
-                    JSON.stringify(this.repairFields),
-                );
-                localStorage.setItem(
-                    `asin_config_cleaning:${asin}`,
-                    JSON.stringify(this.cleaningFields),
-                );
-                localStorage.setItem(
-                    `asin_config_packaging:${asin}`,
-                    JSON.stringify({
-                        image: this.packagingImage,
-                        components: this.packagingComponents,
-                        boxSpecs: this.boxSpecs,
-                    }),
-                );
+
                 if (publish) {
                     Swal.fire({
-                        icon: "success",
-                        title: "Saved & Published!",
+                        icon: 'success',
+                        title: 'Saved & Published!',
                         text: `Configuration for ${asin} has been saved and published.`,
-                        confirmButtonText: "OK",
+                        confirmButtonText: 'OK',
                     });
                     this.showASINConfig = false;
                 } else {
                     Swal.fire({
-                        icon: "success",
-                        title: "Configuration Saved!",
+                        icon: 'success',
+                        title: 'Configuration Saved!',
                         text: `Configuration for ${asin} has been saved successfully.`,
-                        confirmButtonText: "OK",
+                        confirmButtonText: 'OK',
                     });
                 }
-            } catch {
+            } catch (e) {
                 Swal.fire({
-                    icon: "error",
-                    title: "Save Failed",
-                    text: "Something went wrong while saving. Please try again.",
+                    icon: 'error',
+                    title: 'Save Failed',
+                    text: 'Something went wrong while saving. Please try again.',
                 });
             } finally {
-                this.savingAll = false;
-                this.publishing = false;
+                this.savingAll   = false;
+                this.publishing  = false;
             }
         },
 
@@ -1636,305 +1588,64 @@ export default {
 
         // ── Global Config ────────────────────────────────────────
 
-        openGlobalConfig() {
-            this.loadGlobalConfig();
+        async openGlobalConfig() {
+            await this.loadGlobalConfig();
             this.showGlobalConfig = true;
         },
 
-        loadGlobalConfig() {
-            const parse = (key, fallback) => {
-                try {
-                    const r = localStorage.getItem(key);
-                    return r ? JSON.parse(r) : fallback;
-                } catch {
-                    return fallback;
-                }
-            };
-            this.globalLabelingFields = parse(
-                "asin_global_config_labeling",
-                [],
-            );
-            this.globalTestingFields = parse("asin_global_config_testing", []);
-            this.globalRepairFields = parse("asin_global_config_repair", []);
-            this.globalCleaningFields = parse(
-                "asin_global_config_cleaning",
-                [],
-            );
-            const pkg = parse("asin_global_config_packaging", {});
-            this.globalPackagingComponents = pkg.components || [];
-            this.globalBoxSpecs = pkg.boxSpecs || {
-                size: "",
-                type: "",
-                weight: "",
-                materials: "",
-            };
+
+        async loadGlobalConfig() {
+            try {
+                const res = await axios.get(`${API_BASE_URL}/api/asinlist/global-config`, {
+                    withCredentials: true,
+                });
+                const d = res.data.data;
+                this.globalLabelingFields      = d.labeling  || [];
+                this.globalTestingFields       = d.testing   || [];
+                this.globalRepairFields        = d.repair    || [];
+                this.globalCleaningFields      = d.cleaning  || [];
+                const pkg                      = d.packaging || {};
+                this.globalPackagingComponents = pkg.components || [];
+                this.globalBoxSpecs            = pkg.boxSpecs   || { size: '', type: '', weight: '', materials: '' };
+            } catch (e) {
+                console.error('Failed to load global config:', e);
+            }
         },
 
-        saveGlobalConfig() {
+        async saveGlobalConfig() {
             this.savingGlobalConfig = true;
             try {
-                // ── Detect removed fields per section before overwriting ──────
-                const prevLabeling = this._getPrevGlobal(
-                    "asin_global_config_labeling",
+                await axios.post(
+                    `${API_BASE_URL}/api/asinlist/global-config`,
+                    {
+                        labeling:  this.globalLabelingFields,
+                        testing:   this.globalTestingFields,
+                        repair:    this.globalRepairFields,
+                        cleaning:  this.globalCleaningFields,
+                        packaging: {
+                            components: this.globalPackagingComponents,
+                            boxSpecs:   this.globalBoxSpecs,
+                        },
+                    },
+                    { withCredentials: true },
                 );
-                const prevTesting = this._getPrevGlobal(
-                    "asin_global_config_testing",
-                );
-                const prevRepair = this._getPrevGlobal(
-                    "asin_global_config_repair",
-                );
-                const prevCleaning = this._getPrevGlobal(
-                    "asin_global_config_cleaning",
-                );
-                const prevPkg = this._getPrevGlobalPkg();
-
-                // Save new global config
-                localStorage.setItem(
-                    "asin_global_config_labeling",
-                    JSON.stringify(this.globalLabelingFields),
-                );
-                localStorage.setItem(
-                    "asin_global_config_testing",
-                    JSON.stringify(this.globalTestingFields),
-                );
-                localStorage.setItem(
-                    "asin_global_config_repair",
-                    JSON.stringify(this.globalRepairFields),
-                );
-                localStorage.setItem(
-                    "asin_global_config_cleaning",
-                    JSON.stringify(this.globalCleaningFields),
-                );
-                localStorage.setItem(
-                    "asin_global_config_packaging",
-                    JSON.stringify({
-                        components: this.globalPackagingComponents,
-                        boxSpecs: this.globalBoxSpecs,
-                    }),
-                );
-
-                // ── Removed labels/names per section ─────────────────────────
-                const removedLabeling = this._getRemovedLabels(
-                    prevLabeling,
-                    this.globalLabelingFields,
-                    "label",
-                );
-                const removedTesting = this._getRemovedLabels(
-                    prevTesting,
-                    this.globalTestingFields,
-                    "label",
-                );
-                const removedRepair = this._getRemovedLabels(
-                    prevRepair,
-                    this.globalRepairFields,
-                    "name",
-                );
-                const removedCleaning = this._getRemovedLabels(
-                    prevCleaning,
-                    this.globalCleaningFields,
-                    "name",
-                );
-                const removedPkgComps = this._getRemovedLabels(
-                    prevPkg,
-                    this.globalPackagingComponents,
-                    "name",
-                );
-
-                // ── Scrub removed fields from every ASIN-specific key ─────────
-                if (
-                    removedLabeling.size ||
-                    removedTesting.size ||
-                    removedRepair.size ||
-                    removedCleaning.size ||
-                    removedPkgComps.size
-                ) {
-                    this._scrubRemovedFromAllAsins({
-                        labeling: removedLabeling,
-                        testing: removedTesting,
-                        repair: removedRepair,
-                        cleaning: removedCleaning,
-                        packaging: removedPkgComps,
-                    });
-                }
 
                 Swal.fire({
-                    icon: "success",
-                    title: "Global Config Saved!",
-                    text: "All ASINs without overrides will now use these defaults.",
-                    confirmButtonText: "OK",
+                    icon: 'success',
+                    title: 'Global Config Saved!',
+                    text: 'All ASINs without overrides will now use these defaults.',
+                    confirmButtonText: 'OK',
                 });
                 this.showGlobalConfig = false;
             } catch (e) {
-                console.error("saveGlobalConfig error:", e);
                 Swal.fire({
-                    icon: "error",
-                    title: "Save Failed",
-                    text: "Something went wrong saving the global config.",
+                    icon: 'error',
+                    title: 'Save Failed',
+                    text: 'Something went wrong saving the global config.',
                 });
             } finally {
                 this.savingGlobalConfig = false;
             }
-        },
-
-        /** Read the current saved global array for a section (before overwrite). */
-        _getPrevGlobal(key) {
-            try {
-                const r = localStorage.getItem(key);
-                return r ? JSON.parse(r) : [];
-            } catch {
-                return [];
-            }
-        },
-
-        /** Read current saved global packaging components (before overwrite). */
-        _getPrevGlobalPkg() {
-            try {
-                const r = localStorage.getItem("asin_global_config_packaging");
-                return r ? JSON.parse(r).components || [] : [];
-            } catch {
-                return [];
-            }
-        },
-
-        /**
-         * Compare previous vs current array and return a Set of
-         * labels/names that were removed.
-         * @param {Array} prev
-         * @param {Array} curr
-         * @param {string} key  'label' for fields, 'name' for categories/components
-         */
-        _getRemovedLabels(prev, curr, key) {
-            const currSet = new Set(curr.map((f) => f[key]));
-            const removed = new Set();
-            prev.forEach((f) => {
-                if (f[key] && !currSet.has(f[key])) removed.add(f[key]);
-            });
-            return removed;
-        },
-
-        /**
-         * Iterate every localStorage key that looks like an ASIN config key
-         * and strip out any entries whose label/name appears in the removed sets.
-         *
-         * Keys pattern:
-         *   asin_config_labeling:{ASIN}
-         *   asin_config_testing:{ASIN}
-         *   asin_config_repair:{ASIN}
-         *   asin_config_cleaning:{ASIN}
-         *   asin_config_packaging:{ASIN}
-         *   testing_worklog:{rtcounter}   ← also scrub removed testing labels here
-         */
-        _scrubRemovedFromAllAsins({
-            labeling,
-            testing,
-            repair,
-            cleaning,
-            packaging,
-        }) {
-            const allKeys = Object.keys(localStorage);
-
-            allKeys.forEach((key) => {
-                try {
-                    // ── Labeling ──────────────────────────────────────────────
-                    if (
-                        key.startsWith("asin_config_labeling:") &&
-                        labeling.size
-                    ) {
-                        const fields = JSON.parse(
-                            localStorage.getItem(key) || "[]",
-                        );
-                        const cleaned = fields.filter(
-                            (f) => !labeling.has(f.label),
-                        );
-                        if (cleaned.length !== fields.length)
-                            localStorage.setItem(key, JSON.stringify(cleaned));
-                    }
-
-                    // ── Testing ───────────────────────────────────────────────
-                    if (
-                        key.startsWith("asin_config_testing:") &&
-                        testing.size
-                    ) {
-                        const fields = JSON.parse(
-                            localStorage.getItem(key) || "[]",
-                        );
-                        const cleaned = fields.filter(
-                            (f) => !testing.has(f.label),
-                        );
-                        if (cleaned.length !== fields.length)
-                            localStorage.setItem(key, JSON.stringify(cleaned));
-                    }
-
-                    // ── Testing Work Log (saved values keyed by rtcounter) ────
-                    if (key.startsWith("testing_worklog:") && testing.size) {
-                        const saved = JSON.parse(
-                            localStorage.getItem(key) || "{}",
-                        );
-                        let changed = false;
-                        testing.forEach((label) => {
-                            if (
-                                Object.prototype.hasOwnProperty.call(
-                                    saved,
-                                    label,
-                                )
-                            ) {
-                                delete saved[label];
-                                changed = true;
-                            }
-                        });
-                        if (changed)
-                            localStorage.setItem(key, JSON.stringify(saved));
-                    }
-
-                    // ── Repair ────────────────────────────────────────────────
-                    if (key.startsWith("asin_config_repair:") && repair.size) {
-                        const cats = JSON.parse(
-                            localStorage.getItem(key) || "[]",
-                        );
-                        const cleaned = cats.filter((c) => !repair.has(c.name));
-                        if (cleaned.length !== cats.length)
-                            localStorage.setItem(key, JSON.stringify(cleaned));
-                    }
-
-                    // ── Cleaning ──────────────────────────────────────────────
-                    if (
-                        key.startsWith("asin_config_cleaning:") &&
-                        cleaning.size
-                    ) {
-                        const cats = JSON.parse(
-                            localStorage.getItem(key) || "[]",
-                        );
-                        const cleaned = cats.filter(
-                            (c) => !cleaning.has(c.name),
-                        );
-                        if (cleaned.length !== cats.length)
-                            localStorage.setItem(key, JSON.stringify(cleaned));
-                    }
-
-                    // ── Packaging components ──────────────────────────────────
-                    if (
-                        key.startsWith("asin_config_packaging:") &&
-                        packaging.size
-                    ) {
-                        const pkg = JSON.parse(
-                            localStorage.getItem(key) || "{}",
-                        );
-                        const comps = pkg.components || [];
-                        const cleaned = comps.filter(
-                            (c) => !packaging.has(c.name),
-                        );
-                        if (cleaned.length !== comps.length) {
-                            pkg.components = cleaned;
-                            localStorage.setItem(key, JSON.stringify(pkg));
-                        }
-                    }
-                } catch (e) {
-                    console.warn(
-                        `_scrubRemovedFromAllAsins: skipped key "${key}"`,
-                        e,
-                    );
-                }
-            });
         },
 
         /**
@@ -2002,24 +1713,44 @@ export default {
         async fetchSuppliesCatalog() {
             this.suppliesCatalogLoading = true;
             try {
-                const res = await axios.get(
-                    `${API_BASE_URL}/api/supplies-components`,
-                    {
+                const [catalogRes, sidRes] = await Promise.all([
+                    axios.get(`${API_BASE_URL}/api/supplies-components`, {
                         params: { per_page: 200, page: 1 },
                         withCredentials: true,
-                    },
-                );
-                this.suppliesCatalog = (res.data.data || []).map((item) => ({
+                    }),
+                    axios.get(`${API_BASE_URL}/api/supplies-components/sid-list`, {
+                        withCredentials: true,
+                    }),
+                ]);
+
+                // Map supplies/components catalog items
+                const catalogItems = (catalogRes.data.data || []).map((item) => ({
                     id: item.product_id,
                     name: item.product_title,
-                    sku: item.rt_counter || "",
-                    sid_number: item.sid_number || "",
+                    sku: item.rt_counter || '',
+                    sid_number: item.sid_number || '',
                     category: item.category,
-                    img: item.img1 || item.img2 || item.img3 || null,
+                    img: item.img1 || null,
                     img1_source: item.img1_source || null,
+                    _source: 'catalog',
                 }));
+
+                // Map SID list items
+                const sidItems = (sidRes.data.data || []).map((item) => ({
+                    id: `sid_${item.id}`,
+                    name: item.alias || item.sid_number,
+                    sku: item.sid_number,
+                    sid_number: item.sid_number,
+                    category: 'SID',
+                    img: item.image_path || null,
+                    img1_source: item.image_path ? 'sid' : null,
+                    _source: 'sid',
+                    _sidId: item.id,
+                }));
+
+                this.suppliesCatalog = [...catalogItems, ...sidItems];
             } catch (e) {
-                console.error("Failed to load supplies catalog:", e);
+                console.error('Failed to load supplies catalog:', e);
                 this.suppliesCatalog = [];
             } finally {
                 this.suppliesCatalogLoading = false;
@@ -2028,31 +1759,39 @@ export default {
 
         // Prevent adding the same item twice
         isAlreadyAdded(catalogItem) {
-            return this.packagingComponents.some(
-                (c) => c.sku === catalogItem.sku && c.name === catalogItem.name,
-            );
+            return this.packagingComponents.some((c) => {
+                if (catalogItem._source === 'sid') {
+                    return c.sid_number === catalogItem.sid_number;
+                }
+                return c.sku === catalogItem.sku && c.name === catalogItem.name;
+            });
         },
 
         // One-click add from catalog row
         addComponentFromCatalog(catalogItem) {
             if (this.isAlreadyAdded(catalogItem)) return;
             this.packagingComponents.push({
-                name: catalogItem.name,
-                sku: catalogItem.sid_number || catalogItem.sku,
-                qty: 1,
-                note: "",
-                img: catalogItem.img,
+                name:       catalogItem.name,
+                sku:        catalogItem.sid_number || catalogItem.sku,
+                sid_number: catalogItem.sid_number || '',
+                qty:        1,
+                note:       '',
+                img:        catalogItem.img,
                 img1Source: catalogItem.img1_source,
                 _fromCatalog: true,
+                _source:    catalogItem._source,
             });
         },
 
         // Resolve thumbnail path the same way SuppliesComponents does
         resolveSupplyThumb(item) {
             if (!item.img) return null;
-            if (item.img.startsWith("http")) return item.img;
+            if (item.img.startsWith('http')) return item.img;
             const base = window.location.origin;
-            return item.img1Source === "captured"
+            if (item._source === 'sid' || item.img1Source === 'sid') {
+                return `${base}/images/sid/${item.img}`;
+            }
+            return item.img1_source === 'captured' || item.img1Source === 'captured'
                 ? `${base}/images/product_images/Airstaffs/${item.img}`
                 : `${base}/images/thumbnails/${item.img}`;
         },

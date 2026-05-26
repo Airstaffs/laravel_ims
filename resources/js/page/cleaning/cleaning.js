@@ -700,68 +700,76 @@ export default {
             }
         },
 
-        // Open Cleaning Work Log dialog
-        openCleaningWorkLog(item) {
-            this.cleaningWorkLogItem = item;
-            this.cleaningWorkLogOpenedAt = new Date();
-            this.cleaningWorkLogCategories = this.loadCleaningCategories(
-                item.ASINviewer || item.ASIN || item.asin,
-            );
+        async openCleaningWorkLog(item) {
+            try {
+                this.cleaningWorkLogItem = item;
+                this.cleaningWorkLogOpenedAt = new Date();
 
-            // Pre-fill with defaults then any previously saved values
-            const saved = this.loadSavedCleaningValues(item.rtcounter);
-            const prefilled = {};
-            this.cleaningWorkLogCategories.forEach((cat) => {
-                prefilled[cat.name + "__status"] =
-                    saved[cat.name + "__status"] ?? "";
-                prefilled[cat.name + "__notes"] =
-                    saved[cat.name + "__notes"] ?? "";
-                (cat.actions || []).forEach((action) => {
-                    const key = cat.name + "__action__" + action.title;
-                    prefilled[key] = saved[key] ?? false;
+                this.cleaningWorkLogCategories = await this.loadCleaningCategories(
+                    item.ASINviewer || item.ASIN || item.asin,
+                );
+
+                const saved = await this.loadSavedCleaningValues(item.rtcounter);
+                const prefilled = {};
+                this.cleaningWorkLogCategories.forEach((cat) => {
+                    prefilled[cat.name + '__status'] =
+                        saved[cat.name + '__status'] ?? '';
+                    prefilled[cat.name + '__notes'] =
+                        saved[cat.name + '__notes'] ?? '';
+                    (cat.actions || []).forEach((action) => {
+                        const key = cat.name + '__action__' + action.title;
+                        prefilled[key] = saved[key] ?? false;
+                    });
                 });
-            });
-            this.cleaningWorkLogValues = prefilled;
-            this.showCleaningWorkLog = true;
+                this.cleaningWorkLogValues = prefilled;
+                this.showCleaningWorkLog = true;
+            } catch (e) {
+                console.error('openCleaningWorkLog failed:', e);
+                this.showCleaningWorkLog = true;
+            }
         },
 
-        // Load merged cleaning categories from localStorage (global + ASIN-specific)
-        loadCleaningCategories(asin) {
+        async loadCleaningCategories(asin) {
             if (!asin) return [];
+            try {
+                const globalRes = await axios.get(
+                    `${API_BASE_URL}/api/asinlist/global-config`,
+                    { withCredentials: true },
+                );
+                const globalCats = globalRes.data.data?.cleaning || [];
 
-            const parse = (key) => {
-                try {
-                    const r = localStorage.getItem(key);
-                    return r ? JSON.parse(r) : [];
-                } catch {
-                    return [];
-                }
-            };
+                const asinRes = await axios.get(
+                    `${API_BASE_URL}/api/asinlist/config`,
+                    { params: { asin }, withCredentials: true },
+                );
+                const asinCats = asinRes.data.data?.cleaning || [];
 
-            const globalCats = parse("asin_global_config_cleaning");
-            const asinCats = parse(`asin_config_cleaning:${asin}`);
+                const markedGlobals = globalCats.map((c) => ({
+                    ...c,
+                    _fromGlobal: true,
+                }));
+                const asinNames = new Set(asinCats.map((c) => c.name));
 
-            const markedGlobals = globalCats.map((c) => ({
-                ...c,
-                _fromGlobal: true,
-            }));
-            const asinNames = new Set(asinCats.map((c) => c.name));
-
-            return [
-                ...markedGlobals.filter((c) => !asinNames.has(c.name)),
-                ...asinCats,
-            ];
+                return [
+                    ...markedGlobals.filter((c) => !asinNames.has(c.name)),
+                    ...asinCats,
+                ];
+            } catch (e) {
+                console.error('Failed to load cleaning categories:', e);
+                return [];
+            }
         },
 
-        // Load previously saved values for this rtcounter
-        loadSavedCleaningValues(rtcounter) {
+        async loadSavedCleaningValues(rtcounter) {
             if (!rtcounter) return {};
             try {
-                const raw = localStorage.getItem(
-                    `cleaning_worklog:${rtcounter}`,
+                const res = await axios.get(
+                    `${API_BASE_URL}/api/cleaning/work-log/${rtcounter}`,
+                    { withCredentials: true },
                 );
-                return raw ? JSON.parse(raw) : {};
-            } catch {
+                return res.data.data?.category_values || {};
+            } catch (e) {
+                console.error('Failed to load saved cleaning values:', e);
                 return {};
             }
         },

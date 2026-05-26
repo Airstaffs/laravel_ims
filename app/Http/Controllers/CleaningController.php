@@ -345,16 +345,25 @@ class CleaningController extends BasetablesController
 
     public function getWorkLog(Request $request, $rtcounter)
     {
-        $log = DB::table('tblcleaningWorkLogs')
-            ->where('rtcounter', $rtcounter)
-            ->first();
+        try {
+            $log = DB::table('tblcleaningWorkLogs')
+                ->where('rtcounter', $rtcounter)
+                ->first();
 
-        if (! $log) {
-            return response()->json(['success' => false, 'data' => null]);
+            if (! $log) {
+                return response()->json(['success' => true, 'data' => null]);
+            }
+
+            $log->category_values = json_decode($log->category_values, true);
+
+            return response()->json(['success' => true, 'data' => $log]);
+
+        } catch (\Exception $e) {
+            Log::error('getWorkLog error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()  // ← this will tell you exactly what's wrong
+            ], 500);
         }
-
-        $log->category_values = json_decode($log->category_values, true);
-
-        return response()->json(['success' => true, 'data' => $log]);
     }
 }
