@@ -1,5 +1,10 @@
 // Main DOMContentLoaded event
 document.addEventListener("DOMContentLoaded", function () {
+    if (!window.bootstrap?.Modal || !window.bootstrap?.Tab || !window.bootstrap?.Toast) {
+        console.warn("Bootstrap JavaScript is not ready; skipping legacy settings modal script.");
+        return;
+    }
+
     // Initialize modal management
     initializeModalManagement();
 
@@ -60,7 +65,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (!settingsModalEl) return;
 
-    const settingsModal = new bootstrap.Modal(settingsModalEl);
+    const settingsModal = bootstrap.Modal.getOrCreateInstance(settingsModalEl);
 
     // Password toggle
     togglePassword?.addEventListener("click", function () {
@@ -167,6 +172,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
 // Modal management initialization
 function initializeModalManagement() {
+    if (!window.bootstrap?.Modal) return;
+
     const settingsModal = document.getElementById("settingsModal");
     if (!settingsModal) return;
 

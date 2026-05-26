@@ -50,9 +50,3 @@
         </div>
     </div>
 </div>
-
-@auth
-    <script>
-        const CURRENT_USER_ID = {{ auth()->user()->id }};
-    </script>
-@endauth

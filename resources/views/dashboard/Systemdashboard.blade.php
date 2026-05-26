@@ -25,8 +25,7 @@
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 
-    <!-- App-specific CSS via Vite -->
-    @vite('resources/css/app.css')
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     <!-- Inline Theme Styles -->
     <style>
@@ -242,9 +241,7 @@
             </component>
         </div>
 
-        <div id="dynamic-content">
-            @vite(['resources/js/app.js'])
-        </div>
+        <div id="dynamic-content"></div>
     </div>
 
     @include('dashboard.modals.asinoption')
@@ -818,8 +815,6 @@
             window.user = null;
         </script>
     @endif
-
-    @vite(['resources/js/app.js'])
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {

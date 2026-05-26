@@ -534,7 +534,14 @@
             const ym = fmtYm(y, m + 1); // 1-based month for API
             const url = `/schedule/month?ym=${encodeURIComponent(ym)}`;
             try {
-                const { data } = await axios.get(url, { withCredentials: true });
+                const response = await fetch(url, {
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+                const data = response.ok ? await response.json() : null;
                 monthData = data || { byDate: {} };
             } catch (e) {
                 console.error('Load schedule failed', e);

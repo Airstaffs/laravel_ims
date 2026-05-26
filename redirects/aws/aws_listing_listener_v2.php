@@ -8,6 +8,8 @@ error_reporting(E_ALL);
 ========================================================= */
 $logFile = __DIR__ . '/eb_hits.log';
 $expectedSecret = 'eb_4f9c2a7d8e6b41a9b0d3c5e7f2a8d6c1b9e4a7f0d3c8e5b2a6f9c1d7e4';
+$receiverUrl = 'https://ims.tecniquality.com/Admin/include/conversion/receiver.php';
+$receiverSecret = 'eb_4f9c2a7d8e6b41a9b0d3c5e7f2a8d6c1b9e4a7f0d3c8e5b2a6f9c1d7e4';
 
 /* =========================================================
    LOG ROTATION (10MB)
@@ -47,6 +49,35 @@ function ok($msg = "OK", $extra = null) {
     http_response_code(200);
     echo $msg;
     exit;
+}
+
+function sendToIMSReceiver($receiverUrl, $receiverSecret, array $payload)
+{
+    $jsonBody = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+    $ch = curl_init($receiverUrl);
+
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonBody);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'SECRET-IMS-KEY-V2: ' . $receiverSecret
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+
+    $response = curl_exec($ch);
+    $curlError = curl_error($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+    curl_close($ch);
+
+    return [
+        'success' => $curlError === '' && $httpCode >= 200 && $httpCode < 300,
+        'http_code' => $httpCode,
+        'response' => $response,
+        'error' => $curlError
+    ];
 }
 
 /* =========================================================
@@ -213,6 +244,55 @@ $insertId = $stmt->insert_id;
 $stmt->close();
 
 /* =========================================================
+   SEND SAME DATA TO TECNIQUALITY IMS RECEIVER
+========================================================= */
+
+$receiverPayload = [
+    // Security
+    "secret" => $receiverSecret,
+
+    // Top-level event fields
+    "version" => $version,
+    "event_id" => $eventId,
+    "detail_type" => $detailType,
+    "source" => $source,
+    "account" => $account,
+    "event_time" => $eventTime,
+    "region" => $region,
+
+    // Notification detail fields
+    "notification_version" => $notificationVersion,
+    "notification_type" => $notificationType,
+    "payload_version" => $payloadVersion,
+    "event_detail_time" => $eventDetailTime,
+
+    // Amazon item fields
+    "seller_id" => $sellerId,
+    "marketplace_id" => $marketplaceId,
+    "asin" => $asin,
+    "sku" => $sku,
+    "created_date" => $createdDate,
+    "status" => $statusJson,
+
+    // Metadata fields
+    "notification_id" => $notificationId,
+    "subscription_id" => $subscriptionId,
+    "application_id" => $applicationId,
+    "publish_time" => $publishTime,
+];
+
+$receiverResult = sendToIMSReceiver($receiverUrl, $receiverSecret, $receiverPayload);
+
+logBlock("TECNIQUALITY RECEIVER RESULT", $receiverResult);
+
+if (!$receiverResult['success']) {
+    fail(500, "Local insert OK, but Tecniquality receiver failed", $receiverResult);
+}
+
+/* =========================================================
    SUCCESS
 ========================================================= */
-ok("OK", ["insert_id" => $insertId]);
+ok("OK", [
+    "local_insert_id" => $insertId,
+    "receiver_result" => $receiverResult
+]);
