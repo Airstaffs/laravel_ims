@@ -1,52 +1,29 @@
 <template>
     <div class="vue-container packaging-module">
-        <TitlePage
-            title="Packaging Module"
-            subtitle="Manage and finalize products by preparing packaging, ensuring all components are included, and staging for final shipment."
-        />
+        <TitlePage title="Packaging Module"
+            subtitle="Manage and finalize products by preparing packaging, ensuring all components are included, and staging for final shipment." />
 
         <!-- Desktop Table Container -->
         <AnimateDiv :delay="200" class="p-4">
-            <XDataTable
-                :value="sortedInventory"
-                :loading="loading"
-                :columns="columns"
-                :paginator="false"
-                tableClass="desktop-view"
-                selectionMode="multiple"
-                dataKey="ProductID"
-            >
+            <XDataTable :value="sortedInventory" :loading="loading" :columns="columns" :paginator="false"
+                tableClass="desktop-view" selectionMode="multiple" dataKey="ProductID">
                 <template #gallery="{ data }">
-                    <div
-                        class="d-flex justify-content-center align-items-center"
-                    >
+                    <div class="d-flex justify-content-center align-items-center">
                         <!-- Use custom image display for captured images -->
-                        <div
-                            v-if="
-                                data.capturedImages &&
-                                data.capturedImages.capturedimg1
-                            "
-                            class="gallery-thumbnail position-relative"
-                            @click="openImageModal(data)"
-                            style="cursor: pointer"
-                        >
-                            <img
-                                :src="`/images/product_images/${
-                                    data.company || 'Airstaffs'
-                                }/${data.capturedImages.capturedimg1}`"
-                                :alt="getDisplayTitle(data)"
-                                style="
+                        <div v-if="
+                            data.capturedImages &&
+                            data.capturedImages.capturedimg1
+                        " class="gallery-thumbnail position-relative" @click="openImageModal(data)"
+                            style="cursor: pointer">
+                            <img :src="`/images/product_images/${data.company || 'Airstaffs'
+                                }/${data.capturedImages.capturedimg1}`" :alt="getDisplayTitle(data)" style="
                                     width: 50px;
                                     height: 50px;
                                     object-fit: cover;
                                     border-radius: 4px;
-                                "
-                                @error="handleImageError"
-                            />
-                            <span
-                                v-if="countCapturedImages(data) > 1"
-                                class="position-absolute bg-primary text-white rounded-circle"
-                                style="
+                                " @error="handleImageError" />
+                            <span v-if="countCapturedImages(data) > 1"
+                                class="position-absolute bg-primary text-white rounded-circle" style="
                                     top: -5px;
                                     right: -5px;
                                     min-width: 20px;
@@ -56,34 +33,22 @@
                                     align-items: center;
                                     justify-content: center;
                                     padding: 0 4px;
-                                "
-                            >
+                                ">
                                 +{{ countCapturedImages(data) - 1 }}
                             </span>
                         </div>
 
                         <!-- Use regular product images as fallback -->
-                        <div
-                            v-else-if="data.img1 && data.img1 !== 'NULL'"
-                            class="gallery-thumbnail position-relative"
-                            @click="openImageModal(data)"
-                            style="cursor: pointer"
-                        >
-                            <img
-                                :src="`/images/thumbnails/${data.img1}`"
-                                :alt="getDisplayTitle(data)"
-                                style="
+                        <div v-else-if="data.img1 && data.img1 !== 'NULL'" class="gallery-thumbnail position-relative"
+                            @click="openImageModal(data)" style="cursor: pointer">
+                            <img :src="`/images/thumbnails/${data.img1}`" :alt="getDisplayTitle(data)" style="
                                     width: 50px;
                                     height: 50px;
                                     object-fit: cover;
                                     border-radius: 4px;
-                                "
-                                @error="handleImageError"
-                            />
-                            <span
-                                v-if="countAllImages(data) > 1"
-                                class="position-absolute bg-primary text-white rounded-circle"
-                                style="
+                                " @error="handleImageError" />
+                            <span v-if="countAllImages(data) > 1"
+                                class="position-absolute bg-primary text-white rounded-circle" style="
                                     top: -5px;
                                     right: -5px;
                                     min-width: 20px;
@@ -93,41 +58,31 @@
                                     align-items: center;
                                     justify-content: center;
                                     padding: 0 4px;
-                                "
-                            >
+                                ">
                                 +{{ countAllImages(data) - 1 }}
                             </span>
                         </div>
 
                         <!-- Fallback icon if no images -->
-                        <div
-                            v-else
-                            class="d-flex justify-content-center align-items-center"
-                            style="
+                        <div v-else class="d-flex justify-content-center align-items-center" style="
                                 width: 50px;
                                 height: 50px;
                                 background-color: #f0f0f0;
                                 border-radius: 4px;
-                            "
-                        >
-                            <i
-                                class="pi pi-image"
-                                style="font-size: 1.5rem; color: #999"
-                            ></i>
+                            ">
+                            <i class="pi pi-image" style="font-size: 1.5rem; color: #999"></i>
                         </div>
                     </div>
                 </template>
 
                 <template #ProductTitle="{ data }">
                     <div class="d-flex align-items-start gap-4">
-                        <div
-                            style="
+                        <div style="
                                 word-break: break-word;
                                 white-space: normal;
                                 overflow-wrap: break-word;
                                 flex: 1;
-                            "
-                        >
+                            ">
                             <p style="font-size: 0.8rem">
                                 ID# {{ data.rtcounter }}
                             </p>
@@ -144,23 +99,10 @@
 
                 <template #actions="{ data }">
                     <div class="d-flex flex-column align-items-start">
-                        <Button
-                            size="small"
-                            severity="contrast"
-                            variant="text"
-                            icon="pi pi-info-circle"
-                            label="Details"
-                            class="text-primary"
-                            @click="openEditModal(data)"
-                        />
-                        <Button
-                            size="small"
-                            severity="success"
-                            variant="text"
-                            icon="pi pi-box"
-                            label="Packaging - Work Log"
-                            @click="openPackagingWorkLog(data)"
-                        />
+                        <Button size="small" severity="contrast" variant="text" icon="pi pi-info-circle" label="Details"
+                            class="text-primary" @click="openEditModal(data)" />
+                        <Button size="small" severity="success" variant="text" icon="pi pi-box"
+                            label="Packaging - Work Log" @click="openPackagingWorkLog(data)" />
                     </div>
                 </template>
             </XDataTable>
@@ -173,18 +115,10 @@
                     <i class="fas fa-spinner fa-spin"></i>
                     Loading...
                 </div>
-                <div
-                    v-else-if="sortedInventory.length === 0"
-                    class="no-data-mobile"
-                >
+                <div v-else-if="sortedInventory.length === 0" class="no-data-mobile">
                     No data found
                 </div>
-                <div
-                    class="mobile-card"
-                    v-else
-                    v-for="(item, index) in sortedInventory"
-                    :key="item.id"
-                >
+                <div class="mobile-card" v-else v-for="(item, index) in sortedInventory" :key="item.id">
                     <div class="mobile-card-header">
                         <div class="mobile-checkbox">
                             <input type="checkbox" v-model="item.checked" />
@@ -192,47 +126,24 @@
                         <!-- Updated mobile gallery with captured images support -->
                         <div class="mobile-product-image clickable">
                             <!-- Show captured image if available -->
-                            <div
-                                v-if="
-                                    item.capturedImages &&
-                                    item.capturedImages.capturedimg1
-                                "
-                                class="gallery-thumbnail position-relative"
-                                @click="openImageModal(item)"
-                                style="cursor: pointer"
-                            >
-                                <img
-                                    :src="`/images/product_images/${
-                                        item.company || 'Airstaffs'
-                                    }/${item.capturedImages.capturedimg1}`"
-                                    :alt="getDisplayTitle(item)"
-                                    class="product-thumbnail clickable-image"
-                                    @error="handleImageError"
-                                />
-                                <div
-                                    class="image-count-badge"
-                                    v-if="countCapturedImages(item) > 1"
-                                >
+                            <div v-if="
+                                item.capturedImages &&
+                                item.capturedImages.capturedimg1
+                            " class="gallery-thumbnail position-relative" @click="openImageModal(item)"
+                                style="cursor: pointer">
+                                <img :src="`/images/product_images/${item.company || 'Airstaffs'
+                                    }/${item.capturedImages.capturedimg1}`" :alt="getDisplayTitle(item)"
+                                    class="product-thumbnail clickable-image" @error="handleImageError" />
+                                <div class="image-count-badge" v-if="countCapturedImages(item) > 1">
                                     +{{ countCapturedImages(item) - 1 }}
                                 </div>
                             </div>
 
                             <!-- Fallback to regular product image -->
-                            <div
-                                v-else
-                                @click="openImageModal(item)"
-                                style="cursor: pointer"
-                            >
-                                <img
-                                    :src="'/images/thumbnails/' + item.img1"
-                                    :alt="getDisplayTitle(item)"
-                                    class="product-thumbnail clickable-image"
-                                    @error="handleImageError($event)"
-                                />
-                                <div
-                                    class="image-count-badge"
-                                    v-if="countAllImages(item) > 0"
-                                >
+                            <div v-else @click="openImageModal(item)" style="cursor: pointer">
+                                <img :src="'/images/thumbnails/' + item.img1" :alt="getDisplayTitle(item)"
+                                    class="product-thumbnail clickable-image" @error="handleImageError($event)" />
+                                <div class="image-count-badge" v-if="countAllImages(item) > 0">
                                     +{{ countAllImages(item) }}
                                 </div>
                             </div>
@@ -251,118 +162,87 @@
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">Added date:</span>
                             <span class="mobile-detal-value">
-                                {{ localDeliveredDate }}</span
-                            >
+                                {{ localDeliveredDate }}</span>
                         </div>
                         <div class="mobile-detail-row mb-2">
-                            <span class="mobile-detail-label"
-                                >Updated date:</span
-                            >
+                            <span class="mobile-detail-label">Updated date:</span>
                             <span class="mobile-detal-value">
-                                {{ localLastUpdateDate }}</span
-                            >
+                                {{ localLastUpdateDate }}</span>
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">FNSKU:</span>
                             <span class="mobile-detal-value">
-                                {{ item.FNSKUviewer }}</span
-                            >
+                                {{ item.FNSKUviewer }}</span>
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">MSKU:</span>
                             <span class="mobile-detal-value">
-                                {{ item.MSKUviewer }}</span
-                            >
+                                {{ item.MSKUviewer }}</span>
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">ASIN:</span>
                             <span class="mobile-detal-value">
-                                {{ item.ASINviewer }}</span
-                            >
+                                {{ item.ASINviewer }}</span>
                         </div>
                         <!-- Insert Hidden Here -->
                         <div class="mobile-detail-row mb-2" v-if="showDetails">
                             <span class="mobile-detail-label">FBM:</span>
                             <span class="mobile-detal-value">
-                                {{ item.FBMAvailable }}</span
-                            >
+                                {{ item.FBMAvailable }}</span>
                         </div>
                         <div class="mobile-detail-row mb-2" v-if="showDetails">
                             <span class="mobile-detail-label">FBA:</span>
                             <span class="mobile-detal-value">
-                                {{ item.FbaAvailable }}</span
-                            >
+                                {{ item.FbaAvailable }}</span>
                         </div>
                         <div class="mobile-detail-row mb-2" v-if="showDetails">
                             <span class="mobile-detail-label">Outbound:</span>
                             <span class="mobile-detal-value">
-                                {{ item.Outbound }}</span
-                            >
+                                {{ item.Outbound }}</span>
                         </div>
                         <div class="mobile-detail-row mb-2" v-if="showDetails">
                             <span class="mobile-detail-label">Inbound:</span>
                             <span class="mobile-detal-value">
-                                {{ item.Inbound }}</span
-                            >
+                                {{ item.Inbound }}</span>
                         </div>
                         <div class="mobile-detail-row mb-2" v-if="showDetails">
-                            <span class="mobile-detail-label"
-                                >Unfulfillable:</span
-                            >
+                            <span class="mobile-detail-label">Unfulfillable:</span>
                             <span class="mobile-detal-value">
-                                {{ item.Unfulfillable }}</span
-                            >
+                                {{ item.Unfulfillable }}</span>
                         </div>
                         <div class="mobile-detail-row mb-2" v-if="showDetails">
                             <span class="mobile-detail-label">Reserved:</span>
                             <span class="mobile-detal-value">
-                                {{ item.Reserved }}</span
-                            >
+                                {{ item.Reserved }}</span>
                         </div>
                         <!--  -->
                         <div class="mobile-detail-row mb-2">
-                            <span class="mobile-detail-label"
-                                >Fullfilment:</span
-                            >
+                            <span class="mobile-detail-label">Fullfilment:</span>
                             <span class="mobile-detal-value">
-                                {{ item.Fulfilledby }}</span
-                            >
+                                {{ item.Fulfilledby }}</span>
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">Status:</span>
                             <span class="mobile-detal-value">
-                                {{ item.status }}</span
-                            >
+                                {{ item.status }}</span>
                         </div>
                         <div class="mobile-detail-row mb-2">
-                            <span class="mobile-detail-label"
-                                >Serial Number:</span
-                            >
+                            <span class="mobile-detail-label">Serial Number:</span>
                             <span class="mobile-detal-value">
-                                {{ item.serialnumber }}</span
-                            >
+                                {{ item.serialnumber }}</span>
                         </div>
                     </div>
 
                     <hr />
 
                     <div class="mobile-card-actions">
-                        <Button
-                            @click="openEditModal(item)"
-                            icon="pi pi-info-circle"
-                            size="small"
-                            severity="info"
-                            label="More Details"
-                            :style="{ width: '100%' }"
-                        />
+                        <Button @click="openEditModal(item)" icon="pi pi-info-circle" size="small" severity="info"
+                            label="More Details" :style="{ width: '100%' }" />
                     </div>
 
                     <hr v-if="expandedRows[index]" />
 
-                    <div
-                        v-if="expandedRows[index]"
-                        class="mobile-expanded-content"
-                    >
+                    <div v-if="expandedRows[index]" class="mobile-expanded-content">
                         <p><strong>Expanded Rows Here</strong></p>
                         <p><strong>Product Name:</strong> {{ item.AStitle }}</p>
                     </div>
@@ -371,37 +251,20 @@
         </div>
 
         <!-- Pagination with centered layout -->
-        <Paginator
-            :first="first"
-            :rows="perPage"
-            :total-records="totalRecords"
-            :rows-per-page-options="[10, 20, 50]"
+        <Paginator :first="first" :rows="perPage" :total-records="totalRecords" :rows-per-page-options="[10, 20, 50]"
             template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
-            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
-            class="small-paginator"
-            @page="onPageChange"
-        />
+            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}" class="small-paginator"
+            @page="onPageChange" />
 
         <!-- Image Modal with Tabs -->
-        <ViewImageGalleryModal
-            :showImageModal="showImageModal"
-            :closeImageModal="closeImageModal"
-            :ProductTitle="ProductTitle"
-            :regularImages="regularImages"
-            :capturedImages="capturedImages"
-            :handleImageError="handleImageError"
-        />
+        <ViewImageGalleryModal :showImageModal="showImageModal" :closeImageModal="closeImageModal"
+            :ProductTitle="ProductTitle" :regularImages="regularImages" :capturedImages="capturedImages"
+            :handleImageError="handleImageError" />
 
-        <Dialog
-            class="view-modal"
-            v-model:visible="showEditModal"
-            modal
-            :header="`RT # ${item.rtcounter} - ${getDisplayTitle(item)}`"
-            style="width: 110rem"
-            :pt="{
+        <Dialog class="view-modal" v-model:visible="showEditModal" modal
+            :header="`RT # ${item.rtcounter} - ${getDisplayTitle(item)}`" style="width: 110rem" :pt="{
                 root: { class: 'mobile-fullscreen-dialog' },
-            }"
-        >
+            }">
             <div class="modal-body">
                 <div class="view-info-container">
                     <div class="view-grid-wrapper">
@@ -414,13 +277,11 @@
                                     </h5>
                                 </template>
                                 <template #content>
-                                    <p
-                                        style="
+                                    <p style="
                                             word-break: break-all;
                                             max-height: 450px;
                                             overflow-y: auto;
-                                        "
-                                    >
+                                        ">
                                         {{ item.description }}
                                     </p>
                                 </template>
@@ -543,25 +404,16 @@
                                         </dl>
                                     </section>
 
-                                    <section
-                                        class="info-section"
-                                        v-if="item.grading || item.notes"
-                                    >
+                                    <section class="info-section" v-if="item.grading || item.notes">
                                         <h3 class="text-primary fw-bolder">
                                             Additional Info
                                         </h3>
                                         <dl class="info-list">
-                                            <div
-                                                class="info-item"
-                                                v-if="item.grading"
-                                            >
+                                            <div class="info-item" v-if="item.grading">
                                                 <dt>Grading:</dt>
                                                 <dd>{{ item.grading }}</dd>
                                             </div>
-                                            <div
-                                                class="info-item"
-                                                v-if="item.notes"
-                                            >
+                                            <div class="info-item" v-if="item.notes">
                                                 <dt>Notes:</dt>
                                                 <dd>{{ item.notes }}</dd>
                                             </div>
@@ -569,10 +421,7 @@
                                     </section>
                                 </div>
 
-                                <div
-                                    class="col-lg-6"
-                                    v-show="showPricingSection"
-                                >
+                                <div class="col-lg-6" v-show="showPricingSection">
                                     <section class="pricing-section">
                                         <h3 class="text-primary fw-bolder">
                                             Pricing
@@ -593,19 +442,14 @@
                                                     {{ item.quantity || 0 }}
                                                 </dd>
                                             </div>
-                                            <div
-                                                class="pricing-item subtotal-line"
-                                            >
+                                            <div class="pricing-item subtotal-line">
                                                 <dt>Subtotal:</dt>
                                                 <dd>
                                                     {{ item.price || "0.00" }}
                                                 </dd>
                                             </div>
 
-                                            <div
-                                                class="pricing-item"
-                                                v-if="item.Discount"
-                                            >
+                                            <div class="pricing-item" v-if="item.Discount">
                                                 <dt>Discount:</dt>
                                                 <dd class="discount">
                                                     -{{ item.Discount }}
@@ -622,19 +466,14 @@
                                                 </dd>
                                             </div>
 
-                                            <div
-                                                class="pricing-item total-line"
-                                            >
+                                            <div class="pricing-item total-line">
                                                 <dt>Total Price:</dt>
                                                 <dd class="total-amount">
                                                     {{ grandTotal }}
                                                 </dd>
                                             </div>
 
-                                            <div
-                                                class="pricing-item refund-line"
-                                                v-if="item.refund"
-                                            >
+                                            <div class="pricing-item refund-line" v-if="item.refund">
                                                 <dt>Refund:</dt>
                                                 <dd class="refund">
                                                     {{ item.refund }}
@@ -654,37 +493,28 @@
             PACKAGING WORK LOG DIALOG
             Drop this alongside your Cleaning Work Log dialog
         ───────────────────────────────────────────────────────────── -->
-        <Dialog
-            v-model:visible="showPackagingWorkLog"
-            modal
+        <Dialog v-model:visible="showPackagingWorkLog" modal
             :header="`Packaging Work Log — ${packagingWorkLogItem?.rtcounter || ''}`"
-            :style="{ width: '860px', maxWidth: '98vw' }"
-        >
+            :style="{ width: '860px', maxWidth: '98vw' }">
             <div v-if="packagingWorkLogItem" class="cwl-wrapper">
                 <!-- ── AUTO-FETCH ──────────────────────────────────────────── -->
                 <div class="cwl-autofetch-section">
                     <div class="cwl-autofetch-header">
                         <span class="cwl-autofetch-badge">AUTO-FETCH</span>
-                        <span class="cwl-autofetch-title"
-                            >System Pre-filled Fields</span
-                        >
+                        <span class="cwl-autofetch-title">System Pre-filled Fields</span>
                     </div>
                     <div class="cwl-autofetch-grid">
                         <div class="cwl-autofetch-card">
-                            <span class="cwl-autofetch-label"
-                                >Date Packaged</span
-                            >
+                            <span class="cwl-autofetch-label">Date Packaged</span>
                             <span class="cwl-autofetch-value">{{
                                 packagingDateTime
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="cwl-autofetch-card">
-                            <span class="cwl-autofetch-label"
-                                >Serial Number</span
-                            >
+                            <span class="cwl-autofetch-label">Serial Number</span>
                             <span class="cwl-autofetch-value">{{
                                 packagingWorkLogItem.serialnumber || "—"
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="cwl-autofetch-card">
                             <span class="cwl-autofetch-label">Packaged By</span>
@@ -692,7 +522,7 @@
                                 packagingWorkLogItem.Username ||
                                 currentUser ||
                                 "—"
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="cwl-autofetch-card">
                             <span class="cwl-autofetch-label">ASIN</span>
@@ -700,7 +530,7 @@
                                 packagingWorkLogItem.ASINviewer ||
                                 packagingWorkLogItem.ASIN ||
                                 "—"
-                            }}</span>
+                                }}</span>
                         </div>
                     </div>
                 </div>
@@ -709,16 +539,11 @@
                 <div class="cwl-asin-section">
                     <div class="cwl-asin-header">
                         <span class="cwl-asin-badge">ASIN-BASED</span>
-                        <span class="cwl-asin-title"
-                            >Packaging Requirements (Auto-loaded from
-                            ASIN)</span
-                        >
+                        <span class="cwl-asin-title">Packaging Requirements (Auto-loaded from
+                            ASIN)</span>
                     </div>
 
-                    <div
-                        v-if="!packagingComponents.length"
-                        class="cwl-asin-empty"
-                    >
+                    <div v-if="!packagingComponents.length" class="cwl-asin-empty">
                         <div class="cwl-dynamic-hint">
                             <p class="cwl-hint-title">
                                 <strong>Dynamic Checklist:</strong> Based on the
@@ -731,10 +556,8 @@
                                 </p>
                                 <p>
                                     Set them up in
-                                    <strong
-                                        >ASIN Configuration → Packaging
-                                        Module</strong
-                                    >.
+                                    <strong>ASIN Configuration → Packaging
+                                        Module</strong>.
                                 </p>
                             </div>
                         </div>
@@ -751,20 +574,12 @@
                                 <strong>{{
                                     packagingWorkLogItem.ASINviewer ||
                                     packagingWorkLogItem.ASIN
-                                }}</strong
-                                >:
+                                    }}</strong>:
                             </p>
                             <ul>
-                                <li
-                                    v-for="(comp, i) in packagingComponents"
-                                    :key="'hint-' + i"
-                                >
+                                <li v-for="(comp, i) in packagingComponents" :key="'hint-' + i">
                                     {{ comp.name }}
-                                    <span
-                                        v-if="comp._fromGlobal"
-                                        class="cwl-global-badge"
-                                        >Global</span
-                                    >
+                                    <span v-if="comp._fromGlobal" class="cwl-global-badge">Global</span>
                                 </li>
                             </ul>
                         </div>
@@ -773,71 +588,37 @@
 
                 <!-- ── Component checkbox rows ────────────────────────────── -->
                 <div v-if="packagingComponents.length" class="cwl-categories">
-                    <div
-                        v-for="(comp, ci) in packagingComponents"
-                        :key="'pkgcomp-' + ci"
-                        class="pkg-wl-row"
-                        :class="{
-                            'pkg-wl-row--checked':
-                                packagingWorkLogValues[comp.name],
-                        }"
-                    >
+                    <div v-for="(comp, ci) in packagingComponents" :key="'pkgcomp-' + ci" class="pkg-wl-row" :class="{
+                        'pkg-wl-row--checked':
+                            packagingWorkLogValues[comp.name],
+                    }">
                         <label class="pkg-wl-label" :for="`pkg-comp-${ci}`">
                             <span class="pkg-wl-name">{{ comp.name }}</span>
-                            <span v-if="comp.sku" class="pkg-wl-meta"
-                                >SKU: {{ comp.sku }}</span
-                            >
-                            <span v-if="comp.qty" class="pkg-wl-meta"
-                                >Qty: {{ comp.qty }}</span
-                            >
-                            <span
-                                v-if="comp._fromGlobal"
-                                class="cwl-global-badge"
-                                >Global</span
-                            >
+                            <span v-if="comp.sku" class="pkg-wl-meta">SKU: {{ comp.sku }}</span>
+                            <span v-if="comp.qty" class="pkg-wl-meta">Qty: {{ comp.qty }}</span>
+                            <span v-if="comp._fromGlobal" class="cwl-global-badge">Global</span>
                         </label>
-                        <input
-                            type="checkbox"
-                            :id="`pkg-comp-${ci}`"
-                            v-model="packagingWorkLogValues[comp.name]"
-                            class="pkg-wl-checkbox"
-                        />
+                        <input type="checkbox" :id="`pkg-comp-${ci}`" v-model="packagingWorkLogValues[comp.name]"
+                            class="pkg-wl-checkbox" />
                     </div>
                 </div>
 
                 <!-- ── NOTES ───────────────────────────────────────────────── -->
                 <div class="cwl-asin-section mt-3">
                     <div class="cwl-asin-header">
-                        <span class="cwl-asin-badge" style="background: #6c757d"
-                            >NOTES</span
-                        >
-                        <span class="cwl-asin-title"
-                            >Additional Packaging Notes</span
-                        >
+                        <span class="cwl-asin-badge" style="background: #6c757d">NOTES</span>
+                        <span class="cwl-asin-title">Additional Packaging Notes</span>
                     </div>
-                    <textarea
-                        v-model="packagingWorkLogValues['__notes']"
-                        class="cwl-textarea w-100 mt-2"
-                        placeholder="Enter any additional packaging notes..."
-                        rows="4"
-                        style="width: 100%"
-                    />
+                    <textarea v-model="packagingWorkLogValues['__notes']" class="cwl-textarea w-100 mt-2"
+                        placeholder="Enter any additional packaging notes..." rows="4" style="width: 100%" />
                 </div>
 
                 <!-- ── REFERENCE: Packaging Visual Guide ──────────────────── -->
                 <div class="cwl-asin-section mt-3">
                     <div class="cwl-asin-header">
-                        <span class="cwl-asin-badge" style="background: #e91e8c"
-                            >REFERENCE</span
-                        >
-                        <span class="cwl-asin-title"
-                            >Packaging Visual Guide</span
-                        >
-                        <span
-                            v-if="packagingVisualImages.length"
-                            class="text-muted ms-2"
-                            style="font-size: 12px"
-                        >
+                        <span class="cwl-asin-badge" style="background: #e91e8c">REFERENCE</span>
+                        <span class="cwl-asin-title">Packaging Visual Guide</span>
+                        <span v-if="packagingVisualImages.length" class="text-muted ms-2" style="font-size: 12px">
                             {{ packagingVisualImages.length }} image{{
                                 packagingVisualImages.length !== 1 ? "s" : ""
                             }}
@@ -845,126 +626,104 @@
                     </div>
 
                     <!-- Empty state -->
-                    <div
-                        v-if="!packagingVisualImages.length"
-                        class="cwl-asin-empty mt-2"
-                        style="text-align: center; color: #aaa; padding: 24px 0"
-                    >
-                        <i
-                            class="pi pi-image"
-                            style="font-size: 2rem; opacity: 0.4"
-                        ></i>
+                    <div v-if="!packagingVisualImages.length" class="cwl-asin-empty mt-2"
+                        style="text-align: center; color: #aaa; padding: 24px 0">
+                        <i class="pi pi-image" style="font-size: 2rem; opacity: 0.4"></i>
                         <p class="mt-2 mb-0" style="font-size: 13px">
                             No visual guide images configured for this ASIN.
                         </p>
                         <p style="font-size: 12px; color: #bbb">
                             Upload images in
-                            <strong
-                                >ASIN Configuration → Packaging Module</strong
-                            >.
+                            <strong>ASIN Configuration → Packaging Module</strong>.
                         </p>
                     </div>
 
                     <!-- Gallery grid -->
                     <div v-else class="pkg-wl-gallery mt-2">
-                        <div
-                            v-for="(img, i) in packagingVisualImages"
-                            :key="'pkgimg-' + i"
-                            class="pkg-wl-gallery-item"
+                        <div v-for="(img, i) in packagingVisualImages" :key="'pkgimg-' + i" class="pkg-wl-gallery-item"
                             style="
-                                display: flex;
-                                flex-direction: column;
-                                align-items: center;
-                                gap: 6px;
-                                cursor: pointer;
-                            "
-                            @click="
-                                pkgGalleryActive = i;
-                                pkgGalleryOpen = true;
-                            "
-                        >
-                            <div
-                                style="
-                                    width: 100%;
-                                    aspect-ratio: 1;
-                                    border: 1px solid #e0e0e0;
-                                    border-radius: 8px;
-                                    overflow: hidden;
-                                    background: #f9f9f9;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    position: relative;
-                                "
-                            >
-                                <img
-                                    :src="img.src"
-                                    :alt="img.label"
-                                    style="
-                                        width: 100%;
-                                        height: 100%;
-                                        object-fit: contain;
-                                    "
-                                    @error="
-                                        $event.target.style.display = 'none'
-                                    "
-                                />
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+        " @click="
+            pkgGalleryActive = i;
+        pkgGalleryOpen = true;
+        ">
+                            <div style="
+                width: 100%;
+                aspect-ratio: 1;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                overflow: hidden;
+                background: #f9f9f9;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+            ">
+                                <img :src="img.src" :alt="img.label" style="
+                    width: 100%;
+                    height: 100%;
+                    object-fit: contain;
+                " @error="$event.target.style.display = 'none'" />
                                 <!-- Hover zoom hint -->
-                                <div
-                                    style="
-                                        position: absolute;
-                                        inset: 0;
-                                        background: rgba(0, 0, 0, 0);
-                                        display: flex;
-                                        align-items: center;
-                                        justify-content: center;
-                                        transition: background 0.15s;
-                                    "
-                                    @mouseenter="
-                                        $event.currentTarget.style.background =
-                                            'rgba(0,0,0,0.32)'
-                                    "
-                                    @mouseleave="
-                                        $event.currentTarget.style.background =
-                                            'rgba(0,0,0,0)'
-                                    "
-                                >
-                                    <i
-                                        class="pi pi-search-plus"
-                                        style="
-                                            color: #fff;
-                                            font-size: 1.4rem;
-                                            opacity: 0;
-                                            pointer-events: none;
-                                            transition: opacity 0.15s;
-                                        "
-                                        ref="zoomIcon"
-                                    ></i>
+                                <div style="
+                    position: absolute;
+                    inset: 0;
+                    background: rgba(0, 0, 0, 0);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: background 0.15s;
+                " @mouseenter="
+                    $event.currentTarget.style.background = 'rgba(0,0,0,0.32)'
+                    " @mouseleave="
+                        $event.currentTarget.style.background = 'rgba(0,0,0,0)'
+                        ">
+                                    <i class="pi pi-search-plus" style="
+                        color: #fff;
+                        font-size: 1.4rem;
+                        opacity: 0;
+                        pointer-events: none;
+                        transition: opacity 0.15s;
+                    " ref="zoomIcon"></i>
                                 </div>
                             </div>
-                            <span
-                                class="pkg-wl-img-label"
-                                style="
-                                    font-size: 11px;
-                                    color: #555;
-                                    text-align: center;
-                                    max-width: 100%;
-                                    white-space: nowrap;
-                                    overflow: hidden;
-                                    text-overflow: ellipsis;
-                                    width: 100%;
-                                "
-                                >{{ img.label }}</span
-                            >
+
+                            <!-- Label -->
+                            <span class="pkg-wl-img-label" style="
+                font-size: 11px;
+                color: #555;
+                text-align: center;
+                max-width: 100%;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                width: 100%;
+            ">{{ img.label }}</span>
+
+                            <!-- SID number badge — only shown when available -->
+                            <span v-if="img.sid_number" style="
+                font-size: 10px;
+                background: #fff3e0;
+                color: #e65100;
+                padding: 1px 6px;
+                border-radius: 4px;
+                font-weight: 600;
+                white-space: nowrap;
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            ">{{ img.sid_number }}</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- ── Lightbox overlay ────────────────────────────────────── -->
                 <Teleport to="body">
-                    <div
-                        v-if="pkgGalleryOpen"
-                        style="
+                    <div v-if="pkgGalleryOpen" style="
                             position: fixed;
                             inset: 0;
                             background: rgba(0, 0, 0, 0.88);
@@ -974,13 +733,9 @@
                             justify-content: center;
                             flex-direction: column;
                             gap: 12px;
-                        "
-                        @click.self="pkgGalleryOpen = false"
-                        @keydown.esc="pkgGalleryOpen = false"
-                    >
+                        " @click.self="pkgGalleryOpen = false" @keydown.esc="pkgGalleryOpen = false">
                         <!-- Close -->
-                        <button
-                            style="
+                        <button style="
                                 position: fixed;
                                 top: 18px;
                                 right: 22px;
@@ -990,45 +745,41 @@
                                 font-size: 1.8rem;
                                 cursor: pointer;
                                 z-index: 10000;
-                            "
-                            @click="pkgGalleryOpen = false"
-                        >
+                            " @click="pkgGalleryOpen = false">
                             <i class="pi pi-times"></i>
                         </button>
 
                         <!-- Counter -->
-                        <div
-                            style="
-                                color: #ccc;
-                                font-size: 13px;
-                                margin-bottom: 4px;
-                            "
-                        >
+                        <div style="color: #ccc; font-size: 13px; margin-bottom: 4px;">
                             {{ pkgGalleryActive + 1 }} /
                             {{ packagingVisualImages.length }}
                             &nbsp;·&nbsp;
                             <strong style="color: #fff">
-                                {{
-                                    packagingVisualImages[pkgGalleryActive]
-                                        ?.label
-                                }}
+                                {{ packagingVisualImages[pkgGalleryActive]?.label }}
                             </strong>
+                            <span v-if="packagingVisualImages[pkgGalleryActive]?.sid_number" style="
+            font-size: 11px;
+            background: #fff3e0;
+            color: #e65100;
+            padding: 1px 8px;
+            border-radius: 4px;
+            margin-left: 6px;
+            font-weight: 600;
+        ">
+                                {{ packagingVisualImages[pkgGalleryActive].sid_number }}
+                            </span>
                         </div>
 
                         <!-- Image -->
-                        <div
-                            style="
+                        <div style="
                                 max-width: 88vw;
                                 max-height: 78vh;
                                 display: flex;
                                 align-items: center;
                                 gap: 16px;
-                            "
-                        >
+                            ">
                             <!-- Prev -->
-                            <button
-                                v-if="packagingVisualImages.length > 1"
-                                style="
+                            <button v-if="packagingVisualImages.length > 1" style="
                                     background: rgba(255, 255, 255, 0.15);
                                     border: none;
                                     color: #fff;
@@ -1038,39 +789,29 @@
                                     cursor: pointer;
                                     font-size: 1.2rem;
                                     flex-shrink: 0;
-                                "
-                                @click="
+                                " @click="
                                     pkgGalleryActive =
-                                        (pkgGalleryActive -
-                                            1 +
-                                            packagingVisualImages.length) %
-                                        packagingVisualImages.length
-                                "
-                            >
+                                    (pkgGalleryActive -
+                                        1 +
+                                        packagingVisualImages.length) %
+                                    packagingVisualImages.length
+                                    ">
                                 <i class="pi pi-chevron-left"></i>
                             </button>
 
-                            <img
-                                :src="
-                                    packagingVisualImages[pkgGalleryActive]?.src
-                                "
-                                :alt="
-                                    packagingVisualImages[pkgGalleryActive]
-                                        ?.label
-                                "
-                                style="
+                            <img :src="packagingVisualImages[pkgGalleryActive]?.src
+                                " :alt="packagingVisualImages[pkgGalleryActive]
+                                    ?.label
+                                    " style="
                                     max-width: 100%;
                                     max-height: 74vh;
                                     object-fit: contain;
                                     border-radius: 6px;
                                     box-shadow: 0 4px 32px rgba(0, 0, 0, 0.5);
-                                "
-                            />
+                                " />
 
                             <!-- Next -->
-                            <button
-                                v-if="packagingVisualImages.length > 1"
-                                style="
+                            <button v-if="packagingVisualImages.length > 1" style="
                                     background: rgba(255, 255, 255, 0.15);
                                     border: none;
                                     color: #fff;
@@ -1080,60 +821,38 @@
                                     cursor: pointer;
                                     font-size: 1.2rem;
                                     flex-shrink: 0;
-                                "
-                                @click="
+                                " @click="
                                     pkgGalleryActive =
-                                        (pkgGalleryActive + 1) %
-                                        packagingVisualImages.length
-                                "
-                            >
+                                    (pkgGalleryActive + 1) %
+                                    packagingVisualImages.length
+                                    ">
                                 <i class="pi pi-chevron-right"></i>
                             </button>
                         </div>
 
                         <!-- Dot strip -->
-                        <div
-                            v-if="packagingVisualImages.length > 1"
-                            style="display: flex; gap: 6px; margin-top: 4px"
-                        >
-                            <span
-                                v-for="(_, di) in packagingVisualImages"
-                                :key="'dot-' + di"
-                                style="
+                        <div v-if="packagingVisualImages.length > 1" style="display: flex; gap: 6px; margin-top: 4px">
+                            <span v-for="(_, di) in packagingVisualImages" :key="'dot-' + di" style="
                                     width: 8px;
                                     height: 8px;
                                     border-radius: 50%;
                                     cursor: pointer;
                                     transition: background 0.15s;
-                                "
-                                :style="{
+                                " :style="{
                                     background:
                                         di === pkgGalleryActive
                                             ? '#fff'
                                             : 'rgba(255,255,255,.35)',
-                                }"
-                                @click="pkgGalleryActive = di"
-                            />
+                                }" @click="pkgGalleryActive = di" />
                         </div>
                     </div>
                 </Teleport>
             </div>
 
             <template #footer>
-                <Button
-                    label="Cancel"
-                    severity="secondary"
-                    text
-                    @click="showPackagingWorkLog = false"
-                />
-                <Button
-                    label="Save Progress"
-                    icon="pi pi-save"
-                    severity="secondary"
-                    outlined
-                    :loading="savingPackagingWorkLog"
-                    @click="savePackagingWorkLog"
-                />
+                <Button label="Cancel" severity="secondary" text @click="showPackagingWorkLog = false" />
+                <Button label="Save Progress" icon="pi pi-save" severity="secondary" outlined
+                    :loading="savingPackagingWorkLog" @click="savePackagingWorkLog" />
             </template>
         </Dialog>
 

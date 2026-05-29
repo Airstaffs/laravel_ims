@@ -22,7 +22,7 @@ class SuppliesComponentsController extends BasetablesController
             $category = $request->input('category', '');
 
             $query = DB::table('tblproduct as p')
-                ->leftJoin($this->capturedImagesTable.' as img', 'p.ProductID', '=', 'img.ProductID')
+                ->leftJoin($this->capturedImagesTable . ' as img', 'p.ProductID', '=', 'img.ProductID')
                 ->leftJoin('tblEbayOrderImages as ebayimgs', 'p.ProductID', '=', 'ebayimgs.ProductID')
                 ->leftJoin('tblproduct_sid as ps', 'p.ProductID', '=', 'ps.product_id')
                 ->leftJoin('tblsid as sid', 'ps.sid_id', '=', 'sid.id')
@@ -35,27 +35,47 @@ class SuppliesComponentsController extends BasetablesController
                     'p.datedelivered',
                     'p.ProductModuleLoc',
                     'sid.sid_number',
-                    'ebayimgs.img1', 'ebayimgs.img2', 'ebayimgs.img3',
-                    'ebayimgs.img4', 'ebayimgs.img5', 'ebayimgs.img6',
-                    'ebayimgs.img7', 'ebayimgs.img8', 'ebayimgs.img9',
-                    'ebayimgs.img10', 'ebayimgs.img11', 'ebayimgs.img12',
-                    'ebayimgs.img13', 'ebayimgs.img14', 'ebayimgs.img15',
-                    'img.capturedimg1', 'img.capturedimg2', 'img.capturedimg3',
-                    'img.capturedimg4', 'img.capturedimg5', 'img.capturedimg6',
-                    'img.capturedimg7', 'img.capturedimg8', 'img.capturedimg9',
-                    'img.capturedimg10', 'img.capturedimg11', 'img.capturedimg12',
-                    'img.serialimg1', 'img.serialimg2',
-                    'img.trackingimg1', 'img.trackingimg2'
+                    'ebayimgs.img1',
+                    'ebayimgs.img2',
+                    'ebayimgs.img3',
+                    'ebayimgs.img4',
+                    'ebayimgs.img5',
+                    'ebayimgs.img6',
+                    'ebayimgs.img7',
+                    'ebayimgs.img8',
+                    'ebayimgs.img9',
+                    'ebayimgs.img10',
+                    'ebayimgs.img11',
+                    'ebayimgs.img12',
+                    'ebayimgs.img13',
+                    'ebayimgs.img14',
+                    'ebayimgs.img15',
+                    'img.capturedimg1',
+                    'img.capturedimg2',
+                    'img.capturedimg3',
+                    'img.capturedimg4',
+                    'img.capturedimg5',
+                    'img.capturedimg6',
+                    'img.capturedimg7',
+                    'img.capturedimg8',
+                    'img.capturedimg9',
+                    'img.capturedimg10',
+                    'img.capturedimg11',
+                    'img.capturedimg12',
+                    'img.serialimg1',
+                    'img.serialimg2',
+                    'img.trackingimg1',
+                    'img.trackingimg2'
                 )
                 ->whereIn('p.ProductModuleLoc', self::CATEGORIES);
 
             // Category filter
-            if (! empty($category) && in_array($category, self::CATEGORIES)) {
+            if (!empty($category) && in_array($category, self::CATEGORIES)) {
                 $query->where('p.ProductModuleLoc', $category);
             }
 
             // Search filter
-            if (! empty($search)) {
+            if (!empty($search)) {
                 $query->where(function ($q) use ($search) {
                     $q->where('p.ProductID', 'LIKE', "%{$search}%")
                         ->orWhere('p.ProductTitle', 'LIKE', "%{$search}%")
@@ -78,13 +98,13 @@ class SuppliesComponentsController extends BasetablesController
 
                 for ($i = 1; $i <= 12; $i++) {
                     $key = "capturedimg{$i}";
-                    if (! empty($r->$key) && $r->$key !== 'NULL') {
+                    if (!empty($r->$key) && $r->$key !== 'NULL') {
                         $capturedImages[$key] = $r->$key;
                     }
                 }
 
                 foreach (['serialimg1', 'serialimg2', 'trackingimg1', 'trackingimg2'] as $key) {
-                    if (! empty($r->$key) && $r->$key !== 'NULL') {
+                    if (!empty($r->$key) && $r->$key !== 'NULL') {
                         $capturedImages[$key] = $r->$key;
                     }
                 }
@@ -92,10 +112,10 @@ class SuppliesComponentsController extends BasetablesController
                 // ── Thumbnail priority ───────────────────────────────────────
                 // 1st: captured image  (path: /images/product_images/{company}/)
                 // 2nd: eBay image      (path: /images/thumbnails/)
-                if (! empty($capturedImages['capturedimg1'])) {
+                if (!empty($capturedImages['capturedimg1'])) {
                     $thumbnail = $capturedImages['capturedimg1'];
                     $img1Source = 'captured';
-                } elseif (! empty($r->img1)) {
+                } elseif (!empty($r->img1)) {
                     $thumbnail = $r->img1;
                     $img1Source = 'ebay';
                 } else {
@@ -129,7 +149,7 @@ class SuppliesComponentsController extends BasetablesController
                     'img13' => $r->img13 ?? null,
                     'img14' => $r->img14 ?? null,
                     'img15' => $r->img15 ?? null,
-                    'capturedImages' => ! empty($capturedImages) ? $capturedImages : null,
+                    'capturedImages' => !empty($capturedImages) ? $capturedImages : null,
                 ];
             });
 
@@ -143,7 +163,7 @@ class SuppliesComponentsController extends BasetablesController
             ]);
 
         } catch (\Exception $e) {
-            Log::error('SuppliesComponents index error: '.$e->getMessage());
+            Log::error('SuppliesComponents index error: ' . $e->getMessage());
 
             return response()->json(['success' => false, 'message' => 'Error fetching items', 'error' => $e->getMessage()], 500);
         }
@@ -172,7 +192,7 @@ class SuppliesComponentsController extends BasetablesController
             return response()->json(['success' => true, 'stats' => $stats]);
 
         } catch (\Exception $e) {
-            Log::error('SuppliesComponents getStats error: '.$e->getMessage());
+            Log::error('SuppliesComponents getStats error: ' . $e->getMessage());
 
             return response()->json(['success' => false, 'message' => 'Error fetching statistics'], 500);
         }
@@ -195,7 +215,7 @@ class SuppliesComponentsController extends BasetablesController
                 ->whereIn('ProductModuleLoc', self::CATEGORIES)
                 ->first();
 
-            if (! $product) {
+            if (!$product) {
                 return response()->json([
                     'success' => false,
                     'message' => "Product {$productId} not found or not in Supplies/Components/Office Equipment.",
@@ -217,7 +237,7 @@ class SuppliesComponentsController extends BasetablesController
             ]);
 
         } catch (\Throwable $e) {
-            Log::error('moveToLabeling error: '.$e->getMessage());
+            Log::error('moveToLabeling error: ' . $e->getMessage());
 
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
@@ -241,7 +261,7 @@ class SuppliesComponentsController extends BasetablesController
             ]);
 
         } catch (\Exception $e) {
-            Log::error('SID list fetch error: '.$e->getMessage());
+            Log::error('SID list fetch error: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
@@ -264,6 +284,20 @@ class SuppliesComponentsController extends BasetablesController
             'threshold' => ['nullable', 'integer', 'min:0'],
         ]);
 
+        // Server-side safety: if somehow not prefixed, auto-format it
+        if (!preg_match('/^SID\d+$/i', $data['sid_number'])) {
+            $last = DB::table('tblsid')
+                ->whereRaw("sid_number REGEXP '^SID[0-9]+$'")
+                ->orderByRaw("CAST(SUBSTRING(sid_number, 4) AS UNSIGNED) DESC")
+                ->value('sid_number');
+
+            $next = $last
+                ? str_pad((int) substr($last, 3) + 1, 5, '0', STR_PAD_LEFT)
+                : '00001';
+
+            $data['sid_number'] = 'SID' . $next;
+        }
+
         try {
             $id = DB::table('tblsid')->insertGetId([
                 'sid_number' => $data['sid_number'],
@@ -277,11 +311,15 @@ class SuppliesComponentsController extends BasetablesController
 
             Log::info("SID entry created: ID {$id}, SID {$data['sid_number']}");
 
-            return response()->json(['success' => true, 'message' => 'SID entry added.', 'id' => $id]);
+            return response()->json([
+                'success' => true,
+                'message' => 'SID entry added.',
+                'id' => $id,
+                'sid_number' => $data['sid_number'],
+            ]);
 
         } catch (\Exception $e) {
-            Log::error('SID store error: '.$e->getMessage());
-
+            Log::error('SID store error: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Error saving SID entry.'], 500);
         }
     }
@@ -294,7 +332,7 @@ class SuppliesComponentsController extends BasetablesController
         try {
             $exists = DB::table('tblsid')->where('id', $id)->exists();
 
-            if (! $exists) {
+            if (!$exists) {
                 return response()->json([
                     'success' => false,
                     'message' => "SID entry with ID {$id} not found.",
@@ -311,7 +349,7 @@ class SuppliesComponentsController extends BasetablesController
             ]);
 
         } catch (\Exception $e) {
-            Log::error('SID delete error: '.$e->getMessage());
+            Log::error('SID delete error: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
@@ -332,12 +370,12 @@ class SuppliesComponentsController extends BasetablesController
 
         try {
             $sid = DB::table('tblsid')->where('id', $id)->first();
-            if (! $sid) {
+            if (!$sid) {
                 return response()->json(['success' => false, 'message' => 'SID entry not found.'], 404);
             }
 
             // Delete old image if exists
-            if (! empty($sid->image_path)) {
+            if (!empty($sid->image_path)) {
                 $oldPath = public_path("images/sid/{$sid->image_path}");
                 if (file_exists($oldPath)) {
                     unlink($oldPath);
@@ -345,7 +383,7 @@ class SuppliesComponentsController extends BasetablesController
             }
 
             $file = $request->file('image');
-            $filename = 'sid_'.$id.'_'.time().'.'.$file->getClientOriginalExtension();
+            $filename = 'sid_' . $id . '_' . time() . '.' . $file->getClientOriginalExtension();
             $file->move(public_path('images/sid'), $filename);
 
             DB::table('tblsid')->where('id', $id)->update([
@@ -358,7 +396,7 @@ class SuppliesComponentsController extends BasetablesController
             return response()->json(['success' => true, 'image_path' => $filename]);
 
         } catch (\Exception $e) {
-            Log::error('SID upload image error: '.$e->getMessage());
+            Log::error('SID upload image error: ' . $e->getMessage());
 
             return response()->json(['success' => false, 'message' => 'Error uploading image.'], 500);
         }
@@ -371,11 +409,11 @@ class SuppliesComponentsController extends BasetablesController
     {
         try {
             $sid = DB::table('tblsid')->where('id', $id)->first();
-            if (! $sid) {
+            if (!$sid) {
                 return response()->json(['success' => false, 'message' => 'SID entry not found.'], 404);
             }
 
-            if (! empty($sid->image_path)) {
+            if (!empty($sid->image_path)) {
                 $path = public_path("images/sid/{$sid->image_path}");
                 if (file_exists($path)) {
                     unlink($path);
@@ -392,7 +430,7 @@ class SuppliesComponentsController extends BasetablesController
             return response()->json(['success' => true, 'message' => 'Image deleted.']);
 
         } catch (\Exception $e) {
-            Log::error('SID delete image error: '.$e->getMessage());
+            Log::error('SID delete image error: ' . $e->getMessage());
 
             return response()->json(['success' => false, 'message' => 'Error deleting image.'], 500);
         }
@@ -414,7 +452,7 @@ class SuppliesComponentsController extends BasetablesController
         try {
             $exists = DB::table('tblsid')->where('id', $id)->exists();
 
-            if (! $exists) {
+            if (!$exists) {
                 return response()->json(['success' => false, 'message' => "SID entry with ID {$id} not found."], 404);
             }
 
@@ -432,7 +470,7 @@ class SuppliesComponentsController extends BasetablesController
             return response()->json(['success' => true, 'message' => 'SID entry updated successfully.']);
 
         } catch (\Exception $e) {
-            Log::error('SID update error: '.$e->getMessage());
+            Log::error('SID update error: ' . $e->getMessage());
 
             return response()->json(['success' => false, 'message' => 'Error updating SID entry.'], 500);
         }
@@ -456,7 +494,7 @@ class SuppliesComponentsController extends BasetablesController
             ]);
 
         } catch (\Exception $e) {
-            Log::error('getProductSid error: '.$e->getMessage());
+            Log::error('getProductSid error: ' . $e->getMessage());
 
             return response()->json(['success' => false, 'message' => 'Error fetching product SID.'], 500);
         }
@@ -483,7 +521,7 @@ class SuppliesComponentsController extends BasetablesController
             return response()->json(['success' => true, 'message' => 'SID assigned successfully.']);
 
         } catch (\Exception $e) {
-            Log::error('assignProductSid error: '.$e->getMessage());
+            Log::error('assignProductSid error: ' . $e->getMessage());
 
             return response()->json(['success' => false, 'message' => 'Error assigning SID.'], 500);
         }
@@ -502,7 +540,7 @@ class SuppliesComponentsController extends BasetablesController
             return response()->json(['success' => true, 'message' => 'SID unlinked successfully.']);
 
         } catch (\Exception $e) {
-            Log::error('unlinkProductSid error: '.$e->getMessage());
+            Log::error('unlinkProductSid error: ' . $e->getMessage());
 
             return response()->json(['success' => false, 'message' => 'Error unlinking SID.'], 500);
         }

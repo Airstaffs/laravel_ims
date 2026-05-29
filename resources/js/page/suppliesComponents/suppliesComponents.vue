@@ -1,22 +1,12 @@
 <template>
     <div class="vue-container supplies-components-module">
         <!-- Header Section -->
-        <div
-            class="d-flex align-items-center justify-content-between flex-wrap mb-4"
-        >
-            <TitlePage
-                title="Supplies & Components Module"
-                subtitle="Track all supplies, components, and office equipment in inventory."
-            />
+        <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
+            <TitlePage title="Supplies & Components Module"
+                subtitle="Track all supplies, components, and office equipment in inventory." />
             <div class="d-flex align-item-end gap-2 px-4">
-                <Button
-                    severity="secondary"
-                    size="small"
-                    label="SID List"
-                    icon="pi pi-list"
-                    icon-pos="left"
-                    @click="openSidListModal"
-                />
+                <Button severity="secondary" size="small" label="SID List" icon="pi pi-list" icon-pos="left"
+                    @click="openSidListModal" />
             </div>
         </div>
 
@@ -65,57 +55,28 @@
             <div class="search-container">
                 <fieldset class="d-flex align-items-center gap-3">
                     <label>Category</label>
-                    <Select
-                        :options="categoryOptions"
-                        v-model="selectedCategory"
-                        optionLabel="label"
-                        optionValue="value"
-                        size="small"
-                        class="select-form"
-                        @change="changeCategory"
-                        placeholder="Select category"
-                    />
+                    <Select :options="categoryOptions" v-model="selectedCategory" optionLabel="label"
+                        optionValue="value" size="small" class="select-form" @change="changeCategory"
+                        placeholder="Select category" />
                 </fieldset>
             </div>
 
             <!-- Desktop Table -->
-            <XDataTable
-                :value="items"
-                :loading="loading"
-                :columns="columns"
-                :pagination="false"
-                tableClass="desktop-view"
-                dataKey="product_id"
-                scrollable
-                scrollHeight="600px"
-                :key="'sc-table'"
-            >
+            <XDataTable :value="items" :loading="loading" :columns="columns" :pagination="false"
+                tableClass="desktop-view" dataKey="product_id" scrollable scrollHeight="600px" :key="'sc-table'">
                 <template #gallery="{ data }">
-                    <div
-                        class="d-flex justify-content-center align-items-center"
-                    >
+                    <div class="d-flex justify-content-center align-items-center">
                         <!-- Captured images (priority) -->
-                        <div
-                            v-if="hasCapturedImages(data)"
-                            class="gallery-thumbnail position-relative"
-                            @click="openImageModal(data)"
-                            style="cursor: pointer"
-                        >
-                            <img
-                                :src="getFirstImage(data)"
-                                :alt="data.product_title"
-                                style="
+                        <div v-if="hasCapturedImages(data)" class="gallery-thumbnail position-relative"
+                            @click="openImageModal(data)" style="cursor: pointer">
+                            <img :src="getFirstImage(data)" :alt="data.product_title" style="
                                     width: 50px;
                                     height: 50px;
                                     object-fit: cover;
                                     border-radius: 4px;
-                                "
-                                @error="handleImageError"
-                            />
-                            <span
-                                v-if="countAllImages(data) > 1"
-                                class="position-absolute bg-primary text-white rounded-circle"
-                                style="
+                                " @error="handleImageError" />
+                            <span v-if="countAllImages(data) > 1"
+                                class="position-absolute bg-primary text-white rounded-circle" style="
                                     top: -5px;
                                     right: -5px;
                                     min-width: 20px;
@@ -125,30 +86,22 @@
                                     align-items: center;
                                     justify-content: center;
                                     padding: 0 4px;
-                                "
-                            >
+                                ">
                                 +{{ countAllImages(data) - 1 }}
                             </span>
                         </div>
                         <!-- Fallback to img1..img5 -->
-                        <TableGallery
-                            v-else
-                            :data="data"
-                            :openImageModal="openImageModal"
-                            :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages"
-                        />
+                        <TableGallery v-else :data="data" :openImageModal="openImageModal"
+                            :handleImageError="handleImageError" :countAdditionalImages="countAdditionalImages" />
                     </div>
                 </template>
 
                 <template #productName="{ data }">
                     <div class="d-flex flex-column gap-1">
-                        <small class="text-muted"
-                            >RT# {{ data.rt_counter || "N/A" }}</small
-                        >
+                        <small class="text-muted">RT# {{ data.rt_counter || "N/A" }}</small>
                         <span class="fw-bold">{{
                             data.product_title || "N/A"
-                        }}</span>
+                            }}</span>
                     </div>
                 </template>
 
@@ -170,26 +123,11 @@
 
                 <template #actions="{ data }">
                     <div class="d-flex flex-column align-items-start">
-                        <Button
-                            label="Move to Labeling"
-                            icon="pi pi-tags"
-                            size="small"
-                            severity="contrast"
-                            variant="text"
-                            class="text-warning"
-                            :loading="moveLabelingLoading"
-                            :disabled="moveLabelingLoading"
-                            @click="moveToLabeling(data)"
-                        />
-                        <Button
-                            label="Setup SID"
-                            icon="pi pi-link"
-                            size="small"
-                            severity="contrast"
-                            variant="text"
-                            class="text-info"
-                            @click="openSetupSidModal(data)"
-                        />
+                        <Button label="Move to Labeling" icon="pi pi-tags" size="small" severity="contrast"
+                            variant="text" class="text-warning" :loading="moveLabelingLoading"
+                            :disabled="moveLabelingLoading" @click="moveToLabeling(data)" />
+                        <Button label="Setup SID" icon="pi pi-link" size="small" severity="contrast" variant="text"
+                            class="text-info" @click="openSetupSidModal(data)" />
                     </div>
                 </template>
             </XDataTable>
@@ -204,52 +142,25 @@
                 No items found
             </div>
             <div v-else class="mobile-cards">
-                <div
-                    v-for="item in items"
-                    :key="item.product_id"
-                    class="mobile-card"
-                >
+                <div v-for="item in items" :key="item.product_id" class="mobile-card">
                     <div class="mobile-card-header">
                         <!-- Mobile image -->
                         <div class="mobile-product-image clickable">
-                            <div
-                                v-if="hasCapturedImages(item)"
-                                class="gallery-thumbnail position-relative"
-                                @click="openImageModal(item)"
-                                style="cursor: pointer"
-                            >
-                                <img
-                                    :src="getFirstImage(item)"
-                                    :alt="item.product_title"
-                                    class="product-thumbnail clickable-image"
-                                    @error="handleImageError"
-                                />
-                                <div
-                                    class="image-count-badge"
-                                    v-if="countAllImages(item) > 1"
-                                >
+                            <div v-if="hasCapturedImages(item)" class="gallery-thumbnail position-relative"
+                                @click="openImageModal(item)" style="cursor: pointer">
+                                <img :src="getFirstImage(item)" :alt="item.product_title"
+                                    class="product-thumbnail clickable-image" @error="handleImageError" />
+                                <div class="image-count-badge" v-if="countAllImages(item) > 1">
                                     +{{ countAllImages(item) - 1 }}
                                 </div>
                             </div>
-                            <div
-                                v-else
-                                @click="openImageModal(item)"
-                                style="cursor: pointer"
-                            >
-                                <img
-                                    :src="
-                                        item.img1
-                                            ? '/images/thumbnails/' + item.img1
-                                            : defaultImage
-                                    "
-                                    :alt="item.product_title"
-                                    class="product-thumbnail clickable-image"
-                                    @error="handleImageError"
-                                />
-                                <div
-                                    class="image-count-badge"
-                                    v-if="countAdditionalImages(item) > 0"
-                                >
+                            <div v-else @click="openImageModal(item)" style="cursor: pointer">
+                                <img :src="item.img1
+                                    ? '/images/thumbnails/' + item.img1
+                                    : defaultImage
+                                    " :alt="item.product_title" class="product-thumbnail clickable-image"
+                                    @error="handleImageError" />
+                                <div class="image-count-badge" v-if="countAdditionalImages(item) > 0">
                                     +{{ countAdditionalImages(item) }}
                                 </div>
                             </div>
@@ -257,9 +168,7 @@
 
                         <div class="mobile-product-info">
                             <h6 class="mobile-product-name">
-                                <span style="font-size: 1rem"
-                                    >RT# : {{ item.rt_counter || "N/A" }}</span
-                                >
+                                <span style="font-size: 1rem">RT# : {{ item.rt_counter || "N/A" }}</span>
                                 <span>{{ item.product_title || "N/A" }}</span>
                             </h6>
                         </div>
@@ -272,27 +181,25 @@
                             <span class="mobile-detail-label">Category:</span>
                             <span class="mobile-detal-value">{{
                                 item.category || "N/A"
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">Quantity:</span>
                             <span class="mobile-detal-value">{{
                                 item.quantity || 1
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">Order Date:</span>
                             <span class="mobile-detal-value">{{
                                 formatDate(item.order_date)
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row mb-2">
-                            <span class="mobile-detail-label"
-                                >Delivered Date:</span
-                            >
+                            <span class="mobile-detail-label">Delivered Date:</span>
                             <span class="mobile-detal-value">{{
                                 formatDate(item.delivered_date)
-                            }}</span>
+                                }}</span>
                         </div>
                     </div>
 
@@ -300,15 +207,9 @@
 
                     <div class="d-flex flex-nowrap overflow-auto gap-2 pb-3">
                         <div class="flex-shrink-0">
-                            <Button
-                                label="Move to Labeling"
-                                icon="pi pi-tags"
-                                size="small"
-                                severity="warn"
-                                :loading="moveLabelingLoading"
-                                :disabled="moveLabelingLoading"
-                                @click="moveToLabeling(item)"
-                            />
+                            <Button label="Move to Labeling" icon="pi pi-tags" size="small" severity="warn"
+                                :loading="moveLabelingLoading" :disabled="moveLabelingLoading"
+                                @click="moveToLabeling(item)" />
                         </div>
                     </div>
                 </div>
@@ -316,104 +217,52 @@
         </div>
 
         <!-- Pagination -->
-        <Paginator
-            :first="first"
-            :rows="perPage"
-            :total-records="totalRecords"
-            :rows-per-page-options="[10, 20, 50]"
+        <Paginator :first="first" :rows="perPage" :total-records="totalRecords" :rows-per-page-options="[10, 20, 50]"
             template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
-            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}"
-            class="small-paginator"
-            @page="onPageChange"
-        />
+            currentPageReportTemplate="Showing {first} to {last} of {totalRecords}" class="small-paginator"
+            @page="onPageChange" />
 
         <!-- Image Modal -->
-        <ViewImageGalleryModal
-            :showImageModal="showImageModal"
-            :closeImageModal="closeImageModal"
-            :ProductTitle="modalProductTitle"
-            :regularImages="regularImages"
-            :capturedImages="capturedImages"
-            :handleImageError="handleImageError"
-        />
+        <ViewImageGalleryModal :showImageModal="showImageModal" :closeImageModal="closeImageModal"
+            :ProductTitle="modalProductTitle" :regularImages="regularImages" :capturedImages="capturedImages"
+            :handleImageError="handleImageError" />
 
         <!-- SID List Dialog -->
-        <Dialog
-            v-model:visible="showSidListModal"
-            :modal="true"
-            :draggable="false"
-            :style="{ width: '75rem' }"
-            :breakpoints="{ '1199px': '90vw', '767px': '95vw' }"
-        >
+        <Dialog v-model:visible="showSidListModal" :modal="true" :draggable="false" :style="{ width: '75rem' }"
+            :breakpoints="{ '1199px': '90vw', '767px': '95vw' }">
             <!-- Custom Header -->
             <template #header>
-                <div
-                    class="d-flex align-items-center justify-content-between w-100"
-                >
-                    <span class="fw-semibold" style="font-size: 1rem"
-                        >SID List</span
-                    >
+                <div class="d-flex align-items-center justify-content-between w-100">
+                    <span class="fw-semibold" style="font-size: 1rem">SID List</span>
                     <div class="d-flex align-items-center gap-2 me-3">
-                        <Button
-                            icon="pi pi-refresh"
-                            label="Refresh"
-                            severity="secondary"
-                            size="small"
-                            :loading="sidListLoading"
-                            @click="fetchSidList"
-                        />
-                        <Button
-                            icon="pi pi-plus"
-                            label="Add Data"
-                            severity="primary"
-                            size="small"
-                            @click="openAddSidModal"
-                        />
+                        <Button icon="pi pi-refresh" label="Refresh" severity="secondary" size="small"
+                            :loading="sidListLoading" @click="fetchSidList" />
+                        <Button icon="pi pi-plus" label="Add Data" severity="primary" size="small"
+                            @click="openAddSidModal" />
                     </div>
                 </div>
             </template>
 
-            <DataTable
-                :value="sidListItems"
-                :loading="sidListLoading"
-                scrollable
-                scroll-height="480px"
-                striped-rows
-                show-gridlines
-                size="small"
-            >
+            <DataTable :value="sidListItems" :loading="sidListLoading" scrollable scroll-height="480px" striped-rows
+                show-gridlines size="small">
                 <!-- Image Column -->
-                <Column
-                    header="Image"
-                    style="min-width: 5rem; text-align: center"
-                >
+                <Column header="Image" style="min-width: 5rem; text-align: center">
                     <template #body="{ data }">
-                        <img
-                            :src="
-                                data.image_path
-                                    ? `/images/sid/${data.image_path}`
-                                    : defaultImage
-                            "
-                            alt="SID Image"
-                            style="
+                        <img :src="data.image_path
+                            ? `/images/sid/${data.image_path}`
+                            : defaultImage
+                            " alt="SID Image" style="
                                 width: 40px;
                                 height: 40px;
                                 object-fit: cover;
                                 border-radius: 4px;
                                 border: 1px solid #dee2e6;
                                 cursor: pointer;
-                            "
-                            @error="handleSidImageError"
-                            @click="openViewSidModal(data)"
-                        />
+                            " @error="handleSidImageError" @click="openViewSidModal(data)" />
                     </template>
                 </Column>
 
-                <Column
-                    field="sid_number"
-                    header="SID Number"
-                    style="min-width: 10rem"
-                />
+                <Column field="sid_number" header="SID Number" style="min-width: 10rem" />
 
                 <Column field="alias" header="Alias" style="min-width: 14rem" />
 
@@ -427,46 +276,19 @@
                     </template>
                 </Column>
 
-                <Column
-                    field="quantity"
-                    header="Quantity"
-                    style="min-width: 7rem"
-                />
+                <Column field="quantity" header="Quantity" style="min-width: 7rem" />
 
-                <Column
-                    field="threshold"
-                    header="Threshold"
-                    style="min-width: 8rem"
-                />
+                <Column field="threshold" header="Threshold" style="min-width: 8rem" />
 
                 <Column header="Action">
                     <template #body="{ data }">
                         <div class="d-flex flex-column align-items-start gap-1">
-                            <Button
-                                icon="pi pi-eye"
-                                label="View"
-                                severity="info"
-                                size="small"
-                                text
-                                @click="openViewSidModal(data)"
-                            />
-                            <Button
-                                icon="pi pi-pencil"
-                                label="Edit"
-                                severity="warning"
-                                size="small"
-                                text
-                                @click="openEditSidModal(data)"
-                            />
-                            <Button
-                                icon="pi pi-trash"
-                                label="Delete"
-                                severity="danger"
-                                size="small"
-                                text
-                                rounded
-                                @click="deleteSidEntry(data)"
-                            />
+                            <Button icon="pi pi-eye" label="View" severity="info" size="small" text
+                                @click="openViewSidModal(data)" />
+                            <Button icon="pi pi-pencil" label="Edit" severity="warning" size="small" text
+                                @click="openEditSidModal(data)" />
+                            <Button icon="pi pi-trash" label="Delete" severity="danger" size="small" text rounded
+                                @click="deleteSidEntry(data)" />
                         </div>
                     </template>
                 </Column>
@@ -480,93 +302,51 @@
         </Dialog>
 
         <!-- Add SID Dialog -->
-        <Dialog
-            v-model:visible="showAddSidModal"
-            header="Add SID Entry"
-            :modal="true"
-            :draggable="false"
-            :style="{ width: '30rem' }"
-        >
+        <Dialog v-model:visible="showAddSidModal" header="Add SID Entry" :modal="true" :draggable="false"
+            :style="{ width: '30rem' }">
             <div class="d-flex flex-column gap-3 pt-2">
                 <div>
-                    <label class="form-label fw-semibold"
-                        >SID Number <span class="text-danger">*</span></label
-                    >
-                    <InputText
-                        v-model="sidForm.sid_number"
-                        class="w-100"
-                        placeholder="Enter SID number"
-                    />
+                    <label class="form-label fw-semibold d-flex align-items-center gap-2">
+                        SID Number
+                        <span
+                            style="font-size: 10px; background: #e3f2fd; color: #1565c0; padding: 1px 6px; border-radius: 4px;">
+                            Auto-generated
+                        </span>
+                    </label>
+                    <InputText v-model="sidForm.sid_number" class="w-100" readonly
+                        style="background: #f8f9fa; cursor: not-allowed; color: #6c757d;" />
                 </div>
                 <div>
                     <label class="form-label fw-semibold">Alias</label>
-                    <InputText
-                        v-model="sidForm.alias"
-                        class="w-100"
-                        placeholder="Enter alias"
-                    />
+                    <InputText v-model="sidForm.alias" class="w-100" placeholder="Enter alias" />
                 </div>
                 <div>
                     <label class="form-label fw-semibold">Price</label>
-                    <InputNumber
-                        v-model="sidForm.price"
-                        class="w-100"
-                        mode="currency"
-                        currency="USD"
-                        locale="en-US"
-                        placeholder="0.00"
-                    />
+                    <InputNumber v-model="sidForm.price" class="w-100" mode="currency" currency="USD" locale="en-US"
+                        placeholder="0.00" />
                 </div>
                 <div>
                     <label class="form-label fw-semibold">Quantity</label>
-                    <InputNumber
-                        v-model="sidForm.quantity"
-                        class="w-100"
-                        :min="0"
-                        placeholder="0"
-                    />
+                    <InputNumber v-model="sidForm.quantity" class="w-100" :min="0" placeholder="0" />
                 </div>
                 <div>
                     <label class="form-label fw-semibold">Threshold</label>
-                    <InputNumber
-                        v-model="sidForm.threshold"
-                        class="w-100"
-                        :min="0"
-                        placeholder="0"
-                    />
+                    <InputNumber v-model="sidForm.threshold" class="w-100" :min="0" placeholder="0" />
                 </div>
             </div>
 
             <template #footer>
-                <Button
-                    label="Cancel"
-                    severity="secondary"
-                    size="small"
-                    @click="closeAddSidModal"
-                />
-                <Button
-                    label="Save"
-                    icon="pi pi-save"
-                    severity="primary"
-                    size="small"
-                    :loading="addSidLoading"
-                    @click="submitAddSid"
-                />
+                <Button label="Cancel" severity="secondary" size="small" @click="closeAddSidModal" />
+                <Button label="Save" icon="pi pi-save" severity="primary" size="small" :loading="addSidLoading"
+                    @click="submitAddSid" />
             </template>
         </Dialog>
 
         <!-- View SID Dialog -->
-        <Dialog
-            v-model:visible="showViewSidModal"
-            :modal="true"
-            :draggable="false"
-            :style="{ width: '50rem' }"
-            :breakpoints="{ '1199px': '90vw', '767px': '95vw' }"
-        >
+        <Dialog v-model:visible="showViewSidModal" :modal="true" :draggable="false" :style="{ width: '50rem' }"
+            :breakpoints="{ '1199px': '90vw', '767px': '95vw' }">
             <template #header>
-                <span class="fw-semibold" style="font-size: 1rem"
-                    >View SID Entry</span
-                >
+                <span class="fw-semibold" style="font-size: 1rem">View SID Entry</span>
             </template>
 
             <div v-if="viewSidItem" class="p-2">
@@ -574,11 +354,9 @@
                 <div class="mb-3">
                     <div>
                         <div>
-                            <strong
-                                >SID#{{
-                                    viewSidItem.sid_number.replace(/^SID/i, "")
-                                }}</strong
-                            >
+                            <strong>SID#{{
+                                viewSidItem.sid_number.replace(/^SID/i, "")
+                            }}</strong>
                         </div>
                     </div>
                     <div>
@@ -603,47 +381,27 @@
 
                 <!-- Image Display -->
                 <div class="mb-3">
-                    <div
-                        v-if="viewSidItem.image_path"
-                        class="position-relative d-inline-block"
-                    >
-                        <img
-                            :src="`/images/sid/${viewSidItem.image_path}`"
-                            alt="SID Image"
-                            style="
+                    <div v-if="viewSidItem.image_path" class="position-relative d-inline-block">
+                        <img :src="`/images/sid/${viewSidItem.image_path}`" alt="SID Image" style="
                                 max-width: 100%;
                                 max-height: 300px;
                                 object-fit: contain;
                                 border: 1px solid #dee2e6;
                                 border-radius: 4px;
-                            "
-                            @error="handleSidImageError"
-                        />
-                        <Button
-                            icon="pi pi-trash"
-                            severity="danger"
-                            size="small"
-                            rounded
-                            text
-                            class="position-absolute"
-                            style="bottom: 4px; right: 4px"
-                            :loading="deleteSidImageLoading"
-                            @click="deleteSidImage(viewSidItem)"
-                        />
+                            " @error="handleSidImageError" />
+                        <Button icon="pi pi-trash" severity="danger" size="small" rounded text class="position-absolute"
+                            style="bottom: 4px; right: 4px" :loading="deleteSidImageLoading"
+                            @click="deleteSidImage(viewSidItem)" />
                     </div>
 
                     <!-- No image placeholder -->
-                    <div
-                        v-else
-                        class="d-flex align-items-center justify-content-center bg-light"
-                        style="
+                    <div v-else class="d-flex align-items-center justify-content-center bg-light" style="
                             width: 100%;
                             height: 200px;
                             border: 1px dashed #ced4da;
                             border-radius: 4px;
                             color: #aaa;
-                        "
-                    >
+                        ">
                         <div class="text-center">
                             <i class="pi pi-image" style="font-size: 2rem"></i>
                             <div class="mt-1" style="font-size: 0.85rem">
@@ -655,112 +413,52 @@
 
                 <!-- Upload -->
                 <div class="d-flex align-items-center gap-2 mt-2">
-                    <input
-                        ref="sidImageInput"
-                        type="file"
-                        accept="image/*"
-                        style="font-size: 0.875rem"
-                        @change="onSidImageSelected"
-                    />
-                    <Button
-                        label="Upload"
-                        icon="pi pi-upload"
-                        severity="primary"
-                        size="small"
-                        :loading="uploadSidImageLoading"
-                        :disabled="!sidImageFile"
-                        @click="uploadSidImage(viewSidItem)"
-                    />
+                    <input ref="sidImageInput" type="file" accept="image/*" style="font-size: 0.875rem"
+                        @change="onSidImageSelected" />
+                    <Button label="Upload" icon="pi pi-upload" severity="primary" size="small"
+                        :loading="uploadSidImageLoading" :disabled="!sidImageFile"
+                        @click="uploadSidImage(viewSidItem)" />
                 </div>
             </div>
         </Dialog>
 
         <!-- Edit SID Dialog -->
-        <Dialog
-            v-model:visible="showEditSidModal"
-            header="Edit SID Entry"
-            :modal="true"
-            :draggable="false"
-            :style="{ width: '30rem' }"
-            :breakpoints="{ '1199px': '90vw', '767px': '95vw' }"
-        >
+        <Dialog v-model:visible="showEditSidModal" header="Edit SID Entry" :modal="true" :draggable="false"
+            :style="{ width: '30rem' }" :breakpoints="{ '1199px': '90vw', '767px': '95vw' }">
             <div class="d-flex flex-column gap-3 pt-2">
                 <div>
-                    <label class="form-label fw-semibold"
-                        >SID Number <span class="text-danger">*</span></label
-                    >
-                    <InputText
-                        v-model="editSidForm.sid_number"
-                        class="w-100"
-                        placeholder="Enter SID number"
-                    />
+                    <label class="form-label fw-semibold">SID Number <span class="text-danger">*</span></label>
+                    <InputText v-model="editSidForm.sid_number" class="w-100" placeholder="Enter SID number" />
                 </div>
                 <div>
                     <label class="form-label fw-semibold">Alias</label>
-                    <InputText
-                        v-model="editSidForm.alias"
-                        class="w-100"
-                        placeholder="Enter alias"
-                    />
+                    <InputText v-model="editSidForm.alias" class="w-100" placeholder="Enter alias" />
                 </div>
                 <div>
                     <label class="form-label fw-semibold">Price</label>
-                    <InputNumber
-                        v-model="editSidForm.price"
-                        class="w-100"
-                        mode="currency"
-                        currency="USD"
-                        locale="en-US"
-                        placeholder="0.00"
-                    />
+                    <InputNumber v-model="editSidForm.price" class="w-100" mode="currency" currency="USD" locale="en-US"
+                        placeholder="0.00" />
                 </div>
                 <div>
                     <label class="form-label fw-semibold">Quantity</label>
-                    <InputNumber
-                        v-model="editSidForm.quantity"
-                        class="w-100"
-                        :min="0"
-                        placeholder="0"
-                    />
+                    <InputNumber v-model="editSidForm.quantity" class="w-100" :min="0" placeholder="0" />
                 </div>
                 <div>
                     <label class="form-label fw-semibold">Threshold</label>
-                    <InputNumber
-                        v-model="editSidForm.threshold"
-                        class="w-100"
-                        :min="0"
-                        placeholder="0"
-                    />
+                    <InputNumber v-model="editSidForm.threshold" class="w-100" :min="0" placeholder="0" />
                 </div>
             </div>
 
             <template #footer>
-                <Button
-                    label="Cancel"
-                    severity="secondary"
-                    size="small"
-                    @click="closeEditSidModal"
-                />
-                <Button
-                    label="Save Changes"
-                    icon="pi pi-check"
-                    severity="primary"
-                    size="small"
-                    :loading="editSidLoading"
-                    @click="submitEditSid"
-                />
+                <Button label="Cancel" severity="secondary" size="small" @click="closeEditSidModal" />
+                <Button label="Save Changes" icon="pi pi-check" severity="primary" size="small"
+                    :loading="editSidLoading" @click="submitEditSid" />
             </template>
         </Dialog>
 
         <!-- Setup SID Dialog -->
-        <Dialog
-            v-model:visible="showSetupSidModal"
-            header="Setup SID"
-            :modal="true"
-            :draggable="false"
-            :style="{ width: '35rem' }"
-            :breakpoints="{ '1199px': '90vw', '767px': '95vw' }"
-        >
+        <Dialog v-model:visible="showSetupSidModal" header="Setup SID" :modal="true" :draggable="false"
+            :style="{ width: '35rem' }" :breakpoints="{ '1199px': '90vw', '767px': '95vw' }">
             <div v-if="setupSidProduct" class="mb-3 p-2 bg-light rounded">
                 <div class="fw-semibold" style="font-size: 0.85rem">
                     {{ setupSidProduct.product_title }}
@@ -772,33 +470,17 @@
 
             <!-- Currently assigned SID -->
             <div v-if="setupSidCurrent" class="mb-3">
-                <label class="form-label fw-semibold" style="font-size: 0.85rem"
-                    >Currently Assigned</label
-                >
-                <div
-                    class="d-flex align-items-center justify-content-between p-2 border rounded"
-                >
+                <label class="form-label fw-semibold" style="font-size: 0.85rem">Currently Assigned</label>
+                <div class="d-flex align-items-center justify-content-between p-2 border rounded">
                     <div>
-                        <span class="fw-semibold"
-                            >SID#{{
-                                setupSidCurrent.sid_number.replace(/^SID/i, "")
-                            }}</span
-                        >
-                        <span
-                            class="text-muted ms-2"
-                            style="font-size: 0.82rem"
-                            >{{ setupSidCurrent.alias || "—" }}</span
-                        >
+                        <span class="fw-semibold">SID#{{
+                            setupSidCurrent.sid_number.replace(/^SID/i, "")
+                        }}</span>
+                        <span class="text-muted ms-2" style="font-size: 0.82rem">{{ setupSidCurrent.alias || "—"
+                            }}</span>
                     </div>
-                    <Button
-                        icon="pi pi-times"
-                        label="Unlink"
-                        severity="danger"
-                        size="small"
-                        text
-                        :loading="unlinkSidLoading"
-                        @click="unlinkSid"
-                    />
+                    <Button icon="pi pi-times" label="Unlink" severity="danger" size="small" text
+                        :loading="unlinkSidLoading" @click="unlinkSid" />
                 </div>
             </div>
 
@@ -814,73 +496,45 @@
                     }}
                 </label>
                 <div class="d-flex gap-2 mb-2">
-                    <InputText
-                        v-model="sidSearchQuery"
-                        class="w-100"
-                        placeholder="Search by SID number or alias..."
-                        @input="filterSidOptions"
-                    />
+                    <InputText v-model="sidSearchQuery" class="w-100" placeholder="Search by SID number or alias..."
+                        @input="filterSidOptions" />
                 </div>
 
                 <!-- SID Options List -->
-                <div
-                    style="
+                <div style="
                         max-height: 220px;
                         overflow-y: auto;
                         border: 1px solid #dee2e6;
                         border-radius: 6px;
-                    "
-                >
-                    <div
-                        v-if="filteredSidOptions.length === 0"
-                        class="text-center text-muted py-3"
-                        style="font-size: 0.85rem"
-                    >
+                    ">
+                    <div v-if="filteredSidOptions.length === 0" class="text-center text-muted py-3"
+                        style="font-size: 0.85rem">
                         No SID entries found.
                     </div>
-                    <div
-                        v-for="sid in filteredSidOptions"
-                        :key="sid.id"
-                        class="d-flex align-items-center justify-content-between px-3 py-2"
-                        style="
+                    <div v-for="sid in filteredSidOptions" :key="sid.id"
+                        class="d-flex align-items-center justify-content-between px-3 py-2" style="
                             cursor: pointer;
                             border-bottom: 1px solid #f1f1f1;
                             font-size: 0.875rem;
-                        "
-                        :class="
-                            selectedSidId === sid.id
-                                ? 'bg-primary text-white'
-                                : 'hover-bg-light'
-                        "
-                        @click="selectedSidId = sid.id"
-                    >
+                        " :class="selectedSidId === sid.id
+                            ? 'bg-primary text-white'
+                            : 'hover-bg-light'
+                            " @click="selectedSidId = sid.id">
                         <div>
-                            <span class="fw-semibold"
-                                >SID#{{
-                                    sid.sid_number.replace(/^SID/i, "")
-                                }}</span
-                            >
-                            <span
-                                class="ms-2"
-                                :class="
-                                    selectedSidId === sid.id
-                                        ? 'text-white-50'
-                                        : 'text-muted'
-                                "
-                                style="font-size: 0.8rem"
-                            >
+                            <span class="fw-semibold">SID#{{
+                                sid.sid_number.replace(/^SID/i, "")
+                            }}</span>
+                            <span class="ms-2" :class="selectedSidId === sid.id
+                                ? 'text-white-50'
+                                : 'text-muted'
+                                " style="font-size: 0.8rem">
                                 {{ sid.alias || "—" }}
                             </span>
                         </div>
-                        <div
-                            class="ms-2"
-                            :class="
-                                selectedSidId === sid.id
-                                    ? 'text-white-50'
-                                    : 'text-muted'
-                            "
-                            style="font-size: 0.8rem"
-                        >
+                        <div class="ms-2" :class="selectedSidId === sid.id
+                            ? 'text-white-50'
+                            : 'text-muted'
+                            " style="font-size: 0.8rem">
                             Qty: {{ sid.quantity }}
                         </div>
                     </div>
@@ -888,21 +542,9 @@
             </div>
 
             <template #footer>
-                <Button
-                    label="Cancel"
-                    severity="secondary"
-                    size="small"
-                    @click="closeSetupSidModal"
-                />
-                <Button
-                    label="Assign SID"
-                    icon="pi pi-check"
-                    severity="primary"
-                    size="small"
-                    :disabled="!selectedSidId"
-                    :loading="assignSidLoading"
-                    @click="submitAssignSid"
-                />
+                <Button label="Cancel" severity="secondary" size="small" @click="closeSetupSidModal" />
+                <Button label="Assign SID" icon="pi pi-check" severity="primary" size="small" :disabled="!selectedSidId"
+                    :loading="assignSidLoading" @click="submitAssignSid" />
             </template>
         </Dialog>
 

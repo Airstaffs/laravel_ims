@@ -49,7 +49,12 @@ export default {
 
             packagingComponents: [],
             packagingVisualImages: [],
-            packagingBoxSpecs: { size: '', type: '', weight: '', materials: '' },
+            packagingBoxSpecs: {
+                size: "",
+                type: "",
+                weight: "",
+                materials: "",
+            },
         };
     },
     computed: {
@@ -684,12 +689,12 @@ export default {
             try {
                 if (item.packaging_category_values) {
                     savedValues =
-                        typeof item.packaging_category_values === 'string'
+                        typeof item.packaging_category_values === "string"
                             ? JSON.parse(item.packaging_category_values)
                             : item.packaging_category_values;
                 }
             } catch (error) {
-                console.error('Invalid packaging_category_values JSON:', error);
+                console.error("Invalid packaging_category_values JSON:", error);
                 savedValues = {};
             }
 
@@ -703,9 +708,14 @@ export default {
         },
 
         async loadPackagingConfig(asin) {
-            this.packagingComponents  = [];
+            this.packagingComponents = [];
             this.packagingVisualImages = [];
-            this.packagingBoxSpecs    = { size: '', type: '', weight: '', materials: '' };
+            this.packagingBoxSpecs = {
+                size: "",
+                type: "",
+                weight: "",
+                materials: "",
+            };
 
             if (!asin) return;
 
@@ -716,20 +726,20 @@ export default {
                     { withCredentials: true },
                 );
                 const globalPkg = globalRes.data.data?.packaging || {};
-                const globalComps   = globalPkg.components || [];
-                const globalBoxSpecs = globalPkg.boxSpecs  || {};
+                const globalComps = globalPkg.components || [];
+                const globalBoxSpecs = globalPkg.boxSpecs || {};
 
                 // Load ASIN-specific config
                 const asinRes = await axios.get(
                     `${API_BASE_URL}/api/asinlist/config`,
                     { params: { asin }, withCredentials: true },
                 );
-                const asinPkg   = asinRes.data.data?.packaging || {};
+                const asinPkg = asinRes.data.data?.packaging || {};
                 const asinComps = asinPkg.components || [];
                 const asinBoxSpecs = asinPkg.boxSpecs || {};
 
                 // Merge components — ASIN overrides global by name
-                const savedNames   = new Set(asinComps.map((c) => c.name));
+                const savedNames = new Set(asinComps.map((c) => c.name));
                 const markedGlobals = globalComps
                     .filter((c) => !savedNames.has(c.name))
                     .map((c) => ({ ...c, _fromGlobal: true }));
@@ -738,10 +748,13 @@ export default {
 
                 // Merge box specs — ASIN overrides global where non-empty
                 this.packagingBoxSpecs = {
-                    size:      asinBoxSpecs.size      || globalBoxSpecs.size      || '',
-                    type:      asinBoxSpecs.type      || globalBoxSpecs.type      || '',
-                    weight:    asinBoxSpecs.weight    || globalBoxSpecs.weight    || '',
-                    materials: asinBoxSpecs.materials || globalBoxSpecs.materials || '',
+                    size: asinBoxSpecs.size || globalBoxSpecs.size || "",
+                    type: asinBoxSpecs.type || globalBoxSpecs.type || "",
+                    weight: asinBoxSpecs.weight || globalBoxSpecs.weight || "",
+                    materials:
+                        asinBoxSpecs.materials ||
+                        globalBoxSpecs.materials ||
+                        "",
                 };
 
                 // Build visual images list
@@ -749,26 +762,36 @@ export default {
 
                 // Main packaging guide image
                 if (asinPkg.image) {
-                    images.push({ src: asinPkg.image, label: 'Packaging Guide' });
+                    images.push({
+                        src: asinPkg.image,
+                        label: "Packaging Guide",
+                        sid_number: null,
+                    });
                 }
 
                 // Helper to resolve component image src
-                const resolveImg = (comp, suffix = '') => {
-                    if (!comp.img && !comp.localImg) return null;
+                const resolveImg = (comp, suffix = "") => {
+                    const imgField =
+                        comp.localImg || comp.image_path || comp.img || null;
+
+                    if (!imgField) return null;
 
                     let src = null;
 
-                    if (comp.localImg) {
-                        src = comp.localImg;
-                    } else if (comp.img.startsWith('http')) {
-                        src = comp.img;
-                    } else if (comp._source === 'sid' || comp.img1Source === 'sid') {
-                        // SID images live in /images/sid/
-                        src = `${window.location.origin}/images/sid/${comp.img}`;
-                    } else if (comp.img1Source === 'captured') {
-                        src = `${window.location.origin}/images/product_images/Airstaffs/${comp.img}`;
+                    if (imgField.startsWith("data:")) {
+                        src = imgField;
+                    } else if (imgField.startsWith("http")) {
+                        src = imgField;
+                    } else if (
+                        comp._source === "sid" ||
+                        comp.img1Source === "sid" ||
+                        comp.sid_number
+                    ) {
+                        src = `${window.location.origin}/images/sid/${imgField}`;
+                    } else if (comp.img1Source === "captured") {
+                        src = `${window.location.origin}/images/product_images/Airstaffs/${imgField}`;
                     } else {
-                        src = `${window.location.origin}/images/thumbnails/${comp.img}`;
+                        src = `${window.location.origin}/images/thumbnails/${imgField}`;
                     }
 
                     return src ? { src, label: comp.name + suffix } : null;
@@ -776,20 +799,27 @@ export default {
 
                 // Global component images
                 markedGlobals.forEach((comp) => {
-                    const img = resolveImg(comp, ' (Global)');
-                    if (img) images.push(img);
+                    const img = resolveImg(comp, " (Global)");
+                    if (img)
+                        images.push({
+                            ...img,
+                            sid_number: comp.sid_number || comp.sku || null,
+                        });
                 });
 
                 // ASIN-specific component images
                 asinComps.forEach((comp) => {
                     const img = resolveImg(comp);
-                    if (img) images.push(img);
+                    if (img)
+                        images.push({
+                            ...img,
+                            sid_number: comp.sid_number || null,
+                        });
                 });
 
                 this.packagingVisualImages = images;
-
             } catch (e) {
-                console.error('Failed to load packaging config:', e);
+                console.error("Failed to load packaging config:", e);
             }
         },
 

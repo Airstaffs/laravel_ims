@@ -454,15 +454,45 @@ export default {
             }
         },
 
-        openAddSidModal() {
+        async openAddSidModal() {
+            // Auto-generate next SID number
+            const nextSid = await this.generateNextSidNumber();
             this.sidForm = {
-                sid_number: "",
+                sid_number: nextSid,
                 alias: "",
                 price: null,
                 quantity: 0,
                 threshold: 0,
             };
             this.showAddSidModal = true;
+        },
+
+        async generateNextSidNumber() {
+            try {
+                const res = await axios.get(
+                    `${API_BASE_URL}/api/supplies-components/sid-list`,
+                    { withCredentials: true },
+                );
+                const items = res.data.data || [];
+
+                // Extract numeric part from existing SID numbers (e.g. SID00001 → 1)
+                const numbers = items
+                    .map((item) => {
+                        const match = String(item.sid_number).match(
+                            /^SID(\d+)$/i,
+                        );
+                        return match ? parseInt(match[1], 10) : 0;
+                    })
+                    .filter((n) => !isNaN(n));
+
+                const next = numbers.length ? Math.max(...numbers) + 1 : 1;
+
+                // Pad to 5 digits: SID00001
+                return `SID${String(next).padStart(5, "0")}`;
+            } catch (e) {
+                console.error("Failed to generate SID number:", e);
+                return `SID${String(Date.now()).slice(-5)}`; // fallback
+            }
         },
 
         closeAddSidModal() {
