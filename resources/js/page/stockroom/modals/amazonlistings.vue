@@ -221,7 +221,7 @@
                 </Column>
 
                 <!-- Price -->
-                <Column header="Price" style="width: 260px;">
+                <Column header="Price" style="width: 330px;">
                     <template #body="{ data }">
                         <div class="text-sm">
                             <div class="mb-2 flex justify-content-between">
@@ -245,6 +245,33 @@
                             </div>
 
                             <small class="text-500">Auto-saves per item. Blank = clear.</small>
+
+                            <div class="price-guardrails">
+                                <div class="price-guardrails__head">
+                                    <span>Price Guardrails</span>
+                                    <span>{{ data.currency || 'USD' }}</span>
+                                </div>
+
+                                <div class="price-guardrails__grid">
+                                    <div class="price-guardrails__field">
+                                        <label>Min</label>
+                                        <InputText v-model="data.newMinimumPrice"
+                                            :placeholder="formatGuardrailPlaceholder(data.currentMinimumPrice)"
+                                            class="w-full p-inputtext-sm compact-input"
+                                            @focus="markTouched(data, 'minimumPrice')"
+                                            @blur="queueAutoSave(data)" @keyup.enter="queueAutoSave(data)" />
+                                    </div>
+
+                                    <div class="price-guardrails__field">
+                                        <label>Max</label>
+                                        <InputText v-model="data.newMaximumPrice"
+                                            :placeholder="formatGuardrailPlaceholder(data.currentMaximumPrice)"
+                                            class="w-full p-inputtext-sm compact-input"
+                                            @focus="markTouched(data, 'maximumPrice')"
+                                            @blur="queueAutoSave(data)" @keyup.enter="queueAutoSave(data)" />
+                                    </div>
+                                </div>
+                            </div>
 
                             <div v-if="data._errorPrice" class="error-chip" v-tooltip.top="data._errorPrice">
                                 <i class="pi pi-exclamation-triangle mr-1"></i>
@@ -771,8 +798,12 @@ export default {
 
                 r.newQty = "";
                 r.newPrice = "";
+                r.newMinimumPrice = "";
+                r.newMaximumPrice = "";
                 r._touchedQty = false;
                 r._touchedPrice = false;
+                r._touchedMinimumPrice = false;
+                r._touchedMaximumPrice = false;
                 r._savingQty = false;
                 r._savingPrice = false;
                 r._savedQty = false;
@@ -953,6 +984,16 @@ export default {
                     offers?.[0]?.listingPrice?.currencyCode ||
                     "USD";
 
+                const purchasableOffer = Array.isArray(it?.attributes?.purchasable_offer)
+                    ? it.attributes.purchasable_offer[0]
+                    : null;
+                const readOfferMoney = (field) => {
+                    const value = purchasableOffer?.[field]?.[0]?.schedule?.[0]?.value_with_tax;
+                    return value === null || value === undefined || value === "" ? null : Number(value);
+                };
+                const currentMinimumPrice = readOfferMoney("minimum_seller_allowed_price");
+                const currentMaximumPrice = readOfferMoney("maximum_seller_allowed_price");
+
                 const issues = it?.issues || [];
 
                 const imsQty = it?.ims?.count ?? null;
@@ -1037,13 +1078,19 @@ export default {
                     hasFBA,
 
                     currentPrice,
+                    currentMinimumPrice,
+                    currentMaximumPrice,
                     currency,
                     issues,
 
                     newQty: "",
                     newPrice: "",
+                    newMinimumPrice: "",
+                    newMaximumPrice: "",
                     _touchedQty: false,
                     _touchedPrice: false,
+                    _touchedMinimumPrice: false,
+                    _touchedMaximumPrice: false,
                     _savingQty: false,
                     _savingPrice: false,
                     _savedQty: false,
@@ -1090,6 +1137,8 @@ export default {
         markTouched(row, field) {
             if (field === "qty") row._touchedQty = true;
             if (field === "price") row._touchedPrice = true;
+            if (field === "minimumPrice") row._touchedMinimumPrice = true;
+            if (field === "maximumPrice") row._touchedMaximumPrice = true;
         },
 
         clearField(row, field) {
@@ -1100,6 +1149,14 @@ export default {
             if (field === "price") {
                 row.newPrice = "";
                 row._touchedPrice = true;
+            }
+            if (field === "minimumPrice") {
+                row.newMinimumPrice = "";
+                row._touchedMinimumPrice = true;
+            }
+            if (field === "maximumPrice") {
+                row.newMaximumPrice = "";
+                row._touchedMaximumPrice = true;
             }
             this.queueAutoSave(row);
         },
@@ -1128,6 +1185,12 @@ export default {
             return { value: n, cleared: false };
         },
 
+        formatGuardrailPlaceholder(value) {
+            if (value === null || value === undefined || value === "") return "Blank";
+            const n = Number(value);
+            return Number.isFinite(n) ? n.toFixed(2) : "Blank";
+        },
+
         autoDismissError(row, field) {
             const key = field === "qty" ? "_errorQty" : "_errorPrice";
             if (!row[key]) return;
@@ -1141,14 +1204,30 @@ export default {
         },
 
         async autoSaveRow(row) {
-            const touched = row._touchedQty || row._touchedPrice;
+            const touched = row._touchedQty || row._touchedPrice || row._touchedMinimumPrice || row._touchedMaximumPrice;
             if (!touched || this._suppressAutosave) return;
 
             const qty = row._touchedQty ? this.parseQty(row.newQty) : null;
             const price = row._touchedPrice ? this.parsePrice(row.newPrice) : null;
+            const minimumPrice = row._touchedMinimumPrice ? this.parsePrice(row.newMinimumPrice) : null;
+            const maximumPrice = row._touchedMaximumPrice ? this.parsePrice(row.newMaximumPrice) : null;
 
             if (qty?.invalid) { row._errorQty = "Invalid quantity"; return; }
             if (price?.invalid) { row._errorPrice = "Invalid price"; return; }
+            if (minimumPrice?.invalid) { row._errorPrice = "Invalid minimum price"; return; }
+            if (maximumPrice?.invalid) { row._errorPrice = "Invalid maximum price"; return; }
+
+            const effectiveMin = row._touchedMinimumPrice
+                ? (minimumPrice.cleared ? null : minimumPrice.value)
+                : row.currentMinimumPrice;
+            const effectiveMax = row._touchedMaximumPrice
+                ? (maximumPrice.cleared ? null : maximumPrice.value)
+                : row.currentMaximumPrice;
+
+            if (effectiveMin !== null && effectiveMax !== null && Number(effectiveMax) < Number(effectiveMin)) {
+                row._errorPrice = "Maximum price must be greater than or equal to minimum price";
+                return;
+            }
 
             if (row._touchedQty && qty?.cleared && (row.currentQty === null || row.currentQty === undefined || row.currentQty === "")) {
                 row._touchedQty = false;
@@ -1162,7 +1241,17 @@ export default {
                 row.newPrice = "";
             }
 
-            if (!row._touchedQty && !row._touchedPrice) return;
+            if (row._touchedMinimumPrice && minimumPrice?.cleared && (row.currentMinimumPrice === null || row.currentMinimumPrice === undefined || row.currentMinimumPrice === "")) {
+                row._touchedMinimumPrice = false;
+                row.newMinimumPrice = "";
+            }
+
+            if (row._touchedMaximumPrice && maximumPrice?.cleared && (row.currentMaximumPrice === null || row.currentMaximumPrice === undefined || row.currentMaximumPrice === "")) {
+                row._touchedMaximumPrice = false;
+                row.newMaximumPrice = "";
+            }
+
+            if (!row._touchedQty && !row._touchedPrice && !row._touchedMinimumPrice && !row._touchedMaximumPrice) return;
 
             row._errorQty = "";
             row._errorPrice = "";
@@ -1170,7 +1259,7 @@ export default {
             row._savedPrice = false;
 
             if (row._touchedQty) row._savingQty = true;
-            if (row._touchedPrice) row._savingPrice = true;
+            if (row._touchedPrice || row._touchedMinimumPrice || row._touchedMaximumPrice) row._savingPrice = true;
 
             try {
                 const payload = {
@@ -1180,6 +1269,16 @@ export default {
                     asin: row.asin,
                     ...(row._touchedQty ? { quantity: qty.value, quantityCleared: qty.cleared } : {}),
                     ...(row._touchedPrice ? { price: price.value, priceCleared: price.cleared, currency: row.currency || "USD" } : {}),
+                    ...(row._touchedMinimumPrice ? {
+                        minimumPrice: minimumPrice.value,
+                        minimumPriceCleared: minimumPrice.cleared,
+                        currency: row.currency || "USD",
+                    } : {}),
+                    ...(row._touchedMaximumPrice ? {
+                        maximumPrice: maximumPrice.value,
+                        maximumPriceCleared: maximumPrice.cleared,
+                        currency: row.currency || "USD",
+                    } : {}),
                 };
 
                 await axios.post(`${API_BASE_URL}/amazon/listings/update-one`, payload);
@@ -1198,6 +1297,20 @@ export default {
                     row.newPrice = "";
                 }
 
+                if (row._touchedMinimumPrice) {
+                    row._savedPrice = true;
+                    row._touchedMinimumPrice = false;
+                    row.currentMinimumPrice = minimumPrice.cleared ? null : minimumPrice.value;
+                    row.newMinimumPrice = "";
+                }
+
+                if (row._touchedMaximumPrice) {
+                    row._savedPrice = true;
+                    row._touchedMaximumPrice = false;
+                    row.currentMaximumPrice = maximumPrice.cleared ? null : maximumPrice.value;
+                    row.newMaximumPrice = "";
+                }
+
                 setTimeout(() => {
                     row._savedQty = false;
                     row._savedPrice = false;
@@ -1209,15 +1322,17 @@ export default {
                         String(e?.message || "").toLowerCase().includes("invalid empty value")
                     );
 
-                if (isEmptyPatchError && ((qty && qty.cleared) || (price && price.cleared))) {
+                if (isEmptyPatchError && ((qty && qty.cleared) || (price && price.cleared) || (minimumPrice && minimumPrice.cleared) || (maximumPrice && maximumPrice.cleared))) {
                     if (row._touchedQty && qty?.cleared) { row._touchedQty = false; row.newQty = ""; }
                     if (row._touchedPrice && price?.cleared) { row._touchedPrice = false; row.newPrice = ""; }
+                    if (row._touchedMinimumPrice && minimumPrice?.cleared) { row._touchedMinimumPrice = false; row.newMinimumPrice = ""; }
+                    if (row._touchedMaximumPrice && maximumPrice?.cleared) { row._touchedMaximumPrice = false; row.newMaximumPrice = ""; }
                     return;
                 }
 
                 const msg = err?.response?.data?.message || err?.response?.data?.error || "Save failed";
 
-                if (row._touchedPrice) {
+                if (row._touchedPrice || row._touchedMinimumPrice || row._touchedMaximumPrice) {
                     row._errorPrice = msg;
                     this.resetRowStatus(row, "price");
                 }
@@ -2215,6 +2330,43 @@ export default {
 .fba-sub-value {
     font-size: 12px;
     color: var(--text-color-secondary);
+}
+
+.price-guardrails {
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid var(--surface-border);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--surface-ground) 72%, #ffffff);
+}
+
+.price-guardrails__head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+    color: var(--text-color-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.price-guardrails__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.price-guardrails__field {
+    min-width: 0;
+}
+
+.price-guardrails__field label {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--text-color-secondary);
+    font-size: 11px;
+    font-weight: 600;
 }
 
 .amazon-link {

@@ -572,6 +572,10 @@ class ListingController extends Controller
             // price
             'price' => ['nullable'],
             'priceCleared' => ['nullable', 'boolean'],
+            'minimumPrice' => ['nullable'],
+            'minimumPriceCleared' => ['nullable', 'boolean'],
+            'maximumPrice' => ['nullable'],
+            'maximumPriceCleared' => ['nullable', 'boolean'],
             'currency' => ['nullable', 'string'],
         ]);
 
@@ -634,12 +638,28 @@ class ListingController extends Controller
             }
         }
 
-        // ---------- PRICE PATCH ----------
+        // ---------- PRICE / PRICE GUARDRAILS PATCH ----------
         $priceTouched = array_key_exists('price', $data) || array_key_exists('priceCleared', $data);
+        $minimumPriceTouched = array_key_exists('minimumPrice', $data) || array_key_exists('minimumPriceCleared', $data);
+        $maximumPriceTouched = array_key_exists('maximumPrice', $data) || array_key_exists('maximumPriceCleared', $data);
         $priceVal = null;
 
-        if ($priceTouched) {
+        foreach ([
+            'price' => $priceTouched && !($data['priceCleared'] ?? false),
+            'minimumPrice' => $minimumPriceTouched && !($data['minimumPriceCleared'] ?? false),
+            'maximumPrice' => $maximumPriceTouched && !($data['maximumPriceCleared'] ?? false),
+        ] as $field => $shouldValidate) {
+            if ($shouldValidate && (!array_key_exists($field, $data) || !is_numeric($data[$field]) || (float) $data[$field] < 0)) {
+                return response()->json([
+                    'message' => "{$field} must be a number greater than or equal to 0.",
+                ], 422);
+            }
+        }
+
+        if ($priceTouched || $minimumPriceTouched || $maximumPriceTouched) {
             $priceCleared = (bool) ($data['priceCleared'] ?? false);
+            $minimumPriceCleared = (bool) ($data['minimumPriceCleared'] ?? false);
+            $maximumPriceCleared = (bool) ($data['maximumPriceCleared'] ?? false);
 
             if ($priceCleared) {
                 $patches[] = [
@@ -648,27 +668,46 @@ class ListingController extends Controller
                 ];
             } else {
                 $currency = $data['currency'] ?? 'USD';
-                $priceVal = (float) $data['price'];
+                $offer = [
+                    'currency' => $currency,
+                    'audience' => 'ALL',
+                    'marketplace_id' => $marketplaceId,
+                ];
+
+                if ($priceTouched && array_key_exists('price', $data) && $data['price'] !== null) {
+                    $priceVal = round((float) $data['price'], 2);
+                    $offer['our_price'] = $this->moneySchedule($priceVal);
+                }
+
+                if ($minimumPriceTouched) {
+                    $offer['minimum_seller_allowed_price'] = $minimumPriceCleared
+                        ? null
+                        : $this->moneySchedule(round((float) $data['minimumPrice'], 2));
+                }
+
+                if ($maximumPriceTouched) {
+                    $offer['maximum_seller_allowed_price'] = $maximumPriceCleared
+                        ? null
+                        : $this->moneySchedule(round((float) $data['maximumPrice'], 2));
+                }
+
+                $minForValidation = $minimumPriceTouched && !$minimumPriceCleared
+                    ? (float) $data['minimumPrice']
+                    : null;
+                $maxForValidation = $maximumPriceTouched && !$maximumPriceCleared
+                    ? (float) $data['maximumPrice']
+                    : null;
+
+                if ($minForValidation !== null && $maxForValidation !== null && $maxForValidation < $minForValidation) {
+                    return response()->json([
+                        'message' => 'Maximum price must be greater than or equal to minimum price.',
+                    ], 422);
+                }
 
                 $patches[] = [
-                    'op' => 'replace',
+                    'op' => 'merge',
                     'path' => '/attributes/purchasable_offer',
-                    'value' => [
-                        [
-                            'currency' => $currency,
-                            'audience' => 'ALL',
-                            'our_price' => [
-                                [
-                                    'schedule' => [
-                                        [
-                                            'value_with_tax' => $priceVal,
-                                        ]
-                                    ],
-                                ]
-                            ],
-                            'marketplace_id' => $marketplaceId,
-                        ]
-                    ],
+                    'value' => [$offer],
                 ];
             }
         }
@@ -790,6 +829,19 @@ class ListingController extends Controller
                 'store' => $store,
             ], 500);
         }
+    }
+
+    private function moneySchedule(float $value): array
+    {
+        return [
+            [
+                'schedule' => [
+                    [
+                        'value_with_tax' => $value,
+                    ],
+                ],
+            ],
+        ];
     }
 
     public function fnskuSearch(Request $request)
