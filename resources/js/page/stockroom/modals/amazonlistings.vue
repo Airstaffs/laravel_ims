@@ -221,7 +221,7 @@
                 </Column>
 
                 <!-- Price -->
-                <Column header="Price" style="width: 330px;">
+                <Column header="Price" style="width: 285px;">
                     <template #body="{ data }">
                         <div class="text-sm">
                             <div class="mb-2 flex justify-content-between">
@@ -986,9 +986,21 @@ export default {
 
                 const purchasableOffer = Array.isArray(it?.attributes?.purchasable_offer)
                     ? it.attributes.purchasable_offer[0]
-                    : null;
+                    : it?.attributes?.purchasable_offer || null;
                 const readOfferMoney = (field) => {
-                    const value = purchasableOffer?.[field]?.[0]?.schedule?.[0]?.value_with_tax;
+                    const fieldValue = purchasableOffer?.[field];
+                    const firstValue = Array.isArray(fieldValue) ? fieldValue[0] : fieldValue;
+                    const firstSchedule = Array.isArray(firstValue?.schedule)
+                        ? firstValue.schedule[0]
+                        : firstValue?.schedule;
+                    const value =
+                        firstSchedule?.value_with_tax ??
+                        firstSchedule?.amount ??
+                        firstValue?.value_with_tax ??
+                        firstValue?.amount ??
+                        firstValue?.value ??
+                        null;
+
                     return value === null || value === undefined || value === "" ? null : Number(value);
                 };
                 const currentMinimumPrice = readOfferMoney("minimum_seller_allowed_price");
@@ -2353,8 +2365,8 @@ export default {
 
 .price-guardrails__grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
 }
 
 .price-guardrails__field {
