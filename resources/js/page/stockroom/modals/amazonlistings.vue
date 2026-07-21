@@ -60,6 +60,13 @@
                         optionValue="value" class="w-full p-inputtext-sm" />
                 </div>
 
+                <div class="toolbar__field toolbar__field--small">
+                    <label class="toolbar__label">Fulfillment</label>
+                    <Dropdown v-model="filters.fulfillmentType" :options="fulfillmentFilterOptions"
+                        optionLabel="label" optionValue="value" class="w-full p-inputtext-sm"
+                        @change="syncSelectionWithFilter" />
+                </div>
+
                 <div class="toolbar__spacer"></div>
 
                 <div class="toolbar__pager">
@@ -73,8 +80,8 @@
 
         <!-- Table -->
         <div class="p-0 table-wrap">
-            <DataTable :value="rows" :loading="loading" dataKey="sku" responsiveLayout="scroll" class="p-datatable-sm"
-                v-model:selection="listingSelectedRows">
+            <DataTable :value="displayedRows" :loading="loading" dataKey="sku" responsiveLayout="scroll"
+                class="p-datatable-sm" v-model:selection="listingSelectedRows">
                 <Column selectionMode="multiple" headerStyle="width: 3rem" />
                 <Column header="Listing status" style="width: 220px;">
                     <template #body="{ data }">
@@ -299,7 +306,8 @@
         <!-- Footer actions -->
         <div class="p-3 border-top-1 surface-border flex justify-content-between align-items-center">
             <div class="text-500 text-sm">
-                {{ rows.length }} item(s)
+                {{ displayedRows.length }} item(s)<span v-if="displayedRows.length !== rows.length"> of {{ rows.length
+                    }}</span>
             </div>
             <div class="flex gap-2">
                 <Button label="Close" severity="secondary" @click="onClose" class="p-button-sm" />
@@ -631,6 +639,7 @@ export default {
                 sortBy: "lastUpdatedDate",
                 sortOrder: "DESC",
                 pageSize: 10,
+                fulfillmentType: "ALL",
                 includedData: [
                     "summaries",
                     "attributes",
@@ -737,6 +746,28 @@ export default {
             }));
         },
 
+        fulfillmentFilterOptions() {
+            return [
+                { label: "All", value: "ALL" },
+                { label: "FBM", value: "FBM" },
+                { label: "FBA", value: "FBA" },
+            ];
+        },
+
+        displayedRows() {
+            const type = this.filters.fulfillmentType || "ALL";
+
+            if (type === "FBM") {
+                return this.rows.filter(r => r.hasFBM);
+            }
+
+            if (type === "FBA") {
+                return this.rows.filter(r => r.hasFBA);
+            }
+
+            return this.rows;
+        },
+
         hasPendingChanges() {
             return this.rows.some(r => this.isValidInt(r.newQty) || this.isValidMoney(r.newPrice));
         },
@@ -822,8 +853,10 @@ export default {
             this.filters.sortBy = "lastUpdatedDate";
             this.filters.sortOrder = "DESC";
             this.filters.pageSize = 10;
+            this.filters.fulfillmentType = "ALL";
             this.page = { nextToken: null, prevToken: null, stack: [] };
             this.rows = [];
+            this.listingSelectedRows = [];
         },
 
         parseIdentifiers(raw) {
@@ -862,6 +895,7 @@ export default {
                 const mapped = this.mapSearchListingsResponse(raw);
 
                 this.rows = mapped.rows;
+                this.syncSelectionWithFilter();
                 this.page.nextToken = mapped.nextToken || null;
             } catch (err) {
                 console.error("page error:", err?.response?.data || err);
@@ -906,6 +940,7 @@ export default {
                 const mapped = this.mapSearchListingsResponse(raw);
 
                 this.rows = mapped.rows;
+                this.syncSelectionWithFilter();
                 this.page.nextToken = mapped.nextToken || null;
             } catch (err) {
                 console.error("page error:", err?.response?.data || err);
@@ -1144,6 +1179,11 @@ export default {
                 marketplaceIds: this.filters.marketplaceIds,
                 updates,
             });
+        },
+
+        syncSelectionWithFilter() {
+            const visibleSkus = new Set(this.displayedRows.map(r => r.sku));
+            this.listingSelectedRows = (this.listingSelectedRows || []).filter(r => visibleSkus.has(r.sku));
         },
 
         markTouched(row, field) {
