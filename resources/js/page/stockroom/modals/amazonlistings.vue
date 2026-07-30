@@ -993,20 +993,27 @@ export default {
 
                 const fa = it?.fulfillmentAvailability || it?.attributes?.fulfillment_availability || [];
                 const faArr = Array.isArray(fa) ? fa : [];
+                const fulfillmentChannel = (x) =>
+                    String(x?.fulfillmentChannelCode || x?.fulfillment_channel_code || "").trim().toUpperCase();
+                const fulfillmentQty = (x) => x?.quantity ?? x?.available_quantity ?? x?.availableQuantity ?? null;
 
-                const fbmEntry = faArr.find(x => x?.fulfillmentChannelCode === "DEFAULT");
-                const currentQty = fbmEntry?.quantity ?? null;
+                const fbmEntry = faArr.find(x => fulfillmentChannel(x) === "DEFAULT");
+                const currentQty = fulfillmentQty(fbmEntry);
 
-                const fbaEntries = faArr.filter(
-                    x => x?.fulfillmentChannelCode && x?.fulfillmentChannelCode !== "DEFAULT"
-                );
+                const fbaEntries = faArr.filter((x) => {
+                    const channel = fulfillmentChannel(x);
+                    return channel && channel !== "DEFAULT";
+                });
 
                 const fallbackFbaQty = fbaEntries.reduce(
-                    (sum, x) => sum + (Number(x?.quantity) || 0),
+                    (sum, x) => sum + (Number(fulfillmentQty(x)) || 0),
                     0
                 );
 
-                const hasFBM = !!fbmEntry;
+                const hasMerchantShippingGroup = Array.isArray(it?.attributes?.merchant_shipping_group)
+                    ? it.attributes.merchant_shipping_group.length > 0
+                    : !!it?.attributes?.merchant_shipping_group;
+                const hasFBM = !!fbmEntry || hasMerchantShippingGroup;
 
                 const offers = it?.offers || [];
                 const currentPrice =
@@ -1119,7 +1126,7 @@ export default {
                     hasFBABreakdown: hasFBA,
                     fbaMatchedBy: imsFba?.matchedBy || null,
                     fbaUpdatedAt: imsFba?.updated_at || null,
-                    fbaChannels: fbaEntries.map(x => x.fulfillmentChannelCode).slice(0, 2),
+                    fbaChannels: fbaEntries.map(x => fulfillmentChannel(x)).slice(0, 2),
 
                     hasFBM,
                     hasFBA,
