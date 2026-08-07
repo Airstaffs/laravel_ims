@@ -1010,10 +1010,7 @@ export default {
                     0
                 );
 
-                const hasMerchantShippingGroup = Array.isArray(it?.attributes?.merchant_shipping_group)
-                    ? it.attributes.merchant_shipping_group.length > 0
-                    : !!it?.attributes?.merchant_shipping_group;
-                const hasFBM = !!fbmEntry || hasMerchantShippingGroup;
+                const hasFBM = !!fbmEntry;
 
                 const offers = it?.offers || [];
                 const currentPrice =
@@ -1071,10 +1068,8 @@ export default {
                     fbaUnsellable +
                     fbaReserved;
 
-                const hasFBA =
-                    fbaQty > 0 ||
-                    fallbackFbaQty > 0 ||
-                    fbaEntries.length > 0;
+                const hasFBA = fbaEntries.length > 0 || fallbackFbaQty > 0;
+                const hasFBABreakdown = hasFBA || fbaQty > 0;
 
                 const fnsku =
                     imsFba?.fnsku ||
@@ -1100,7 +1095,7 @@ export default {
                     currentQty,
 
                     fbaQty,
-                    fbaQtyDisplay: hasFBA ? fbaQty : "—",
+                    fbaQtyDisplay: hasFBABreakdown ? fbaQty : "—",
 
                     fbaFulfillable,
                     fbaFulfillableDisplay: String(fbaFulfillable),
@@ -1123,7 +1118,7 @@ export default {
                     fbaReserved,
                     fbaReservedDisplay: String(fbaReserved),
 
-                    hasFBABreakdown: hasFBA,
+                    hasFBABreakdown,
                     fbaMatchedBy: imsFba?.matchedBy || null,
                     fbaUpdatedAt: imsFba?.updated_at || null,
                     fbaChannels: fbaEntries.map(x => fulfillmentChannel(x)).slice(0, 2),
