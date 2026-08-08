@@ -760,9 +760,9 @@ export default {
             let filteredRows = this.rows;
 
             if (type === "FBM") {
-                filteredRows = this.rows.filter(r => r.hasFBM);
+                filteredRows = this.rows.filter(r => this.rowMatchesFulfillment(r, type));
             } else if (type === "FBA") {
-                filteredRows = this.rows.filter(r => r.hasFBA);
+                filteredRows = this.rows.filter(r => this.rowMatchesFulfillment(r, type));
             }
 
             return [...filteredRows].sort((a, b) => this.fulfillmentSortValue(b, type) - this.fulfillmentSortValue(a, type));
@@ -879,7 +879,7 @@ export default {
             this.loading = true;
             try {
                 if (String(this.filters.identifiersType || "").toUpperCase() === "ASIN" && identifiers.length) {
-                    await this.fetchAllAsinPages(identifiers);
+                    await this.fetchAsinPages(identifiers);
                     return;
                 }
 
@@ -898,12 +898,26 @@ export default {
         async goNext() {
             if (!this.page.nextToken) return;
             this.page.stack.push(this.page.currentToken);
+
+            const identifiers = this.parseIdentifiers(this.filters.identifiersRaw);
+            if (String(this.filters.identifiersType || "").toUpperCase() === "ASIN" && identifiers.length) {
+                await this.fetchAsinPages(identifiers, this.page.nextToken);
+                return;
+            }
+
             await this.fetchByPageToken(this.page.nextToken);
         },
 
         async goPrev() {
             if (!this.page.stack.length) return;
             const prev = this.page.stack.pop();
+
+            const identifiers = this.parseIdentifiers(this.filters.identifiersRaw);
+            if (String(this.filters.identifiersType || "").toUpperCase() === "ASIN" && identifiers.length) {
+                await this.fetchAsinPages(identifiers, prev);
+                return;
+            }
+
             await this.fetchByPageToken(prev);
         },
 
@@ -949,10 +963,14 @@ export default {
             }
         },
 
-        async fetchAllAsinPages(identifiers) {
+        async fetchAsinPages(identifiers, startToken = null) {
             const allRows = [];
             const seenSkus = new Set();
-            let token = null;
+            const fulfillmentType = this.filters.fulfillmentType || "ALL";
+            const targetRows = fulfillmentType === "ALL"
+                ? Number.POSITIVE_INFINITY
+                : Math.min(Number(this.filters.pageSize) || 20, 20);
+            let token = startToken || null;
             let pageCount = 0;
             const pageSize = 20;
             const maxPages = 50;
@@ -961,6 +979,8 @@ export default {
                 const mapped = await this.fetchListingsPage(token, identifiers, pageSize);
 
                 mapped.rows.forEach((row) => {
+                    if (fulfillmentType !== "ALL" && !this.rowMatchesFulfillment(row, fulfillmentType)) return;
+
                     const key = row.sku || `${row.asin || ""}-${allRows.length}`;
                     if (seenSkus.has(key)) return;
                     seenSkus.add(key);
@@ -969,16 +989,22 @@ export default {
 
                 token = mapped.nextToken || null;
                 pageCount += 1;
-            } while (token && pageCount < maxPages);
+            } while (token && pageCount < maxPages && allRows.length < targetRows);
 
             this.rows = allRows;
             this.syncSelectionWithFilter();
             this.page = {
-                currentToken: null,
+                currentToken: startToken || null,
                 nextToken: token,
                 prevToken: null,
-                stack: [],
+                stack: startToken ? this.page.stack : [],
             };
+        },
+
+        rowMatchesFulfillment(row, type) {
+            if (type === "FBM") return !!row.hasFBM;
+            if (type === "FBA") return !!row.hasFBA;
+            return true;
         },
 
         fulfillmentSortValue(row, type) {
