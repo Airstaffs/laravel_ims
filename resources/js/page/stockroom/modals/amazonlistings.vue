@@ -639,7 +639,7 @@ export default {
                 identifiersRaw: "",
                 sortBy: "lastUpdatedDate",
                 sortOrder: "DESC",
-                pageSize: 10,
+                pageSize: "ALL",
                 fulfillmentType: "ALL",
                 includedData: [
                     "summaries",
@@ -741,10 +741,12 @@ export default {
         },
 
         pageSizeOptions() {
-            return [10, 20].map(n => ({
-                label: String(n),
-                value: n,
-            }));
+            return [
+                { label: "20", value: 20 },
+                { label: "50", value: 50 },
+                { label: "100", value: 100 },
+                { label: "All", value: "ALL" },
+            ];
         },
 
         fulfillmentFilterOptions() {
@@ -852,7 +854,7 @@ export default {
             this.filters.identifiersType = "SKU";
             this.filters.sortBy = "lastUpdatedDate";
             this.filters.sortOrder = "DESC";
-            this.filters.pageSize = 10;
+            this.filters.pageSize = "ALL";
             this.filters.fulfillmentType = "ALL";
             this.page = { currentToken: null, nextToken: null, prevToken: null, stack: [] };
             this.rows = [];
@@ -883,7 +885,7 @@ export default {
                     return;
                 }
 
-                const mapped = await this.fetchListingsPage(null);
+                const mapped = await this.fetchListingsBatch(null, identifiers);
                 this.rows = mapped.rows;
                 this.syncSelectionWithFilter();
                 this.page.currentToken = null;
@@ -921,6 +923,12 @@ export default {
             await this.fetchByPageToken(prev);
         },
 
+        selectedPageTarget() {
+            if (this.filters.pageSize === "ALL") return Number.POSITIVE_INFINITY;
+            const n = Number(this.filters.pageSize);
+            return Number.isFinite(n) && n > 0 ? n : 20;
+        },
+
         buildSearchPayload(token = null, identifiers = null, pageSizeOverride = null) {
             const parsedIdentifiers = identifiers || this.parseIdentifiers(this.filters.identifiersRaw);
             const pageSize = pageSizeOverride || this.filters.pageSize;
@@ -945,12 +953,38 @@ export default {
             return this.mapSearchListingsResponse(raw);
         },
 
+        async fetchListingsBatch(startToken = null, identifiers = null) {
+            const allRows = [];
+            const seenSkus = new Set();
+            const targetRows = this.selectedPageTarget();
+            let token = startToken || null;
+            let pageCount = 0;
+            const pageSize = 20;
+            const maxPages = 50;
+
+            do {
+                const mapped = await this.fetchListingsPage(token, identifiers, pageSize);
+
+                mapped.rows.forEach((row) => {
+                    const key = row.sku || `${row.asin || ""}-${allRows.length}`;
+                    if (seenSkus.has(key)) return;
+                    seenSkus.add(key);
+                    allRows.push(row);
+                });
+
+                token = mapped.nextToken || null;
+                pageCount += 1;
+            } while (token && pageCount < maxPages && allRows.length < targetRows);
+
+            return { rows: allRows, nextToken: token };
+        },
+
         async fetchByPageToken(token) {
             const identifiers = this.parseIdentifiers(this.filters.identifiersRaw);
 
             this.loading = true;
             try {
-                const mapped = await this.fetchListingsPage(token, identifiers);
+                const mapped = await this.fetchListingsBatch(token, identifiers);
 
                 this.rows = mapped.rows;
                 this.syncSelectionWithFilter();
@@ -967,9 +1001,7 @@ export default {
             const allRows = [];
             const seenSkus = new Set();
             const fulfillmentType = this.filters.fulfillmentType || "ALL";
-            const targetRows = fulfillmentType === "ALL"
-                ? Number.POSITIVE_INFINITY
-                : Math.min(Number(this.filters.pageSize) || 20, 20);
+            const targetRows = this.selectedPageTarget();
             let token = startToken || null;
             let pageCount = 0;
             const pageSize = 20;
