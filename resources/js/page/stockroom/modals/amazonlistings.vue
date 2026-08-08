@@ -71,7 +71,7 @@
 
                 <div class="toolbar__pager">
                     <Button label="Prev" icon="pi pi-angle-left" class="p-button-sm" severity="secondary"
-                        :disabled="loading || !page.prevToken" @click="goPrev" />
+                        :disabled="loading || !page.stack.length" @click="goPrev" />
                     <Button label="Next" icon="pi pi-angle-right" iconPos="right" class="p-button-sm"
                         severity="secondary" :disabled="loading || !page.nextToken" @click="goNext" />
                 </div>
@@ -627,6 +627,7 @@ export default {
             loading: false,
             rows: [],
             page: {
+                currentToken: null,
                 nextToken: null,
                 prevToken: null,
                 stack: [],
@@ -740,7 +741,7 @@ export default {
         },
 
         pageSizeOptions() {
-            return [10, 20, 30, 50, 100, 200].map(n => ({
+            return [10, 20].map(n => ({
                 label: String(n),
                 value: n,
             }));
@@ -756,16 +757,15 @@ export default {
 
         displayedRows() {
             const type = this.filters.fulfillmentType || "ALL";
+            let filteredRows = this.rows;
 
             if (type === "FBM") {
-                return this.rows.filter(r => r.hasFBM);
+                filteredRows = this.rows.filter(r => r.hasFBM);
+            } else if (type === "FBA") {
+                filteredRows = this.rows.filter(r => r.hasFBA);
             }
 
-            if (type === "FBA") {
-                return this.rows.filter(r => r.hasFBA);
-            }
-
-            return this.rows;
+            return [...filteredRows].sort((a, b) => this.fulfillmentSortValue(b, type) - this.fulfillmentSortValue(a, type));
         },
 
         hasPendingChanges() {
@@ -854,7 +854,7 @@ export default {
             this.filters.sortOrder = "DESC";
             this.filters.pageSize = 10;
             this.filters.fulfillmentType = "ALL";
-            this.page = { nextToken: null, prevToken: null, stack: [] };
+            this.page = { currentToken: null, nextToken: null, prevToken: null, stack: [] };
             this.rows = [];
             this.listingSelectedRows = [];
         },
@@ -873,29 +873,20 @@ export default {
             if (!identifiers.length && !this.page.nextToken && resetPaging) return;
 
             if (resetPaging) {
-                this.page = { nextToken: null, prevToken: null, stack: [] };
+                this.page = { currentToken: null, nextToken: null, prevToken: null, stack: [] };
             }
-
-            const payload = {
-                store: this.filters.store,
-                marketplaceIds: this.filters.marketplaceIds,
-                identifiersType: this.filters.identifiersType,
-                identifiers,
-                includedData: this.filters.includedData,
-                sortBy: this.filters.sortBy,
-                sortOrder: this.filters.sortOrder,
-                pageSize: this.filters.pageSize,
-                pageToken: resetPaging ? null : this.page.prevToken ? this.page.prevToken : null,
-            };
 
             this.loading = true;
             try {
-                const res = await axios.post(`${API_BASE_URL}/amazon/search-listings`, payload);
-                const raw = res?.data?.data || res?.data || {};
-                const mapped = this.mapSearchListingsResponse(raw);
+                if (String(this.filters.identifiersType || "").toUpperCase() === "ASIN" && identifiers.length) {
+                    await this.fetchAllAsinPages(identifiers);
+                    return;
+                }
 
+                const mapped = await this.fetchListingsPage(null);
                 this.rows = mapped.rows;
                 this.syncSelectionWithFilter();
+                this.page.currentToken = null;
                 this.page.nextToken = mapped.nextToken || null;
             } catch (err) {
                 console.error("page error:", err?.response?.data || err);
@@ -906,47 +897,91 @@ export default {
 
         async goNext() {
             if (!this.page.nextToken) return;
-            this.page.stack.push(this.page.prevToken);
-            this.page.prevToken = this.page.nextToken;
+            this.page.stack.push(this.page.currentToken);
             await this.fetchByPageToken(this.page.nextToken);
         },
 
         async goPrev() {
+            if (!this.page.stack.length) return;
             const prev = this.page.stack.pop();
-            if (!prev) return;
-            this.page.prevToken = prev;
             await this.fetchByPageToken(prev);
         },
 
-        async fetchByPageToken(token) {
-            const identifiers = this.parseIdentifiers(this.filters.identifiersRaw);
+        buildSearchPayload(token = null, identifiers = null) {
+            const parsedIdentifiers = identifiers || this.parseIdentifiers(this.filters.identifiersRaw);
 
-            const payload = {
+            return {
                 store: this.filters.store,
                 marketplaceIds: this.filters.marketplaceIds,
                 includedData: this.filters.includedData,
                 sortBy: this.filters.sortBy,
                 sortOrder: this.filters.sortOrder,
-                pageSize: this.filters.pageSize,
-                pageToken: token,
+                pageSize: Math.min(Number(this.filters.pageSize) || 20, 20),
+                pageToken: token || null,
                 identifiersType: this.filters.identifiersType,
-                identifiers,
+                identifiers: parsedIdentifiers,
             };
+        },
+
+        async fetchListingsPage(token = null, identifiers = null) {
+            const payload = this.buildSearchPayload(token, identifiers);
+            const res = await axios.post(`${API_BASE_URL}/amazon/search-listings`, payload);
+            const raw = res?.data?.data || res?.data || {};
+            return this.mapSearchListingsResponse(raw);
+        },
+
+        async fetchByPageToken(token) {
+            const identifiers = this.parseIdentifiers(this.filters.identifiersRaw);
 
             this.loading = true;
             try {
-                const res = await axios.post(`${API_BASE_URL}/amazon/search-listings`, payload);
-                const raw = res?.data?.data || res?.data || {};
-                const mapped = this.mapSearchListingsResponse(raw);
+                const mapped = await this.fetchListingsPage(token, identifiers);
 
                 this.rows = mapped.rows;
                 this.syncSelectionWithFilter();
+                this.page.currentToken = token || null;
                 this.page.nextToken = mapped.nextToken || null;
             } catch (err) {
                 console.error("page error:", err?.response?.data || err);
             } finally {
                 this.loading = false;
             }
+        },
+
+        async fetchAllAsinPages(identifiers) {
+            const allRows = [];
+            const seenSkus = new Set();
+            let token = null;
+            let pageCount = 0;
+
+            do {
+                const mapped = await this.fetchListingsPage(token, identifiers);
+
+                mapped.rows.forEach((row) => {
+                    const key = row.sku || `${row.asin || ""}-${allRows.length}`;
+                    if (seenSkus.has(key)) return;
+                    seenSkus.add(key);
+                    allRows.push(row);
+                });
+
+                token = mapped.nextToken || null;
+                pageCount += 1;
+            } while (token && pageCount < 25);
+
+            this.rows = allRows;
+            this.syncSelectionWithFilter();
+            this.page = {
+                currentToken: null,
+                nextToken: token,
+                prevToken: null,
+                stack: [],
+            };
+        },
+
+        fulfillmentSortValue(row, type) {
+            if (type === "FBM") return Number(row.currentQty ?? 0);
+            if (type === "FBA") return Number(row.fbaQty ?? 0);
+            return Math.max(Number(row.currentQty ?? 0), Number(row.fbaQty ?? 0));
         },
 
         mapSearchListingsResponse(raw) {
