@@ -907,8 +907,9 @@ export default {
             await this.fetchByPageToken(prev);
         },
 
-        buildSearchPayload(token = null, identifiers = null) {
+        buildSearchPayload(token = null, identifiers = null, pageSizeOverride = null) {
             const parsedIdentifiers = identifiers || this.parseIdentifiers(this.filters.identifiersRaw);
+            const pageSize = pageSizeOverride || this.filters.pageSize;
 
             return {
                 store: this.filters.store,
@@ -916,15 +917,15 @@ export default {
                 includedData: this.filters.includedData,
                 sortBy: this.filters.sortBy,
                 sortOrder: this.filters.sortOrder,
-                pageSize: Math.min(Number(this.filters.pageSize) || 20, 20),
+                pageSize: Math.min(Number(pageSize) || 20, 20),
                 pageToken: token || null,
                 identifiersType: this.filters.identifiersType,
                 identifiers: parsedIdentifiers,
             };
         },
 
-        async fetchListingsPage(token = null, identifiers = null) {
-            const payload = this.buildSearchPayload(token, identifiers);
+        async fetchListingsPage(token = null, identifiers = null, pageSizeOverride = null) {
+            const payload = this.buildSearchPayload(token, identifiers, pageSizeOverride);
             const res = await axios.post(`${API_BASE_URL}/amazon/search-listings`, payload);
             const raw = res?.data?.data || res?.data || {};
             return this.mapSearchListingsResponse(raw);
@@ -953,9 +954,11 @@ export default {
             const seenSkus = new Set();
             let token = null;
             let pageCount = 0;
+            const pageSize = 20;
+            const maxPages = 50;
 
             do {
-                const mapped = await this.fetchListingsPage(token, identifiers);
+                const mapped = await this.fetchListingsPage(token, identifiers, pageSize);
 
                 mapped.rows.forEach((row) => {
                     const key = row.sku || `${row.asin || ""}-${allRows.length}`;
@@ -966,7 +969,7 @@ export default {
 
                 token = mapped.nextToken || null;
                 pageCount += 1;
-            } while (token && pageCount < 25);
+            } while (token && pageCount < maxPages);
 
             this.rows = allRows;
             this.syncSelectionWithFilter();
